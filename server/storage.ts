@@ -125,6 +125,14 @@ export interface IStorage {
   updateWorkflowExecution(id: number, status: string, results?: any, error?: string): Promise<WorkflowExecution | undefined>;
   completeWorkflowExecution(id: number, results: any): Promise<WorkflowExecution | undefined>;
   failWorkflowExecution(id: number, error: string): Promise<WorkflowExecution | undefined>;
+  
+  // Warehouse management
+  getWarehouses(): Promise<any[]>;
+  
+  // Product Fulfillment management
+  getProductFulfillment(productId: number): Promise<any | undefined>;
+  updateProductFulfillment(productId: number, fulfillment: any): Promise<any>;
+  getProductStock(productId: number): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -1287,6 +1295,88 @@ export class MemStorage implements IStorage {
     };
     this.workflowExecutions.set(id, updatedExecution);
     return updatedExecution;
+  }
+
+  // Warehouse management
+  private warehousesData: any[] = [
+    { id: "WH1", name: "Main Warehouse", code: "MAIN", address: { street: "123 Logistics Way", city: "Commerce", state: "CA", postal_code: "90001", country: "USA" }, active: true },
+    { id: "WH2", name: "East Coast DC", code: "EASTDC", address: { street: "456 Distribution Ave", city: "Edison", state: "NJ", postal_code: "08817", country: "USA" }, active: true },
+    { id: "WH3", name: "Midwest Fulfillment", code: "MIDWEST", address: { street: "789 Supply Chain Blvd", city: "Chicago", state: "IL", postal_code: "60642", country: "USA" }, active: true }
+  ];
+  
+  async getWarehouses(): Promise<any[]> {
+    return this.warehousesData;
+  }
+  
+  // Product Fulfillment and Stock management
+  private productFulfillment: Map<number, any> = new Map();
+  
+  async getProductFulfillment(productId: number): Promise<any | undefined> {
+    return this.productFulfillment.get(productId);
+  }
+  
+  async updateProductFulfillment(productId: number, fulfillment: any): Promise<any> {
+    // Ensure the product exists
+    const product = await this.getProduct(productId);
+    if (!product) throw new Error("Product not found");
+    
+    // Store the fulfillment data
+    this.productFulfillment.set(productId, fulfillment);
+    
+    return fulfillment;
+  }
+  
+  async getProductStock(productId: number): Promise<any> {
+    // Ensure the product exists
+    const product = await this.getProduct(productId);
+    if (!product) throw new Error("Product not found");
+    
+    // Get the current fulfillment settings to determine stock sources
+    const fulfillment = await this.getProductFulfillment(productId);
+    
+    // Initialize response structure
+    const stockData = {
+      total: 0,
+      internal: {
+        enabled: fulfillment?.internal_stock?.enabled || false,
+        total: 0,
+        warehouses: []
+      },
+      dropship: {
+        enabled: fulfillment?.dropship?.enabled || false,
+        supplier: null,
+        stock: 0
+      }
+    };
+    
+    // If we have fulfillment data, use it to calculate stock
+    if (fulfillment) {
+      // Process internal stock
+      if (fulfillment.internal_stock && fulfillment.internal_stock.enabled) {
+        const internalWarehouses = fulfillment.internal_stock.warehouses || [];
+        
+        stockData.internal.warehouses = internalWarehouses;
+        stockData.internal.total = internalWarehouses.reduce((sum: number, wh: any) => sum + (wh.stock || 0), 0);
+      }
+      
+      // Process dropship stock
+      if (fulfillment.dropship && fulfillment.dropship.enabled) {
+        const supplier = fulfillment.dropship.supplier_id ? 
+          await this.getSupplier(Number(fulfillment.dropship.supplier_id)) : null;
+          
+        stockData.dropship.supplier = supplier ? { 
+          id: supplier.id, 
+          name: supplier.name 
+        } : null;
+        
+        stockData.dropship.stock = fulfillment.dropship.stock || 0;
+      }
+      
+      // Calculate total stock from all sources
+      stockData.total = stockData.internal.total + stockData.dropship.stock;
+    }
+    
+    return stockData;
   }
 }
 
