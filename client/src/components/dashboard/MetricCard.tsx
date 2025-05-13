@@ -48,9 +48,9 @@ const MetricCard = ({ title, value, icon: Icon, color, linkUrl, linkText }: Metr
       <div className="bg-neutral-50 px-4 py-4 sm:px-6">
         <div className="text-sm">
           <Link href={linkUrl}>
-            <a className="font-medium text-primary hover:text-primary-dark">
+            <span className="font-medium text-primary hover:text-primary-dark cursor-pointer">
               {linkText}<span className="sr-only"> {linkText.toLowerCase()}</span>
-            </a>
+            </span>
           </Link>
         </div>
       </div>

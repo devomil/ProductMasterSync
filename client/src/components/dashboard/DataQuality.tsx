@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Link } from "wouter";
 
 interface QualityMetric {
   name: string;
@@ -63,9 +64,11 @@ const DataQuality = ({ overallScore, metrics }: DataQualityProps) => {
         </div>
       </div>
       <div className="px-4 py-4 sm:px-6 bg-neutral-50 rounded-b-lg">
-        <a href="#" className="text-sm font-medium text-primary hover:text-primary-dark">
-          View detailed report <span aria-hidden="true">&rarr;</span>
-        </a>
+        <Link href="/validation-rules">
+          <span className="text-sm font-medium text-primary hover:text-primary-dark cursor-pointer">
+            View detailed report <span aria-hidden="true">&rarr;</span>
+          </span>
+        </Link>
       </div>
     </Card>
   );

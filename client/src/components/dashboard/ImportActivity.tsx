@@ -24,7 +24,7 @@ const ImportActivity = () => {
     }
   };
 
-  const getTimeText = (date?: Date) => {
+  const getTimeText = (date?: Date | null) => {
     if (!date) return "";
     return `${date.getTime() > new Date().getTime() ? "Starts" : "Completed"} ${formatDistanceToNow(date, { addSuffix: true })}`;
   };
@@ -77,8 +77,8 @@ const ImportActivity = () => {
                       <div className="ml-2 flex-shrink-0 flex">
                         <p className="text-sm text-neutral-500">
                           {importItem.status === "processing" 
-                            ? "Started " + formatDistanceToNow(new Date(importItem.createdAt), { addSuffix: true }) 
-                            : getTimeText(importItem.completedAt ? new Date(importItem.completedAt) : undefined)
+                            ? "Started " + formatDistanceToNow(new Date(importItem.createdAt || new Date()), { addSuffix: true }) 
+                            : getTimeText(importItem.completedAt ? new Date(importItem.completedAt) : null)
                           }
                         </p>
                       </div>
@@ -103,7 +103,7 @@ const ImportActivity = () => {
                             <div 
                               className="bg-primary h-2.5 rounded-full" 
                               style={{ 
-                                width: `${Math.round((importItem.processedCount / importItem.recordCount) * 100)}%` 
+                                width: `${Math.round(((importItem.processedCount || 0) / (importItem.recordCount || 1)) * 100)}%` 
                               }}
                             ></div>
                           </div>
@@ -114,10 +114,11 @@ const ImportActivity = () => {
                         )}
                       </div>
                     </div>
-                    {importItem.status === "error" && importItem.importErrors && importItem.importErrors.length > 0 && (
+                    {importItem.status === "error" && importItem.importErrors && 
+                      Array.isArray(importItem.importErrors) && importItem.importErrors.length > 0 && (
                       <div className="mt-2 flex items-center text-sm text-red-500">
                         <AlertTriangle className="flex-shrink-0 mr-1.5 h-4 w-4 text-red-500" />
-                        {importItem.importErrors[0].message}
+                        {importItem.importErrors[0]?.message || "Unknown error"}
                       </div>
                     )}
                   </div>
@@ -142,9 +143,9 @@ const ImportActivity = () => {
 
       <div className="mt-5">
         <Link href="/data-imports">
-          <a className="text-sm font-medium text-primary hover:text-primary-dark">
+          <span className="text-sm font-medium text-primary hover:text-primary-dark cursor-pointer">
             View all import activity <span aria-hidden="true">&rarr;</span>
-          </a>
+          </span>
         </Link>
       </div>
     </div>
