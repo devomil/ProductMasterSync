@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from models import (
@@ -507,6 +508,55 @@ async def test_pull(supplier_id: str, filters: TestPullFilter = None):
         })
         
         return result
+
+
+# Onboarding endpoint
+@app.post("/onboard-supplier", tags=["Onboarding"])
+async def onboard_supplier_endpoint(
+    supplier_data: SupplierCreate,
+    file: Optional[UploadFile] = None,
+    file_config: str = Form(None)
+):
+    """
+    Streamlined supplier onboarding process
+    
+    This endpoint combines multiple steps into a single API call:
+    1. Create a new supplier
+    2. Upload a sample file (optional)
+    3. Auto-trigger a test pull
+    4. Validate data and suggest mappings
+    
+    Returns a comprehensive onboarding summary suitable for UI presentation.
+    """
+    try:
+        from mdm_supplier.onboarding import onboard_supplier as process_onboarding
+        
+        # Parse file config if provided
+        file_config_dict = None
+        if file_config:
+            try:
+                file_config_dict = json.loads(file_config)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid JSON in file_config"
+                )
+        
+        # Process the onboarding
+        result = await process_onboarding(
+            supplier_data=supplier_data.dict(),
+            file=file,
+            file_config=file_config_dict
+        )
+        
+        # Return onboarding summary
+        return result.to_dict()
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during supplier onboarding: {str(e)}"
+        )
 
 
 # Root endpoint for health check

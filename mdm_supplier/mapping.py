@@ -1,287 +1,344 @@
 """
-Mapping template functionality for supplier data integration
+Schema validation and mapping suggestion module
 """
-import json
-import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
 import re
-
-from mdm_supplier.models import SchemaValidationResult
+import logging
+from typing import Dict, List, Any, Tuple, Optional
+from difflib import SequenceMatcher
+from models import SchemaValidationResult
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Default expected schema for product data
-DEFAULT_PRODUCT_SCHEMA = {
-    "sku": "string",
-    "name": "string",
-    "description": "string",
-    "price": "number",
-    "inventory": "number",
-    "category": "string",
-    "brand": "string",
-    "upc": "string",
-    "weight": "number",
-    "dimensions": "object"
-}
 
-# Common field name mappings to help with automatic field detection
-COMMON_FIELD_MAPPINGS = {
-    # SKU field variations
-    "sku": ["sku", "item_number", "product_id", "product_code", "item_code", "article_number", "part_number"],
-    # Name field variations
-    "name": ["name", "product_name", "title", "item_name", "description", "product_title", "product_description"],
-    # Price field variations 
-    "price": ["price", "unit_price", "retail_price", "cost", "wholesale_price", "msrp", "list_price"],
-    # Inventory field variations
-    "inventory": ["inventory", "stock", "quantity", "qty", "on_hand", "available", "stock_level"],
-    # Category field variations
-    "category": ["category", "department", "product_type", "product_category", "group", "product_group"],
-    # Brand/manufacturer field variations
-    "brand": ["brand", "manufacturer", "vendor", "supplier", "make", "producer"],
-    # UPC/barcode field variations
-    "upc": ["upc", "ean", "barcode", "gtin", "isbn"],
-    # Weight field variations
-    "weight": ["weight", "item_weight", "shipping_weight", "package_weight"],
-    # Dimensions field variations
-    "dimensions": ["dimensions", "size", "measurements", "package_dimensions", "shipping_dimensions"]
-}
-
-
-def detect_field_type(sample_values: List[Any]) -> str:
+def validate_schema(sample_data: List[Dict[str, Any]]) -> List[SchemaValidationResult]:
     """
-    Detect the data type of a field based on sample values
-    """
-    if not sample_values:
-        return "unknown"
-    
-    # Check the first few non-null values (up to 5)
-    non_null_values = [v for v in sample_values if v is not None][:5]
-    
-    if not non_null_values:
-        return "null"
-    
-    # Check if all values are numeric
-    if all(isinstance(v, (int, float)) or (isinstance(v, str) and v.replace(".", "", 1).isdigit()) for v in non_null_values):
-        return "number"
-    
-    # Check if all values are boolean
-    if all(isinstance(v, bool) or (isinstance(v, str) and v.lower() in ["true", "false", "yes", "no", "0", "1"]) for v in non_null_values):
-        return "boolean"
-    
-    # Check if values look like dates
-    date_pattern = re.compile(r'^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}|^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}')
-    if all(isinstance(v, str) and date_pattern.match(v) for v in non_null_values):
-        return "date"
-    
-    # Check if values are objects/dictionaries
-    if all(isinstance(v, dict) for v in non_null_values):
-        return "object"
-    
-    # Check if values are arrays/lists
-    if all(isinstance(v, list) for v in non_null_values):
-        return "array"
-    
-    # Default to string
-    return "string"
-
-
-def validate_schema(data: List[Dict[str, Any]], expected_schema: Dict[str, str] = None) -> List[SchemaValidationResult]:
-    """
-    Validate sample data against an expected schema
+    Validate sample data against expected schema
     
     Args:
-        data: List of records to validate
-        expected_schema: Dictionary mapping field names to expected types
+        sample_data: List of sample data records
         
     Returns:
         List of validation results for each field
     """
-    if not data:
+    if not sample_data:
         return []
     
-    if expected_schema is None:
-        expected_schema = DEFAULT_PRODUCT_SCHEMA
-        
-    # Extract field names from the first few records
+    # Extract all field names from the sample data
     field_names = set()
-    for record in data[:10]:  # Look at first 10 records
+    for record in sample_data:
         field_names.update(record.keys())
     
-    # Collect sample values for each field
-    field_values = {field: [] for field in field_names}
-    for record in data:
-        for field in field_names:
-            if field in record:
-                field_values[field].append(record[field])
+    validation_results = []
     
-    # Validate each field
-    results = []
+    # Loop through each field and validate its type
     for field_name in field_names:
-        sample_values = field_values[field_name]
-        actual_type = detect_field_type(sample_values)
-        expected_type = expected_schema.get(field_name, "unknown")
+        # Get the values for this field from all records
+        field_values = [record.get(field_name) for record in sample_data if field_name in record]
         
-        # Special case for fields that should be numbers but come in as strings
-        valid = (actual_type == expected_type) or \
-                (expected_type == "number" and actual_type == "string" and 
-                 all(str(v).replace(".", "", 1).isdigit() for v in sample_values if v is not None))
+        if not field_values:
+            continue
         
-        # Sample value for display
-        sample_value = sample_values[0] if sample_values else None
-        
-        # Add notes if needed
-        notes = None
-        if not valid:
-            if expected_type != "unknown":
-                notes = f"Expected {expected_type}, but found {actual_type}"
+        # Determine the predominant type of the field
+        type_counts = {}
+        for value in field_values:
+            if value is None:
+                value_type = "null"
             else:
-                notes = "Field not in expected schema"
+                value_type = type(value).__name__
+            
+            type_counts[value_type] = type_counts.get(value_type, 0) + 1
         
-        results.append(SchemaValidationResult(
-            field_name=field_name,
-            expected_type=expected_type,
-            actual_type=actual_type,
-            valid=valid,
-            sample_value=sample_value,
-            notes=notes
-        ))
+        # Get the most common type (excluding null)
+        non_null_types = {t: c for t, c in type_counts.items() if t != "null"}
+        
+        if non_null_types:
+            actual_type = max(non_null_types.items(), key=lambda x: x[1])[0]
+        else:
+            actual_type = "null"
+        
+        # Get a sample value (non-null if possible)
+        sample_value = next((v for v in field_values if v is not None), field_values[0])
+        
+        # Determine expected type based on field name heuristics
+        expected_type = _infer_expected_type(field_name)
+        
+        # Check if the actual type matches the expected type
+        is_valid = _is_type_valid(actual_type, expected_type)
+        
+        # Create validation result
+        notes = None
+        if not is_valid:
+            notes = f"Expected {expected_type}, found {actual_type}"
+            
+            # Add additional context for specific type mismatches
+            if expected_type == "float" and actual_type == "str":
+                # Check if string could be converted to float
+                try:
+                    float_value = float(sample_value)
+                    notes += f". Value '{sample_value}' could be converted to float: {float_value}"
+                    is_valid = True
+                except (ValueError, TypeError):
+                    notes += f". Value '{sample_value}' could not be converted to float."
+            
+            elif expected_type == "int" and actual_type == "str":
+                # Check if string could be converted to int
+                try:
+                    int_value = int(sample_value)
+                    notes += f". Value '{sample_value}' could be converted to int: {int_value}"
+                    is_valid = True
+                except (ValueError, TypeError):
+                    notes += f". Value '{sample_value}' could not be converted to int."
+            
+            elif expected_type == "date" and actual_type == "str":
+                import datetime
+                
+                # Try multiple date formats
+                date_formats = [
+                    "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d",
+                    "%d-%m-%Y", "%m-%d-%Y", "%b %d, %Y", "%d %b %Y"
+                ]
+                
+                for fmt in date_formats:
+                    try:
+                        date_value = datetime.datetime.strptime(sample_value, fmt).date()
+                        notes += f". Value '{sample_value}' could be parsed as date: {date_value} using format {fmt}"
+                        is_valid = True
+                        break
+                    except (ValueError, TypeError):
+                        pass
+                
+                if not is_valid:
+                    notes += f". Value '{sample_value}' could not be parsed as a date."
+        
+        validation_results.append(
+            SchemaValidationResult(
+                field_name=field_name,
+                expected_type=expected_type,
+                actual_type=actual_type,
+                valid=is_valid,
+                sample_value=str(sample_value) if sample_value is not None else None,
+                notes=notes
+            )
+        )
     
-    return results
+    return validation_results
 
 
-def suggest_mapping(data: List[Dict[str, Any]], mapping_templates: List[Dict[str, Any]] = None) -> Tuple[Optional[Dict[str, Any]], float]:
+def _infer_expected_type(field_name: str) -> str:
     """
-    Suggest a mapping template for the given data and calculate a confidence score
+    Infer the expected data type based on field name
     
     Args:
-        data: Sample data records
-        mapping_templates: Available mapping templates to consider
+        field_name: Name of the field
         
     Returns:
-        Tuple of (suggested_mapping, confidence_score)
+        Expected data type
     """
-    if not data or not mapping_templates:
-        return None, 0.0
+    # Convert field name to lowercase for case-insensitive matching
+    field_lower = field_name.lower()
+    
+    # Price related fields
+    if any(price_term in field_lower for price_term in ["price", "cost", "msrp", "map", "discount", "amount"]):
+        return "float"
+    
+    # Quantity related fields
+    if any(qty_term in field_lower for qty_term in ["qty", "quantity", "count", "stock", "inventory", "units"]):
+        return "int"
+    
+    # Date related fields
+    if any(date_term in field_lower for date_term in ["date", "created", "updated", "modified", "time", "timestamp"]):
+        return "date"
+    
+    # Boolean fields
+    if any(bool_term in field_lower for bool_term in ["is_", "has_", "active", "enabled", "flag", "status", "available"]):
+        return "bool"
+    
+    # ID fields
+    if field_lower.endswith("_id") or field_lower == "id" or field_lower.endswith("id"):
+        # Check if it seems to be a UUID
+        if "uuid" in field_lower:
+            return "uuid"
+        return "str"  # Default to string for IDs
+    
+    # Default to string for most fields
+    return "str"
+
+
+def _is_type_valid(actual_type: str, expected_type: str) -> bool:
+    """
+    Check if the actual type is valid for the expected type
+    
+    Args:
+        actual_type: Actual data type
+        expected_type: Expected data type
         
-    # Extract field names from the data
-    field_names = set()
-    for record in data[:10]:  # Look at first 10 records
-        field_names.update(record.keys())
+    Returns:
+        True if the type is valid, False otherwise
+    """
+    # Direct match
+    if actual_type == expected_type:
+        return True
+    
+    # Acceptable numeric type substitutions
+    if expected_type == "float" and actual_type in ["int", "float"]:
+        return True
+    
+    if expected_type == "int" and actual_type == "int":
+        return True
+    
+    # Boolean can be represented as int or string in some systems
+    if expected_type == "bool" and actual_type in ["bool", "int"]:
+        return True
+    
+    # Date can be string in many systems before parsing
+    if expected_type == "date" and actual_type == "str":
+        return True  # We'll do more detailed validation elsewhere
+    
+    # IDs are often strings
+    if expected_type in ["id", "uuid"] and actual_type == "str":
+        return True
+    
+    return False
+
+
+def suggest_mapping(
+    sample_data: List[Dict[str, Any]], 
+    mapping_templates: List[Dict[str, Any]]
+) -> Tuple[Optional[Dict[str, Any]], float]:
+    """
+    Suggest a mapping template based on sample data
+    
+    Args:
+        sample_data: List of sample data records
+        mapping_templates: List of mapping templates
+        
+    Returns:
+        Tuple of (suggested mapping, confidence score)
+    """
+    if not sample_data or not mapping_templates:
+        return None, 0.0
+    
+    # Extract field names from the sample data
+    sample_fields = set()
+    for record in sample_data:
+        sample_fields.update(record.keys())
     
     best_template = None
     best_score = 0.0
     
     for template in mapping_templates:
-        # Skip templates without mappings
-        if "mappings" not in template or not template["mappings"]:
+        template_id = template.get('id')
+        template_name = template.get('name', 'Unknown Template')
+        template_fields = []
+        
+        # Extract template fields from mappings
+        if isinstance(template.get('mappings'), str):
+            import json
+            try:
+                mappings = json.loads(template.get('mappings', '[]'))
+                if isinstance(mappings, list):
+                    template_fields = [mapping.get('sourceField') for mapping in mappings if mapping.get('sourceField')]
+            except (json.JSONDecodeError, AttributeError):
+                logger.warning(f"Could not parse mappings for template {template_name}")
+                continue
+        elif isinstance(template.get('mappings'), list):
+            template_fields = [mapping.get('sourceField') for mapping in template.get('mappings', []) 
+                              if mapping.get('sourceField')]
+        
+        if not template_fields:
             continue
-            
-        # Extract source fields from the template
-        template_fields = set()
-        for mapping in template["mappings"]:
-            if isinstance(mapping, dict) and "sourceField" in mapping:
-                template_fields.add(mapping["sourceField"])
         
-        # Calculate match score based on field overlap
-        if not template_fields:  # Avoid division by zero
-            continue
-            
-        # Count exact matches
-        exact_matches = len(field_names.intersection(template_fields))
+        # Calculate exact match score (70% weight)
+        exact_matches = 0
+        for field in template_fields:
+            if field in sample_fields:
+                exact_matches += 1
         
-        # Count fuzzy matches using common field name variations
-        fuzzy_matches = 0
-        for field in field_names:
-            for standard_field, variations in COMMON_FIELD_MAPPINGS.items():
-                if field in variations and any(tf in template_fields for tf in variations):
-                    fuzzy_matches += 0.5  # Give partial credit for fuzzy matches
+        exact_match_score = exact_matches / len(template_fields) if template_fields else 0
         
-        # Calculate overall score
-        # 70% weight on exact matches, 30% on fuzzy matches
-        total_fields = max(len(field_names), len(template_fields))
-        if total_fields == 0:  # Avoid division by zero
-            continue
-            
-        score = (0.7 * exact_matches / total_fields) + (0.3 * fuzzy_matches / total_fields)
+        # Calculate fuzzy match score for fields that didn't match exactly (30% weight)
+        fuzzy_match_score = 0
+        non_exact_fields = [field for field in template_fields if field not in sample_fields]
         
-        if score > best_score:
-            best_score = score
+        if non_exact_fields:
+            total_fuzzy_score = 0
             
-            # Create a mapping suggestion
-            suggestion = {
-                "template_id": template.get("id"),
-                "template_name": template.get("name"),
-                "field_mappings": {},
-                "exact_matches": exact_matches,
-                "total_fields": total_fields
-            }
-            
-            # Add field mappings
-            for mapping in template["mappings"]:
-                if isinstance(mapping, dict) and "sourceField" in mapping and "destinationField" in mapping:
-                    source = mapping["sourceField"]
-                    dest = mapping["destinationField"]
+            for template_field in non_exact_fields:
+                best_field_score = 0
+                
+                for sample_field in sample_fields:
+                    # Skip if this is an exact match (already counted)
+                    if template_field == sample_field:
+                        continue
                     
-                    # Check for exact match
-                    if source in field_names:
-                        suggestion["field_mappings"][source] = dest
-                    else:
-                        # Check for match using common variations
-                        for standard_field, variations in COMMON_FIELD_MAPPINGS.items():
-                            if source in variations:
-                                for field in field_names:
-                                    if field in variations:
-                                        suggestion["field_mappings"][field] = dest
-                                        break
+                    # Calculate string similarity
+                    similarity = SequenceMatcher(None, template_field.lower(), sample_field.lower()).ratio()
+                    
+                    # Check for substring matches (e.g., "sku" in "product_sku")
+                    if template_field.lower() in sample_field.lower() or sample_field.lower() in template_field.lower():
+                        similarity = max(similarity, 0.8)  # Boost similarity for substring matches
+                    
+                    if similarity > best_field_score:
+                        best_field_score = similarity
+                
+                total_fuzzy_score += best_field_score
             
-            best_template = suggestion
+            fuzzy_match_score = total_fuzzy_score / len(non_exact_fields) if non_exact_fields else 0
+        
+        # Combined score: 70% exact match, 30% fuzzy match
+        combined_score = (exact_match_score * 0.7) + (fuzzy_match_score * 0.3)
+        
+        if combined_score > best_score:
+            field_matches = []
+            
+            # Collect exact matches
+            for template_field in template_fields:
+                if template_field in sample_fields:
+                    field_matches.append({
+                        "templateField": template_field,
+                        "sampleField": template_field,
+                        "matchType": "exact",
+                        "confidence": 1.0
+                    })
+            
+            # Collect fuzzy matches
+            for template_field in non_exact_fields:
+                best_match = None
+                best_match_score = 0
+                
+                for sample_field in sample_fields:
+                    # Skip exact matches (already handled)
+                    if template_field == sample_field:
+                        continue
+                    
+                    similarity = SequenceMatcher(None, template_field.lower(), sample_field.lower()).ratio()
+                    
+                    # Check for substring matches
+                    if template_field.lower() in sample_field.lower() or sample_field.lower() in template_field.lower():
+                        similarity = max(similarity, 0.8)
+                    
+                    if similarity > best_match_score and similarity > 0.6:  # Only include good matches
+                        best_match_score = similarity
+                        best_match = sample_field
+                
+                if best_match:
+                    field_matches.append({
+                        "templateField": template_field,
+                        "sampleField": best_match,
+                        "matchType": "fuzzy",
+                        "confidence": best_match_score
+                    })
+            
+            best_template = {
+                "template_id": template_id,
+                "template_name": template_name,
+                "field_matches": field_matches,
+                "exact_match_score": exact_match_score,
+                "fuzzy_match_score": fuzzy_match_score,
+                "combined_score": combined_score
+            }
+            best_score = combined_score
     
     return best_template, best_score
-
-
-def apply_filters(data: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Apply filters to the data
-    
-    Args:
-        data: The data to filter
-        filters: Dictionary of filter criteria
-        
-    Returns:
-        Filtered data
-    """
-    if not filters or not data:
-        return data
-        
-    filtered_data = data.copy()
-    
-    # Apply category filter
-    if "category" in filters and filters["category"]:
-        filtered_data = [
-            record for record in filtered_data 
-            if "category" in record and record["category"] == filters["category"]
-        ]
-    
-    # Apply SKU prefix filter
-    if "sku_prefix" in filters and filters["sku_prefix"]:
-        prefix = filters["sku_prefix"]
-        filtered_data = [
-            record for record in filtered_data 
-            if any(str(record.get(field, "")).startswith(prefix) 
-                   for field in ["sku", "product_id", "item_number", "part_number"])
-        ]
-    
-    # Apply field contains filters
-    if "field_contains" in filters and filters["field_contains"]:
-        for field, value in filters["field_contains"].items():
-            if value:
-                filtered_data = [
-                    record for record in filtered_data 
-                    if field in record and value.lower() in str(record[field]).lower()
-                ]
-    
-    # Apply limit
-    limit = filters.get("limit", 100)
-    return filtered_data[:limit]
