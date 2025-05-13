@@ -16,6 +16,7 @@ import MappingTemplates from "@/pages/MappingTemplates";
 import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
+import AmazonIntegration from "@/pages/AmazonIntegration";
 import NotFound from "@/pages/not-found";
 
 function Router() {

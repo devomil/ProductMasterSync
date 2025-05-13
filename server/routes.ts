@@ -12,6 +12,7 @@ import {
   insertDataSourceSchema,
   insertMappingTemplateSchema
 } from "@shared/schema";
+import marketplaceRoutes from "./marketplace/routes";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1168,6 +1169,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleError(res, error);
     }
   });
+
+  // Register marketplace routes
+  app.use("/api/marketplace", marketplaceRoutes);
 
   const httpServer = createServer(app);
 
