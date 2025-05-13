@@ -399,7 +399,7 @@ const Products = () => {
               <Filter className="mr-2 h-4 w-4" />
               Advanced Search
             </Button>
-            {Object.values(activeFilters).some(v => v) && (
+            {Object.values(filters).some(v => v) && (
               <Button 
                 variant="outline" 
                 size="sm"
@@ -453,84 +453,105 @@ const Products = () => {
         </div>
 
         {/* Applied filters summary */}
-        {Object.values(activeFilters).some(v => v) && (
+        {Object.values(filters).some(v => v) && (
           <div className="mt-4 bg-neutral-50 p-3 rounded-md">
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm font-medium">Active Filters:</span>
-              {activeFilters.query && (
+              {filters.query && (
                 <Badge variant="secondary" className="gap-1">
-                  {activeFilters.searchType !== 'all' ? `${activeFilters.searchType}: ` : ''}
-                  {activeFilters.query}
+                  {filters.searchType !== 'all' ? `${filters.searchType}: ` : ''}
+                  {filters.query}
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, query: ''};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'query', 
+                      value: '' 
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
               )}
-              {activeFilters.isRemanufactured && (
+              {filters.isRemanufactured && (
                 <Badge variant="secondary" className="gap-1">
                   Remanufactured
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, isRemanufactured: false};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'isRemanufactured', 
+                      value: false 
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
               )}
-              {activeFilters.isCloseout && (
+              {filters.isCloseout && (
                 <Badge variant="secondary" className="gap-1">
                   Closeout
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, isCloseout: false};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'isCloseout', 
+                      value: false 
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
               )}
-              {activeFilters.isOnSale && (
+              {filters.isOnSale && (
                 <Badge variant="secondary" className="gap-1">
                   On Sale
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, isOnSale: false};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'isOnSale', 
+                      value: false 
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
               )}
-              {activeFilters.hasRebate && (
+              {filters.hasRebate && (
                 <Badge variant="secondary" className="gap-1">
                   Rebate
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, hasRebate: false};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'hasRebate', 
+                      value: false 
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
               )}
-              {activeFilters.hasFreeShipping && (
+              {filters.hasFreeShipping && (
                 <Badge variant="secondary" className="gap-1">
                   Free Shipping
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, hasFreeShipping: false};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'hasFreeShipping', 
+                      value: false 
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
               )}
-              {activeFilters.inventoryStatus && activeFilters.inventoryStatus !== 'all' && (
+              {filters.inventoryStatus && filters.inventoryStatus !== 'all' && (
                 <Badge variant="secondary" className="gap-1">
-                  {activeFilters.inventoryStatus === 'inStock' ? 'In Stock' : 
-                   activeFilters.inventoryStatus === 'lowStock' ? 'Low Stock' : 'Out of Stock'}
+                  {filters.inventoryStatus === 'inStock' ? 'In Stock' : 
+                   filters.inventoryStatus === 'lowStock' ? 'Low Stock' : 'Out of Stock'}
                   <button onClick={() => {
-                    const newFilters = {...activeFilters, inventoryStatus: 'all'};
-                    setActiveFilters(newFilters);
+                    dispatchFilters({ 
+                      type: 'SET_FILTER', 
+                      field: 'inventoryStatus', 
+                      value: 'all'
+                    });
                   }} className="ml-1">
                     <X className="h-3 w-3" />
                   </button>
