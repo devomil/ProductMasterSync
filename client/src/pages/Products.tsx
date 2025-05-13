@@ -112,8 +112,6 @@ const searchFilterSchema = z.object({
   inventoryStatus: z.enum(['all', 'inStock', 'lowStock', 'outOfStock']).optional(),
 });
 
-type SearchFilters = z.infer<typeof searchFilterSchema>;
-
 // Product Flag Component
 interface ProductFlagProps {
   active: boolean;
@@ -150,7 +148,7 @@ const formSchema = z.object({
   inventoryStatus: z.enum(['all', 'inStock', 'lowStock', 'outOfStock']).default('all'),
 });
 
-type SearchFiltersSchema = z.infer<typeof formSchema>;
+type SearchFilters = z.infer<typeof searchFilterSchema>;
 
 // Define action types for filter state reducer
 type FilterAction = 
@@ -192,16 +190,14 @@ const Products = () => {
     searchType: 'all' as SearchType,
     query: '',
     inventoryStatus: 'all' as InventoryStatusType,
-    query: '',
     isRemanufactured: false,
     isCloseout: false,
     isOnSale: false,
     hasRebate: false,
     hasFreeShipping: false,
-    inventoryStatus: 'all' as const,
   });
 
-  const form = useForm<SearchFilters>({
+  const form = useForm({
     resolver: zodResolver(searchFilterSchema),
     defaultValues: {
       searchType: 'all',
