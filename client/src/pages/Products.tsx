@@ -275,7 +275,14 @@ const Products = () => {
       
       // Supplier filter
       if (filters.supplier && filters.supplier !== 'all_suppliers') {
-        matches = matches && product.manufacturerName === filters.supplier;
+        // This would check against supplier name in a real implementation
+        // Here we're simulating by reusing existing data
+        matches = matches && product.supplier === filters.supplier;
+      }
+      
+      // Manufacturer filter
+      if (filters.manufacturer && filters.manufacturer !== 'all_manufacturers') {
+        matches = matches && product.manufacturerName === filters.manufacturer;
       }
 
       // Special flags
@@ -545,6 +552,29 @@ const Products = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all_suppliers">All Suppliers</SelectItem>
+                  <SelectItem value="ABC Trading Co.">ABC Trading Co.</SelectItem>
+                  <SelectItem value="XYZ Supplies Inc.">XYZ Supplies Inc.</SelectItem>
+                  <SelectItem value="Global Supplies Ltd.">Global Supplies Ltd.</SelectItem>
+                  <SelectItem value="West Coast Distributors">West Coast Distributors</SelectItem>
+                  <SelectItem value="Eastern Merchandise Group">Eastern Merchandise Group</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="w-full sm:w-auto">
+              <Select 
+                value={filters.manufacturer || ""} 
+                onValueChange={(value) => dispatchFilters({
+                  type: 'SET_FILTER',
+                  field: 'manufacturer',
+                  value
+                })}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Manufacturer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_manufacturers">All Manufacturers</SelectItem>
                   <SelectItem value="TechVision">TechVision</SelectItem>
                   <SelectItem value="OfficeMax">OfficeMax</SelectItem>
                   <SelectItem value="AudioTech">AudioTech</SelectItem>
@@ -763,7 +793,7 @@ const Products = () => {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="category"
@@ -802,6 +832,31 @@ const Products = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all_suppliers">All Suppliers</SelectItem>
+                              <SelectItem value="ABC Trading Co.">ABC Trading Co.</SelectItem>
+                              <SelectItem value="XYZ Supplies Inc.">XYZ Supplies Inc.</SelectItem>
+                              <SelectItem value="Global Supplies Ltd.">Global Supplies Ltd.</SelectItem>
+                              <SelectItem value="West Coast Distributors">West Coast Distributors</SelectItem>
+                              <SelectItem value="Eastern Merchandise Group">Eastern Merchandise Group</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="manufacturer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Manufacturer</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All Manufacturers" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all_manufacturers">All Manufacturers</SelectItem>
                               <SelectItem value="TechVision">TechVision</SelectItem>
                               <SelectItem value="OfficeMax">OfficeMax</SelectItem>
                               <SelectItem value="AudioTech">AudioTech</SelectItem>
