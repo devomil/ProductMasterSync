@@ -529,6 +529,151 @@ export class MemStorage implements IStorage {
     ];
     
     approvals.forEach(approval => this.createApproval(approval));
+
+    // Add sample data sources for various integration types
+    const dataSources = [
+      {
+        name: "XYZ Supplies Product CSV",
+        type: "csv",
+        supplierId: 2, // XYZ Supplies Inc.
+        active: true,
+        config: {
+          delimiter: ",",
+          hasHeader: true,
+          encoding: "utf-8"
+        }
+      },
+      {
+        name: "ABC Trading EDI Feed",
+        type: "edi_x12",
+        supplierId: 1, // ABC Trading Co.
+        active: true,
+        config: {
+          standard: "X12",
+          version: "4010",
+          transactionSet: "832", // Price/Sales Catalog
+          segmentSeparator: "~",
+          elementSeparator: "*"
+        }
+      },
+      {
+        name: "Global Supplies API",
+        type: "api",
+        supplierId: 3, // Global Supplies Ltd.
+        active: true,
+        config: {
+          url: "https://api.globalsupplies.com/v1/products",
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          authType: "apiKey",
+          apiKeyName: "X-API-KEY",
+          responseFormat: "json",
+          pagination: {
+            type: "offset",
+            limitParam: "limit",
+            offsetParam: "offset",
+            limitValue: 100
+          }
+        }
+      },
+      {
+        name: "West Coast SFTP Feed",
+        type: "sftp",
+        supplierId: 4, // West Coast Distributors
+        active: true,
+        config: {
+          host: "sftp.westcoastdist.com",
+          port: 22,
+          username: "mdm_client",
+          remotePath: "/exports/daily",
+          filePattern: "inventory_*.csv",
+          protocol: "sftp"
+        }
+      }
+    ];
+
+    // Add sample mapping templates
+    const mappingTemplates = [
+      {
+        name: "XYZ CSV Standard Format",
+        description: "Mapping for XYZ Supplies CSV product catalog",
+        sourceType: "csv",
+        mappings: [
+          { sourceField: "SKU", destinationField: "sku", required: true },
+          { sourceField: "ITEM_NAME", destinationField: "name", required: true },
+          { sourceField: "DESCRIPTION", destinationField: "description" },
+          { sourceField: "CATEGORY", destinationField: "categoryId" },
+          { sourceField: "PRICE", destinationField: "price" },
+          { sourceField: "COST", destinationField: "cost" },
+          { sourceField: "UPC", destinationField: "upc" },
+          { sourceField: "MFR_PART_NUM", destinationField: "manufacturerPartNumber" },
+          { sourceField: "STOCK_QTY", destinationField: "inventoryQuantity" }
+        ],
+        transformations: [
+          { 
+            type: "numberFormat", 
+            sourceField: "PRICE", 
+            parameters: { decimalPlaces: 2, removeSymbols: true } 
+          },
+          { 
+            type: "trim", 
+            sourceField: "ITEM_NAME" 
+          }
+        ],
+        validationRules: [
+          { 
+            field: "SKU", 
+            type: "required", 
+            errorMessage: "SKU is required", 
+            severity: "error" 
+          },
+          { 
+            field: "PRICE", 
+            type: "format", 
+            parameters: { pattern: "numeric" }, 
+            errorMessage: "Price must be numeric", 
+            severity: "error" 
+          }
+        ]
+      },
+      {
+        name: "EDI X12 832 Mapping",
+        description: "Mapping for EDI X12 832 Price/Sales Catalog",
+        sourceType: "edi_x12",
+        mappings: [
+          { sourceField: "LIN.03", destinationField: "sku", required: true },
+          { sourceField: "LIN.05", destinationField: "upc" },
+          { sourceField: "PID.05", destinationField: "name", required: true },
+          { sourceField: "CTP.03", destinationField: "price" }
+        ],
+        transformations: [],
+        validationRules: []
+      },
+      {
+        name: "Global API Standard Format",
+        description: "Mapping for Global Supplies API response",
+        sourceType: "api",
+        mappings: [
+          { sourceField: "product_id", destinationField: "sku", required: true },
+          { sourceField: "product_name", destinationField: "name", required: true },
+          { sourceField: "product_description", destinationField: "description" },
+          { sourceField: "retail_price", destinationField: "price" },
+          { sourceField: "wholesale_price", destinationField: "cost" },
+          { sourceField: "barcode", destinationField: "upc" },
+          { sourceField: "manufacturer_id", destinationField: "manufacturerPartNumber" },
+          { sourceField: "stock_level", destinationField: "inventoryQuantity" }
+        ],
+        transformations: [],
+        validationRules: []
+      }
+    ];
+
+    // Add the data sources and mapping templates to the database
+    dataSources.forEach(dataSource => this.createDataSource(dataSource));
+    mappingTemplates.forEach(template => this.createMappingTemplate(template));
   }
 
   // User methods
