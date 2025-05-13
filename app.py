@@ -2,7 +2,7 @@ import os
 import uuid
 import json
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -559,6 +559,107 @@ async def onboard_supplier_endpoint(
             detail=f"Error during supplier onboarding: {str(e)}"
         )
 
+
+# ----- Product Fulfillment Endpoints -----
+
+@app.get("/warehouses", response_model=List[Warehouse], tags=["Fulfillment"])
+async def get_warehouses():
+    """Get all warehouses"""
+    try:
+        warehouses = ProductFulfillmentRepository.get_warehouses()
+        return warehouses
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve warehouses: {str(e)}"
+        )
+
+
+@app.get("/warehouses/{warehouse_id}", response_model=Warehouse, tags=["Fulfillment"])
+async def get_warehouse(warehouse_id: str):
+    """Get a warehouse by ID"""
+    try:
+        warehouse = ProductFulfillmentRepository.get_warehouse(warehouse_id)
+        if not warehouse:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Warehouse with ID {warehouse_id} not found"
+            )
+        return warehouse
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve warehouse: {str(e)}"
+        )
+
+
+@app.get("/products/{product_id}/fulfillment", response_model=ProductFulfillment, tags=["Fulfillment"])
+async def get_product_fulfillment(product_id: str):
+    """Get fulfillment information for a product"""
+    try:
+        fulfillment = ProductFulfillmentRepository.get_product_fulfillment(product_id)
+        if not fulfillment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Fulfillment information for product with ID {product_id} not found"
+            )
+        return fulfillment
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve product fulfillment: {str(e)}"
+        )
+
+
+@app.post("/products/{product_id}/fulfillment", response_model=ProductFulfillment, tags=["Fulfillment"])
+async def update_product_fulfillment(product_id: str, fulfillment_update: ProductFulfillmentUpdate):
+    """Update fulfillment settings for a product"""
+    try:
+        result = ProductFulfillmentRepository.update_product_fulfillment(
+            product_id, 
+            fulfillment_update.dict(exclude_unset=True)
+        )
+        
+        if isinstance(result, dict) and "error" in result:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result["error"]
+            )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update product fulfillment: {str(e)}"
+        )
+
+
+@app.get("/products/{product_id}/stock", tags=["Fulfillment"])
+async def get_product_stock(product_id: str):
+    """Get stock information for a product across all warehouses and suppliers"""
+    try:
+        stock_info = ProductFulfillmentRepository.get_total_stock(product_id)
+        
+        if not stock_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Stock information for product with ID {product_id} not found"
+            )
+        
+        return stock_info
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve product stock: {str(e)}"
+        )
 
 # Root endpoint for health check
 @app.get("/", tags=["Health"])
