@@ -43,7 +43,7 @@ export function useProductFulfillment(productId: string | null) {
     queryFn: async () => {
       if (!productId) return null;
       const response = await apiRequest(`/api/products/${productId}/fulfillment`);
-      return response as ProductFulfillment;
+      return response.json().then(data => data as ProductFulfillment);
     },
     enabled: !!productId,
   });
@@ -54,7 +54,7 @@ export function useProductFulfillment(productId: string | null) {
     queryFn: async () => {
       if (!productId) return null;
       const response = await apiRequest(`/api/products/${productId}/stock`);
-      return response as { warehouse_stock: number; supplier_stock: number; total_stock: number };
+      return response.json().then(data => data as { warehouse_stock: number; supplier_stock: number; total_stock: number });
     },
     enabled: !!productId,
   });
@@ -64,7 +64,7 @@ export function useProductFulfillment(productId: string | null) {
     queryKey: ['/api/suppliers'],
     queryFn: async () => {
       const response = await apiRequest('/api/suppliers');
-      return response as Supplier[];
+      return response.json().then(data => data as Supplier[]);
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -75,8 +75,11 @@ export function useProductFulfillment(productId: string | null) {
       if (!productId) throw new Error('Product ID is required');
       return await apiRequest(`/api/products/${productId}/fulfillment`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(updatedData),
-      });
+      }).then(response => response.json());
     },
     onSuccess: () => {
       // Invalidate relevant queries

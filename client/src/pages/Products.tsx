@@ -25,7 +25,8 @@ import {
   Gauge,
   ChevronLeft,
   ChevronRight,
-  Sliders
+  Sliders,
+  Warehouse
 } from "lucide-react";
 import { 
   useProducts, 
@@ -91,6 +92,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { FulfillmentDrawer } from "@/components/products/FulfillmentDrawer";
 
 // Search filter schema
 const searchFilterSchema = z.object({
@@ -168,6 +170,10 @@ const Products = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // State for fulfillment drawer
+  const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string} | null>(null);
+  const [fulfillmentDrawerOpen, setFulfillmentDrawerOpen] = useState(false);
   
   // Filter state using reducer
   const [filters, dispatchFilters] = useReducer(filterReducer, {
