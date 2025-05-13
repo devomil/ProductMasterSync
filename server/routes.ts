@@ -8,7 +8,9 @@ import {
   insertCategorySchema, 
   insertImportSchema,
   insertExportSchema,
-  insertApprovalSchema
+  insertApprovalSchema,
+  insertDataSourceSchema,
+  insertMappingTemplateSchema
 } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -540,6 +542,223 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const auditLogs = await storage.getAuditLogs();
       res.json(auditLogs);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  // Data Sources API
+  app.get("/api/data-sources", async (req, res) => {
+    try {
+      const dataSources = await storage.getDataSources();
+      res.json(dataSources);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/data-sources/:id", async (req, res) => {
+    try {
+      const dataSource = await storage.getDataSource(Number(req.params.id));
+      if (!dataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      res.json(dataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/data-sources/by-type/:type", async (req, res) => {
+    try {
+      const dataSources = await storage.getDataSourcesByType(req.params.type);
+      res.json(dataSources);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/data-sources/by-supplier/:supplierId", async (req, res) => {
+    try {
+      const dataSources = await storage.getDataSourcesBySupplier(Number(req.params.supplierId));
+      res.json(dataSources);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.post("/api/data-sources", async (req, res) => {
+    try {
+      const validatedData = insertDataSourceSchema.parse(req.body);
+      const dataSource = await storage.createDataSource(validatedData);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "create",
+        entityType: "dataSource",
+        entityId: dataSource.id,
+        details: { dataSource }
+      });
+      
+      res.status(201).json(dataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.put("/api/data-sources/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const validatedData = insertDataSourceSchema.partial().parse(req.body);
+      const updatedDataSource = await storage.updateDataSource(id, validatedData);
+      
+      if (!updatedDataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "update",
+        entityType: "dataSource",
+        entityId: id,
+        details: { 
+          before: await storage.getDataSource(id),
+          after: updatedDataSource
+        }
+      });
+      
+      res.json(updatedDataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.delete("/api/data-sources/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const dataSource = await storage.getDataSource(id);
+      
+      if (!dataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      const success = await storage.deleteDataSource(id);
+      
+      if (success) {
+        // Create audit log
+        await storage.createAuditLog({
+          action: "delete",
+          entityType: "dataSource",
+          entityId: id,
+          details: { dataSource }
+        });
+      }
+      
+      res.json({ success });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  // Mapping Templates API
+  app.get("/api/mapping-templates", async (req, res) => {
+    try {
+      const mappingTemplates = await storage.getMappingTemplates();
+      res.json(mappingTemplates);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/mapping-templates/:id", async (req, res) => {
+    try {
+      const mappingTemplate = await storage.getMappingTemplate(Number(req.params.id));
+      if (!mappingTemplate) {
+        return res.status(404).json({ message: "Mapping template not found" });
+      }
+      res.json(mappingTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/mapping-templates/by-source-type/:sourceType", async (req, res) => {
+    try {
+      const mappingTemplates = await storage.getMappingTemplatesBySourceType(req.params.sourceType);
+      res.json(mappingTemplates);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.post("/api/mapping-templates", async (req, res) => {
+    try {
+      const validatedData = insertMappingTemplateSchema.parse(req.body);
+      const mappingTemplate = await storage.createMappingTemplate(validatedData);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "create",
+        entityType: "mappingTemplate",
+        entityId: mappingTemplate.id,
+        details: { mappingTemplate }
+      });
+      
+      res.status(201).json(mappingTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.put("/api/mapping-templates/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const validatedData = insertMappingTemplateSchema.partial().parse(req.body);
+      const updatedMappingTemplate = await storage.updateMappingTemplate(id, validatedData);
+      
+      if (!updatedMappingTemplate) {
+        return res.status(404).json({ message: "Mapping template not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "update",
+        entityType: "mappingTemplate",
+        entityId: id,
+        details: { 
+          before: await storage.getMappingTemplate(id),
+          after: updatedMappingTemplate
+        }
+      });
+      
+      res.json(updatedMappingTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.delete("/api/mapping-templates/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const mappingTemplate = await storage.getMappingTemplate(id);
+      
+      if (!mappingTemplate) {
+        return res.status(404).json({ message: "Mapping template not found" });
+      }
+      
+      const success = await storage.deleteMappingTemplate(id);
+      
+      if (success) {
+        // Create audit log
+        await storage.createAuditLog({
+          action: "delete",
+          entityType: "mappingTemplate",
+          entityId: id,
+          details: { mappingTemplate }
+        });
+      }
+      
+      res.json({ success });
     } catch (error) {
       handleError(res, error);
     }
