@@ -42,12 +42,27 @@ export const categories = pgTable("categories", {
 // Products table
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
-  sku: text("sku").notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
+  sku: text("sku").notNull(),                       // Internal SKU/Part Number
+  manufacturerPartNumber: text("manufacturer_part_number"),  // Manufacturer's Part Number
+  upc: text("upc"),                                 // UPC Code
+  name: text("name").notNull(),                     // Product Title
+  description: text("description"),                 // Product Description
   categoryId: integer("category_id").references(() => categories.id),
-  attributes: json("attributes").default({}),
-  status: text("status").default("draft"),
+  manufacturerId: integer("manufacturer_id"),       // Manufacturer ID (could reference a manufacturers table)
+  manufacturerName: text("manufacturer_name"),      // Manufacturer Name
+  price: text("price"),                             // Price 
+  cost: text("cost"),                               // Cost
+  weight: text("weight"),                           // Weight
+  dimensions: text("dimensions"),                   // Dimensions
+  attributes: json("attributes").default({}),       // Flexible attributes
+  status: text("status").default("draft"),          // Product status
+  isRemanufactured: boolean("is_remanufactured").default(false),
+  isCloseout: boolean("is_closeout").default(false),
+  isOnSale: boolean("is_on_sale").default(false),
+  hasRebate: boolean("has_rebate").default(false),
+  hasFreeShipping: boolean("has_free_shipping").default(false),
+  inventoryQuantity: integer("inventory_quantity").default(0),
+  reorderThreshold: integer("reorder_threshold").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
@@ -85,7 +100,7 @@ export const imports = pgTable("imports", {
 });
 
 // Data Exports table
-export const exports = pgTable("exports", {
+export const exportsTable = pgTable("exports", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull(), // file, api, etc.
@@ -133,7 +148,7 @@ export const insertCategorySchema = createInsertSchema(categories).omit({ id: tr
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProductSupplierSchema = createInsertSchema(productSuppliers).omit({ id: true });
 export const insertImportSchema = createInsertSchema(imports).omit({ id: true, createdAt: true, completedAt: true });
-export const insertExportSchema = createInsertSchema(exports).omit({ id: true, createdAt: true, completedAt: true });
+export const insertExportSchema = createInsertSchema(exportsTable).omit({ id: true, createdAt: true, completedAt: true });
 export const insertApprovalSchema = createInsertSchema(approvals).omit({ id: true, createdAt: true, updatedAt: true, completedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, timestamp: true });
 
@@ -155,6 +170,6 @@ export type Category = typeof categories.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type ProductSupplier = typeof productSuppliers.$inferSelect;
 export type Import = typeof imports.$inferSelect;
-export type Export = typeof exports.$inferSelect;
+export type Export = typeof exportsTable.$inferSelect;
 export type Approval = typeof approvals.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
