@@ -184,16 +184,16 @@ export function FulfillmentDrawer({ isOpen, onClose, productId, productName }: F
                       <div className="grid grid-cols-3 gap-4">
                         <div className="flex flex-col items-center">
                           <span className="text-sm text-muted-foreground">Warehouse</span>
-                          <span className="text-2xl font-bold">{stockData.warehouse_stock}</span>
+                          <span className="text-2xl font-bold">{stockData.internal.total}</span>
                         </div>
                         <div className="flex flex-col items-center">
                           <span className="text-sm text-muted-foreground">Dropship</span>
-                          <span className="text-2xl font-bold">{stockData.supplier_stock}</span>
+                          <span className="text-2xl font-bold">{stockData.dropship.stock}</span>
                         </div>
                         <div className="flex flex-col items-center">
                           <span className="text-sm text-muted-foreground">Total</span>
-                          <span className="text-2xl font-bold">{stockData.total_stock}</span>
-                          {stockData.total_stock < 100 && (
+                          <span className="text-2xl font-bold">{stockData.total}</span>
+                          {stockData.total < 100 && (
                             <Badge variant="outline" className="mt-1 text-amber-700 bg-amber-50 border-amber-200">
                               Low Stock
                             </Badge>
