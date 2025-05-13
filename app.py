@@ -10,9 +10,10 @@ from pydantic import ValidationError
 
 from models import (
     Supplier, SupplierCreate, SupplierUpdate, TestPullResult, 
-    ErrorResponse, DataSourceConfig
+    ErrorResponse, DataSourceConfig, ProductFulfillment, ProductFulfillmentUpdate,
+    Product, ProductWithFulfillment, Warehouse
 )
-from database import SupplierRepository
+from database import SupplierRepository, ProductFulfillmentRepository
 from connectors import create_connector
 
 # Create FastAPI app

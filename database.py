@@ -118,7 +118,402 @@ def init_db():
         );
         """)
         
+        # Create warehouses table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS warehouses (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            address JSONB,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            -- Add indexes
+            INDEX idx_warehouses_name (name),
+            INDEX idx_warehouses_code (code),
+            INDEX idx_warehouses_active (active)
+        );
+        """)
+        
+        # Create products table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id VARCHAR(36) PRIMARY KEY,
+            sku VARCHAR(100) NOT NULL UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            category_id VARCHAR(36),
+            manufacturer_id VARCHAR(36),
+            upc VARCHAR(100),
+            price DECIMAL(12, 2),
+            cost DECIMAL(12, 2),
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            -- Add indexes
+            INDEX idx_products_sku (sku),
+            INDEX idx_products_name (name),
+            INDEX idx_products_category_id (category_id),
+            INDEX idx_products_manufacturer_id (manufacturer_id),
+            INDEX idx_products_upc (upc),
+            INDEX idx_products_status (status)
+        );
+        """)
+        
+        # Create product_fulfillment_options table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS product_fulfillment_options (
+            id SERIAL PRIMARY KEY,
+            product_id VARCHAR(36) NOT NULL UNIQUE,
+            internal_stock_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            dropship_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            dropship_supplier_id VARCHAR(36),
+            dropship_lead_time_days INTEGER NOT NULL DEFAULT 1,
+            bulk_discount_available BOOLEAN NOT NULL DEFAULT FALSE,
+            preferred_source VARCHAR(20) NOT NULL DEFAULT 'auto',
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            -- Add indexes
+            INDEX idx_product_fulfillment_options_product_id (product_id),
+            INDEX idx_product_fulfillment_options_dropship_supplier_id (dropship_supplier_id),
+            
+            -- Add foreign keys
+            CONSTRAINT fk_product_fulfillment_options_product_id
+                FOREIGN KEY (product_id)
+                REFERENCES products(id)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_product_fulfillment_options_dropship_supplier_id
+                FOREIGN KEY (dropship_supplier_id)
+                REFERENCES suppliers(id)
+                ON DELETE SET NULL
+        );
+        """)
+        
+        # Create warehouse_stock table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS warehouse_stock (
+            id SERIAL PRIMARY KEY,
+            product_id VARCHAR(36) NOT NULL,
+            warehouse_id VARCHAR(36) NOT NULL,
+            stock_quantity INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            -- Add unique constraint to ensure one record per product/warehouse
+            CONSTRAINT uq_warehouse_stock_product_warehouse UNIQUE (product_id, warehouse_id),
+            
+            -- Add indexes
+            INDEX idx_warehouse_stock_product_id (product_id),
+            INDEX idx_warehouse_stock_warehouse_id (warehouse_id),
+            
+            -- Add foreign keys
+            CONSTRAINT fk_warehouse_stock_product_id
+                FOREIGN KEY (product_id)
+                REFERENCES products(id)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_warehouse_stock_warehouse_id
+                FOREIGN KEY (warehouse_id)
+                REFERENCES warehouses(id)
+                ON DELETE CASCADE
+        );
+        """)
+        
+        # Create supplier_inventory table for dropship inventory
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS supplier_inventory (
+            id SERIAL PRIMARY KEY,
+            product_id VARCHAR(36) NOT NULL,
+            supplier_id VARCHAR(36) NOT NULL,
+            stock_quantity INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            -- Add unique constraint to ensure one record per product/supplier
+            CONSTRAINT uq_supplier_inventory_product_supplier UNIQUE (product_id, supplier_id),
+            
+            -- Add indexes
+            INDEX idx_supplier_inventory_product_id (product_id),
+            INDEX idx_supplier_inventory_supplier_id (supplier_id),
+            
+            -- Add foreign keys
+            CONSTRAINT fk_supplier_inventory_product_id
+                FOREIGN KEY (product_id)
+                REFERENCES products(id)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_supplier_inventory_supplier_id
+                FOREIGN KEY (supplier_id)
+                REFERENCES suppliers(id)
+                ON DELETE CASCADE
+        );
+        """)
+        
         logger.info("Database initialized successfully")
+
+
+class ProductFulfillmentRepository:
+    """Repository for product fulfillment related database operations"""
+    
+    @staticmethod
+    def get_warehouses():
+        """Get all warehouses"""
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT * FROM warehouses WHERE active = TRUE ORDER BY name;")
+            return [dict(warehouse) for warehouse in cursor.fetchall()]
+    
+    @staticmethod
+    def get_warehouse(warehouse_id):
+        """Get a warehouse by ID"""
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT * FROM warehouses WHERE id = %s;", (warehouse_id,))
+            warehouse = cursor.fetchone()
+            return dict(warehouse) if warehouse else None
+    
+    @staticmethod
+    def get_product_fulfillment(product_id):
+        """Get fulfillment information for a product"""
+        with get_db_cursor() as cursor:
+            # Get the core fulfillment options
+            cursor.execute("""
+            SELECT * FROM product_fulfillment_options
+            WHERE product_id = %s;
+            """, (product_id,))
+            
+            fulfillment_options = cursor.fetchone()
+            if not fulfillment_options:
+                return None
+            
+            fulfillment_dict = dict(fulfillment_options)
+            
+            # Get warehouse stock information
+            cursor.execute("""
+            SELECT ws.warehouse_id, w.name as location, ws.stock_quantity as stock
+            FROM warehouse_stock ws
+            JOIN warehouses w ON ws.warehouse_id = w.id
+            WHERE ws.product_id = %s;
+            """, (product_id,))
+            
+            warehouses = [{"location": row["location"], "stock": row["stock"]} for row in cursor.fetchall()]
+            
+            # Get supplier dropship stock if enabled
+            if fulfillment_dict.get("dropship_enabled") and fulfillment_dict.get("dropship_supplier_id"):
+                cursor.execute("""
+                SELECT stock_quantity
+                FROM supplier_inventory
+                WHERE product_id = %s AND supplier_id = %s;
+                """, (product_id, fulfillment_dict["dropship_supplier_id"]))
+                
+                supplier_stock = cursor.fetchone()
+                dropship_stock = supplier_stock["stock_quantity"] if supplier_stock else 0
+            else:
+                dropship_stock = 0
+            
+            # Format the response according to API model
+            result = {
+                "internal_stock": {
+                    "enabled": fulfillment_dict["internal_stock_enabled"],
+                    "warehouses": warehouses
+                },
+                "dropship": {
+                    "enabled": fulfillment_dict["dropship_enabled"],
+                    "supplier_id": fulfillment_dict["dropship_supplier_id"],
+                    "stock": dropship_stock,
+                    "lead_time_days": fulfillment_dict["dropship_lead_time_days"]
+                },
+                "bulk_discount_available": fulfillment_dict["bulk_discount_available"],
+                "preferred_source": fulfillment_dict["preferred_source"]
+            }
+            
+            return result
+    
+    @staticmethod
+    def update_product_fulfillment(product_id, fulfillment_data):
+        """Update fulfillment options for a product"""
+        with get_db_cursor() as cursor:
+            # First check if product exists
+            cursor.execute("SELECT id FROM products WHERE id = %s;", (product_id,))
+            if not cursor.fetchone():
+                return {"error": "Product not found"}
+            
+            # Begin transaction
+            cursor.execute("BEGIN;")
+            
+            try:
+                # Check if fulfillment options exist for this product
+                cursor.execute("""
+                SELECT id FROM product_fulfillment_options
+                WHERE product_id = %s;
+                """, (product_id,))
+                
+                fulfillment_exists = cursor.fetchone()
+                
+                if not fulfillment_exists:
+                    # Create new fulfillment options record
+                    cursor.execute("""
+                    INSERT INTO product_fulfillment_options (
+                        product_id, 
+                        internal_stock_enabled, 
+                        dropship_enabled, 
+                        dropship_supplier_id, 
+                        dropship_lead_time_days,
+                        bulk_discount_available, 
+                        preferred_source
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s
+                    );
+                    """, (
+                        product_id,
+                        fulfillment_data.get("internal_stock", {}).get("enabled", True),
+                        fulfillment_data.get("dropship", {}).get("enabled", False),
+                        fulfillment_data.get("dropship", {}).get("supplier_id"),
+                        fulfillment_data.get("dropship", {}).get("lead_time_days", 1),
+                        fulfillment_data.get("bulk_discount_available", False),
+                        fulfillment_data.get("preferred_source", "auto")
+                    ))
+                else:
+                    # Update existing fulfillment options
+                    update_fields = []
+                    update_values = []
+                    
+                    if "internal_stock" in fulfillment_data:
+                        update_fields.append("internal_stock_enabled = %s")
+                        update_values.append(fulfillment_data["internal_stock"].get("enabled", True))
+                    
+                    if "dropship" in fulfillment_data:
+                        dropship = fulfillment_data["dropship"]
+                        if "enabled" in dropship:
+                            update_fields.append("dropship_enabled = %s")
+                            update_values.append(dropship["enabled"])
+                        
+                        if "supplier_id" in dropship:
+                            update_fields.append("dropship_supplier_id = %s")
+                            update_values.append(dropship["supplier_id"])
+                        
+                        if "lead_time_days" in dropship:
+                            update_fields.append("dropship_lead_time_days = %s")
+                            update_values.append(dropship["lead_time_days"])
+                    
+                    if "bulk_discount_available" in fulfillment_data:
+                        update_fields.append("bulk_discount_available = %s")
+                        update_values.append(fulfillment_data["bulk_discount_available"])
+                    
+                    if "preferred_source" in fulfillment_data:
+                        update_fields.append("preferred_source = %s")
+                        update_values.append(fulfillment_data["preferred_source"])
+                    
+                    if update_fields:
+                        update_fields.append("updated_at = NOW()")
+                        update_sql = f"""
+                        UPDATE product_fulfillment_options
+                        SET {", ".join(update_fields)}
+                        WHERE product_id = %s;
+                        """
+                        update_values.append(product_id)
+                        cursor.execute(update_sql, update_values)
+                
+                # Handle warehouse stock updates if provided
+                if "internal_stock" in fulfillment_data and "warehouses" in fulfillment_data["internal_stock"]:
+                    for warehouse in fulfillment_data["internal_stock"]["warehouses"]:
+                        # First, find the warehouse ID by location name
+                        cursor.execute("""
+                        SELECT id FROM warehouses WHERE name = %s;
+                        """, (warehouse["location"],))
+                        
+                        warehouse_record = cursor.fetchone()
+                        if not warehouse_record:
+                            # Create a new warehouse if it doesn't exist
+                            warehouse_id = str(uuid.uuid4())
+                            cursor.execute("""
+                            INSERT INTO warehouses (id, name, code)
+                            VALUES (%s, %s, %s);
+                            """, (
+                                warehouse_id,
+                                warehouse["location"],
+                                warehouse["location"].replace(" ", "_").upper()
+                            ))
+                        else:
+                            warehouse_id = warehouse_record["id"]
+                        
+                        # Update or insert stock for this warehouse
+                        cursor.execute("""
+                        INSERT INTO warehouse_stock (product_id, warehouse_id, stock_quantity)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (product_id, warehouse_id) 
+                        DO UPDATE SET 
+                            stock_quantity = %s,
+                            updated_at = NOW();
+                        """, (
+                            product_id,
+                            warehouse_id,
+                            warehouse["stock"],
+                            warehouse["stock"]
+                        ))
+                
+                # Handle supplier inventory updates if provided
+                if "dropship" in fulfillment_data and "supplier_id" in fulfillment_data["dropship"] and "stock" in fulfillment_data["dropship"]:
+                    supplier_id = fulfillment_data["dropship"]["supplier_id"]
+                    stock = fulfillment_data["dropship"]["stock"]
+                    
+                    # Verify supplier exists
+                    cursor.execute("SELECT id FROM suppliers WHERE id = %s;", (supplier_id,))
+                    if cursor.fetchone():
+                        cursor.execute("""
+                        INSERT INTO supplier_inventory (product_id, supplier_id, stock_quantity)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (product_id, supplier_id) 
+                        DO UPDATE SET 
+                            stock_quantity = %s,
+                            updated_at = NOW();
+                        """, (
+                            product_id,
+                            supplier_id,
+                            stock,
+                            stock
+                        ))
+                
+                # Commit transaction if all operations succeed
+                cursor.execute("COMMIT;")
+                
+                # Return the updated fulfillment information
+                return ProductFulfillmentRepository.get_product_fulfillment(product_id)
+                
+            except Exception as e:
+                # Roll back transaction on error
+                cursor.execute("ROLLBACK;")
+                logger.error(f"Error updating product fulfillment: {str(e)}")
+                return {"error": str(e)}
+    
+    @staticmethod
+    def get_total_stock(product_id):
+        """Get total stock across all warehouses and suppliers"""
+        with get_db_cursor() as cursor:
+            # Get warehouse stock
+            cursor.execute("""
+            SELECT SUM(stock_quantity) as warehouse_stock
+            FROM warehouse_stock
+            WHERE product_id = %s;
+            """, (product_id,))
+            
+            warehouse_result = cursor.fetchone()
+            warehouse_stock = warehouse_result["warehouse_stock"] if warehouse_result and warehouse_result["warehouse_stock"] else 0
+            
+            # Get supplier inventory
+            cursor.execute("""
+            SELECT SUM(stock_quantity) as supplier_stock
+            FROM supplier_inventory
+            WHERE product_id = %s;
+            """, (product_id,))
+            
+            supplier_result = cursor.fetchone()
+            supplier_stock = supplier_result["supplier_stock"] if supplier_result and supplier_result["supplier_stock"] else 0
+            
+            return {
+                "warehouse_stock": warehouse_stock,
+                "supplier_stock": supplier_stock,
+                "total_stock": warehouse_stock + supplier_stock
+            }
 
 
 class SupplierRepository:

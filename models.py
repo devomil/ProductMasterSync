@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Literal
 from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from enum import Enum
 from datetime import datetime
@@ -11,6 +11,13 @@ class OnboardingStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     PROBATION = "probation"
+
+
+class PreferredFulfillmentSource(str, Enum):
+    """Enum for preferred fulfillment source"""
+    INTERNAL = "internal"
+    DROPSHIP = "dropship"
+    AUTO = "auto"  # Automatically choose the best option based on business rules
 
 
 class Address(BaseModel):
@@ -154,3 +161,82 @@ class ErrorResponse(BaseModel):
     status: str = "error"
     message: str
     details: Optional[Dict[str, Any]] = None
+
+
+# ----- Product Fulfillment Models -----
+
+class WarehouseLocation(BaseModel):
+    """Model for warehouse location with stock information"""
+    location: str
+    stock: int
+
+
+class WarehouseStock(BaseModel):
+    """Model for internal warehouse stock information"""
+    enabled: bool = True
+    warehouses: List[WarehouseLocation] = []
+
+
+class SupplierDropship(BaseModel):
+    """Model for supplier dropship information"""
+    enabled: bool = False
+    supplier_id: Optional[str] = None
+    stock: int = 0
+    lead_time_days: int = 1
+
+
+class ProductFulfillment(BaseModel):
+    """Model for product fulfillment options"""
+    internal_stock: WarehouseStock = Field(default_factory=WarehouseStock)
+    dropship: SupplierDropship = Field(default_factory=SupplierDropship)
+    bulk_discount_available: bool = False
+    preferred_source: PreferredFulfillmentSource = PreferredFulfillmentSource.AUTO
+
+
+class ProductFulfillmentUpdate(BaseModel):
+    """Model for updating product fulfillment options"""
+    internal_stock: Optional[WarehouseStock] = None
+    dropship: Optional[SupplierDropship] = None
+    bulk_discount_available: Optional[bool] = None
+    preferred_source: Optional[PreferredFulfillmentSource] = None
+
+
+class Product(BaseModel):
+    """Base product model"""
+    sku: str
+    name: str
+    description: Optional[str] = None
+    category_id: Optional[str] = None
+    manufacturer_id: Optional[str] = None
+    upc: Optional[str] = None
+    price: Optional[float] = None
+    cost: Optional[float] = None
+    status: str = "active"
+    
+    class Config:
+        from_attributes = True
+
+
+class ProductWithFulfillment(Product):
+    """Product model with fulfillment information"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    fulfillment: ProductFulfillment = Field(default_factory=ProductFulfillment)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    
+    class Config:
+        from_attributes = True
+
+
+class Warehouse(BaseModel):
+    """Warehouse model"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    code: str
+    address: Optional[Address] = None
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    
+    class Config:
+        from_attributes = True
