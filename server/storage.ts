@@ -744,11 +744,57 @@ export class MemStorage implements IStorage {
 
   // Product methods
   async getProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
+    return Array.from(this.products.values()).map(product => {
+      const category = this.categories.get(product.categoryId);
+      
+      // Calculate aggregate stock quantity across all suppliers and warehouses
+      // In a real implementation, this would query the warehouse inventory table
+      let stockQuantity = product.inventoryQuantity || 0;
+      
+      // Add stock from suppliers (simulating multiple warehouses)
+      const productSuppliersList = Array.from(this.productSuppliers.values())
+        .filter(ps => ps.productId === product.id);
+      
+      // Each supplier might have inventory in multiple warehouses
+      productSuppliersList.forEach(ps => {
+        // In a real implementation, this would be from a warehouse_inventory table
+        // For now, we'll simulate by adding a random amount per supplier (1-25 units)
+        const supplierStock = Math.floor(Math.random() * 25) + 1;
+        stockQuantity += supplierStock;
+      });
+      
+      return {
+        ...product,
+        categoryName: category ? category.name : null,
+        stockQuantity: stockQuantity
+      };
+    });
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
-    return this.products.get(id);
+    const product = this.products.get(id);
+    if (!product) return undefined;
+    
+    const category = this.categories.get(product.categoryId);
+    
+    // Calculate aggregate stock quantity across all suppliers and warehouses
+    let stockQuantity = product.inventoryQuantity || 0;
+    
+    // Add stock from suppliers (simulating multiple warehouses)
+    const productSuppliersList = Array.from(this.productSuppliers.values())
+      .filter(ps => ps.productId === product.id);
+    
+    productSuppliersList.forEach(ps => {
+      // Simulate warehouse inventory
+      const supplierStock = Math.floor(Math.random() * 25) + 1;
+      stockQuantity += supplierStock;
+    });
+    
+    return {
+      ...product,
+      categoryName: category ? category.name : null,
+      stockQuantity: stockQuantity
+    };
   }
 
   async getProductBySku(sku: string): Promise<Product | undefined> {

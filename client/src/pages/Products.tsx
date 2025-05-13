@@ -636,6 +636,7 @@ const Products = () => {
                   <TableHead>MFG Part #</TableHead>
                   <TableHead>Manufacturer</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -651,6 +652,7 @@ const Products = () => {
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                     </TableRow>
@@ -674,6 +676,16 @@ const Products = () => {
                       <TableCell>{product.manufacturerPartNumber || '-'}</TableCell>
                       <TableCell>{product.manufacturerName || '-'}</TableCell>
                       <TableCell>{product.categoryName || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <span className="font-medium">{product.stockQuantity || 0}</span>
+                          {product.stockQuantity && product.stockQuantity < (product.reorderThreshold || 10) && (
+                            <Badge variant="outline" className="ml-2 text-amber-700 bg-amber-50 border-amber-200">
+                              Low
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={product.status === 'active' ? 'default' : 'secondary'}
