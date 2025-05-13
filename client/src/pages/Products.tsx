@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useReducer } from "react";
 import { 
   Package2, 
   Plus, 
@@ -22,9 +22,21 @@ import {
   BadgePercent,
   ShoppingBag,
   Mail,
-  Gauge
+  Gauge,
+  ChevronLeft,
+  ChevronRight,
+  Sliders
 } from "lucide-react";
-import { useProducts } from "@/hooks/useProducts";
+import { 
+  useProducts, 
+  useProductSearch, 
+  useProductDetails,
+  ProductSearchFilters, 
+  SearchType, 
+  InventoryStatusType 
+} from "@/hooks/useProducts";
+import { useSuppliers } from "@/hooks/useSuppliers";
+import { useCategories } from "@/hooks/useCategories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +47,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationEllipsis, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,12 +88,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 // Search filter schema
@@ -113,12 +134,64 @@ const ProductFlag = ({ active, icon, label }: ProductFlagProps) => {
 };
 
 // Main component
+// Schema and state management for advanced search
+const formSchema = z.object({
+  searchType: z.enum(['all', 'sku', 'mfgPart', 'upc', 'title', 'description', 'category', 'manufacturer']),
+  query: z.string().optional(),
+  category: z.string().optional(),
+  supplier: z.string().optional(),
+  isRemanufactured: z.boolean().default(false),
+  isCloseout: z.boolean().default(false),
+  isOnSale: z.boolean().default(false),
+  hasRebate: z.boolean().default(false),
+  hasFreeShipping: z.boolean().default(false),
+  priceMin: z.string().optional(),
+  priceMax: z.string().optional(),
+  inventoryStatus: z.enum(['all', 'inStock', 'lowStock', 'outOfStock']).default('all'),
+});
+
+type SearchFiltersSchema = z.infer<typeof formSchema>;
+
+// Define action types for filter state reducer
+type FilterAction = 
+  | { type: 'SET_FILTER'; field: keyof ProductSearchFilters; value: any }
+  | { type: 'RESET_FILTERS' }
+  | { type: 'APPLY_FILTERS'; filters: ProductSearchFilters };
+
+// Reducer for managing filter state
+const filterReducer = (state: ProductSearchFilters, action: FilterAction): ProductSearchFilters => {
+  switch (action.type) {
+    case 'SET_FILTER':
+      return { ...state, [action.field]: action.value };
+    case 'RESET_FILTERS':
+      return {
+        searchType: 'all',
+        query: '',
+        isRemanufactured: false,
+        isCloseout: false,
+        isOnSale: false,
+        hasRebate: false,
+        hasFreeShipping: false,
+        inventoryStatus: 'all',
+      };
+    case 'APPLY_FILTERS':
+      return { ...action.filters };
+    default:
+      return state;
+  }
+};
+
 const Products = () => {
-  const { products, isLoading } = useProducts();
+  // State for basic and advanced search
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<SearchFilters>({
-    searchType: 'all',
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Filter state using reducer
+  const [filters, dispatchFilters] = useReducer(filterReducer, {
+    searchType: 'all' as SearchType,
+    query: '',
+    inventoryStatus: 'all' as InventoryStatusType,
     query: '',
     isRemanufactured: false,
     isCloseout: false,
