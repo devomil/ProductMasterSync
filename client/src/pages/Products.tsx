@@ -29,14 +29,10 @@ import {
 } from "lucide-react";
 import { 
   useProducts, 
-  useProductSearch, 
-  useProductDetails,
   ProductSearchFilters, 
   SearchType, 
   InventoryStatusType 
 } from "@/hooks/useProducts";
-import { useSuppliers } from "@/hooks/useSuppliers";
-import { useCategories } from "@/hooks/useCategories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,9 +58,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
-  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,6 +66,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -80,6 +75,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -88,7 +84,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -102,6 +97,8 @@ const searchFilterSchema = z.object({
   query: z.string().optional(),
   category: z.string().optional(),
   manufacturer: z.string().optional(),
+  status: z.string().optional(),
+  supplier: z.string().optional(),
   isRemanufactured: z.boolean().optional(),
   isCloseout: z.boolean().optional(),
   isOnSale: z.boolean().optional(),
@@ -131,25 +128,6 @@ const ProductFlag = ({ active, icon, label }: ProductFlagProps) => {
   ) : null;
 };
 
-// Main component
-// Schema and state management for advanced search
-const formSchema = z.object({
-  searchType: z.enum(['all', 'sku', 'mfgPart', 'upc', 'title', 'description', 'category', 'manufacturer']),
-  query: z.string().optional(),
-  category: z.string().optional(),
-  supplier: z.string().optional(),
-  isRemanufactured: z.boolean().default(false),
-  isCloseout: z.boolean().default(false),
-  isOnSale: z.boolean().default(false),
-  hasRebate: z.boolean().default(false),
-  hasFreeShipping: z.boolean().default(false),
-  priceMin: z.string().optional(),
-  priceMax: z.string().optional(),
-  inventoryStatus: z.enum(['all', 'inStock', 'lowStock', 'outOfStock']).default('all'),
-});
-
-type SearchFilters = z.infer<typeof searchFilterSchema>;
-
 // Define action types for filter state reducer
 type FilterAction = 
   | { type: 'SET_FILTER'; field: keyof ProductSearchFilters; value: any }
@@ -165,6 +143,9 @@ const filterReducer = (state: ProductSearchFilters, action: FilterAction): Produ
       return {
         searchType: 'all',
         query: '',
+        category: '',
+        status: '',
+        supplier: '',
         isRemanufactured: false,
         isCloseout: false,
         isOnSale: false,
@@ -179,6 +160,7 @@ const filterReducer = (state: ProductSearchFilters, action: FilterAction): Produ
   }
 };
 
+// Main component
 const Products = () => {
   // State for basic and advanced search
   const [searchQuery, setSearchQuery] = useState("");
@@ -189,6 +171,9 @@ const Products = () => {
   const [filters, dispatchFilters] = useReducer(filterReducer, {
     searchType: 'all' as SearchType,
     query: '',
+    category: '',
+    status: '',
+    supplier: '',
     inventoryStatus: 'all' as InventoryStatusType,
     isRemanufactured: false,
     isCloseout: false,
@@ -197,11 +182,15 @@ const Products = () => {
     hasFreeShipping: false,
   });
 
+  // Form for advanced search dialog
   const form = useForm({
     resolver: zodResolver(searchFilterSchema),
     defaultValues: {
       searchType: 'all',
       query: '',
+      category: '',
+      status: '',
+      supplier: '',
       isRemanufactured: false,
       isCloseout: false,
       isOnSale: false,
@@ -217,7 +206,7 @@ const Products = () => {
   // Filtering logic
   const filteredProducts = products.filter(product => {
     // Simple search without filters
-    if (searchQuery && !Object.values(filters).some(v => v)) {
+    if (searchQuery && !Object.values(filters).some(v => v && v !== '' && v !== 'all')) {
       return product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -227,7 +216,7 @@ const Products = () => {
     }
 
     // Advanced filtering
-    if (Object.values(filters).some(v => v)) {
+    if (Object.values(filters).some(v => v && v !== '' && v !== 'all')) {
       let matches = true;
 
       // Text search based on searchType
@@ -269,6 +258,23 @@ const Products = () => {
         }
       }
 
+      // Category filter
+      if (filters.category) {
+        // For demonstration purposes - match the category name
+        const category = product.categoryName || '';
+        matches = matches && category === filters.category;
+      }
+
+      // Status filter
+      if (filters.status) {
+        matches = matches && product.status === filters.status;
+      }
+      
+      // Supplier filter
+      if (filters.supplier) {
+        matches = matches && product.manufacturerName === filters.supplier;
+      }
+
       // Special flags
       if (filters.isRemanufactured) matches = matches && (product.isRemanufactured || false);
       if (filters.isCloseout) matches = matches && (product.isCloseout || false);
@@ -306,8 +312,9 @@ const Products = () => {
       filters: {
         searchType: data.searchType as SearchType,
         query: data.query || "",
-        category: data.category,
-        manufacturer: data.manufacturer,
+        category: data.category || "",
+        status: data.status || "",
+        supplier: data.supplier || "",
         isRemanufactured: data.isRemanufactured || false,
         isCloseout: data.isCloseout || false,
         isOnSale: data.isOnSale || false,
@@ -325,6 +332,9 @@ const Products = () => {
     const defaultFilters = {
       searchType: 'all' as SearchType,
       query: '',
+      category: '',
+      status: '',
+      supplier: '',
       isRemanufactured: false,
       isCloseout: false,
       isOnSale: false,
@@ -404,16 +414,10 @@ const Products = () => {
                 <Filter className="mr-2 h-4 w-4" />
                 Advanced Search
               </Button>
-              {Object.values(filters).some(v => v) && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={resetFilters}
-                >
-                  <X className="mr-2 h-4 w-4" />
-                  Clear Filters
-                </Button>
-              )}
+              <Button variant="outline" size="sm" onClick={resetFilters}>
+                <X className="mr-2 h-4 w-4" />
+                Clear Filters
+              </Button>
               <Button variant="outline" size="sm">
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Refresh
@@ -422,7 +426,7 @@ const Products = () => {
           </div>
           
           {/* Active Filters Display */}
-          {Object.values(filters).some(v => v) && (
+          {Object.values(filters).some(v => v && v !== '' && v !== 'all') && (
             <div className="bg-neutral-50 border border-neutral-200 rounded-md p-3">
               <h4 className="text-sm font-medium mb-2">Active Filters:</h4>
               <div className="flex flex-wrap gap-2">
@@ -545,172 +549,51 @@ const Products = () => {
                 </SelectContent>
               </Select>
             </div>
-          </div>
             
-          {/* Action buttons for import/export */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* Applied filters summary */}
-        {Object.values(filters).some(v => v) && (
-          <div className="mt-4 bg-neutral-50 p-3 rounded-md">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium">Active Filters:</span>
-              {filters.query && (
-                <Badge variant="secondary" className="gap-1">
-                  {filters.searchType !== 'all' ? `${filters.searchType}: ` : ''}
-                  {filters.query}
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'query', 
-                      value: '' 
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.isRemanufactured && (
-                <Badge variant="secondary" className="gap-1">
-                  Remanufactured
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'isRemanufactured', 
-                      value: false 
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.isCloseout && (
-                <Badge variant="secondary" className="gap-1">
-                  Closeout
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'isCloseout', 
-                      value: false 
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.isOnSale && (
-                <Badge variant="secondary" className="gap-1">
-                  On Sale
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'isOnSale', 
-                      value: false 
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.hasRebate && (
-                <Badge variant="secondary" className="gap-1">
-                  Rebate
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'hasRebate', 
-                      value: false 
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.hasFreeShipping && (
-                <Badge variant="secondary" className="gap-1">
-                  Free Shipping
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'hasFreeShipping', 
-                      value: false 
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.inventoryStatus && filters.inventoryStatus !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  {filters.inventoryStatus === 'inStock' ? 'In Stock' : 
-                   filters.inventoryStatus === 'lowStock' ? 'Low Stock' : 'Out of Stock'}
-                  <button onClick={() => {
-                    dispatchFilters({ 
-                      type: 'SET_FILTER', 
-                      field: 'inventoryStatus', 
-                      value: 'all'
-                    });
-                  }} className="ml-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
+            <div className="ml-auto flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
             </div>
           </div>
-        )}
 
-        <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-md">
-          <div className="overflow-x-auto">
+          {/* Products Table */}
+          <div className="mt-6 overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">SKU</TableHead>
-                  <TableHead className="w-[120px]">MFG Part #</TableHead>
-                  <TableHead className="w-[120px]">UPC</TableHead>
+                  <TableHead className="w-[180px]">
+                    SKU
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </TableHead>
                   <TableHead>
                     <div className="flex items-center">
                       Product Name
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </div>
                   </TableHead>
+                  <TableHead>UPC</TableHead>
+                  <TableHead>MFG Part #</TableHead>
                   <TableHead>Manufacturer</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Status</TableHead>
@@ -731,39 +614,33 @@ const Products = () => {
                       <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                     </TableRow>
                   ))
-                ) : filteredProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-6 text-neutral-500">
-                      {searchQuery || Object.values(filters).some(v => v) 
-                        ? "No products matching your search criteria" 
-                        : "No products available"}
-                    </TableCell>
-                  </TableRow>
                 ) : (
-                  filteredProducts.map((product) => (
+                  filteredProducts.map(product => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                      <TableCell className="font-mono text-sm">{product.manufacturerPartNumber || "-"}</TableCell>
-                      <TableCell className="font-mono text-sm">{product.upc || "-"}</TableCell>
+                      <TableCell className="font-medium">{product.sku}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{product.name}</div>
-                        {getSpecialFlagComponents(product)}
+                        <div>
+                          <div className="font-medium">{product.name}</div>
+                          {getSpecialFlagComponents(product)}
+                        </div>
                       </TableCell>
-                      <TableCell>{product.manufacturerName || "-"}</TableCell>
+                      <TableCell>{product.upc || '-'}</TableCell>
+                      <TableCell>{product.manufacturerPartNumber || '-'}</TableCell>
+                      <TableCell>{product.manufacturerName || '-'}</TableCell>
+                      <TableCell>{product.categoryName || '-'}</TableCell>
                       <TableCell>
-                        {product.categoryId === 1 ? "Electronics" : 
-                         product.categoryId === 2 ? "Office Supplies" : 
-                         product.categoryId === 3 ? "Furniture" : "Uncategorized"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={product.status === "active" ? "success" : "secondary"}>
-                          {product.status}
+                        <Badge
+                          variant={product.status === 'active' ? 'default' : 'secondary'}
+                          className={product.status === 'active' ? 'bg-green-50 text-green-700 hover:bg-green-50 border-green-200' : ''}
+                        >
+                          {product.status || 'inactive'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -773,7 +650,7 @@ const Products = () => {
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem>
-                              <Package2 className="mr-2 h-4 w-4" />
+                              <Barcode className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -790,6 +667,35 @@ const Products = () => {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          <div className="mt-5 flex items-center justify-between">
+            <div className="text-sm text-neutral-500">
+              Showing <span className="font-medium">{filteredProducts.length > 0 ? 1 : 0}</span> to <span className="font-medium">{Math.min(10, filteredProducts.length)}</span> of <span className="font-medium">{filteredProducts.length}</span> products
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#" isActive>1</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#">2</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#">3</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationEllipsis />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext href="#" />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       </div>
 
@@ -798,6 +704,9 @@ const Products = () => {
         <DialogContent className="sm:max-w-md md:max-w-xl">
           <DialogHeader>
             <DialogTitle>Advanced Search</DialogTitle>
+            <DialogDescription>
+              Search and filter products with multiple criteria
+            </DialogDescription>
           </DialogHeader>
 
           <Form {...form}>
@@ -821,26 +730,22 @@ const Products = () => {
                             onValueChange={field.onChange} 
                             defaultValue={field.value}
                           >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select field" />
-                              </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select field" />
+                            </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Fields</SelectItem>
                               <SelectItem value="sku">SKU</SelectItem>
                               <SelectItem value="mfgPart">Manufacturer Part #</SelectItem>
-                              <SelectItem value="upc">UPC Code</SelectItem>
-                              <SelectItem value="title">Title</SelectItem>
+                              <SelectItem value="upc">UPC</SelectItem>
+                              <SelectItem value="title">Product Name</SelectItem>
                               <SelectItem value="description">Description</SelectItem>
-                              <SelectItem value="category">Category</SelectItem>
                               <SelectItem value="manufacturer">Manufacturer</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name="query"
@@ -848,8 +753,58 @@ const Products = () => {
                         <FormItem>
                           <FormLabel>Search Term</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter search term" {...field} />
+                            <Input {...field} placeholder="Enter search term" />
                           </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All Categories" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">All Categories</SelectItem>
+                              <SelectItem value="Electronics">Electronics</SelectItem>
+                              <SelectItem value="Office Supplies">Office Supplies</SelectItem>
+                              <SelectItem value="Furniture">Furniture</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="supplier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Supplier</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="All Suppliers" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">All Suppliers</SelectItem>
+                              <SelectItem value="TechVision">TechVision</SelectItem>
+                              <SelectItem value="OfficeMax">OfficeMax</SelectItem>
+                              <SelectItem value="AudioTech">AudioTech</SelectItem>
+                              <SelectItem value="WoodWorks">WoodWorks</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </FormItem>
                       )}
                     />
@@ -857,116 +812,112 @@ const Products = () => {
                 </TabsContent>
                 
                 <TabsContent value="attributes" className="space-y-4">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="isRemanufactured"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel className="flex items-center gap-1">
-                                  <Gauge className="h-4 w-4" />
-                                  Remanufactured
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="isCloseout"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel className="flex items-center gap-1">
-                                  <Tag className="h-4 w-4" />
-                                  Closeout
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="isOnSale"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel className="flex items-center gap-1">
-                                  <ShoppingBag className="h-4 w-4" />
-                                  On Sale
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="hasRebate"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel className="flex items-center gap-1">
-                                  <BadgePercent className="h-4 w-4" />
-                                  Rebate
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="hasFreeShipping"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel className="flex items-center gap-1">
-                                  <Truck className="h-4 w-4" />
-                                  Free Shipping
-                                </FormLabel>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="isRemanufactured"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Remanufactured</FormLabel>
+                            <FormDescription>
+                              Products that have been refurbished or remanufactured
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="isCloseout"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Closeout</FormLabel>
+                            <FormDescription>
+                              Products marked for closeout or discontinuation
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="isOnSale"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>On Sale</FormLabel>
+                            <FormDescription>
+                              Products currently on sale or discount
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="hasRebate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Has Rebate</FormLabel>
+                            <FormDescription>
+                              Products eligible for rebate or cash back
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="hasFreeShipping"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Free Shipping</FormLabel>
+                            <FormDescription>
+                              Products eligible for free shipping
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </TabsContent>
                 
                 <TabsContent value="inventory" className="space-y-4">
@@ -974,45 +925,71 @@ const Products = () => {
                     control={form.control}
                     name="inventoryStatus"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="space-y-2">
                         <FormLabel>Inventory Status</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select inventory status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="all">All Inventory Statuses</SelectItem>
-                            <SelectItem value="inStock">In Stock</SelectItem>
-                            <SelectItem value="lowStock">Low Stock</SelectItem>
-                            <SelectItem value="outOfStock">Out of Stock</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                id="all"
+                                className="text-primary"
+                                value="all"
+                                checked={field.value === 'all'}
+                                onChange={() => field.onChange('all')}
+                              />
+                              <label htmlFor="all" className="text-sm">All</label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                id="inStock"
+                                className="text-primary"
+                                value="inStock"
+                                checked={field.value === 'inStock'}
+                                onChange={() => field.onChange('inStock')}
+                              />
+                              <label htmlFor="inStock" className="text-sm">In Stock</label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                id="lowStock"
+                                className="text-primary"
+                                value="lowStock"
+                                checked={field.value === 'lowStock'}
+                                onChange={() => field.onChange('lowStock')}
+                              />
+                              <label htmlFor="lowStock" className="text-sm">Low Stock</label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                id="outOfStock"
+                                className="text-primary"
+                                value="outOfStock"
+                                checked={field.value === 'outOfStock'}
+                                onChange={() => field.onChange('outOfStock')}
+                              />
+                              <label htmlFor="outOfStock" className="text-sm">Out of Stock</label>
+                            </div>
+                          </div>
+                        </FormControl>
                       </FormItem>
                     )}
                   />
                 </TabsContent>
               </Tabs>
 
-              <div className="flex justify-end gap-3">
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={() => setIsAdvancedSearchOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="button" variant="outline" onClick={resetFilters}>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => {
+                  resetFilters();
+                  setIsAdvancedSearchOpen(false);
+                }}>
                   Reset
                 </Button>
-                <Button type="submit">
-                  Apply Filters
-                </Button>
-              </div>
+                <Button type="submit">Apply Filters</Button>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
