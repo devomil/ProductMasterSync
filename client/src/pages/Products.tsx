@@ -259,19 +259,19 @@ const Products = () => {
       }
 
       // Category filter
-      if (filters.category) {
+      if (filters.category && filters.category !== 'all_categories') {
         // For demonstration purposes - match the category name
         const category = product.categoryName || '';
         matches = matches && category === filters.category;
       }
 
       // Status filter
-      if (filters.status) {
+      if (filters.status && filters.status !== 'all_statuses') {
         matches = matches && product.status === filters.status;
       }
       
       // Supplier filter
-      if (filters.supplier) {
+      if (filters.supplier && filters.supplier !== 'all_suppliers') {
         matches = matches && product.manufacturerName === filters.supplier;
       }
 
@@ -500,7 +500,7 @@ const Products = () => {
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all_categories">All Categories</SelectItem>
                   <SelectItem value="Electronics">Electronics</SelectItem>
                   <SelectItem value="Office Supplies">Office Supplies</SelectItem>
                   <SelectItem value="Furniture">Furniture</SelectItem>
@@ -521,7 +521,7 @@ const Products = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all_statuses">All Statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
@@ -541,7 +541,7 @@ const Products = () => {
                   <SelectValue placeholder="Supplier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Suppliers</SelectItem>
+                  <SelectItem value="all_suppliers">All Suppliers</SelectItem>
                   <SelectItem value="TechVision">TechVision</SelectItem>
                   <SelectItem value="OfficeMax">OfficeMax</SelectItem>
                   <SelectItem value="AudioTech">AudioTech</SelectItem>
@@ -775,7 +775,7 @@ const Products = () => {
                               <SelectValue placeholder="All Categories" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">All Categories</SelectItem>
+                              <SelectItem value="all_categories">All Categories</SelectItem>
                               <SelectItem value="Electronics">Electronics</SelectItem>
                               <SelectItem value="Office Supplies">Office Supplies</SelectItem>
                               <SelectItem value="Furniture">Furniture</SelectItem>
@@ -798,7 +798,7 @@ const Products = () => {
                               <SelectValue placeholder="All Suppliers" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">All Suppliers</SelectItem>
+                              <SelectItem value="all_suppliers">All Suppliers</SelectItem>
                               <SelectItem value="TechVision">TechVision</SelectItem>
                               <SelectItem value="OfficeMax">OfficeMax</SelectItem>
                               <SelectItem value="AudioTech">AudioTech</SelectItem>
