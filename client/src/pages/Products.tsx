@@ -214,7 +214,7 @@ const Products = () => {
   // Filtering logic
   const filteredProducts = products.filter(product => {
     // Simple search without filters
-    if (searchQuery && !Object.values(activeFilters).some(v => v)) {
+    if (searchQuery && !Object.values(filters).some(v => v)) {
       return product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -224,13 +224,13 @@ const Products = () => {
     }
 
     // Advanced filtering
-    if (Object.values(activeFilters).some(v => v)) {
+    if (Object.values(filters).some(v => v)) {
       let matches = true;
 
       // Text search based on searchType
-      if (activeFilters.query) {
-        const query = activeFilters.query.toLowerCase();
-        switch (activeFilters.searchType) {
+      if (filters.query) {
+        const query = filters.query.toLowerCase();
+        switch (filters.searchType) {
           case 'sku':
             matches = matches && product.sku.toLowerCase().includes(query);
             break;
@@ -248,7 +248,7 @@ const Products = () => {
             break;
           case 'category':
             // This would need to match category name if available
-            matches = matches && (product.categoryId?.toString() === activeFilters.category || false);
+            matches = matches && (product.categoryId?.toString() === filters.category || false);
             break;
           case 'manufacturer':
             matches = matches && (product.manufacturerName?.toLowerCase().includes(query) || false);
@@ -267,18 +267,18 @@ const Products = () => {
       }
 
       // Special flags
-      if (activeFilters.isRemanufactured) matches = matches && (product.isRemanufactured || false);
-      if (activeFilters.isCloseout) matches = matches && (product.isCloseout || false);
-      if (activeFilters.isOnSale) matches = matches && (product.isOnSale || false);
-      if (activeFilters.hasRebate) matches = matches && (product.hasRebate || false);
-      if (activeFilters.hasFreeShipping) matches = matches && (product.hasFreeShipping || false);
+      if (filters.isRemanufactured) matches = matches && (product.isRemanufactured || false);
+      if (filters.isCloseout) matches = matches && (product.isCloseout || false);
+      if (filters.isOnSale) matches = matches && (product.isOnSale || false);
+      if (filters.hasRebate) matches = matches && (product.hasRebate || false);
+      if (filters.hasFreeShipping) matches = matches && (product.hasFreeShipping || false);
 
       // Inventory status
-      if (activeFilters.inventoryStatus !== 'all') {
+      if (filters.inventoryStatus !== 'all') {
         const qty = product.inventoryQuantity || 0;
         const threshold = product.reorderThreshold || 5;
 
-        switch (activeFilters.inventoryStatus) {
+        switch (filters.inventoryStatus) {
           case 'inStock':
             matches = matches && qty > threshold;
             break;
