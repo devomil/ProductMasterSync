@@ -211,6 +211,9 @@ const Products = () => {
     },
   });
 
+  // Get products data from API
+  const { products, isLoading } = useProducts();
+
   // Filtering logic
   const filteredProducts = products.filter(product => {
     // Simple search without filters
