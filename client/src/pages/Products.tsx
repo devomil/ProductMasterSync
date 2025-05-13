@@ -45,6 +45,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
+} from "@/components/ui/drawer";
 import { 
   Pagination, 
   PaginationContent, 
@@ -172,8 +180,8 @@ const Products = () => {
   const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   
-  // State for fulfillment drawer
-  const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string} | null>(null);
+  // State for product drawers
+  const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string, upc: string | null} | null>(null);
   const [fulfillmentDrawerOpen, setFulfillmentDrawerOpen] = useState(false);
   const [amazonDataDrawerOpen, setAmazonDataDrawerOpen] = useState(false);
   
@@ -721,14 +729,22 @@ const Products = () => {
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
-                              setSelectedProduct({ id: String(product.id), name: product.name });
+                              setSelectedProduct({ 
+                                id: String(product.id), 
+                                name: product.name,
+                                upc: product.upc 
+                              });
                               setFulfillmentDrawerOpen(true);
                             }}>
                               <Package2 className="mr-2 h-4 w-4" />
                               Manage Fulfillment
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
-                              setSelectedProduct({ id: String(product.id), name: product.name });
+                              setSelectedProduct({ 
+                                id: String(product.id), 
+                                name: product.name,
+                                upc: product.upc
+                              });
                               setAmazonDataDrawerOpen(true);
                             }}>
                               <ShoppingBag className="mr-2 h-4 w-4" />
@@ -1110,6 +1126,31 @@ const Products = () => {
         productId={selectedProduct?.id || null}
         productName={selectedProduct?.name || ''}
       />
+
+      {/* Amazon Market Data Drawer */}
+      <Drawer open={amazonDataDrawerOpen} onOpenChange={setAmazonDataDrawerOpen} direction="right" size="lg">
+        <DrawerContent>
+          <DrawerHeader className="border-b">
+            <DrawerTitle>Amazon Marketplace Intelligence</DrawerTitle>
+            <DrawerDescription>
+              Marketplace data for {selectedProduct?.name || 'Product'}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="p-6">
+            {selectedProduct && (
+              <AmazonMarketData
+                productId={parseInt(selectedProduct.id)}
+                upc={selectedProduct.upc}
+              />
+            )}
+          </div>
+          <DrawerFooter className="border-t">
+            <Button variant="outline" onClick={() => setAmazonDataDrawerOpen(false)}>
+              Close
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
