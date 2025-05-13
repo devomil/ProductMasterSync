@@ -39,45 +39,19 @@ export interface Supplier {
 export function useProductFulfillment(productId: string | null) {
   // Get fulfillment options for a product
   const { data: fulfillment, isLoading, error } = useQuery({
-    queryKey: ['/api/products/fulfillment', productId],
-    queryFn: async () => {
-      if (!productId) return null;
-      const response = await apiRequest(`/api/products/${productId}/fulfillment`);
-      return response.json().then(data => data as ProductFulfillment);
-    },
+    queryKey: [`/api/products/${productId}/fulfillment`],
     enabled: !!productId,
   });
 
   // Get warehouse stock for product
   const { data: stockData } = useQuery({
-    queryKey: ['/api/products/stock', productId],
-    queryFn: async () => {
-      if (!productId) return null;
-      const response = await apiRequest(`/api/products/${productId}/stock`);
-      return response.json().then(data => data as { 
-        total: number; 
-        internal: { 
-          enabled: boolean;
-          total: number;
-          warehouses: WarehouseLocation[];
-        }; 
-        dropship: {
-          enabled: boolean;
-          supplier: { id: number; name: string; } | null;
-          stock: number;
-        }
-      });
-    },
+    queryKey: [`/api/products/${productId}/stock`],
     enabled: !!productId,
   });
 
   // Get suppliers list for dropship selection
   const { data: suppliers = [] } = useQuery({
     queryKey: ['/api/suppliers'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/suppliers');
-      return response.json().then(data => data as Supplier[]);
-    },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -85,18 +59,13 @@ export function useProductFulfillment(productId: string | null) {
   const { mutate: updateFulfillment, isPending: isUpdating } = useMutation({
     mutationFn: async (updatedData: Partial<ProductFulfillment>) => {
       if (!productId) throw new Error('Product ID is required');
-      return await apiRequest(`/api/products/${productId}/fulfillment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updatedData),
-      }).then(response => response.json());
+      return await apiRequest('POST', `/api/products/${productId}/fulfillment`, updatedData)
+        .then(response => response.json());
     },
     onSuccess: () => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/products/fulfillment', productId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/products/stock', productId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/products/${productId}/fulfillment`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/products/${productId}/stock`] });
       queryClient.invalidateQueries({ queryKey: ['/api/products'] }); // To update stock data in products list
     },
   });
