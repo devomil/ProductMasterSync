@@ -6,6 +6,15 @@ import { z } from "zod";
 export const importStatusEnum = pgEnum('import_status', ['pending', 'processing', 'success', 'error']);
 export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
 export const exportStatusEnum = pgEnum('export_status', ['pending', 'processing', 'success', 'error']);
+export const dataSourceTypeEnum = pgEnum('data_source_type', [
+  'csv', 'excel', 'json', 'xml', 'edi_x12', 'edifact', 'api', 'sftp', 'ftp', 'manual'
+]);
+export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
+  'once', 'hourly', 'daily', 'weekly', 'monthly', 'custom'
+]);
+export const resolutionStrategyEnum = pgEnum('resolution_strategy', [
+  'newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all'
+]);
 
 // Users table
 export const users = pgTable("users", {
@@ -139,6 +148,99 @@ export const auditLogs = pgTable("audit_logs", {
   userId: integer("user_id").references(() => users.id),
   details: json("details").default({}),
   timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// Data Sources table for configuring various import sources
+export const dataSources = pgTable("data_sources", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: dataSourceTypeEnum("type").notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id),
+  config: json("config").notNull(), // Stores connection details based on source type
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Scheduled imports for data sources
+export const schedules = pgTable("schedules", {
+  id: serial("id").primaryKey(),
+  dataSourceId: integer("data_source_id").references(() => dataSources.id).notNull(),
+  frequency: scheduleFrequencyEnum("frequency").notNull(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  dayOfWeek: integer("day_of_week"), // 0-6 for Sunday to Saturday
+  dayOfMonth: integer("day_of_month"), // 1-31
+  hour: integer("hour"), // 0-23
+  minute: integer("minute"), // 0-59
+  customCron: text("custom_cron"), // For custom CRON expressions
+  lastRun: timestamp("last_run"),
+  nextRun: timestamp("next_run"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Mapping templates for data normalization
+export const mappingTemplates = pgTable("mapping_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sourceType: dataSourceTypeEnum("source_type").notNull(),
+  mappings: json("mappings").notNull(), // Array of field mappings
+  transformations: json("transformations").default([]), // Array of transformations
+  validationRules: json("validation_rules").default([]), // Array of validation rules
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Data Lineage for tracking product data origins
+export const dataLineage = pgTable("data_lineage", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  fieldName: text("field_name").notNull(),
+  sourceId: integer("source_id").notNull(), // ID of import, manual entry, etc.
+  sourceType: text("source_type").notNull(), // 'import', 'manual', 'api', etc.
+  userId: integer("user_id").references(() => users.id),
+  previousValue: json("previous_value"),
+  confidence: integer("confidence"), // 0-100 confidence score
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// Data merging configuration
+export const dataMergingConfig = pgTable("data_merging_config", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  strategy: resolutionStrategyEnum("strategy").notNull(),
+  preferredSourceId: integer("preferred_source_id"),
+  confidenceThreshold: integer("confidence_threshold"),
+  fieldStrategies: json("field_strategies").default({}), // Field-specific strategies
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Workflow definitions for automation
+export const workflows = pgTable("workflows", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  steps: json("steps").notNull(), // Array of workflow steps
+  triggers: json("triggers").notNull(), // What triggers this workflow
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Workflow execution history
+export const workflowExecutions = pgTable("workflow_executions", {
+  id: serial("id").primaryKey(),
+  workflowId: integer("workflow_id").references(() => workflows.id).notNull(),
+  status: text("status").notNull(), // 'running', 'completed', 'failed'
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  results: json("results"), // Results of each step
+  error: text("error"),
 });
 
 // Schemas for insertions
