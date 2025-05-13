@@ -718,6 +718,13 @@ const Products = () => {
                               <Barcode className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedProduct({ id: String(product.id), name: product.name });
+                              setFulfillmentDrawerOpen(true);
+                            }}>
+                              <Package2 className="mr-2 h-4 w-4" />
+                              Manage Fulfillment
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600">
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -1086,6 +1093,14 @@ const Products = () => {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Fulfillment Management Drawer */}
+      <FulfillmentDrawer 
+        isOpen={fulfillmentDrawerOpen}
+        onClose={() => setFulfillmentDrawerOpen(false)}
+        productId={selectedProduct?.id || null}
+        productName={selectedProduct?.name || ''}
+      />
     </>
   );
 };
