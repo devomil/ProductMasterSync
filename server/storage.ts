@@ -176,6 +176,15 @@ export class MemStorage implements IStorage {
     this.exports = new Map();
     this.approvals = new Map();
     this.auditLogs = new Map();
+    
+    // Initialize data integration maps
+    this.dataSources = new Map();
+    this.schedules = new Map();
+    this.mappingTemplates = new Map();
+    this.dataLineage = new Map();
+    this.dataMergingConfigs = new Map();
+    this.workflows = new Map();
+    this.workflowExecutions = new Map();
 
     // Initialize with sample data
     this.initializeSampleData();
@@ -762,6 +771,331 @@ export class MemStorage implements IStorage {
     };
     this.auditLogs.set(id, newAuditLog);
     return newAuditLog;
+  }
+
+  // Data source management
+  async getDataSources(): Promise<DataSource[]> {
+    return Array.from(this.dataSources.values());
+  }
+
+  async getDataSource(id: number): Promise<DataSource | undefined> {
+    return this.dataSources.get(id);
+  }
+
+  async getDataSourcesByType(type: string): Promise<DataSource[]> {
+    return Array.from(this.dataSources.values()).filter(ds => ds.type === type);
+  }
+
+  async getDataSourcesBySupplier(supplierId: number): Promise<DataSource[]> {
+    return Array.from(this.dataSources.values()).filter(ds => ds.supplierId === supplierId);
+  }
+
+  async createDataSource(dataSource: InsertDataSource): Promise<DataSource> {
+    const id = this.dataSourceIdCounter++;
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    const newDataSource = { 
+      ...dataSource,
+      id, 
+      createdAt, 
+      updatedAt 
+    };
+    this.dataSources.set(id, newDataSource);
+    return newDataSource;
+  }
+
+  async updateDataSource(id: number, dataSource: Partial<InsertDataSource>): Promise<DataSource | undefined> {
+    const existingDataSource = this.dataSources.get(id);
+    if (!existingDataSource) return undefined;
+    
+    const updatedDataSource = { 
+      ...existingDataSource, 
+      ...dataSource, 
+      updatedAt: new Date() 
+    };
+    this.dataSources.set(id, updatedDataSource);
+    return updatedDataSource;
+  }
+
+  async deleteDataSource(id: number): Promise<boolean> {
+    return this.dataSources.delete(id);
+  }
+
+  // Schedule management
+  async getSchedules(): Promise<Schedule[]> {
+    return Array.from(this.schedules.values());
+  }
+
+  async getSchedulesByDataSource(dataSourceId: number): Promise<Schedule[]> {
+    return Array.from(this.schedules.values()).filter(s => s.dataSourceId === dataSourceId);
+  }
+
+  async getSchedule(id: number): Promise<Schedule | undefined> {
+    return this.schedules.get(id);
+  }
+
+  async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
+    const id = this.scheduleIdCounter++;
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    const newSchedule = { 
+      ...schedule,
+      id, 
+      createdAt, 
+      updatedAt, 
+      lastRun: null, 
+      nextRun: null 
+    };
+    this.schedules.set(id, newSchedule);
+    return newSchedule;
+  }
+
+  async updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule | undefined> {
+    const existingSchedule = this.schedules.get(id);
+    if (!existingSchedule) return undefined;
+    
+    const updatedSchedule = { 
+      ...existingSchedule, 
+      ...schedule, 
+      updatedAt: new Date() 
+    };
+    this.schedules.set(id, updatedSchedule);
+    return updatedSchedule;
+  }
+
+  async deleteSchedule(id: number): Promise<boolean> {
+    return this.schedules.delete(id);
+  }
+
+  async updateScheduleLastRun(id: number, lastRun: Date): Promise<Schedule | undefined> {
+    const schedule = this.schedules.get(id);
+    if (!schedule) return undefined;
+    
+    const updatedSchedule = { ...schedule, lastRun, updatedAt: new Date() };
+    this.schedules.set(id, updatedSchedule);
+    return updatedSchedule;
+  }
+
+  async updateScheduleNextRun(id: number, nextRun: Date): Promise<Schedule | undefined> {
+    const schedule = this.schedules.get(id);
+    if (!schedule) return undefined;
+    
+    const updatedSchedule = { ...schedule, nextRun, updatedAt: new Date() };
+    this.schedules.set(id, updatedSchedule);
+    return updatedSchedule;
+  }
+
+  // Mapping template management
+  async getMappingTemplates(): Promise<MappingTemplate[]> {
+    return Array.from(this.mappingTemplates.values());
+  }
+
+  async getMappingTemplate(id: number): Promise<MappingTemplate | undefined> {
+    return this.mappingTemplates.get(id);
+  }
+
+  async getMappingTemplatesBySourceType(sourceType: string): Promise<MappingTemplate[]> {
+    return Array.from(this.mappingTemplates.values()).filter(mt => mt.sourceType === sourceType);
+  }
+
+  async createMappingTemplate(mappingTemplate: InsertMappingTemplate): Promise<MappingTemplate> {
+    const id = this.mappingTemplateIdCounter++;
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    const newMappingTemplate = { 
+      ...mappingTemplate,
+      id, 
+      createdAt, 
+      updatedAt 
+    };
+    this.mappingTemplates.set(id, newMappingTemplate);
+    return newMappingTemplate;
+  }
+
+  async updateMappingTemplate(id: number, mappingTemplate: Partial<InsertMappingTemplate>): Promise<MappingTemplate | undefined> {
+    const existingTemplate = this.mappingTemplates.get(id);
+    if (!existingTemplate) return undefined;
+    
+    const updatedTemplate = { 
+      ...existingTemplate, 
+      ...mappingTemplate, 
+      updatedAt: new Date() 
+    };
+    this.mappingTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+
+  async deleteMappingTemplate(id: number): Promise<boolean> {
+    return this.mappingTemplates.delete(id);
+  }
+
+  // Data lineage
+  async getDataLineageByProduct(productId: number): Promise<DataLineage[]> {
+    return Array.from(this.dataLineage.values()).filter(dl => dl.productId === productId);
+  }
+
+  async getDataLineageByField(productId: number, fieldName: string): Promise<DataLineage[]> {
+    return Array.from(this.dataLineage.values()).filter(
+      dl => dl.productId === productId && dl.fieldName === fieldName
+    );
+  }
+
+  async createDataLineage(dataLineage: InsertDataLineage): Promise<DataLineage> {
+    const id = this.dataLineageIdCounter++;
+    const timestamp = new Date();
+    const newDataLineage = { 
+      ...dataLineage,
+      id, 
+      timestamp 
+    };
+    this.dataLineage.set(id, newDataLineage);
+    return newDataLineage;
+  }
+
+  // Data merging configuration
+  async getDataMergingConfigs(): Promise<DataMergingConfig[]> {
+    return Array.from(this.dataMergingConfigs.values());
+  }
+
+  async getDataMergingConfig(id: number): Promise<DataMergingConfig | undefined> {
+    return this.dataMergingConfigs.get(id);
+  }
+
+  async getActiveDataMergingConfig(): Promise<DataMergingConfig | undefined> {
+    return Array.from(this.dataMergingConfigs.values()).find(config => config.active);
+  }
+
+  async createDataMergingConfig(dataMergingConfig: InsertDataMergingConfig): Promise<DataMergingConfig> {
+    const id = this.dataMergingConfigIdCounter++;
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    const newConfig = { 
+      ...dataMergingConfig,
+      id, 
+      createdAt, 
+      updatedAt 
+    };
+    this.dataMergingConfigs.set(id, newConfig);
+    return newConfig;
+  }
+
+  async updateDataMergingConfig(id: number, dataMergingConfig: Partial<InsertDataMergingConfig>): Promise<DataMergingConfig | undefined> {
+    const existingConfig = this.dataMergingConfigs.get(id);
+    if (!existingConfig) return undefined;
+    
+    const updatedConfig = { 
+      ...existingConfig, 
+      ...dataMergingConfig, 
+      updatedAt: new Date() 
+    };
+    this.dataMergingConfigs.set(id, updatedConfig);
+    return updatedConfig;
+  }
+
+  // Workflow management
+  async getWorkflows(): Promise<Workflow[]> {
+    return Array.from(this.workflows.values());
+  }
+
+  async getWorkflow(id: number): Promise<Workflow | undefined> {
+    return this.workflows.get(id);
+  }
+
+  async getActiveWorkflows(): Promise<Workflow[]> {
+    return Array.from(this.workflows.values()).filter(w => w.active);
+  }
+
+  async createWorkflow(workflow: InsertWorkflow): Promise<Workflow> {
+    const id = this.workflowIdCounter++;
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    const newWorkflow = { 
+      ...workflow,
+      id, 
+      createdAt, 
+      updatedAt 
+    };
+    this.workflows.set(id, newWorkflow);
+    return newWorkflow;
+  }
+
+  async updateWorkflow(id: number, workflow: Partial<InsertWorkflow>): Promise<Workflow | undefined> {
+    const existingWorkflow = this.workflows.get(id);
+    if (!existingWorkflow) return undefined;
+    
+    const updatedWorkflow = { 
+      ...existingWorkflow, 
+      ...workflow, 
+      updatedAt: new Date() 
+    };
+    this.workflows.set(id, updatedWorkflow);
+    return updatedWorkflow;
+  }
+
+  // Workflow execution
+  async getWorkflowExecutions(workflowId: number): Promise<WorkflowExecution[]> {
+    return Array.from(this.workflowExecutions.values()).filter(we => we.workflowId === workflowId);
+  }
+
+  async getWorkflowExecution(id: number): Promise<WorkflowExecution | undefined> {
+    return this.workflowExecutions.get(id);
+  }
+
+  async createWorkflowExecution(workflowExecution: InsertWorkflowExecution): Promise<WorkflowExecution> {
+    const id = this.workflowExecutionIdCounter++;
+    const startedAt = new Date();
+    const newExecution = { 
+      ...workflowExecution,
+      id, 
+      startedAt, 
+      completedAt: null 
+    };
+    this.workflowExecutions.set(id, newExecution);
+    return newExecution;
+  }
+
+  async updateWorkflowExecution(id: number, status: string, results?: any, error?: string): Promise<WorkflowExecution | undefined> {
+    const execution = this.workflowExecutions.get(id);
+    if (!execution) return undefined;
+    
+    const updatedExecution = { 
+      ...execution, 
+      status,
+      results: results || execution.results,
+      error: error || execution.error
+    };
+    this.workflowExecutions.set(id, updatedExecution);
+    return updatedExecution;
+  }
+
+  async completeWorkflowExecution(id: number, results: any): Promise<WorkflowExecution | undefined> {
+    const execution = this.workflowExecutions.get(id);
+    if (!execution) return undefined;
+    
+    const completedAt = new Date();
+    const updatedExecution = { 
+      ...execution, 
+      status: 'completed',
+      completedAt,
+      results
+    };
+    this.workflowExecutions.set(id, updatedExecution);
+    return updatedExecution;
+  }
+
+  async failWorkflowExecution(id: number, error: string): Promise<WorkflowExecution | undefined> {
+    const execution = this.workflowExecutions.get(id);
+    if (!execution) return undefined;
+    
+    const completedAt = new Date();
+    const updatedExecution = { 
+      ...execution, 
+      status: 'failed',
+      completedAt,
+      error
+    };
+    this.workflowExecutions.set(id, updatedExecution);
+    return updatedExecution;
   }
 }
 
