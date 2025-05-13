@@ -125,7 +125,7 @@ const Products = () => {
     isOnSale: false,
     hasRebate: false,
     hasFreeShipping: false,
-    inventoryStatus: 'all',
+    inventoryStatus: 'all' as const,
   });
 
   const form = useForm<SearchFilters>({
@@ -138,7 +138,7 @@ const Products = () => {
       isOnSale: false,
       hasRebate: false,
       hasFreeShipping: false,
-      inventoryStatus: 'all',
+      inventoryStatus: 'all' as const,
     },
   });
 
@@ -234,7 +234,7 @@ const Products = () => {
   };
 
   const resetFilters = () => {
-    setActiveFilters({
+    const defaultFilters = {
       searchType: 'all',
       query: '',
       isRemanufactured: false,
@@ -242,18 +242,10 @@ const Products = () => {
       isOnSale: false,
       hasRebate: false,
       hasFreeShipping: false,
-      inventoryStatus: 'all',
-    });
-    form.reset({
-      searchType: 'all',
-      query: '',
-      isRemanufactured: false,
-      isCloseout: false,
-      isOnSale: false,
-      hasRebate: false,
-      hasFreeShipping: false,
-      inventoryStatus: 'all',
-    });
+      inventoryStatus: 'all' as const,
+    };
+    setActiveFilters(defaultFilters);
+    form.reset(defaultFilters);
     setSearchQuery("");
   };
 
