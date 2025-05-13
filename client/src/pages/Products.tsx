@@ -382,40 +382,173 @@ const Products = () => {
       </div>
 
       <div className="mt-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 sm:space-x-4">
-          <div className="relative w-full sm:w-96">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
-            <Input 
-              type="search" 
-              placeholder="Search products..."
-              className="pl-9" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setIsAdvancedSearchOpen(true)}
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              Advanced Search
-            </Button>
-            {Object.values(filters).some(v => v) && (
+        <div className="space-y-4">
+          {/* Search bar and basic controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
+              <Input 
+                type="search" 
+                placeholder="Search products..."
+                className="pl-9" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={resetFilters}
+                onClick={() => setIsAdvancedSearchOpen(true)}
               >
-                <X className="mr-2 h-4 w-4" />
-                Clear Filters
+                <Filter className="mr-2 h-4 w-4" />
+                Advanced Search
               </Button>
-            )}
-            <Button variant="outline" size="sm">
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
+              {Object.values(filters).some(v => v) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={resetFilters}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Clear Filters
+                </Button>
+              )}
+              <Button variant="outline" size="sm">
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+          
+          {/* Active Filters Display */}
+          {Object.values(filters).some(v => v) && (
+            <div className="bg-neutral-50 border border-neutral-200 rounded-md p-3">
+              <h4 className="text-sm font-medium mb-2">Active Filters:</h4>
+              <div className="flex flex-wrap gap-2">
+                {filters.category && (
+                  <Badge variant="outline" className="bg-white">
+                    Category: {filters.category}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-4 w-4 ml-1"
+                      onClick={() => dispatchFilters({
+                        type: 'SET_FILTER',
+                        field: 'category',
+                        value: ''
+                      })}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
+                {filters.status && (
+                  <Badge variant="outline" className="bg-white">
+                    Status: {filters.status}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-4 w-4 ml-1"
+                      onClick={() => dispatchFilters({
+                        type: 'SET_FILTER',
+                        field: 'status',
+                        value: ''
+                      })}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
+                {filters.supplier && (
+                  <Badge variant="outline" className="bg-white">
+                    Supplier: {filters.supplier}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-4 w-4 ml-1"
+                      onClick={() => dispatchFilters({
+                        type: 'SET_FILTER',
+                        field: 'supplier',
+                        value: ''
+                      })}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Quick filter dropdowns */}
+          <div className="flex flex-wrap gap-3">
+            <div className="w-full sm:w-auto">
+              <Select 
+                value={filters.category || ""} 
+                onValueChange={(value) => dispatchFilters({
+                  type: 'SET_FILTER',
+                  field: 'category',
+                  value
+                })}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="Electronics">Electronics</SelectItem>
+                  <SelectItem value="Office Supplies">Office Supplies</SelectItem>
+                  <SelectItem value="Furniture">Furniture</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="w-full sm:w-auto">
+              <Select 
+                value={filters.status || ""} 
+                onValueChange={(value) => dispatchFilters({
+                  type: 'SET_FILTER',
+                  field: 'status',
+                  value
+                })}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="w-full sm:w-auto">
+              <Select 
+                value={filters.supplier || ""} 
+                onValueChange={(value) => dispatchFilters({
+                  type: 'SET_FILTER',
+                  field: 'supplier',
+                  value
+                })}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Suppliers</SelectItem>
+                  <SelectItem value="TechVision">TechVision</SelectItem>
+                  <SelectItem value="OfficeMax">OfficeMax</SelectItem>
+                  <SelectItem value="AudioTech">AudioTech</SelectItem>
+                  <SelectItem value="WoodWorks">WoodWorks</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+            
+          {/* Action buttons for import/export */}
+          <div className="flex flex-wrap gap-2 mt-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
