@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "email-validator>=2.2.0",
     "fastapi>=0.115.12",
     "openpyxl>=3.1.5",
     "pandas>=2.2.3",

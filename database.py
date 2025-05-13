@@ -46,6 +46,51 @@ def get_db_cursor():
 
 def init_db():
     """Initialize database tables if they don't exist"""
+    # Drop existing tables if they already exist
+    try:
+        with get_db_cursor() as cursor:
+            # Check if any of our tables exist
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'test_pull_logs'
+                );
+            """)
+            test_pull_logs_exists = cursor.fetchone()['exists']
+            
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'mapping_templates'
+                );
+            """)
+            mapping_templates_exists = cursor.fetchone()['exists']
+            
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'suppliers'
+                );
+            """)
+            suppliers_exists = cursor.fetchone()['exists']
+            
+            # Drop tables if they exist
+            if test_pull_logs_exists:
+                cursor.execute("DROP TABLE test_pull_logs;")
+                logger.info("Dropped existing test_pull_logs table")
+                
+            if mapping_templates_exists:
+                cursor.execute("DROP TABLE mapping_templates;")
+                logger.info("Dropped existing mapping_templates table")
+                
+            if suppliers_exists:
+                cursor.execute("DROP TABLE suppliers;")
+                logger.info("Dropped existing suppliers table")
+    except Exception as e:
+        logger.error(f"Error checking/dropping existing tables: {e}")
+        # Continue with table creation even if dropping fails
+    
+    # Create tables
     create_tables_query = """
     CREATE TABLE IF NOT EXISTS suppliers (
         id TEXT PRIMARY KEY,
@@ -74,7 +119,7 @@ def init_db():
     
     CREATE TABLE IF NOT EXISTS test_pull_logs (
         id SERIAL PRIMARY KEY,
-        supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+        supplier_id TEXT NOT NULL,
         success BOOLEAN NOT NULL,
         message TEXT NOT NULL,
         sample_data JSONB,
