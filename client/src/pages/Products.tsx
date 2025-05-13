@@ -93,6 +93,7 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { FulfillmentDrawer } from "@/components/products/FulfillmentDrawer";
+import { AmazonMarketData } from "@/components/products/AmazonMarketData";
 
 // Search filter schema
 const searchFilterSchema = z.object({
@@ -174,6 +175,7 @@ const Products = () => {
   // State for fulfillment drawer
   const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string} | null>(null);
   const [fulfillmentDrawerOpen, setFulfillmentDrawerOpen] = useState(false);
+  const [amazonDataDrawerOpen, setAmazonDataDrawerOpen] = useState(false);
   
   // Filter state using reducer
   const [filters, dispatchFilters] = useReducer(filterReducer, {
@@ -724,6 +726,13 @@ const Products = () => {
                             }}>
                               <Package2 className="mr-2 h-4 w-4" />
                               Manage Fulfillment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedProduct({ id: String(product.id), name: product.name });
+                              setAmazonDataDrawerOpen(true);
+                            }}>
+                              <ShoppingBag className="mr-2 h-4 w-4" />
+                              View Market Data
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600">
