@@ -9,7 +9,9 @@ import {
   Settings, 
   CheckSquare, 
   AlertCircle, 
-  History 
+  History,
+  Database,
+  FileCode
 } from "lucide-react";
 
 interface SidebarLinkProps {
@@ -80,6 +82,20 @@ const Sidebar = () => {
             <div>
               <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Integration</h3>
               <div className="mt-2 space-y-1">
+                <SidebarLink 
+                  href="/data-sources" 
+                  icon={<Database size={20} />} 
+                  active={location === "/data-sources"}
+                >
+                  Data Sources
+                </SidebarLink>
+                <SidebarLink 
+                  href="/mapping-templates" 
+                  icon={<FileCode size={20} />} 
+                  active={location === "/mapping-templates"}
+                >
+                  Mapping Templates
+                </SidebarLink>
                 <SidebarLink 
                   href="/data-imports" 
                   icon={<Upload size={20} />} 
