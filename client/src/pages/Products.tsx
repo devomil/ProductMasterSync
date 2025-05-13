@@ -679,7 +679,8 @@ const Products = () => {
                       <TableCell>
                         <div className="flex items-center">
                           <span className="font-medium">{product.stockQuantity || 0}</span>
-                          {product.stockQuantity && product.stockQuantity < (product.reorderThreshold || 10) && (
+                          {/* Set a lower fixed threshold for demo purposes */}
+                          {product.stockQuantity && product.stockQuantity < 100 && (
                             <Badge variant="outline" className="ml-2 text-amber-700 bg-amber-50 border-amber-200">
                               Low
                             </Badge>
