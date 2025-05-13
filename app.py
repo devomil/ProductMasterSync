@@ -282,8 +282,8 @@ async def upload_supplier_file(
         )
 
 
-@app.post("/suppliers/{supplier_id}/test-pull", response_model=TestPullResult, tags=["Data Sources"])
-async def test_pull(supplier_id: str, limit: int = 100):
+@app.post("/suppliers/{supplier_id}/test-pull", tags=["Data Sources"])
+async def test_pull(supplier_id: str, filters: TestPullFilter = None):
     """Test pull data from a supplier's data source"""
     try:
         # Check if the supplier exists
@@ -418,25 +418,73 @@ async def test_pull(supplier_id: str, limit: int = 100):
             
             return result
         
+        # If no filters provided, create default
+        if filters is None:
+            filters = TestPullFilter(limit=100)
+            
         # Pull sample data
-        pull_result = connector.pull_sample_data(limit=limit)
+        pull_result = connector.pull_sample_data(limit=filters.limit)
+        sample_data = pull_result.get('sample_data', [])
         
+        # Apply filters if there is data
+        if sample_data and pull_result.get('success', False):
+            from mdm_supplier.mapping import apply_filters
+            filter_dict = filters.dict(exclude_unset=True)
+            sample_data = apply_filters(sample_data, filter_dict)
+        
+        # Perform schema validation
+        schema_validation_results = None
+        if sample_data and pull_result.get('success', False):
+            from mdm_supplier.mapping import validate_schema
+            
+            # Get expected schema from data source config or use default
+            expected_schema = None
+            mapping_template_id = data_sources.get('mapping_template_id')
+            if mapping_template_id:
+                mapping_template = SupplierRepository.get_mapping_template_by_id(mapping_template_id)
+                if mapping_template and 'expected_schema' in mapping_template:
+                    expected_schema = mapping_template.get('expected_schema')
+            
+            # Validate schema
+            schema_validation_results = validate_schema(sample_data, expected_schema)
+        
+        # Suggest mapping template if no mapping is already assigned
+        mapping_suggestion = None
+        mapping_confidence = 0.0
+        if sample_data and pull_result.get('success', False) and not data_sources.get('mapping_template_id'):
+            from mdm_supplier.mapping import suggest_mapping
+            
+            # Get templates for this source type
+            mapping_templates = SupplierRepository.get_mapping_templates_by_source_type(data_source_type)
+            
+            # Suggest mapping
+            mapping_suggestion, mapping_confidence = suggest_mapping(sample_data, mapping_templates)
+        
+        # Prepare TestPullResult
         result = TestPullResult(
-            success=pull_result['success'],
-            message=pull_result['message'],
-            sample_data=pull_result.get('sample_data'),
-            error_details=pull_result.get('error_details')
+            success=pull_result.get('success', False),
+            message=pull_result.get('message', 'Unknown result'),
+            sample_data=sample_data,
+            error_details=pull_result.get('error_details', {}) if not pull_result.get('success', False) else None,
+            schema_validation=schema_validation_results,
+            mapping_suggestion=mapping_suggestion,
+            mapping_confidence=mapping_confidence,
+            timestamp=datetime.now()
         )
         
         # Log the test pull attempt
-        SupplierRepository.log_test_pull({
+        log_data = {
             "supplier_id": supplier_id,
-            "success": pull_result['success'],
-            "message": pull_result['message'],
-            "sample_data": pull_result.get('sample_data'),
-            "error_details": pull_result.get('error_details'),
+            "success": result.success,
+            "message": result.message,
+            "sample_data": result.sample_data,
+            "error_details": result.error_details,
+            "schema_validation": result.schema_validation,
+            "mapping_suggestion": result.mapping_suggestion,
+            "mapping_confidence": result.mapping_confidence,
             "timestamp": datetime.now()
-        })
+        }
+        SupplierRepository.log_test_pull(log_data)
         
         return result
         
