@@ -194,6 +194,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleError(res, error);
     }
   });
+  
+  // Search products with advanced filters
+  app.get("/api/products/search", async (req, res) => {
+    try {
+      const {
+        query,
+        searchType = 'all',
+        category,
+        supplier,
+        status,
+        isRemanufactured,
+        isCloseout,
+        isOnSale,
+        hasRebate,
+        hasFreeShipping,
+        priceMin,
+        priceMax,
+        inventoryStatus,
+        page = '1',
+        limit = '20',
+        sortBy = 'name',
+        sortDir = 'asc'
+      } = req.query;
+
+      const parsedFilters = {
+        query: typeof query === 'string' ? query : '',
+        searchType: typeof searchType === 'string' ? searchType : 'all',
+        category: typeof category === 'string' ? category : undefined,
+        supplier: typeof supplier === 'string' ? supplier : undefined,
+        status: typeof status === 'string' ? status : undefined,
+        isRemanufactured: isRemanufactured === 'true',
+        isCloseout: isCloseout === 'true',
+        isOnSale: isOnSale === 'true',
+        hasRebate: hasRebate === 'true',
+        hasFreeShipping: hasFreeShipping === 'true',
+        priceMin: priceMin ? Number(priceMin) : undefined,
+        priceMax: priceMax ? Number(priceMax) : undefined,
+        inventoryStatus: typeof inventoryStatus === 'string' ? inventoryStatus : undefined,
+        page: Number(page),
+        limit: Number(limit),
+        sortBy: typeof sortBy === 'string' ? sortBy : 'name',
+        sortDir: typeof sortDir === 'string' ? sortDir : 'asc'
+      };
+      
+      // For now, use the regular getProducts and handle filtering in-memory
+      // In a real implementation, this would use database-level filtering
+      const allProducts = await storage.getProducts();
+      
+      // Filter products based on parsedFilters
+      let filteredProducts = [...allProducts];
+      
+      // Text search
+      if (parsedFilters.query) {
+        const searchQuery = parsedFilters.query.toLowerCase();
+        if (parsedFilters.searchType === 'all') {
+          filteredProducts = filteredProducts.filter(product => 
+            (product.name?.toLowerCase().includes(searchQuery)) ||
+            (product.sku?.toLowerCase().includes(searchQuery)) ||
+            (product.description?.toLowerCase().includes(searchQuery)) ||
+            (product.manufacturerPartNumber?.toLowerCase().includes(searchQuery)) ||
+            (product.upc?.toLowerCase().includes(searchQuery)) ||
+            (product.manufacturerName?.toLowerCase().includes(searchQuery))
+          );
+        } else {
+          filteredProducts = filteredProducts.filter(product => {
+            switch (parsedFilters.searchType) {
+              case 'sku':
+                return product.sku?.toLowerCase().includes(searchQuery);
+              case 'mfgPart':
+                return product.manufacturerPartNumber?.toLowerCase().includes(searchQuery);
+              case 'upc':
+                return product.upc?.toLowerCase().includes(searchQuery);
+              case 'title':
+                return product.name?.toLowerCase().includes(searchQuery);
+              case 'description':
+                return product.description?.toLowerCase().includes(searchQuery);
+              case 'manufacturer':
+                return product.manufacturerName?.toLowerCase().includes(searchQuery);
+              case 'category':
+                // This would check against category name in a real implementation
+                return product.categoryId?.toString() === parsedFilters.category;
+              default:
+                return false;
+            }
+          });
+        }
+      }
+      
+      // Category filtering
+      if (parsedFilters.category) {
+        filteredProducts = filteredProducts.filter(product => 
+          product.categoryId?.toString() === parsedFilters.category
+        );
+      }
+      
+      // Supplier filtering
+      if (parsedFilters.supplier) {
+        filteredProducts = filteredProducts.filter(product => 
+          product.supplierId?.toString() === parsedFilters.supplier
+        );
+      }
+      
+      // Status filtering
+      if (parsedFilters.status) {
+        filteredProducts = filteredProducts.filter(product => 
+          product.status === parsedFilters.status
+        );
+      }
+      
+      // Special flags
+      if (parsedFilters.isRemanufactured) {
+        filteredProducts = filteredProducts.filter(product => product.isRemanufactured);
+      }
+      
+      if (parsedFilters.isCloseout) {
+        filteredProducts = filteredProducts.filter(product => product.isCloseout);
+      }
+      
+      if (parsedFilters.isOnSale) {
+        filteredProducts = filteredProducts.filter(product => product.isOnSale);
+      }
+      
+      if (parsedFilters.hasRebate) {
+        filteredProducts = filteredProducts.filter(product => product.hasRebate);
+      }
+      
+      if (parsedFilters.hasFreeShipping) {
+        filteredProducts = filteredProducts.filter(product => product.hasFreeShipping);
+      }
+      
+      // Price range
+      if (parsedFilters.priceMin !== undefined) {
+        filteredProducts = filteredProducts.filter(product => {
+          const price = parseFloat(product.price || '0');
+          return price >= parsedFilters.priceMin!;
+        });
+      }
+      
+      if (parsedFilters.priceMax !== undefined) {
+        filteredProducts = filteredProducts.filter(product => {
+          const price = parseFloat(product.price || '0');
+          return price <= parsedFilters.priceMax!;
+        });
+      }
+      
+      // Inventory status
+      if (parsedFilters.inventoryStatus && parsedFilters.inventoryStatus !== 'all') {
+        filteredProducts = filteredProducts.filter(product => {
+          const qty = product.inventoryQuantity || 0;
+          const threshold = product.reorderThreshold || 5;
+          
+          switch (parsedFilters.inventoryStatus) {
+            case 'inStock':
+              return qty > threshold;
+            case 'lowStock':
+              return qty > 0 && qty <= threshold;
+            case 'outOfStock':
+              return qty <= 0;
+            default:
+              return true;
+          }
+        });
+      }
+      
+      // Sort products
+      filteredProducts.sort((a, b) => {
+        const sortField = parsedFilters.sortBy as keyof typeof a;
+        const aValue = a[sortField] || '';
+        const bValue = b[sortField] || '';
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return parsedFilters.sortDir === 'asc' 
+            ? aValue.localeCompare(bValue) 
+            : bValue.localeCompare(aValue);
+        }
+        
+        // Handle numeric sorting
+        const numA = Number(aValue) || 0;
+        const numB = Number(bValue) || 0;
+        return parsedFilters.sortDir === 'asc' ? numA - numB : numB - numA;
+      });
+      
+      // Pagination
+      const startIndex = (parsedFilters.page - 1) * parsedFilters.limit;
+      const endIndex = startIndex + parsedFilters.limit;
+      const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+      
+      res.json({
+        products: paginatedProducts,
+        pagination: {
+          page: parsedFilters.page,
+          limit: parsedFilters.limit,
+          totalItems: filteredProducts.length,
+          totalPages: Math.ceil(filteredProducts.length / parsedFilters.limit)
+        }
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  // Get detailed product information for sales reps
+  app.get("/api/products/:id/details", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const product = await storage.getProduct(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // In a real implementation, we would join with related tables
+      // For this prototype, we'll enrich the product with additional data
+      const supplier = await storage.getSupplier(product.supplierId || 0);
+      
+      // Get categories
+      const categories = await storage.getCategories();
+      const category = categories.find(c => c.id === product.categoryId);
+      
+      // Mock product documents (would be from a real database in production)
+      const documents = [
+        { id: 1, name: 'Product Datasheet', type: 'pdf', url: '/documents/datasheet.pdf' },
+        { id: 2, name: 'User Manual', type: 'pdf', url: '/documents/manual.pdf' },
+        { id: 3, name: 'Warranty Information', type: 'pdf', url: '/documents/warranty.pdf' }
+      ];
+      
+      // Mock product images (would be from a real database in production)
+      const images = [
+        { id: 1, url: '/images/product-main.jpg', isPrimary: true },
+        { id: 2, url: '/images/product-angle1.jpg', isPrimary: false },
+        { id: 3, url: '/images/product-angle2.jpg', isPrimary: false }
+      ];
+      
+      // Create enriched product object
+      const productDetails = {
+        ...product,
+        category: category,
+        supplier: supplier ? {
+          id: supplier.id,
+          name: supplier.name,
+          leadTime: '5-7 days', // Mock data
+          stockStatus: 'In Stock', // Mock data
+        } : null,
+        specifications: {
+          dimensions: '10 x 5 x 2 inches',
+          weight: '2.5 lbs',
+          color: 'Black',
+          material: 'Aluminum',
+          // These would be dynamic attributes in a real implementation
+          attributes: JSON.parse(product.attributes || '{}')
+        },
+        promotions: [
+          {
+            id: 1,
+            name: 'Summer Sale',
+            discountType: 'percentage',
+            discountValue: 10,
+            startDate: '2023-06-01',
+            endDate: '2023-08-31'
+          }
+        ],
+        documents,
+        images
+      };
+      
+      res.json(productDetails);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
 
   app.get("/api/products/:id", async (req, res) => {
     try {
