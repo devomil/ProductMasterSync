@@ -33,6 +33,7 @@ import {
   SearchType, 
   InventoryStatusType 
 } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -205,6 +206,9 @@ const Products = () => {
 
   // Get products data from API
   const { products, isLoading } = useProducts();
+  
+  // Get categories data
+  const { categories, isLoading: categoriesLoading } = useCategories();
 
   // Filtering logic
   const filteredProducts = products.filter(product => {
@@ -511,9 +515,11 @@ const Products = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all_categories">All Categories</SelectItem>
-                  <SelectItem value="Electronics">Electronics</SelectItem>
-                  <SelectItem value="Office Supplies">Office Supplies</SelectItem>
-                  <SelectItem value="Furniture">Furniture</SelectItem>
+                  {categories.slice(1).map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -809,9 +815,11 @@ const Products = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all_categories">All Categories</SelectItem>
-                              <SelectItem value="Electronics">Electronics</SelectItem>
-                              <SelectItem value="Office Supplies">Office Supplies</SelectItem>
-                              <SelectItem value="Furniture">Furniture</SelectItem>
+                              {categories.slice(1).map((category) => (
+                                <SelectItem key={category.id} value={category.name}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </FormItem>

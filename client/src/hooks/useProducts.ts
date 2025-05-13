@@ -62,6 +62,7 @@ export function useProductSearch(filters: ProductSearchFilters) {
   if (filters.searchType) queryParams.append('searchType', filters.searchType);
   if (filters.category) queryParams.append('category', filters.category);
   if (filters.supplier) queryParams.append('supplier', filters.supplier);
+  if (filters.manufacturer) queryParams.append('manufacturer', filters.manufacturer);
   if (filters.isRemanufactured) queryParams.append('isRemanufactured', 'true');
   if (filters.isCloseout) queryParams.append('isCloseout', 'true');
   if (filters.isOnSale) queryParams.append('isOnSale', 'true');
