@@ -9,6 +9,9 @@ export const exportStatusEnum = pgEnum('export_status', ['pending', 'processing'
 export const dataSourceTypeEnum = pgEnum('data_source_type', [
   'csv', 'excel', 'json', 'xml', 'edi_x12', 'edifact', 'api', 'sftp', 'ftp', 'manual'
 ]);
+export const marketplaceEnum = pgEnum('marketplace', [
+  'amazon', 'walmart', 'ebay', 'target', 'home_depot'
+]);
 export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
   'once', 'hourly', 'daily', 'weekly', 'monthly', 'custom'
 ]);
@@ -243,6 +246,32 @@ export const workflowExecutions = pgTable("workflow_executions", {
   error: text("error"),
 });
 
+// Amazon marketplace data
+export const amazonMarketData = pgTable("amazon_market_data", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  asin: text("asin").notNull(),
+  title: text("title"),
+  category: text("category"),
+  brand: text("brand"),
+  priceEstimate: integer("price_estimate"), // Stored in cents
+  salesRank: integer("sales_rank"),
+  restrictionsFlag: boolean("restrictions_flag").default(false),
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  additionalData: json("additional_data").default({}), // For any extra data we might want to store
+  parentAsin: text("parent_asin"), // For variation relationship
+  variationCount: integer("variation_count"), // Number of related variations
+  marketplaceId: text("marketplace_id"), // Amazon marketplace ID
+  imageUrl: text("image_url"),
+  fulfillmentOptions: json("fulfillment_options").default([]), // FBA, FBM, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productAsinIdx: uniqueIndex("amazon_market_data_product_asin_idx").on(table.productId, table.asin),
+  };
+});
+
 // Schemas for insertions
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true });
@@ -262,6 +291,7 @@ export const insertDataLineageSchema = createInsertSchema(dataLineage).omit({ id
 export const insertDataMergingConfigSchema = createInsertSchema(dataMergingConfig).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).omit({ id: true, startedAt: true });
+export const insertAmazonMarketDataSchema = createInsertSchema(amazonMarketData).omit({ id: true, createdAt: true, updatedAt: true, dataFetchedAt: true });
 
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -282,6 +312,7 @@ export type InsertDataLineage = z.infer<typeof insertDataLineageSchema>;
 export type InsertDataMergingConfig = z.infer<typeof insertDataMergingConfigSchema>;
 export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
+export type InsertAmazonMarketData = z.infer<typeof insertAmazonMarketDataSchema>;
 
 // Types for selects
 export type User = typeof users.$inferSelect;
@@ -302,3 +333,4 @@ export type DataLineage = typeof dataLineage.$inferSelect;
 export type DataMergingConfig = typeof dataMergingConfig.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
+export type AmazonMarketData = typeof amazonMarketData.$inferSelect;
