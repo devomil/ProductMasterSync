@@ -627,10 +627,11 @@ const Products = () => {
                   </TableHead>
                   <TableHead>
                     <div className="flex items-center">
-                      Product Name
+                      Title
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </div>
                   </TableHead>
+                  <TableHead className="w-[220px]">Description</TableHead>
                   <TableHead>UPC</TableHead>
                   <TableHead>MFG Part #</TableHead>
                   <TableHead>Manufacturer</TableHead>
@@ -645,6 +646,7 @@ const Products = () => {
                     <TableRow key={index}>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-64" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -661,6 +663,11 @@ const Products = () => {
                         <div>
                           <div className="font-medium">{product.name}</div>
                           {getSpecialFlagComponents(product)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-600 line-clamp-2" title={product.description || ''}>
+                          {product.description || '-'}
                         </div>
                       </TableCell>
                       <TableCell>{product.upc || '-'}</TableCell>
