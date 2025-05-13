@@ -34,6 +34,7 @@ function Router() {
       <Route path="/approvals" component={Approvals} />
       <Route path="/validation-rules" component={ValidationRules} />
       <Route path="/audit-logs" component={AuditLogs} />
+      <Route path="/amazon-integration" component={AmazonIntegration} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

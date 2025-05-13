@@ -1,19 +1,19 @@
 import React from 'react';
-import { AmazonBatchSync } from '@components/marketplace/AmazonBatchSync';
-import { Button } from '@components/ui/button';
+import { AmazonBatchSync } from '@/components/marketplace/AmazonBatchSync';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@components/ui/card";
+} from "@/components/ui/card";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@components/ui/tabs";
+} from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@components/ui/table";
+} from "@/components/ui/table";
 import { AlertCircle, Download, ExternalLink, HelpCircle, RefreshCw, Settings, Upload } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 

@@ -6,18 +6,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@components/ui/card";
-import { Button } from "@components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-} from "@components/ui/alert";
-import { Badge } from "@components/ui/badge";
-import { Separator } from "@components/ui/separator";
-import { Progress } from "@components/ui/progress";
-import { Skeleton } from "@components/ui/skeleton";
+} from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   AlertCircle, 
   ArrowDownUp, 
@@ -29,8 +29,8 @@ import {
   Sparkles, 
   TrendingUp 
 } from 'lucide-react';
-import { useAmazonMarketData, useFetchAmazonDataByUpc } from '@hooks/useAmazonMarketData';
-import { AmazonMarketData as AmazonDataType } from '@shared/schema';
+import { useAmazonMarketData, useFetchAmazonDataByUpc } from '@/hooks/useAmazonMarketData';
+import { AmazonMarketData as AmazonDataType } from '@/shared/schema';
 
 interface AmazonMarketDataProps {
   productId: number;

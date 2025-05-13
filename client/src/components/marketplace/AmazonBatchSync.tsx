@@ -6,13 +6,13 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@components/ui/card";
-import { Button } from "@components/ui/button";
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-} from "@components/ui/alert";
+} from "@/components/ui/alert";
 import { 
   AlertCircle, 
   CheckCircle2, 
@@ -21,7 +21,7 @@ import {
   Settings, 
   XCircle 
 } from 'lucide-react';
-import { Slider } from "@components/ui/slider";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -30,11 +30,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@components/ui/dialog";
-import { useBatchSyncAmazonData, useAmazonConfigStatus } from '@hooks/useAmazonMarketData';
-import { toast } from '@hooks/use-toast';
-import { Input } from '@components/ui/input';
-import { Label } from '@components/ui/label';
+} from "@/components/ui/dialog";
+import { useBatchSyncAmazonData, useAmazonConfigStatus } from '@/hooks/useAmazonMarketData';
+import { toast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function AmazonBatchSync() {
   const [batchSize, setBatchSize] = useState<number>(10);

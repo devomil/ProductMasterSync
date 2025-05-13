@@ -11,7 +11,8 @@ import {
   AlertCircle, 
   History,
   Database,
-  FileCode
+  FileCode,
+  ShoppingCart
 } from "lucide-react";
 
 interface SidebarLinkProps {
@@ -109,6 +110,13 @@ const Sidebar = () => {
                   active={location === "/data-exports"}
                 >
                   Data Exports
+                </SidebarLink>
+                <SidebarLink 
+                  href="/amazon-integration" 
+                  icon={<ShoppingCart size={20} />} 
+                  active={location === "/amazon-integration"}
+                >
+                  Amazon Integration
                 </SidebarLink>
                 <SidebarLink 
                   href="/api-configuration" 
