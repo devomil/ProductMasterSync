@@ -120,12 +120,35 @@ class Supplier(SupplierBase):
         from_attributes = True
 
 
+class TestPullFilter(BaseModel):
+    """Filters for test pull operations"""
+    category: Optional[str] = None
+    modified_after: Optional[datetime] = None
+    modified_before: Optional[datetime] = None
+    sku_prefix: Optional[str] = None
+    field_contains: Optional[Dict[str, str]] = None  # Field name -> text to search
+    limit: int = 100
+
+
+class SchemaValidationResult(BaseModel):
+    """Schema validation result for a field"""
+    field_name: str
+    expected_type: str
+    actual_type: Optional[str] = None
+    valid: bool
+    sample_value: Any = None
+    notes: Optional[str] = None
+
+
 class TestPullResult(BaseModel):
     """Result of a test pull from a supplier data source"""
     success: bool
     message: str
     sample_data: Optional[List[Dict[str, Any]]] = None
     error_details: Optional[Dict[str, Any]] = None
+    schema_validation: Optional[List[SchemaValidationResult]] = None
+    mapping_suggestion: Optional[Dict[str, Any]] = None
+    mapping_confidence: Optional[float] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
 

@@ -56,6 +56,17 @@ def init_supplier_tables():
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     
+    CREATE TABLE IF NOT EXISTS mdm_mapping_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        source_type TEXT NOT NULL,
+        expected_schema JSONB,
+        field_mappings JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
     CREATE TABLE IF NOT EXISTS mdm_supplier_test_pulls (
         id SERIAL PRIMARY KEY,
         supplier_id TEXT NOT NULL,
@@ -63,6 +74,9 @@ def init_supplier_tables():
         message TEXT NOT NULL,
         sample_data JSONB,
         error_details JSONB,
+        schema_validation JSONB,
+        mapping_suggestion JSONB,
+        mapping_confidence FLOAT,
         timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (supplier_id) REFERENCES mdm_suppliers(id)
     );
@@ -255,22 +269,159 @@ class SupplierRepository:
             raise
     
     @staticmethod
+    def create_mapping_template(template_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Create a new mapping template in the database"""
+        query = """
+        INSERT INTO mdm_mapping_templates (
+            id, name, description, source_type, expected_schema, field_mappings, created_at, updated_at
+        ) VALUES (
+            %(id)s, %(name)s, %(description)s, %(source_type)s, %(expected_schema)s, 
+            %(field_mappings)s, %(created_at)s, %(updated_at)s
+        ) RETURNING *;
+        """
+        
+        # Generate ID if not provided
+        if 'id' not in template_data:
+            template_data['id'] = str(uuid.uuid4())
+            
+        # Add timestamps if not provided
+        if 'created_at' not in template_data:
+            template_data['created_at'] = datetime.now()
+        if 'updated_at' not in template_data:
+            template_data['updated_at'] = datetime.now()
+        
+        # Convert JSON fields to strings
+        if isinstance(template_data.get('expected_schema'), dict):
+            template_data['expected_schema'] = json.dumps(template_data['expected_schema'])
+            
+        if isinstance(template_data.get('field_mappings'), (dict, list)):
+            template_data['field_mappings'] = json.dumps(template_data['field_mappings'])
+        
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute(query, template_data)
+                result = cursor.fetchone()
+                return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Error creating mapping template: {e}")
+            raise
+    
+    @staticmethod
+    def get_all_mapping_templates() -> List[Dict[str, Any]]:
+        """Get all mapping templates from the database"""
+        query = "SELECT * FROM mdm_mapping_templates ORDER BY created_at DESC;"
+        
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute(query)
+                templates = [dict(row) for row in cursor.fetchall()]
+                
+                # Parse JSON fields
+                for template in templates:
+                    if isinstance(template.get('expected_schema'), str):
+                        try:
+                            template['expected_schema'] = json.loads(template['expected_schema'])
+                        except:
+                            template['expected_schema'] = {}
+                            
+                    if isinstance(template.get('field_mappings'), str):
+                        try:
+                            template['field_mappings'] = json.loads(template['field_mappings'])
+                        except:
+                            template['field_mappings'] = []
+                
+                return templates
+        except Exception as e:
+            logger.error(f"Error retrieving mapping templates: {e}")
+            raise
+    
+    @staticmethod
+    def get_mapping_template_by_id(template_id: str) -> Optional[Dict[str, Any]]:
+        """Get a mapping template by ID"""
+        query = "SELECT * FROM mdm_mapping_templates WHERE id = %s;"
+        
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute(query, (template_id,))
+                result = cursor.fetchone()
+                
+                if not result:
+                    return None
+                
+                template = dict(result)
+                
+                # Parse JSON fields
+                if isinstance(template.get('expected_schema'), str):
+                    try:
+                        template['expected_schema'] = json.loads(template['expected_schema'])
+                    except:
+                        template['expected_schema'] = {}
+                        
+                if isinstance(template.get('field_mappings'), str):
+                    try:
+                        template['field_mappings'] = json.loads(template['field_mappings'])
+                    except:
+                        template['field_mappings'] = []
+                
+                return template
+        except Exception as e:
+            logger.error(f"Error retrieving mapping template by ID: {e}")
+            raise
+    
+    @staticmethod
+    def get_mapping_templates_by_source_type(source_type: str) -> List[Dict[str, Any]]:
+        """Get mapping templates by source type"""
+        query = "SELECT * FROM mdm_mapping_templates WHERE source_type = %s ORDER BY created_at DESC;"
+        
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute(query, (source_type,))
+                templates = [dict(row) for row in cursor.fetchall()]
+                
+                # Parse JSON fields
+                for template in templates:
+                    if isinstance(template.get('expected_schema'), str):
+                        try:
+                            template['expected_schema'] = json.loads(template['expected_schema'])
+                        except:
+                            template['expected_schema'] = {}
+                            
+                    if isinstance(template.get('field_mappings'), str):
+                        try:
+                            template['field_mappings'] = json.loads(template['field_mappings'])
+                        except:
+                            template['field_mappings'] = []
+                
+                return templates
+        except Exception as e:
+            logger.error(f"Error retrieving mapping templates by source type: {e}")
+            raise
+    
+    @staticmethod
     def log_test_pull(log_data: Dict[str, Any]) -> Optional[int]:
         """Log a test pull attempt in the database"""
         query = """
         INSERT INTO mdm_supplier_test_pulls (
-            supplier_id, success, message, sample_data, error_details, timestamp
+            supplier_id, success, message, sample_data, error_details, 
+            schema_validation, mapping_suggestion, mapping_confidence, timestamp
         ) VALUES (
-            %(supplier_id)s, %(success)s, %(message)s, %(sample_data)s, %(error_details)s, %(timestamp)s
+            %(supplier_id)s, %(success)s, %(message)s, %(sample_data)s, %(error_details)s,
+            %(schema_validation)s, %(mapping_suggestion)s, %(mapping_confidence)s, %(timestamp)s
         ) RETURNING id;
         """
         
         # Convert JSON fields to strings if they are dictionaries or lists
-        if isinstance(log_data.get('sample_data'), (dict, list)):
-            log_data['sample_data'] = json.dumps(log_data['sample_data'])
-            
-        if isinstance(log_data.get('error_details'), dict):
-            log_data['error_details'] = json.dumps(log_data['error_details'])
+        for field in ['sample_data', 'error_details', 'schema_validation', 'mapping_suggestion']:
+            if isinstance(log_data.get(field), (dict, list)):
+                log_data[field] = json.dumps(log_data[field])
+        
+        # Set default values for new fields if not provided
+        if 'schema_validation' not in log_data:
+            log_data['schema_validation'] = None
+        if 'mapping_suggestion' not in log_data:
+            log_data['mapping_suggestion'] = None
+        if 'mapping_confidence' not in log_data:
+            log_data['mapping_confidence'] = 0.0
         
         try:
             with get_db_cursor() as cursor:
@@ -297,17 +448,12 @@ class SupplierRepository:
                 
                 # Parse JSON fields
                 for log in logs:
-                    if isinstance(log.get('sample_data'), str):
-                        try:
-                            log['sample_data'] = json.loads(log['sample_data'])
-                        except:
-                            pass
-                        
-                    if isinstance(log.get('error_details'), str):
-                        try:
-                            log['error_details'] = json.loads(log['error_details'])
-                        except:
-                            pass
+                    for field in ['sample_data', 'error_details', 'schema_validation', 'mapping_suggestion']:
+                        if isinstance(log.get(field), str):
+                            try:
+                                log[field] = json.loads(log[field])
+                            except:
+                                pass
                 
                 return logs
         except Exception as e:
