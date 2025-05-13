@@ -1034,6 +1034,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Product Fulfillment API
+  app.get("/api/products/:id/fulfillment", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const product = await storage.getProduct(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // Get fulfillment data for this product from storage
+      const fulfillment = await storage.getProductFulfillment(productId);
+      
+      // If no fulfillment data exists yet, return a default structure
+      if (!fulfillment) {
+        return res.json({
+          internal_stock: {
+            enabled: true,
+            warehouses: []
+          },
+          dropship: {
+            enabled: false,
+            supplier_id: null,
+            stock: 0,
+            lead_time_days: 1
+          },
+          bulk_discount_available: false,
+          preferred_source: 'auto'
+        });
+      }
+      
+      res.json(fulfillment);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.post("/api/products/:id/fulfillment", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const product = await storage.getProduct(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // Update fulfillment data
+      const updatedFulfillment = await storage.updateProductFulfillment(productId, req.body);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "update",
+        entityType: "product_fulfillment",
+        entityId: productId,
+        details: { 
+          productId,
+          fulfillment: updatedFulfillment
+        }
+      });
+      
+      res.json(updatedFulfillment);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/products/:id/stock", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const product = await storage.getProduct(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      // Get stock data from storage
+      const stockData = await storage.getProductStock(productId);
+      
+      res.json(stockData);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  app.get("/api/warehouses", async (req, res) => {
+    try {
+      const warehouses = await storage.getWarehouses();
+      res.json(warehouses);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Statistics API
   app.get("/api/statistics", async (req, res) => {
     try {
