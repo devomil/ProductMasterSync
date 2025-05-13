@@ -254,6 +254,15 @@ export const insertExportSchema = createInsertSchema(exportsTable).omit({ id: tr
 export const insertApprovalSchema = createInsertSchema(approvals).omit({ id: true, createdAt: true, updatedAt: true, completedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, timestamp: true });
 
+// Data integration schemas
+export const insertDataSourceSchema = createInsertSchema(dataSources).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertScheduleSchema = createInsertSchema(schedules).omit({ id: true, createdAt: true, updatedAt: true, lastRun: true, nextRun: true });
+export const insertMappingTemplateSchema = createInsertSchema(mappingTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDataLineageSchema = createInsertSchema(dataLineage).omit({ id: true, timestamp: true });
+export const insertDataMergingConfigSchema = createInsertSchema(dataMergingConfig).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).omit({ id: true, startedAt: true });
+
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
@@ -265,6 +274,15 @@ export type InsertExport = z.infer<typeof insertExportSchema>;
 export type InsertApproval = z.infer<typeof insertApprovalSchema>;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
+// Data integration types
+export type InsertDataSource = z.infer<typeof insertDataSourceSchema>;
+export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+export type InsertMappingTemplate = z.infer<typeof insertMappingTemplateSchema>;
+export type InsertDataLineage = z.infer<typeof insertDataLineageSchema>;
+export type InsertDataMergingConfig = z.infer<typeof insertDataMergingConfigSchema>;
+export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
+export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
+
 // Types for selects
 export type User = typeof users.$inferSelect;
 export type Supplier = typeof suppliers.$inferSelect;
@@ -275,3 +293,12 @@ export type Import = typeof imports.$inferSelect;
 export type Export = typeof exportsTable.$inferSelect;
 export type Approval = typeof approvals.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+
+// Data integration select types
+export type DataSource = typeof dataSources.$inferSelect;
+export type Schedule = typeof schedules.$inferSelect;
+export type MappingTemplate = typeof mappingTemplates.$inferSelect;
+export type DataLineage = typeof dataLineage.$inferSelect;
+export type DataMergingConfig = typeof dataMergingConfig.$inferSelect;
+export type Workflow = typeof workflows.$inferSelect;
+export type WorkflowExecution = typeof workflowExecutions.$inferSelect;

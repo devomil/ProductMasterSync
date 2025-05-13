@@ -7,7 +7,15 @@ import {
   imports, Import, InsertImport,
   exports as exportsTable, Export, InsertExport, 
   approvals, Approval, InsertApproval,
-  auditLogs, AuditLog, InsertAuditLog
+  auditLogs, AuditLog, InsertAuditLog,
+  // Data integration entities
+  dataSources, DataSource, InsertDataSource,
+  schedules, Schedule, InsertSchedule,
+  mappingTemplates, MappingTemplate, InsertMappingTemplate,
+  dataLineage, DataLineage, InsertDataLineage,
+  dataMergingConfig, DataMergingConfig, InsertDataMergingConfig,
+  workflows, Workflow, InsertWorkflow,
+  workflowExecutions, WorkflowExecution, InsertWorkflowExecution
 } from "@shared/schema";
 
 // Storage interface for MDM application
@@ -63,6 +71,60 @@ export interface IStorage {
   // Audit logs
   getAuditLogs(): Promise<AuditLog[]>;
   createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog>;
+
+  // Data source management
+  getDataSources(): Promise<DataSource[]>;
+  getDataSource(id: number): Promise<DataSource | undefined>;
+  getDataSourcesByType(type: string): Promise<DataSource[]>;
+  getDataSourcesBySupplier(supplierId: number): Promise<DataSource[]>;
+  createDataSource(dataSource: InsertDataSource): Promise<DataSource>;
+  updateDataSource(id: number, dataSource: Partial<InsertDataSource>): Promise<DataSource | undefined>;
+  deleteDataSource(id: number): Promise<boolean>;
+  
+  // Schedule management
+  getSchedules(): Promise<Schedule[]>;
+  getSchedulesByDataSource(dataSourceId: number): Promise<Schedule[]>;
+  getSchedule(id: number): Promise<Schedule | undefined>;
+  createSchedule(schedule: InsertSchedule): Promise<Schedule>;
+  updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule | undefined>;
+  deleteSchedule(id: number): Promise<boolean>;
+  updateScheduleLastRun(id: number, lastRun: Date): Promise<Schedule | undefined>;
+  updateScheduleNextRun(id: number, nextRun: Date): Promise<Schedule | undefined>;
+  
+  // Mapping template management
+  getMappingTemplates(): Promise<MappingTemplate[]>;
+  getMappingTemplate(id: number): Promise<MappingTemplate | undefined>;
+  getMappingTemplatesBySourceType(sourceType: string): Promise<MappingTemplate[]>;
+  createMappingTemplate(mappingTemplate: InsertMappingTemplate): Promise<MappingTemplate>;
+  updateMappingTemplate(id: number, mappingTemplate: Partial<InsertMappingTemplate>): Promise<MappingTemplate | undefined>;
+  deleteMappingTemplate(id: number): Promise<boolean>;
+  
+  // Data lineage
+  getDataLineageByProduct(productId: number): Promise<DataLineage[]>;
+  getDataLineageByField(productId: number, fieldName: string): Promise<DataLineage[]>;
+  createDataLineage(dataLineage: InsertDataLineage): Promise<DataLineage>;
+  
+  // Data merging configuration
+  getDataMergingConfigs(): Promise<DataMergingConfig[]>;
+  getDataMergingConfig(id: number): Promise<DataMergingConfig | undefined>;
+  getActiveDataMergingConfig(): Promise<DataMergingConfig | undefined>;
+  createDataMergingConfig(dataMergingConfig: InsertDataMergingConfig): Promise<DataMergingConfig>;
+  updateDataMergingConfig(id: number, dataMergingConfig: Partial<InsertDataMergingConfig>): Promise<DataMergingConfig | undefined>;
+  
+  // Workflow management
+  getWorkflows(): Promise<Workflow[]>;
+  getWorkflow(id: number): Promise<Workflow | undefined>;
+  getActiveWorkflows(): Promise<Workflow[]>;
+  createWorkflow(workflow: InsertWorkflow): Promise<Workflow>;
+  updateWorkflow(id: number, workflow: Partial<InsertWorkflow>): Promise<Workflow | undefined>;
+  
+  // Workflow execution
+  getWorkflowExecutions(workflowId: number): Promise<WorkflowExecution[]>;
+  getWorkflowExecution(id: number): Promise<WorkflowExecution | undefined>;
+  createWorkflowExecution(workflowExecution: InsertWorkflowExecution): Promise<WorkflowExecution>;
+  updateWorkflowExecution(id: number, status: string, results?: any, error?: string): Promise<WorkflowExecution | undefined>;
+  completeWorkflowExecution(id: number, results: any): Promise<WorkflowExecution | undefined>;
+  failWorkflowExecution(id: number, error: string): Promise<WorkflowExecution | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -75,6 +137,15 @@ export class MemStorage implements IStorage {
   private exports: Map<number, Export>;
   private approvals: Map<number, Approval>;
   private auditLogs: Map<number, AuditLog>;
+  
+  // Data integration storage
+  private dataSources: Map<number, DataSource>;
+  private schedules: Map<number, Schedule>;
+  private mappingTemplates: Map<number, MappingTemplate>;
+  private dataLineage: Map<number, DataLineage>;
+  private dataMergingConfigs: Map<number, DataMergingConfig>;
+  private workflows: Map<number, Workflow>;
+  private workflowExecutions: Map<number, WorkflowExecution>;
 
   private userIdCounter = 1;
   private supplierIdCounter = 1;
@@ -85,6 +156,15 @@ export class MemStorage implements IStorage {
   private exportIdCounter = 1;
   private approvalIdCounter = 1;
   private auditLogIdCounter = 1;
+  
+  // Data integration counters
+  private dataSourceIdCounter = 1;
+  private scheduleIdCounter = 1;
+  private mappingTemplateIdCounter = 1;
+  private dataLineageIdCounter = 1;
+  private dataMergingConfigIdCounter = 1;
+  private workflowIdCounter = 1;
+  private workflowExecutionIdCounter = 1;
 
   constructor() {
     this.users = new Map();
