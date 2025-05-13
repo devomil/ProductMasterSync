@@ -598,7 +598,7 @@ const Products = () => {
                 ) : filteredProducts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-6 text-neutral-500">
-                      {searchQuery || Object.values(activeFilters).some(v => v) 
+                      {searchQuery || Object.values(filters).some(v => v) 
                         ? "No products matching your search criteria" 
                         : "No products available"}
                     </TableCell>
