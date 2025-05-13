@@ -1,0 +1,81 @@
+🧾 Instruction
+You’re extending an existing FastAPI + frontend-based MDM/PIM system. Enhance the Products module to support robust search, quoting, and detailed product exploration for sales reps. This is preparation for future integrations with BigCommerce, Amazon, Walmart, etc.
+
+🎯 Functional Requirements
+🔍 1. Advanced Search & Filtering
+Extend the Products table UI and API to support:
+
+Text search by product name, SKU, manufacturer, or description (must search descriptions)
+
+Dropdown filters for:
+
+Category
+
+Status (active/inactive)
+
+Supplier
+
+Tag-based filtering (e.g., Free Shipping, Closeout, Rebate, Promo)
+
+Support pagination and sorting by product name or SKU
+
+🛒 2. Add-to-Quote Workflow
+Add an “Add to Quote” button in the Actions menu for each product row
+
+Store selected quote items in session or DB (quote ID, product ID, quantity, optional notes)
+
+Include a floating sidebar or modal cart to manage quote items
+
+Include a /submit-quote endpoint that returns quote summary (SKUs, qty, pricing, notes)
+
+🖼️ 3. Product Detail Drawer or Modal (Sales-Enablement View)
+On product row click or "View Details" action:
+
+Show a drawer/modal with the following sections:
+
+📷 Product Image (main image + gallery if available)
+
+📝 Description (used in search!)
+
+📊 Specifications (attributes, dimensions, technical data)
+
+🎁 Promotions/Rebates
+
+📄 Downloads (whitepapers, warranty PDFs, marketing material)
+
+🔗 Vendor/Supplier info (name, lead time, stock ETA)
+
+📸 Image & Description Handling Notes
+Important:
+
+Ensure every product has a description field (markdown or plain text) used in search queries
+
+Product images should be stored as URLs or blobs; include image fallback logic
+
+Assume documents are file URLs for download in the UI
+
+🗂️ API Enhancements
+GET /products/search → supports all filters and full-text description search
+
+POST /quotes → creates a new quote
+
+POST /quotes/{id}/add-product
+
+GET /products/{id}/details → returns full metadata, images, and documents
+
+💻 Frontend Considerations
+Use React or your current frontend stack
+
+Maintain consistency with current UI (see provided screenshot)
+
+Use modals or right-side drawers for details
+
+Floating cart/quote panel should remain accessible as users browse
+
+🔒 Security/UX Notes
+Don’t show sensitive supplier credentials in the frontend
+
+Quote should include user/session ID for multi-user handling
+
+Use lazy loading for product images/details to keep table fast
+
