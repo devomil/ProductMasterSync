@@ -297,23 +297,39 @@ const Products = () => {
     return true;
   });
 
-  const onSubmitSearch = (data: SearchFilters) => {
-    setActiveFilters(data);
+  const onSubmitSearch = (data: any) => {
+    dispatchFilters({
+      type: 'APPLY_FILTERS',
+      filters: {
+        searchType: data.searchType as SearchType,
+        query: data.query || "",
+        category: data.category,
+        manufacturer: data.manufacturer,
+        isRemanufactured: data.isRemanufactured || false,
+        isCloseout: data.isCloseout || false,
+        isOnSale: data.isOnSale || false,
+        hasRebate: data.hasRebate || false,
+        hasFreeShipping: data.hasFreeShipping || false,
+        priceMin: data.priceMin,
+        priceMax: data.priceMax,
+        inventoryStatus: data.inventoryStatus as InventoryStatusType || "all"
+      }
+    });
     setIsAdvancedSearchOpen(false);
   };
 
   const resetFilters = () => {
     const defaultFilters = {
-      searchType: 'all',
+      searchType: 'all' as SearchType,
       query: '',
       isRemanufactured: false,
       isCloseout: false,
       isOnSale: false,
       hasRebate: false,
       hasFreeShipping: false,
-      inventoryStatus: 'all' as const,
+      inventoryStatus: 'all' as InventoryStatusType,
     };
-    setActiveFilters(defaultFilters);
+    dispatchFilters({ type: 'RESET_FILTERS' });
     form.reset(defaultFilters);
     setSearchQuery("");
   };

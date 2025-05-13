@@ -9,6 +9,7 @@ export interface ProductSearchFilters {
   query?: string;
   category?: string;
   supplier?: string;
+  manufacturer?: string;
   isRemanufactured?: boolean;
   isCloseout?: boolean;
   isOnSale?: boolean;
@@ -105,7 +106,7 @@ export function useProductDetails(productId: number | undefined) {
   } = useQuery<any>({
     queryKey: ['/api/products', productId, 'details'],
     queryFn: async () => {
-      if (!productId) return null;
+      if (!productId) return ;
       const response = await fetch(`/api/products/${productId}/details`);
       if (!response.ok) {
         throw new Error('Failed to fetch product details');
