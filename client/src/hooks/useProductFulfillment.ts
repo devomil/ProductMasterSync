@@ -54,7 +54,19 @@ export function useProductFulfillment(productId: string | null) {
     queryFn: async () => {
       if (!productId) return null;
       const response = await apiRequest(`/api/products/${productId}/stock`);
-      return response.json().then(data => data as { warehouse_stock: number; supplier_stock: number; total_stock: number });
+      return response.json().then(data => data as { 
+        total: number; 
+        internal: { 
+          enabled: boolean;
+          total: number;
+          warehouses: WarehouseLocation[];
+        }; 
+        dropship: {
+          enabled: boolean;
+          supplier: { id: number; name: string; } | null;
+          stock: number;
+        }
+      });
     },
     enabled: !!productId,
   });
