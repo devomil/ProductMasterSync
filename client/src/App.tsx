@@ -7,7 +7,13 @@ import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Products from "@/pages/Products";
 import DataImports from "@/pages/DataImports";
+import DataExports from "@/pages/DataExports";
 import Categories from "@/pages/Categories";
+import Suppliers from "@/pages/Suppliers";
+import ApiConfiguration from "@/pages/ApiConfiguration";
+import Approvals from "@/pages/Approvals";
+import ValidationRules from "@/pages/ValidationRules";
+import AuditLogs from "@/pages/AuditLogs";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,8 +21,14 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/products" component={Products} />
-      <Route path="/data-imports" component={DataImports} />
       <Route path="/categories" component={Categories} />
+      <Route path="/suppliers" component={Suppliers} />
+      <Route path="/data-imports" component={DataImports} />
+      <Route path="/data-exports" component={DataExports} />
+      <Route path="/api-configuration" component={ApiConfiguration} />
+      <Route path="/approvals" component={Approvals} />
+      <Route path="/validation-rules" component={ValidationRules} />
+      <Route path="/audit-logs" component={AuditLogs} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

@@ -23,29 +23,29 @@ const Navbar = () => {
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link href="/">
-                <a className={`${location === "/" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                <span className={`${location === "/" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}>
                   Dashboard
-                </a>
+                </span>
               </Link>
               <Link href="/products">
-                <a className={`${location === "/products" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                <span className={`${location === "/products" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}>
                   Products
-                </a>
+                </span>
               </Link>
-              <Link href="/integrations">
-                <a className={`${location === "/integrations" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
-                  Integrations
-                </a>
+              <Link href="/data-imports">
+                <span className={`${location === "/data-imports" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}>
+                  Data Imports
+                </span>
               </Link>
-              <Link href="/workflows">
-                <a className={`${location === "/workflows" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
-                  Workflows
-                </a>
+              <Link href="/approvals">
+                <span className={`${location === "/approvals" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}>
+                  Approvals
+                </span>
               </Link>
               <Link href="/settings">
-                <a className={`${location === "/settings" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}>
+                <span className={`${location === "/settings" ? "border-primary text-neutral-900" : "border-transparent text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer`}>
                   Settings
-                </a>
+                </span>
               </Link>
             </div>
           </div>

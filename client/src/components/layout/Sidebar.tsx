@@ -22,7 +22,7 @@ interface SidebarLinkProps {
 const SidebarLink: React.FC<SidebarLinkProps> = ({ href, icon, children, active }) => {
   return (
     <Link href={href}>
-      <a className={`sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+      <div className={`sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer ${
         active 
           ? "bg-primary/10 border-l-3 border-l-primary text-primary" 
           : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
@@ -31,7 +31,7 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({ href, icon, children, active 
           {icon}
         </span>
         {children}
-      </a>
+      </div>
     </Link>
   );
 };
@@ -66,7 +66,7 @@ const Sidebar = () => {
                   icon={<FileSliders size={20} />} 
                   active={location === "/categories"}
                 >
-                  FileSliders
+                  Categories
                 </SidebarLink>
                 <SidebarLink 
                   href="/suppliers" 
