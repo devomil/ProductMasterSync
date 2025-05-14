@@ -1173,6 +1173,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DataSources API
+  app.get("/api/datasources", async (req, res) => {
+    try {
+      const dataSources = await storage.getDataSources();
+      res.json(dataSources);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/datasources/:id", async (req, res) => {
+    try {
+      const dataSource = await storage.getDataSource(Number(req.params.id));
+      if (!dataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      res.json(dataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/datasources", async (req, res) => {
+    try {
+      // Parse the config from a string to an object if it's passed as a string
+      let dataSourceData = { ...req.body };
+      
+      if (typeof dataSourceData.config === 'string') {
+        try {
+          dataSourceData.config = JSON.parse(dataSourceData.config);
+        } catch (e) {
+          dataSourceData.config = { data: dataSourceData.config };
+        }
+      }
+      
+      // Convert supplier_id to supplierId if needed
+      if (dataSourceData.supplier_id && !dataSourceData.supplierId) {
+        dataSourceData.supplierId = dataSourceData.supplier_id;
+        delete dataSourceData.supplier_id;
+      }
+      
+      // Validate with zod schema
+      const validatedData = insertDataSourceSchema.parse(dataSourceData);
+      const dataSource = await storage.createDataSource(validatedData);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "create",
+        entityType: "dataSource",
+        entityId: dataSource.id,
+        details: { dataSource }
+      });
+      
+      res.status(201).json(dataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.put("/api/datasources/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      
+      // Parse the config from a string to an object if it's passed as a string
+      let dataSourceData = { ...req.body };
+      
+      if (typeof dataSourceData.config === 'string') {
+        try {
+          dataSourceData.config = JSON.parse(dataSourceData.config);
+        } catch (e) {
+          dataSourceData.config = { data: dataSourceData.config };
+        }
+      }
+      
+      // Convert supplier_id to supplierId if needed
+      if (dataSourceData.supplier_id && !dataSourceData.supplierId) {
+        dataSourceData.supplierId = dataSourceData.supplier_id;
+        delete dataSourceData.supplier_id;
+      }
+      
+      // Validate with zod schema
+      const validatedData = insertDataSourceSchema.partial().parse(dataSourceData);
+      const updatedDataSource = await storage.updateDataSource(id, validatedData);
+      
+      if (!updatedDataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "update",
+        entityType: "dataSource",
+        entityId: id,
+        details: { 
+          before: await storage.getDataSource(id),
+          after: updatedDataSource
+        }
+      });
+      
+      res.json(updatedDataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.delete("/api/datasources/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const success = await storage.deleteDataSource(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "delete",
+        entityType: "dataSource",
+        entityId: id
+      });
+      
+      res.status(204).send();
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Register marketplace routes
   app.use("/api/marketplace", marketplaceRoutes);
   
