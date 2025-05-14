@@ -105,7 +105,7 @@ export function useDataSourceActions() {
       });
       
       // Set up a timeout to show progress update for long-running requests
-      let progressTimeout = setTimeout(() => {
+      const progressTimeout = setTimeout(() => {
         toast({
           title: "Still Processing...",
           description: "The file is large and still being processed. Please continue to wait...",

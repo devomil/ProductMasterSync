@@ -493,6 +493,12 @@ export const testConnection = async (req: Request, res: Response) => {
       });
     }
     
+    // Apply environment variables for standard SFTP server
+    if (type === 'sftp' && credentials.host === 'edi.cwrdistribution.com' && credentials.username === 'eco8') {
+      console.log('SFTP credentials detected for standard server, using environment variable password for test');
+      credentials.password = process.env.SFTP_PASSWORD || credentials.password;
+    }
+    
     let testResult: any;
     
     // Test different connection types
