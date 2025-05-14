@@ -4,7 +4,7 @@ import { db } from './db';
 import { connections } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { Client as SFTPClient } from 'ssh2';
-import * as FTP from 'ftp';
+import Client from 'ftp';
 import pg from 'pg';
 
 // Helper function to test database connection
