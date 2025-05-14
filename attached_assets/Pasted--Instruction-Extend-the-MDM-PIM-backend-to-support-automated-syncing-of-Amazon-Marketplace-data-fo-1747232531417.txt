@@ -1,0 +1,78 @@
+🧾 Instruction
+Extend the MDM/PIM backend to support automated syncing of Amazon Marketplace data for all products with valid UPCs. The system must handle 100,000+ products while respecting Amazon SP-API rate limits, using a scalable and fault-tolerant approach.
+
+⚙️ Functional Requirements
+1. Background Sync Engine
+Use FastAPI background tasks, APScheduler, or Celery (if available) to run long-running sync jobs
+
+Schedule batch syncs (e.g., every night or on-demand)
+
+2. Rate Limit Compliance
+Comply with Amazon SP-API Rate Limits
+
+Catalog Items API: 20 requests/sec, 40 burst
+
+Implement a token bucket or sleep-based rate control mechanism to avoid exceeding limits
+
+🔁 Sync Workflow
+For each batch:
+
+Select a list of products with valid UPCs
+
+Filter by last_amazon_sync timestamp or sync_status = 'pending'
+
+Call GET /catalog/items with the UPC
+
+Extract relevant data: ASIN(s), title, price, sales rank, fulfillment options
+
+Store result in amazon_market_data
+
+Update product record with:
+
+last_amazon_sync
+
+sync_status ("success", "error", etc.)
+
+🗄️ Database Schema Updates
+Extend the products table (or add a sync log table) with:
+
+sql
+Copy
+Edit
+ALTER TABLE products ADD COLUMN last_amazon_sync TIMESTAMP;
+ALTER TABLE products ADD COLUMN sync_status VARCHAR(20);
+Create sync_logs table (optional) for job tracking:
+
+product_id
+
+timestamp
+
+result ("success", "timeout", "invalid UPC", etc.)
+
+response time
+
+🧪 Testing & Control
+Create a route: POST /marketplace/amazon/sync
+→ Kicks off the sync for all products or a given subset (by supplier, category, etc.)
+
+Create a route: GET /marketplace/amazon/sync-status
+→ Returns number of products synced, errors, pending, and average sync time
+
+📉 Failure Handling
+Log and skip invalid UPCs or failed API calls
+
+Optionally retry failed syncs (with exponential backoff or scheduled retries)
+
+🔐 Security
+Ensure SP-API credentials are stored as env vars
+
+Add logic to auto-renew Amazon tokens if required
+
+✅ Output Expectations
+Working background sync system for Amazon market data
+
+Automatic UPC-based cross-referencing with ASIN listings
+
+Rate-limited, API-compliant design that can scale to 100K+ SKUs
+
+Dashboard/reporting endpoints to monitor progress

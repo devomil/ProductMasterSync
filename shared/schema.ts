@@ -75,6 +75,9 @@ export const products = pgTable("products", {
   hasFreeShipping: boolean("has_free_shipping").default(false),
   inventoryQuantity: integer("inventory_quantity").default(0),
   reorderThreshold: integer("reorder_threshold").default(0),
+  // Amazon sync tracking fields
+  lastAmazonSync: timestamp("last_amazon_sync"),
+  amazonSyncStatus: text("amazon_sync_status").default("pending"), // pending, processing, success, error, ratelimited
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
@@ -246,6 +249,22 @@ export const workflowExecutions = pgTable("workflow_executions", {
   error: text("error"),
 });
 
+// Amazon sync logs table
+export const amazonSyncLogs = pgTable("amazon_sync_logs", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id),
+  batchId: text("batch_id"), // To group logs for a specific batch run
+  syncStartedAt: timestamp("sync_started_at").defaultNow(),
+  syncCompletedAt: timestamp("sync_completed_at"),
+  result: text("result"), // "success", "not_found", "timeout", "invalid_upc", "rate_limited", "error"
+  responseTimeMs: integer("response_time_ms"), // API response time in milliseconds
+  errorMessage: text("error_message"),
+  errorDetails: json("error_details").default({}),
+  upc: text("upc"), // The UPC that was used
+  asin: text("asin"), // The ASIN that was found if successful
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Amazon marketplace data
 export const amazonMarketData = pgTable("amazon_market_data", {
   id: serial("id").primaryKey(),
@@ -292,6 +311,7 @@ export const insertDataMergingConfigSchema = createInsertSchema(dataMergingConfi
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).omit({ id: true, startedAt: true });
 export const insertAmazonMarketDataSchema = createInsertSchema(amazonMarketData).omit({ id: true, createdAt: true, updatedAt: true, dataFetchedAt: true });
+export const insertAmazonSyncLogSchema = createInsertSchema(amazonSyncLogs).omit({ id: true, syncStartedAt: true, createdAt: true });
 
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -313,6 +333,7 @@ export type InsertDataMergingConfig = z.infer<typeof insertDataMergingConfigSche
 export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
 export type InsertAmazonMarketData = z.infer<typeof insertAmazonMarketDataSchema>;
+export type InsertAmazonSyncLog = z.infer<typeof insertAmazonSyncLogSchema>;
 
 // Types for selects
 export type User = typeof users.$inferSelect;
@@ -334,3 +355,4 @@ export type DataMergingConfig = typeof dataMergingConfig.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
 export type AmazonMarketData = typeof amazonMarketData.$inferSelect;
+export type AmazonSyncLog = typeof amazonSyncLogs.$inferSelect;
