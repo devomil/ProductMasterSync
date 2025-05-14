@@ -139,8 +139,15 @@ const testSFTPConnection = (credentials: any): Promise<{ success: boolean, messa
             details: { error: err.message } 
           });
         } else {
+          // Determine the directory to check
+          // Support both legacy single-path and new multi-path configurations
+          const directoryToCheck = credentials.remoteDir || 
+                                   (Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0 ? 
+                                     credentials.remote_paths[0].path : 
+                                     '.');
+
           // Read directory
-          sftp.readdir(credentials.remoteDir || '.', (err, list) => {
+          sftp.readdir(directoryToCheck, (err, list) => {
             client.end();
             
             if (err) {
@@ -159,7 +166,10 @@ const testSFTPConnection = (credentials: any): Promise<{ success: boolean, messa
                     longname: item.longname
                   })),
                   totalFiles: list.length,
-                  remotePath: credentials.remoteDir || '.'
+                  remotePath: directoryToCheck,
+                  testedPath: Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0 ? 
+                              credentials.remote_paths[0].label : 
+                              'Default'
                 } 
               });
             }
