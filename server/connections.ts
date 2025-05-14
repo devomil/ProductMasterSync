@@ -144,7 +144,13 @@ const testSFTPConnection = (credentials: any): Promise<{ success: boolean, messa
         // Determine the paths to check
         const pathsToCheck: string[] = [];
         
-        if (credentials.remoteDir) {
+        // If a specific path is in the credentials (from client)
+        if (credentials.specific_path) {
+          console.log('Using specific path from credentials:', credentials.specific_path);
+          pathsToCheck.push(credentials.specific_path);
+        }
+        // Otherwise use standard paths from configuration 
+        else if (credentials.remoteDir) {
           pathsToCheck.push(credentials.remoteDir);
         } else if (Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0) {
           // Add all specified paths
@@ -655,10 +661,15 @@ export const testConnection = async (req: Request, res: Response) => {
 // Function to pull sample product data from SFTP
 export const pullSampleData = async (req: Request, res: Response) => {
   try {
-    const { type, credentials, supplier_id, limit = 100, remote_path } = req.body;
+    const { type, credentials, supplier_id, limit = 100, remote_path, specific_path } = req.body;
     
-    console.log('Pull sample data request:', { type, supplier_id, limit, remote_path });
+    console.log('Pull sample data request:', { type, supplier_id, limit, remote_path, specific_path });
     console.log('Credentials structure:', Object.keys(credentials));
+    
+    // Use specific_path in credentials if provided in the request
+    if (specific_path && credentials) {
+      credentials.specific_path = specific_path;
+    }
     
     if (!type || !credentials) {
       return res.status(400).json({ 
@@ -678,6 +689,7 @@ export const pullSampleData = async (req: Request, res: Response) => {
     
     // Currently only support SFTP sample data pull
     if (type === 'sftp') {
+      console.log('Calling pullSampleDataFromSFTP with remote path:', remote_path, 'and specific_path in credentials:', credentials.specific_path);
       const result = await pullSampleDataFromSFTP(credentials, Number(supplier_id), Number(limit), remote_path);
       return res.json(result);
     } else {
