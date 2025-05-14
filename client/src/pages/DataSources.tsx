@@ -46,6 +46,16 @@ import FilePathList from "@/components/data-sources/FilePathList";
 import { pullSampleDataForFile, retryPullWithBackoff } from "@/components/data-sources/PullSampleDataUtils";
 import { RemotePathItem } from "@/components/data-sources/SampleDataModal";
 import { useDataSourceActions } from "@/hooks/useDataSourceActions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function DataSources() {
   const [activeTab, setActiveTab] = useState("all");
@@ -100,6 +110,11 @@ export default function DataSources() {
     queryKey: ['/api/datasources'], 
     select: (data) => data || []
   });
+  
+  // Function to update the data sources state
+  const setDataSources = (updatedDataSources: DataSource[]) => {
+    queryClient.setQueryData(['/api/datasources'], updatedDataSources);
+  };
 
   const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
     queryKey: ['/api/suppliers'],
@@ -942,17 +957,17 @@ export default function DataSources() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleTestConnectionForDataSource(dataSource)}>
+                            <DropdownMenuItem onClick={() => dataSourceActions.handleTestConnectionForDataSource(dataSource)}>
                               Test Connection
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePullSampleDataForDataSource(dataSource)}>
+                            <DropdownMenuItem onClick={() => dataSourceActions.handlePullSampleDataForDataSource(dataSource)}>
                               Pull Sample Data
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleConfigureScheduler(dataSource)}>
+                            <DropdownMenuItem onClick={() => dataSourceActions.handleConfigureScheduler(dataSource)}>
                               Configure Scheduler
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleDeleteDataSource(dataSource.id)} className="text-red-600">
+                            <DropdownMenuItem onClick={() => dataSourceActions.handleDeleteDataSource(dataSource.id)} className="text-red-600">
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -977,6 +992,28 @@ export default function DataSources() {
           onSaveTimestamp={handleSaveTimestamp}
         />
       )}
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this data source?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the data source
+              and remove any connection configurations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => dataSourceActions.handleConfirmDelete(dataSources, setDataSources)}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }
