@@ -239,18 +239,13 @@ const checkJobs = async () => {
  */
 const loadJobs = async () => {
   try {
-    // Load connection-based schedules
-    const ftpConnections = await db.select({
-      id: connections.id,
-      type: connections.type,
-      supplierId: connections.supplierId,
-      credentials: connections.credentials
-    })
-    .from(connections)
-    .where(and(
-      eq(connections.isActive, true),
-      sql`${connections.type} IN ('ftp', 'sftp')`
-    ));
+    // Temporarily use empty array until connections table is created
+    const ftpConnections: { 
+      id: number; 
+      type: 'ftp' | 'sftp'; 
+      supplierId: number | null; 
+      credentials: any 
+    }[] = [];
     
     // Load data source schedules
     const sourceSchedules = await db.select({
