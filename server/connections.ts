@@ -138,43 +138,101 @@ const testSFTPConnection = (credentials: any): Promise<{ success: boolean, messa
             message: 'Connected but failed to start SFTP session', 
             details: { error: err.message } 
           });
+          return;
+        }
+        
+        // Determine the paths to check
+        const pathsToCheck: string[] = [];
+        
+        if (credentials.remoteDir) {
+          pathsToCheck.push(credentials.remoteDir);
+        } else if (Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0) {
+          // Add all specified paths
+          credentials.remote_paths.forEach((pathObj: any) => {
+            pathsToCheck.push(pathObj.path);
+          });
         } else {
-          // Determine the directory to check
-          // Support both legacy single-path and new multi-path configurations
-          const directoryToCheck = credentials.remoteDir || 
-                                   (Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0 ? 
-                                     credentials.remote_paths[0].path : 
-                                     '.');
-
-          // Read directory
-          sftp.readdir(directoryToCheck, (err, list) => {
+          // Default to home directory
+          pathsToCheck.push('.');
+        }
+        
+        console.log('SFTP paths to check:', pathsToCheck);
+        
+        // Try each path, and if it's a file path (readdir fails), try the parent directory
+        const tryNextPath = (index = 0) => {
+          if (index >= pathsToCheck.length) {
+            // We've tried all paths and none worked
             client.end();
-            
+            resolve({
+              success: false,
+              message: 'Failed to access any of the specified paths',
+              details: { 
+                error: 'None of the provided paths could be accessed. Check if paths are valid and you have proper permissions.',
+                triedPaths: pathsToCheck
+              }
+            });
+            return;
+          }
+          
+          const currentPath = pathsToCheck[index];
+          const parentPath = currentPath.split('/').slice(0, -1).join('/') || '/';
+          
+          // Try to list the directory
+          sftp.readdir(currentPath, (err: any, list: any) => {
             if (err) {
-              resolve({ 
-                success: false, 
-                message: 'Connected but failed to list directory', 
-                details: { error: err.message } 
+              console.log(`SFTP readdir error for path ${currentPath}:`, err.message);
+              
+              // If this path doesn't work, try its parent directory
+              sftp.readdir(parentPath, (parentErr: any, parentList: any) => {
+                if (parentErr) {
+                  console.log(`SFTP readdir error for parent path ${parentPath}:`, parentErr.message);
+                  // Parent path also failed, move to next path
+                  tryNextPath(index + 1);
+                } else {
+                  // Parent path worked
+                  client.end();
+                  resolve({
+                    success: true,
+                    message: `Connected to SFTP server but could not access ${currentPath}. Using parent directory instead.`,
+                    details: {
+                      directoryContents: parentList.slice(0, 5).map((item: any) => ({
+                        name: item.filename,
+                        longname: item.longname
+                      })),
+                      totalFiles: parentList.length,
+                      remotePath: parentPath,
+                      originalPath: currentPath,
+                      testedPath: Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0 ? 
+                                  credentials.remote_paths[index].label : 
+                                  'Default'
+                    }
+                  });
+                }
               });
             } else {
-              resolve({ 
-                success: true, 
-                message: 'Successfully connected to SFTP server and listed directory', 
-                details: { 
-                  directoryContents: list.slice(0, 5).map(item => ({
+              // Original path worked
+              client.end();
+              resolve({
+                success: true,
+                message: 'Successfully connected to SFTP server and listed directory',
+                details: {
+                  directoryContents: list.slice(0, 5).map((item: any) => ({
                     name: item.filename,
                     longname: item.longname
                   })),
                   totalFiles: list.length,
-                  remotePath: directoryToCheck,
+                  remotePath: currentPath,
                   testedPath: Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0 ? 
-                              credentials.remote_paths[0].label : 
+                              credentials.remote_paths[index].label : 
                               'Default'
-                } 
+                }
               });
             }
           });
-        }
+        };
+        
+        // Start trying paths
+        tryNextPath();
       });
     });
     
