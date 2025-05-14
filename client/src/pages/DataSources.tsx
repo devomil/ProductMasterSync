@@ -19,10 +19,22 @@ import {
   DialogFooter,
   DialogClose 
 } from "@/components/ui/dialog";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -36,1178 +48,707 @@ import { RemotePathItem } from "@/components/data-sources/SampleDataModal";
 export default function DataSources() {
   const [activeTab, setActiveTab] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedDataSource, setSelectedDataSource] = useState<DataSource | null>(null);
-  const [selectedSourceType, setSelectedSourceType] = useState("csv");
-  const [requiresPrivateKey, setRequiresPrivateKey] = useState(false);
-  const [editRequiresPrivateKey, setEditRequiresPrivateKey] = useState(false);
+  const [editingDataSource, setEditingDataSource] = useState<DataSource | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
+  const [testConnectionResult, setTestConnectionResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  // For sample data functionality
   const [isPullingSampleData, setIsPullingSampleData] = useState(false);
-  const [pullStatus, setPullStatus] = useState<'idle' | 'connecting' | 'retrieving' | 'processing' | 'completed' | 'error'>('idle');
-  const [pullStatusMessage, setPullStatusMessage] = useState('');
-  const [sampleData, setSampleData] = useState<{ 
-    success: boolean; 
-    message: string; 
-    data?: any[]; 
+  const [sampleData, setSampleData] = useState<{
+    success: boolean;
+    message: string;
+    data?: any[];
     filename?: string;
     fileType?: string;
     remote_path?: string;
     total_records?: number;
   } | null>(null);
-  
-  // For handling multiple remote paths
-  const [remotePaths, setRemotePaths] = useState<RemotePathItem[]>([
-    { id: crypto.randomUUID(), label: "Product Catalog", path: "/feeds/products.csv" }
-  ]);
-  const [editRemotePaths, setEditRemotePaths] = useState<RemotePathItem[]>([]);
-  
-  // For enhanced sample data operations
+  const [rawResponseData, setRawResponseData] = useState("");
+  const [showSampleDataModal, setShowSampleDataModal] = useState(false);
   const [selectedFilePath, setSelectedFilePath] = useState<RemotePathItem | null>(null);
-  const [rawResponseData, setRawResponseData] = useState<string>('');
-  const [showSampleDataModal, setShowSampleDataModal] = useState<boolean>(false);
   
-  // Initialize remote paths when source type changes
-  useEffect(() => {
-    if (selectedSourceType === 'sftp' && remotePaths.length === 0) {
-      // Add a default remote path if none exists
-      setRemotePaths([{ id: crypto.randomUUID(), label: "Product Catalog", path: "/feeds/products.csv" }]);
+  // Support for multiple remote paths in SFTP
+  const [remotePaths, setRemotePaths] = useState<RemotePathItem[]>([
+    { id: uuidv4(), label: 'Default Path', path: '/' }
+  ]);
+  const [requiresPrivateKey, setRequiresPrivateKey] = useState(false);
+
+  // Create default form state
+  const [newDataSource, setNewDataSource] = useState({
+    name: "",
+    description: "",
+    type: "api",
+    config: "{}",
+    supplier_id: "",
+    active: true
+  });
+
+  const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
+    queryKey: ['/api/datasources'], 
+    select: (data) => data || []
+  });
+
+  const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
+    queryKey: ['/api/suppliers'],
+    select: (data) => data || []
+  });
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNewDataSource({ ...newDataSource, [name]: value });
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setNewDataSource({ ...newDataSource, [name]: checked });
+  };
+
+  const handleTypeChange = (value: string) => {
+    setNewDataSource({ ...newDataSource, type: value });
+    
+    // Reset configuration when type changes
+    if (value === 'sftp') {
+      setRemotePaths([{ id: uuidv4(), label: 'Default Path', path: '/' }]);
+      setRequiresPrivateKey(false);
     }
-  }, [selectedSourceType, remotePaths.length]);
-  
-  // Initialize edit remote paths when data is loaded
-  useEffect(() => {
-    if (selectedDataSource && selectedDataSource.type === 'sftp') {
-      let config = {};
-      try {
-        // Handle both string and object config formats
-        if (typeof selectedDataSource.config === 'string') {
-          config = JSON.parse(selectedDataSource.config || '{}');
-        } else if (selectedDataSource.config && typeof selectedDataSource.config === 'object') {
-          config = selectedDataSource.config;
+  };
+
+  // Function to add a remote path
+  const handleAddPath = () => {
+    setRemotePaths([
+      ...remotePaths,
+      { id: uuidv4(), label: `Path ${remotePaths.length + 1}`, path: '/' }
+    ]);
+  };
+
+  // Function to delete a remote path
+  const handleDeletePath = (id: string) => {
+    setRemotePaths(remotePaths.filter(p => p.id !== id));
+  };
+
+  // Function to update a remote path
+  const handleEditRemotePath = (id: string, field: 'label' | 'path', value: string) => {
+    setRemotePaths(
+      remotePaths.map(p => (p.id === id ? { ...p, [field]: value } : p))
+    );
+  };
+
+  // Function to handle saving a timestamp for a specific file path
+  const handleSaveTimestamp = (pathId: string) => {
+    setRemotePaths(paths => 
+      paths.map(p => (
+        p.id === pathId 
+          ? { 
+              ...p, 
+              lastPulled: new Date().toISOString(),
+              lastPullStatus: 'success'
+            } 
+          : p
+      ))
+    );
+  };
+
+  // Function to test connection with additional error handling
+  const handleTestConnection = async () => {
+    try {
+      setIsTestingConnection(true);
+      setTestConnectionResult(null);
+      
+      let requestConfig: any = {};
+      
+      if (newDataSource.type === 'sftp') {
+        // Parse the private key if it's enabled
+        const privateKey = requiresPrivateKey ? (document.getElementById("private_key") as HTMLTextAreaElement)?.value : null;
+        
+        // Build an SFTP configuration with the remote paths
+        requestConfig = {
+          host: (document.getElementById("host") as HTMLInputElement)?.value,
+          port: parseInt((document.getElementById("port") as HTMLInputElement)?.value || "22"),
+          username: (document.getElementById("username") as HTMLInputElement)?.value,
+          password: (document.getElementById("password") as HTMLInputElement)?.value,
+          is_sftp: true,
+          remote_paths: remotePaths
+        };
+        
+        if (privateKey) {
+          requestConfig.private_key = privateKey;
         }
-      } catch (error) {
-        console.error('Error parsing config:', error);
-        config = {}; // Fallback to empty object
+      } else if (newDataSource.type === 'api') {
+        // Parse the JSON configuration
+        try {
+          requestConfig = JSON.parse(newDataSource.config);
+        } catch (e) {
+          toast({
+            variant: "destructive",
+            title: "Invalid JSON",
+            description: "Please provide a valid JSON configuration"
+          });
+          setIsTestingConnection(false);
+          return;
+        }
+      } else {
+        // For other types, just use the config as is
+        try {
+          requestConfig = JSON.parse(newDataSource.config);
+        } catch (e) {
+          requestConfig = { data: newDataSource.config };
+        }
       }
       
-      if (config.remote_paths && Array.isArray(config.remote_paths)) {
-        // Convert saved remote paths to our format with IDs
-        setEditRemotePaths(
-          config.remote_paths.map((path: any) => ({
-            id: crypto.randomUUID(),
-            label: path.label || '',
-            path: path.path || ''
-          }))
-        );
-      } else if (config.path) {
-        // Legacy format - convert single path to our new format
-        setEditRemotePaths([{
-          id: crypto.randomUUID(),
-          label: "Default",
-          path: config.path
-        }]);
+      // Make the API call to test the connection
+      const response = await apiRequest('/api/connections/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: newDataSource.type,
+          credentials: requestConfig
+        })
+      });
+      
+      // Process and display the results
+      setTestConnectionResult({
+        success: response.success || false,
+        message: response.message || 'No response message'
+      });
+      
+      if (response.success) {
+        toast({
+          title: "Connection Successful",
+          description: response.message || "Connection test passed successfully"
+        });
       } else {
-        // Fallback
-        setEditRemotePaths([{
-          id: crypto.randomUUID(),
-          label: "Product Catalog",
-          path: "/feeds/products.csv"
-        }]);
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: response.message || "Connection test failed"
+        });
       }
+    } catch (error) {
+      console.error("Connection test error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      setTestConnectionResult({
+        success: false,
+        message: errorMessage
+      });
+      
+      toast({
+        variant: "destructive",
+        title: "Connection Test Error",
+        description: errorMessage
+      });
+    } finally {
+      setIsTestingConnection(false);
     }
-  }, [selectedDataSource]);
-  
-  
-  const { data: dataSources = [], isLoading, error } = useQuery({
-    queryKey: ['/api/data-sources'],
-    refetchOnWindowFocus: false
-  });
-  
-  const { data: suppliers = [] } = useQuery({
-    queryKey: ['/api/suppliers'],
-    refetchOnWindowFocus: false
-  });
-  
-  const { data: mappingTemplates = [] } = useQuery({
-    queryKey: ['/api/mapping-templates'],
-    refetchOnWindowFocus: false
-  });
-  
-  // Filter data sources based on active tab
-  const filteredDataSources = dataSources.filter((dataSource: DataSource) => {
+  };
+
+  // Function to pull sample data with error handling and status tracking
+  const handlePullSampleData = async (selectedFile?: RemotePathItem) => {
+    try {
+      setIsPullingSampleData(true);
+      setSampleData(null);
+      setShowSampleDataModal(false);
+      setRawResponseData("");
+      
+      // If a specific file was provided, use that
+      const fileToUse = selectedFile || null;
+      
+      if (!fileToUse && newDataSource.type !== 'api') {
+        toast({
+          variant: "destructive",
+          title: "No File Selected",
+          description: "Please select a file to pull sample data from"
+        });
+        setIsPullingSampleData(false);
+        return;
+      }
+      
+      // Prepare the request config
+      let requestConfig: any = {};
+      
+      if (newDataSource.type === 'sftp') {
+        // Parse the private key if it's enabled
+        const privateKey = requiresPrivateKey ? (document.getElementById("private_key") as HTMLTextAreaElement)?.value : null;
+        
+        // Build an SFTP configuration
+        requestConfig = {
+          host: (document.getElementById("host") as HTMLInputElement)?.value,
+          port: parseInt((document.getElementById("port") as HTMLInputElement)?.value || "22"),
+          username: (document.getElementById("username") as HTMLInputElement)?.value,
+          password: (document.getElementById("password") as HTMLInputElement)?.value,
+          is_sftp: true,
+          remote_paths: remotePaths
+        };
+        
+        if (privateKey) {
+          requestConfig.private_key = privateKey;
+        }
+        
+        // For SFTP, use our new utility function for per-file pull
+        if (fileToUse) {
+          setSelectedFilePath(fileToUse);
+          
+          const result = await pullSampleDataForFile({
+            selectedFile: fileToUse,
+            credentials: requestConfig
+          });
+          
+          setSampleData(result);
+          setRawResponseData(result.rawResponse);
+          setShowSampleDataModal(true);
+          setIsPullingSampleData(false);
+          
+          // Update path status if it failed
+          if (!result.success) {
+            setRemotePaths(paths => 
+              paths.map(p => (
+                p.id === fileToUse.id 
+                  ? { 
+                      ...p, 
+                      lastPulled: new Date().toISOString(),
+                      lastPullStatus: 'error'
+                    } 
+                  : p
+              ))
+            );
+          }
+          
+          return;
+        }
+      } else if (newDataSource.type === 'api') {
+        // For API, parse the JSON configuration
+        try {
+          requestConfig = JSON.parse(newDataSource.config);
+        } catch (e) {
+          toast({
+            variant: "destructive",
+            title: "Invalid JSON",
+            description: "Please provide a valid JSON configuration"
+          });
+          setIsPullingSampleData(false);
+          return;
+        }
+      } else {
+        // For other types, just use the config as is
+        try {
+          requestConfig = JSON.parse(newDataSource.config);
+        } catch (e) {
+          requestConfig = { data: newDataSource.config };
+        }
+      }
+      
+      // Standard pull sample data for non-SFTP or multi-file pulls
+      const response = await fetch('/api/connections/sample-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: newDataSource.type,
+          credentials: requestConfig,
+          supplier_id: parseInt(newDataSource.supplier_id),
+          limit: 10
+        }),
+        credentials: 'include'
+      });
+      
+      // Get the raw response text first
+      const responseText = await response.text();
+      setRawResponseData(responseText);
+      
+      // Then try to parse it as JSON
+      try {
+        const result = JSON.parse(responseText);
+        
+        setSampleData({
+          success: result.success || false,
+          message: result.message || 'No response message',
+          data: result.records || [],
+          filename: result.filename || 'Unknown',
+          fileType: result.fileType || 'Unknown',
+          total_records: result.total_records || (result.records ? result.records.length : 0)
+        });
+        
+        // Show success or error message
+        if (result.success) {
+          toast({
+            title: "Sample Data Retrieved",
+            description: `Retrieved ${result.records?.length || 0} records successfully`
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Failed to Retrieve Sample Data",
+            description: result.message || "Unknown error occurred"
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing response:", e);
+        
+        // If we couldn't parse the response, show it as a failure
+        setSampleData({
+          success: false,
+          message: "Failed to parse server response",
+          data: [],
+          filename: 'Error'
+        });
+        
+        toast({
+          variant: "destructive",
+          title: "Response Parse Error",
+          description: "The server returned an invalid response format"
+        });
+      }
+      
+      setShowSampleDataModal(true);
+    } catch (error) {
+      console.error("Sample data pull error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      // Set error state
+      setSampleData({
+        success: false,
+        message: errorMessage,
+        data: []
+      });
+      
+      setRawResponseData(JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      
+      toast({
+        variant: "destructive",
+        title: "Sample Data Error",
+        description: errorMessage
+      });
+      
+      setShowSampleDataModal(true);
+    } finally {
+      setIsPullingSampleData(false);
+    }
+  };
+
+  // Function to retry a failed pull with backoff
+  const handleRetryPull = async () => {
+    if (!selectedFilePath) return;
+    
+    setIsPullingSampleData(true);
+    
+    try {
+      // Prepare the SFTP configuration
+      const privateKey = requiresPrivateKey ? (document.getElementById("private_key") as HTMLTextAreaElement)?.value : null;
+      
+      const requestConfig = {
+        host: (document.getElementById("host") as HTMLInputElement)?.value,
+        port: parseInt((document.getElementById("port") as HTMLInputElement)?.value || "22"),
+        username: (document.getElementById("username") as HTMLInputElement)?.value,
+        password: (document.getElementById("password") as HTMLInputElement)?.value,
+        is_sftp: true,
+        remote_paths: remotePaths
+      };
+      
+      if (privateKey) {
+        requestConfig.private_key = privateKey;
+      }
+      
+      const result = await retryPullWithBackoff({
+        selectedFile: selectedFilePath,
+        credentials: requestConfig
+      });
+      
+      setSampleData(result);
+      setRawResponseData(result.rawResponse);
+      
+      // Update path status based on result
+      setRemotePaths(paths => 
+        paths.map(p => (
+          p.id === selectedFilePath.id 
+            ? { 
+                ...p, 
+                lastPulled: new Date().toISOString(),
+                lastPullStatus: result.success ? 'success' : 'error'
+              } 
+            : p
+        ))
+      );
+    } catch (error) {
+      console.error("Retry pull error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      toast({
+        variant: "destructive",
+        title: "Retry Failed",
+        description: errorMessage
+      });
+    } finally {
+      setIsPullingSampleData(false);
+    }
+  };
+
+  const handleCreateDataSource = async () => {
+    try {
+      // Prepare the request payload
+      let configToSubmit: any = {};
+      
+      if (newDataSource.type === 'sftp') {
+        // Parse the private key if it's enabled
+        const privateKey = requiresPrivateKey ? (document.getElementById("private_key") as HTMLTextAreaElement)?.value : null;
+        
+        // Build an SFTP configuration
+        configToSubmit = {
+          host: (document.getElementById("host") as HTMLInputElement)?.value,
+          port: parseInt((document.getElementById("port") as HTMLInputElement)?.value || "22"),
+          username: (document.getElementById("username") as HTMLInputElement)?.value,
+          password: (document.getElementById("password") as HTMLInputElement)?.value,
+          is_sftp: true,
+          remote_paths: remotePaths
+        };
+        
+        if (privateKey) {
+          configToSubmit.private_key = privateKey;
+        }
+      } else {
+        // For other types, just use the config as is
+        try {
+          configToSubmit = JSON.parse(newDataSource.config);
+        } catch (e) {
+          configToSubmit = { data: newDataSource.config };
+        }
+      }
+      
+      const response = await apiRequest('/api/datasources', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...newDataSource,
+          config: JSON.stringify(configToSubmit),
+          supplier_id: parseInt(newDataSource.supplier_id)
+        })
+      });
+      
+      if (response.id) {
+        toast({
+          title: "Data Source Created",
+          description: "The data source was successfully created"
+        });
+        
+        // Reset the form
+        setNewDataSource({
+          name: "",
+          description: "",
+          type: "api",
+          config: "{}",
+          supplier_id: "",
+          active: true
+        });
+        
+        setIsCreateDialogOpen(false);
+        
+        // Invalidate the cache to refresh the list
+        queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Creation Failed",
+          description: response.message || "Failed to create data source"
+        });
+      }
+    } catch (error) {
+      console.error("Create data source error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      toast({
+        variant: "destructive",
+        title: "Error Creating Data Source",
+        description: errorMessage
+      });
+    }
+  };
+
+  // Render SFTP configuration form with multiple remote paths support
+  const renderSFTPForm = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="host">Host</Label>
+          <Input
+            id="host"
+            placeholder="sftp.example.com"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="port">Port</Label>
+          <Input
+            id="port"
+            type="number"
+            placeholder="22"
+            defaultValue="22"
+          />
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            placeholder="username"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            required={!requiresPrivateKey}
+          />
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Checkbox 
+          id="use_private_key" 
+          checked={requiresPrivateKey}
+          onCheckedChange={(checked) => {
+            setRequiresPrivateKey(checked === true);
+          }}
+        />
+        <Label htmlFor="use_private_key">Use private key authentication</Label>
+      </div>
+      
+      {requiresPrivateKey && (
+        <div className="space-y-2">
+          <Label htmlFor="private_key">Private Key (PEM format)</Label>
+          <Textarea
+            id="private_key"
+            placeholder="-----BEGIN RSA PRIVATE KEY-----..."
+            className="font-mono text-xs"
+            rows={5}
+            required
+          />
+        </div>
+      )}
+      
+      <FilePathList
+        paths={remotePaths}
+        onSelectPath={(path) => handlePullSampleData(path)}
+        onDeletePath={handleDeletePath}
+        onAddPath={handleAddPath}
+        isPullingSampleData={isPullingSampleData}
+      />
+      
+      <div className="space-y-2">
+        <Label>Remote Path(s) editor</Label>
+        <div className="max-h-60 overflow-y-auto">
+          {remotePaths.map((path) => (
+            <div key={path.id} className="grid grid-cols-5 gap-2 mb-2">
+              <div className="col-span-2">
+                <Input
+                  value={path.label}
+                  onChange={(e) => handleEditRemotePath(path.id, 'label', e.target.value)}
+                  placeholder="Label"
+                />
+              </div>
+              <div className="col-span-3">
+                <Input
+                  value={path.path}
+                  onChange={(e) => handleEditRemotePath(path.id, 'path', e.target.value)}
+                  placeholder="Path (e.g., /home/data)"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Filter data sources based on the active tab
+  const filteredDataSources = (dataSources as DataSource[]).filter((dataSource: DataSource) => {
     if (activeTab === "all") return true;
     return dataSource.type === activeTab;
   });
-  
-  const getSourceTypeIcon = (type: string) => {
-    switch (type) {
-      case "csv":
-      case "excel":
-        return <FilePlus className="h-4 w-4 mr-1" />;
-      case "api":
-        return <Link2 className="h-4 w-4 mr-1" />;
-      case "sftp":
-      case "ftp":
-        return <Server className="h-4 w-4 mr-1" />;
-      case "edi_x12":
-      case "edifact":
-        return <FileCode className="h-4 w-4 mr-1" />;
-      default:
-        return <Database className="h-4 w-4 mr-1" />;
-    }
-  };
-  
-  const getSourceTypeName = (type: string) => {
-    switch (type) {
-      case "csv": return "CSV File";
-      case "excel": return "Excel File";
-      case "json": return "JSON File";
-      case "xml": return "XML File";
-      case "api": return "API Integration";
-      case "sftp": return "SFTP Connection";
-      case "ftp": return "FTP Connection";
-      case "edi_x12": return "EDI X12";
-      case "edifact": return "EDIFACT";
-      case "manual": return "Manual Upload";
-      default: return type.toUpperCase();
-    }
-  };
-  
-  const handleCreateDataSource = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    
-    const name = formData.get('name') as string;
-    const type = formData.get('type') as string;
-    const supplierId = Number(formData.get('supplierId'));
-    let config: any = {};
-    
-    // Handle SFTP configuration
-    if (type === 'sftp') {
-      const host = formData.get('sftp-host') as string;
-      const portValue = formData.get('sftp-port') as string;
-      const port = portValue ? parseInt(portValue, 10) : 22;
-      const username = formData.get('sftp-username') as string;
-      const usesPrivateKey = formData.get('requires-private-key') === 'on';
-      
-      // Basic validation for connection
-      if (!host || !username) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "Please fill in all required SFTP connection fields"
-        });
-        return;
-      }
-      
 
-      
-      // Build the SFTP config with multiple paths
-      config = {
-        host,
-        port,
-        username,
-        is_sftp: true,
-        remote_paths: remotePaths.map(p => ({
-          label: p.label,
-          path: p.path
-        }))
-      };
-      
-      // Add authentication based on chosen method
-      if (usesPrivateKey) {
-        const privateKey = formData.get('sftp-private-key') as string;
-        if (!privateKey) {
-          toast({
-            variant: "destructive",
-            title: "Validation Error",
-            description: "Private key is required when using key authentication"
-          });
-          return;
-        }
-        config.private_key = privateKey;
-      } else {
-        const password = formData.get('sftp-password') as string;
-        if (!password) {
-          toast({
-            variant: "destructive",
-            title: "Validation Error",
-            description: "Password is required"
-          });
-          return;
-        }
-        config.password = password;
-      }
-    } else {
-      // Handle other data source types with JSON
-      const configText = formData.get('config') as string;
-      try {
-        config = JSON.parse(configText);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Invalid JSON",
-          description: "The configuration must be valid JSON"
-        });
-        return;
-      }
-    }
-    
-    try {
-      const dataSource = await apiRequest('POST', '/api/data-sources', { 
-        name, 
-        type, 
-        supplierId, 
-        config,
-        active: true 
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
-      
-      setIsCreateDialogOpen(false);
-      
-      toast({
-        title: "Data Source Created",
-        description: `${name} was successfully created`
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to create data source: ${(error as Error).message}`
-      });
-    }
-  };
-  
-  const handleEditDataSource = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    if (!selectedDataSource) return;
-    
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    
-    const name = formData.get('name') as string;
-    const supplierId = Number(formData.get('supplierId'));
-    const active = formData.get('active') === 'true';
-    const type = selectedDataSource.type; // Use the existing type
-    let config: any = {};
-    
-    // Handle SFTP configuration similar to create form
-    if (type === 'sftp') {
-      const host = formData.get('sftp-host-edit') as string;
-      const portValue = formData.get('sftp-port-edit') as string;
-      const port = portValue ? parseInt(portValue, 10) : 22;
-      const username = formData.get('sftp-username-edit') as string;
-      const usesPrivateKey = formData.get('requires-private-key-edit') === 'on';
-      
-      // Basic validation for connection
-      if (!host || !username) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "Please fill in all required SFTP connection fields"
-        });
-        return;
-      }
-      
-      // Validate remote paths
-      if (editRemotePaths.length === 0) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "At least one remote path is required"
-        });
-        return;
-      }
-      
-      // Check that all paths have labels and are valid
-      const invalidPaths = editRemotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
-      if (invalidPaths.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "All remote paths must have labels and start with /"
-        });
-        return;
-      }
-      
-      // Build the SFTP config with multiple paths
-      config = {
-        host,
-        port,
-        username,
-        is_sftp: true,
-        remote_paths: editRemotePaths.map(p => ({
-          label: p.label,
-          path: p.path
-        }))
-      };
-      
-      // Add authentication based on chosen method
-      if (usesPrivateKey) {
-        const privateKey = formData.get('sftp-private-key-edit') as string;
-        if (!privateKey) {
-          toast({
-            variant: "destructive",
-            title: "Validation Error",
-            description: "Private key is required when using key authentication"
-          });
-          return;
-        }
-        config.private_key = privateKey;
-      } else {
-        const password = formData.get('sftp-password-edit') as string;
-        if (!password) {
-          toast({
-            variant: "destructive",
-            title: "Validation Error",
-            description: "Password is required"
-          });
-          return;
-        }
-        config.password = password;
-      }
-    } else {
-      // Handle other data source types with JSON
-      const configText = formData.get('config') as string;
-      try {
-        config = JSON.parse(configText);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Invalid JSON",
-          description: "The configuration must be valid JSON"
-        });
-        return;
-      }
-    }
-    
-    try {
-      const dataSource = await apiRequest('PUT', `/api/data-sources/${selectedDataSource.id}`, { 
-        name, 
-        supplierId, 
-        config,
-        active
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
-      
-      setIsEditDialogOpen(false);
-      setSelectedDataSource(null);
-      setTestConnectionResult(null);
-      
-      toast({
-        title: "Data Source Updated",
-        description: `${name} was successfully updated`
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to update data source: ${(error as Error).message}`
-      });
-    }
-  };
-  
-  const handleDeleteDataSource = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this data source? This action cannot be undone.")) {
-      return;
-    }
-    
-    try {
-      await apiRequest('DELETE', `/api/data-sources/${id}`);
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
-      
-      toast({
-        title: "Data Source Deleted",
-        description: "The data source was successfully deleted"
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to delete data source: ${(error as Error).message}`
-      });
-    }
-  };
-  
-  // Helper functions for managing remote paths
-  const addRemotePath = () => {
-    setRemotePaths([
-      ...remotePaths,
-      { id: crypto.randomUUID(), label: "", path: "" }
-    ]);
-  };
-  
-  const removeRemotePath = (id: string) => {
-    // Don't allow removing the last path
-    if (remotePaths.length <= 1) return;
-    setRemotePaths(remotePaths.filter(p => p.id !== id));
-  };
-  
-  const updateRemotePath = (id: string, field: 'label' | 'path', value: string) => {
-    setRemotePaths(remotePaths.map(p => 
-      p.id === id ? { ...p, [field]: value } : p
-    ));
-  };
-  
-  // Similar helpers for edit mode
-  const addEditRemotePath = () => {
-    setEditRemotePaths([
-      ...editRemotePaths,
-      { id: crypto.randomUUID(), label: "", path: "" }
-    ]);
-  };
-  
-  const removeEditRemotePath = (id: string) => {
-    // Don't allow removing the last path
-    if (editRemotePaths.length <= 1) return;
-    setEditRemotePaths(editRemotePaths.filter(p => p.id !== id));
-  };
-  
-  const updateEditRemotePath = (id: string, field: 'label' | 'path', value: string) => {
-    setEditRemotePaths(editRemotePaths.map(p => 
-      p.id === id ? { ...p, [field]: value } : p
-    ));
-  };
-  
-  const handlePullSampleData = async () => {
-    // Set up a failsafe timeout to ensure loading state is always reset
-    const failsafeTimeout = setTimeout(() => {
-      console.log('Failsafe timeout triggered for sample data pull');
-      setIsPullingSampleData(false);
-      setPullStatus('idle');
-      toast({
-        variant: "destructive",
-        title: "Operation Timeout",
-        description: "The sample data pull operation took too long. Please try again."
-      });
-    }, 30000); // 30 second safety timeout
-    
-    // Clear previous sample data and set initial status
-    setSampleData(null);
-    setIsPullingSampleData(true);
-    setPullStatus('connecting');
-    setPullStatusMessage('Establishing connection to server...');
-    
-    // Clear any previous sample data from the UI to avoid confusion
-    const sampleDataContainer = document.getElementById('sample-data-container');
-    if (sampleDataContainer) {
-      sampleDataContainer.innerHTML = '';
-    }
-    
-    // Get all SFTP-related form fields
-    const hostElement = document.getElementById('sftp-host') as HTMLInputElement;
-    const portElement = document.getElementById('sftp-port') as HTMLInputElement;
-    const usernameElement = document.getElementById('sftp-username') as HTMLInputElement;
-    const passwordElement = document.getElementById('sftp-password') as HTMLInputElement;
-    const privateKeyElement = document.getElementById('sftp-private-key') as HTMLTextAreaElement;
-    
-    // Validate basic connection info
-    if (!hostElement?.value || !usernameElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Please fill in all required SFTP connection fields"
-      });
-      setIsPullingSampleData(false);
-      clearTimeout(failsafeTimeout);
-      return;
-    }
-    
-    // Validate remote paths
-    if (remotePaths.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "At least one remote path is required"
-      });
-      setIsPullingSampleData(false);
-      clearTimeout(failsafeTimeout);
-      return;
-    }
-    
-    // Check that all paths have valid values
-    const invalidPaths = remotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
-    if (invalidPaths.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "All remote paths must have labels and start with /"
-      });
-      setIsPullingSampleData(false);
-      clearTimeout(failsafeTimeout);
-      return;
-    }
-    
-    // Auth validation
-    const usesPrivateKey = requiresPrivateKey;
-    if (usesPrivateKey && !privateKeyElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Private key is required when using key authentication"
-      });
-      setIsPullingSampleData(false);
-      clearTimeout(failsafeTimeout);
-      return;
-    } else if (!usesPrivateKey && !passwordElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Password is required"
-      });
-      setIsPullingSampleData(false);
-      clearTimeout(failsafeTimeout);
-      return;
-    }
-    
-    // Prepare credentials
-    const credentials = {
-      host: hostElement.value,
-      port: portElement.value ? parseInt(portElement.value, 10) : 22,
-      username: usernameElement.value,
-      remote_paths: remotePaths,
-      requiresPrivateKey: usesPrivateKey,
-      ...(usesPrivateKey 
-        ? { privateKey: privateKeyElement.value }
-        : { password: passwordElement.value }
-      )
-    };
-    
-    try {
-      // Show the toast first for immediate feedback
-      toast({
-        title: "Pull Sample Data Started",
-        description: "Starting to pull sample data from the SFTP server. This may take a moment...",
-      });
-      
-      // Make the request to pull sample data
-      setPullStatus('retrieving');
-      setPullStatusMessage('Retrieving sample data from server...');
-      
-      const response = await fetch('/api/connections/sample-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'sftp',
-          credentials,
-          supplier_id: 1, // Hardcoded for now
-          limit: 10 // Only pull 10 records for sample
-        }),
-        credentials: 'include',
-      });
-      
-      // Update to processing status
-      setPullStatus('processing');
-      setPullStatusMessage('Processing data...');
-      
-      // Parse the JSON response
-      const result = await response.json();
-      console.log('SFTP sample data pull response:', result);
-      
-      // Update the state with the result
-      setSampleData(result);
-      
-      // Update status based on result
-      if (result.success) {
-        setPullStatus('completed');
-        setPullStatusMessage('Successfully retrieved sample data.');
-        toast({
-          title: "Sample Data Retrieved",
-          description: result.message,
-        });
-      } else {
-        setPullStatus('error');
-        setPullStatusMessage(`Error: ${result.message}`);
-        toast({
-          variant: "destructive",
-          title: "Failed to Retrieve Sample Data",
-          description: result.message,
-        });
-      }
-    } catch (error) {
-      console.error('Error pulling sample data:', error);
-      setPullStatus('error');
-      setPullStatusMessage('Connection error. Check your network and settings.');
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to pull sample data. Please check your connection settings."
-      });
-    } finally {
-      setIsPullingSampleData(false);
-      clearTimeout(failsafeTimeout); // Clear the failsafe timeout on normal completion
-      
-      // Add another reset just to be extra safe
-      setTimeout(() => {
-        console.log('Extra safety reset for loading state');
-        setIsPullingSampleData(false);
-      }, 500);
-    }
-  };
-
-  const handleTestSFTPConnection = async () => {
-    setTestConnectionResult(null);
-    setIsTestingConnection(true);
-    
-    // Get all SFTP-related form fields
-    const hostElement = document.getElementById('sftp-host') as HTMLInputElement;
-    const portElement = document.getElementById('sftp-port') as HTMLInputElement;
-    const usernameElement = document.getElementById('sftp-username') as HTMLInputElement;
-    const passwordElement = document.getElementById('sftp-password') as HTMLInputElement;
-    const privateKeyElement = document.getElementById('sftp-private-key') as HTMLTextAreaElement;
-    
-    // Validate basic connection info
-    if (!hostElement?.value || !usernameElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Please fill in all required SFTP connection fields"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Validate remote paths
-    if (remotePaths.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "At least one remote path is required"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Check that all paths have valid values
-    const invalidPaths = remotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
-    if (invalidPaths.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "All remote paths must have labels and start with /"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Reset sample data when testing connection
-    setSampleData(null);
-    
-    // Auth validation
-    const usesPrivateKey = requiresPrivateKey;
-    if (usesPrivateKey && !privateKeyElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Private key is required when using key authentication"
-      });
-      setIsTestingConnection(false);
-      return;
-    } else if (!usesPrivateKey && !passwordElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Password is required"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Prepare credentials
-    const credentials = {
-      host: hostElement.value,
-      port: portElement.value ? parseInt(portElement.value, 10) : 22,
-      username: usernameElement.value,
-      remote_paths: remotePaths,
-      ...(usesPrivateKey 
-        ? { privateKey: privateKeyElement.value }
-        : { password: passwordElement.value }
-      )
-    };
-    
-    try {
-      // First, make the request to test the connection
-      const response = await fetch('/api/connections/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'sftp',
-          credentials
-        }),
-        credentials: 'include',
-      });
-      
-      // Parse the JSON response
-      const result = await response.json();
-      console.log('SFTP test connection response:', result);
-      
-      // Update the state with the result
-      setTestConnectionResult(result);
-      
-      // Display appropriate toast based on result
-      if (result.success) {
-        toast({
-          title: "Connection Successful",
-          description: "Successfully connected to SFTP server"
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Connection Failed",
-          description: result.message || "Could not connect to SFTP server"
-        });
-      }
-    } catch (error) {
-      // Handle any errors in the request
-      console.error('SFTP test connection error:', error);
-      
-      setTestConnectionResult({
-        success: false,
-        message: (error as Error).message || "Connection failed"
-      });
-      
-      toast({
-        variant: "destructive",
-        title: "Connection Failed",
-        description: (error as Error).message || "Could not connect to SFTP server"
-      });
-    } finally {
-      setIsTestingConnection(false);
-    }
-  };
-  
-  // Create a handler for pulling sample data from edit form
-  const handlePullEditSampleData = async () => {
-    // Clear previous sample data
-    setSampleData(null);
-    setIsPullingSampleData(true);
-    
-    // Get all SFTP-related form fields from the edit form
-    const hostElement = document.getElementById('sftp-host-edit') as HTMLInputElement;
-    const portElement = document.getElementById('sftp-port-edit') as HTMLInputElement;
-    const usernameElement = document.getElementById('sftp-username-edit') as HTMLInputElement;
-    const passwordElement = document.getElementById('sftp-password-edit') as HTMLInputElement;
-    const privateKeyElement = document.getElementById('sftp-private-key-edit') as HTMLTextAreaElement;
-    
-    // Validate basic connection info
-    if (!hostElement?.value || !usernameElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Please fill in all required SFTP connection fields"
-      });
-      setIsPullingSampleData(false);
-      return;
-    }
-    
-    // Validate remote paths
-    if (editRemotePaths.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "At least one remote path is required"
-      });
-      setIsPullingSampleData(false);
-      return;
-    }
-    
-    // Check that all paths have valid values
-    const invalidPaths = editRemotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
-    if (invalidPaths.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "All remote paths must have labels and start with /"
-      });
-      setIsPullingSampleData(false);
-      return;
-    }
-    
-    // Auth validation
-    const usesPrivateKey = editRequiresPrivateKey;
-    if (usesPrivateKey && !privateKeyElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Private key is required when using key authentication"
-      });
-      setIsPullingSampleData(false);
-      return;
-    } else if (!usesPrivateKey && !passwordElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Password is required"
-      });
-      setIsPullingSampleData(false);
-      return;
-    }
-    
-    // Prepare credentials
-    const credentials = {
-      host: hostElement.value,
-      port: portElement.value ? parseInt(portElement.value, 10) : 22,
-      username: usernameElement.value,
-      remote_paths: editRemotePaths,
-      requiresPrivateKey: usesPrivateKey,
-      ...(usesPrivateKey 
-        ? { privateKey: privateKeyElement.value }
-        : { password: passwordElement.value }
-      )
-    };
-    
-    try {
-      // Make the request to pull sample data
-      const response = await fetch('/api/connections/sample-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'sftp',
-          credentials,
-          supplier_id: selectedDataSource?.supplierId || 1,
-          limit: 10 // Only pull 10 records for sample
-        }),
-        credentials: 'include',
-      });
-      
-      // Parse the JSON response
-      const result = await response.json();
-      console.log('SFTP sample data pull response (edit form):', result);
-      
-      // Update the state with the result
-      setSampleData(result);
-      
-      // Display appropriate toast based on result
-      if (result.success) {
-        toast({
-          title: "Sample Data Retrieved",
-          description: result.message,
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Failed to Retrieve Sample Data",
-          description: result.message,
-        });
-      }
-    } catch (error) {
-      console.error('Error pulling sample data:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to pull sample data. Please check your connection settings."
-      });
-    } finally {
-      setIsPullingSampleData(false);
-    }
-  };
-  
-  const handleTestEditSFTPConnection = async () => {
-    setTestConnectionResult(null);
-    setIsTestingConnection(true);
-    
-    // Get all SFTP-related form fields from the edit form
-    const hostElement = document.getElementById('sftp-host-edit') as HTMLInputElement;
-    const portElement = document.getElementById('sftp-port-edit') as HTMLInputElement;
-    const usernameElement = document.getElementById('sftp-username-edit') as HTMLInputElement;
-    const passwordElement = document.getElementById('sftp-password-edit') as HTMLInputElement;
-    const privateKeyElement = document.getElementById('sftp-private-key-edit') as HTMLTextAreaElement;
-    
-    // Validate basic connection info
-    if (!hostElement?.value || !usernameElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Please fill in all required SFTP connection fields"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Validate paths
-    if (editRemotePaths.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "At least one remote path is required"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Check that all paths have valid values
-    const invalidPaths = editRemotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
-    if (invalidPaths.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "All remote paths must have labels and start with /"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Auth validation
-    const usesPrivateKey = editRequiresPrivateKey;
-    if (usesPrivateKey && !privateKeyElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Private key is required when using key authentication"
-      });
-      setIsTestingConnection(false);
-      return;
-    } else if (!usesPrivateKey && !passwordElement?.value) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Password is required"
-      });
-      setIsTestingConnection(false);
-      return;
-    }
-    
-    // Prepare credentials
-    const credentials = {
-      host: hostElement.value,
-      port: portElement.value ? parseInt(portElement.value, 10) : 22,
-      username: usernameElement.value,
-      remote_paths: editRemotePaths,
-      ...(usesPrivateKey 
-        ? { privateKey: privateKeyElement.value }
-        : { password: passwordElement.value }
-      )
-    };
-    
-    try {
-      // First, make the request to test the connection
-      const response = await fetch('/api/connections/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'sftp',
-          credentials
-        }),
-        credentials: 'include',
-      });
-      
-      // Parse the JSON response
-      const result = await response.json();
-      console.log('SFTP edit test connection response:', result);
-      
-      setTestConnectionResult(result);
-      
-      if (result.success) {
-        toast({
-          title: "Connection Successful",
-          description: "Successfully connected to SFTP server"
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Connection Failed",
-          description: result.message || "Could not connect to SFTP server"
-        });
-      }
-    } catch (error) {
-      setTestConnectionResult({
-        success: false,
-        message: (error as Error).message || "Connection failed"
-      });
-      
-      toast({
-        variant: "destructive",
-        title: "Connection Failed",
-        description: (error as Error).message || "Could not connect to SFTP server"
-      });
-    } finally {
-      setIsTestingConnection(false);
-    }
-  };
-  
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <main className="container mx-auto py-6 px-4 md:px-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Data Sources</h1>
-          <p className="text-muted-foreground">
-            Configure and manage data sources for product information
-          </p>
+          <h1 className="text-2xl font-bold">Data Sources</h1>
+          <p className="text-gray-500">Manage your data connections and sources</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Data Source
-        </Button>
-      </div>
-      
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All Sources</TabsTrigger>
-          <TabsTrigger value="sftp">SFTP/FTP</TabsTrigger>
-          <TabsTrigger value="api">API</TabsTrigger>
-          <TabsTrigger value="csv">Files (CSV/Excel)</TabsTrigger>
-          <TabsTrigger value="edi_x12">EDI</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value={activeTab} className="space-y-4">
-          {isLoading ? (
-            <div className="text-center p-4">Loading data sources...</div>
-          ) : filteredDataSources.length === 0 ? (
-            <div className="text-center p-4 border rounded-lg bg-muted/20">
-              <p className="mb-2">No data sources found.</p>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Add Your First Data Source
-              </Button>
-            </div>
-          ) : (
-            filteredDataSources.map((dataSource: DataSource) => {
-              return (
-                <Card key={dataSource.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="p-4 flex flex-row items-center justify-between space-y-0">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                        {getSourceTypeIcon(dataSource.type)}
-                      </div>
-                      <div>
-                        <CardTitle className="text-xl">{dataSource.name}</CardTitle>
-                        <CardDescription className="flex items-center mt-1">
-                          {getSourceTypeName(dataSource.type)}
-                          <ChevronRight className="h-4 w-4 inline mx-1" />
-                          {suppliers.find((s: any) => s.id === dataSource.supplierId)?.name || 'No supplier'}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedDataSource(dataSource);
-                          setIsEditDialogOpen(true);
-                          setTestConnectionResult(null);
-                          
-                          // Set private key flag based on selected data source config
-                          try {
-                            let config = {};
-                            try {
-                              if (typeof dataSource.config === 'string') {
-                                config = JSON.parse(dataSource.config || '{}');
-                              } else if (dataSource.config && typeof dataSource.config === 'object') {
-                                config = dataSource.config;
-                              }
-                            } catch (error) {
-                              console.error('Error parsing config:', error);
-                            }
-                            setEditRequiresPrivateKey(!!config.private_key);
-                          } catch (e) {
-                            setEditRequiresPrivateKey(false);
-                          }
-                        }}
-                      >
-                        <Settings className="h-4 w-4 mr-1" /> Configure
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleDeleteDataSource(dataSource.id)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="flex justify-between mb-3">
-                      <div>
-                        <Badge variant={dataSource.active ? "default" : "secondary"}>
-                          {dataSource.active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="text-sm text-muted-foreground">
-                        <p>Last updated: {new Date(dataSource.updatedAt).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    
-                    <Separator className="my-4" />
-                    
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Configuration</h4>
-                      <pre className="text-xs bg-gray-50 p-2 rounded border overflow-auto max-h-24">
-                        {JSON.stringify(dataSource.config, null, 2)}
-                      </pre>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </TabsContent>
-      </Tabs>
-      
-      {/* Create Data Source Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Data Source</DialogTitle>
-            <DialogDescription>
-              Configure a new data source for importing product data.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <form onSubmit={handleCreateDataSource}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  name="name"
-                  placeholder="Product Feed"
-                  className="col-span-3"
-                  required
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus size={16} />
+              Add Data Source
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Data Source</DialogTitle>
+              <DialogDescription>
+                Set up a new data source to import product data from external systems.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Data Source Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Supplier API"
+                    value={newDataSource.name}
+                    onChange={handleFormChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type</Label>
+                  <Select
+                    name="type"
+                    value={newDataSource.type}
+                    onValueChange={handleTypeChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="api">API</SelectItem>
+                      <SelectItem value="sftp">SFTP</SelectItem>
+                      <SelectItem value="ftp">FTP</SelectItem>
+                      <SelectItem value="database">Database</SelectItem>
+                      <SelectItem value="file">File Upload</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  placeholder="Describe this data source..."
+                  value={newDataSource.description}
+                  onChange={handleFormChange}
                 />
               </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">
-                  Type
-                </Label>
-                <Select 
-                  name="type" 
-                  defaultValue={selectedSourceType} 
-                  onValueChange={setSelectedSourceType}
+              
+              <div className="space-y-2">
+                <Label htmlFor="supplier_id">Supplier</Label>
+                <Select
+                  name="supplier_id"
+                  value={newDataSource.supplier_id}
+                  onValueChange={(value) => setNewDataSource({...newDataSource, supplier_id: value})}
                 >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="csv">CSV File</SelectItem>
-                    <SelectItem value="excel">Excel File</SelectItem>
-                    <SelectItem value="api">API</SelectItem>
-                    <SelectItem value="sftp">SFTP</SelectItem>
-                    <SelectItem value="ftp">FTP</SelectItem>
-                    <SelectItem value="edi_x12">EDI X12</SelectItem>
-                    <SelectItem value="edifact">EDIFACT</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="supplierId" className="text-right">
-                  Supplier
-                </Label>
-                <Select name="supplierId" defaultValue="">
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((supplier: any) => (
+                    {(suppliers as any[]).map((supplier) => (
                       <SelectItem key={supplier.id} value={supplier.id.toString()}>
                         {supplier.name}
                       </SelectItem>
@@ -1215,837 +756,193 @@ export default function DataSources() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* SFTP Specific Config */}
-              {(selectedSourceType === 'sftp' || selectedSourceType === 'ftp') && (
-                <>
-                  <Separator className="my-2" />
-                  <h3 className="font-medium text-lg mb-2">{selectedSourceType.toUpperCase()} Configuration</h3>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-host" className="text-right">
-                      Host
-                    </Label>
-                    <Input
-                      id="sftp-host"
-                      name="sftp-host"
-                      placeholder="ftp.supplier.com"
-                      className="col-span-3"
-                      required
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Configuration</Label>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="active"
+                      name="active"
+                      checked={newDataSource.active}
+                      onCheckedChange={(checked) => 
+                        setNewDataSource({...newDataSource, active: checked === true})
+                      }
                     />
+                    <Label htmlFor="active">Active</Label>
                   </div>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-port" className="text-right">
-                      Port
-                    </Label>
-                    <Input
-                      id="sftp-port"
-                      name="sftp-port"
-                      placeholder="22"
-                      type="number"
-                      className="col-span-3"
-                      defaultValue="22"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-username" className="text-right">
-                      Username
-                    </Label>
-                    <Input
-                      id="sftp-username"
-                      name="sftp-username"
-                      placeholder="username"
-                      className="col-span-3"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-4 ml-auto">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="requires-private-key" 
-                        name="requires-private-key" 
-                        checked={requiresPrivateKey}
-                        onCheckedChange={(checked) => setRequiresPrivateKey(checked as boolean)}
-                      />
-                      <label
-                        htmlFor="requires-private-key"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Use private key authentication
-                      </label>
-                    </div>
-                  </div>
-                  
-                  {requiresPrivateKey ? (
-                    <div className="grid grid-cols-4 items-start gap-4">
-                      <Label htmlFor="sftp-private-key" className="text-right pt-2">
-                        Private Key
-                      </Label>
-                      <Textarea
-                        id="sftp-private-key"
-                        name="sftp-private-key"
-                        placeholder="Paste private key here"
-                        className="col-span-3"
-                        rows={6}
-                      />
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-password" className="text-right">
-                        Password
-                      </Label>
-                      <Input
-                        id="sftp-password"
-                        name="sftp-password"
-                        type="password"
-                        placeholder="password"
-                        className="col-span-3"
-                      />
-                    </div>
-                  )}
-                  
-                  <Separator className="my-2" />
-                  
-                  <h4 className="font-medium mb-2">Remote Paths</h4>
-                  <div className="space-y-4">
-                    {remotePaths.map((pathItem, index) => (
-                      <div key={pathItem.id} className="grid grid-cols-12 gap-3 items-start">
-                        <div className="col-span-5">
-                          <Label htmlFor={`path-label-${pathItem.id}`} className="mb-1 block">
-                            Label
-                          </Label>
-                          <Input
-                            id={`path-label-${pathItem.id}`}
-                            value={pathItem.label}
-                            onChange={(e) => updateRemotePath(pathItem.id, 'label', e.target.value)}
-                            placeholder="Product Catalog"
-                          />
-                        </div>
-                        
-                        <div className="col-span-6">
-                          <Label htmlFor={`path-value-${pathItem.id}`} className="mb-1 block">
-                            Path
-                          </Label>
-                          <Input
-                            id={`path-value-${pathItem.id}`}
-                            value={pathItem.path}
-                            onChange={(e) => updateRemotePath(pathItem.id, 'path', e.target.value)}
-                            placeholder="/feeds/products.csv"
-                          />
-                        </div>
-                        
-                        <div className="col-span-1 pt-7">
-                          <Button 
-                            type="button"
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => removeRemotePath(pathItem.id)}
-                            disabled={remotePaths.length <= 1}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    <Button 
-                      type="button"
-                      variant="outline" 
-                      size="sm"
-                      onClick={addRemotePath}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> Add Path
-                    </Button>
-                  </div>
-
-                  {/* Test Connection Button */}
-                  <div className="mt-4">
-                    <div className="flex gap-2">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        disabled={isTestingConnection}
-                        onClick={handleTestSFTPConnection}
-                      >
-                        {isTestingConnection ? "Testing..." : "Test Connection"}
-                      </Button>
-                      
-                      {testConnectionResult?.success && (
-                        <Button 
-                          type="button" 
-                          variant="secondary" 
-                          disabled={isPullingSampleData}
-                          onClick={handlePullSampleData}
-                          className="relative min-w-[170px] bg-blue-100 hover:bg-blue-200 ml-2"
-                        >
-                          {isPullingSampleData ? (
-                            <span className="flex items-center gap-2">
-                              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              {pullStatus === 'connecting' ? 'Connecting...' :
-                               pullStatus === 'retrieving' ? 'Retrieving...' :
-                               pullStatus === 'processing' ? 'Processing...' :
-                               'Loading...'}
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                              </svg>
-                              Pull Sample Data
-                            </span>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {/* Status indicator for Pull Sample Data */}
-                    {isPullingSampleData && (
-                      <Alert className="mt-3" variant="default">
-                        <AlertTitle className="flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          {pullStatus === 'connecting' ? 'Connecting to SFTP server' : 
-                           pullStatus === 'retrieving' ? 'Retrieving data from server' :
-                           pullStatus === 'processing' ? 'Processing sample data' : 'Loading'}
-                        </AlertTitle>
-                        <AlertDescription>
-                          {pullStatusMessage}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    {testConnectionResult && !isPullingSampleData && (
-                      <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
-                        <AlertTitle>
-                          {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
-                        </AlertTitle>
-                        <AlertDescription>
-                          {testConnectionResult.message}
-                          
-                          {/* Show directory contents if successful */}
-                          {testConnectionResult.success && testConnectionResult.details?.listing && (
-                            <div className="mt-2">
-                              <h4 className="text-sm font-semibold">Directory Contents:</h4>
-                              <ul className="text-xs mt-1 list-disc list-inside">
-                                {testConnectionResult.details.listing.slice(0, 5).map((item: any, idx: number) => (
-                                  <li key={idx}>{item.name} {item.size ? `(${Math.round(item.size / 1024)}KB)` : ''}</li>
-                                ))}
-                                {testConnectionResult.details.listing.length > 5 && (
-                                  <li>...and {testConnectionResult.details.listing.length - 5} more items</li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                    
-                    {/* Sample Data Display */}
-                    {sampleData && (
-                      <div id="sample-data-container" className="mt-4 border rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-medium">
-                            Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
-                          </h3>
-                          {pullStatus === 'completed' && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                              Successfully retrieved
-                            </span>
-                          )}
-                          {pullStatus === 'error' && (
-                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                              Error retrieving data
-                            </span>
-                          )}
-                        </div>
-                        
-                        {sampleData.success ? (
-                          <>
-                            {sampleData.data && sampleData.data.length > 0 ? (
-                              <div className="border rounded-md overflow-auto max-h-60">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                  <thead className="bg-gray-50">
-                                    <tr>
-                                      {Object.keys(sampleData.data[0]).map(header => (
-                                        <th key={header} scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          {header}
-                                        </th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody className="bg-white divide-y divide-gray-200">
-                                    {sampleData.data.map((row, rowIndex) => (
-                                      <tr key={rowIndex}>
-                                        {Object.values(row).map((value: any, cellIndex) => (
-                                          <td key={cellIndex} className="px-3 py-2 text-xs">
-                                            {value === null || value === undefined 
-                                              ? <span className="text-gray-400">NULL</span> 
-                                              : String(value).substring(0, 100) + (String(value).length > 100 ? '...' : '')}
-                                          </td>
-                                        ))}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            ) : (
-                              <div className="text-sm text-muted-foreground">
-                                {sampleData.message || "No sample data available"}
-                              </div>
-                            )}
-                            
-                            {sampleData.total_records && sampleData.total_records > sampleData.data?.length && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Showing {sampleData.data?.length} of {sampleData.total_records} total records.
-                              </div>
-                            )}
-                            
-                            {sampleData.fileType && (
-                              <div className="text-xs text-muted-foreground mt-2">
-                                File Type: {sampleData.fileType} | Path: {sampleData.remote_path || "N/A"}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <Alert variant="destructive">
-                            <AlertTitle>Error Retrieving Sample Data</AlertTitle>
-                            <AlertDescription>{sampleData.message}</AlertDescription>
-                          </Alert>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* JSON Configuration for other source types */}
-              {selectedSourceType !== 'sftp' && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="config" className="text-right">
-                    Config (JSON)
-                  </Label>
+                </div>
+                
+                {/* Configuration forms based on type */}
+                {newDataSource.type === 'sftp' ? (
+                  renderSFTPForm()
+                ) : (
                   <Textarea
                     id="config"
                     name="config"
-                    placeholder="{ }"
-                    className="col-span-3"
-                    rows={10}
-                    defaultValue="{}"
+                    placeholder="{ ... }"
+                    className="font-mono"
+                    rows={8}
+                    value={newDataSource.config}
+                    onChange={handleFormChange}
                   />
-                </div>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button type="submit">Save</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Edit Data Source Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Data Source</DialogTitle>
-            <DialogDescription>
-              Update data source configuration.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedDataSource && (
-            <form onSubmit={handleEditDataSource}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    defaultValue={selectedDataSource.name}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Type</Label>
-                  <div className="col-span-3">
-                    <Badge>{getSourceTypeName(selectedDataSource.type)}</Badge>
-                    <input type="hidden" name="type" value={selectedDataSource.type} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="supplierId" className="text-right">
-                    Supplier
-                  </Label>
-                  <Select name="supplierId" defaultValue={selectedDataSource.supplierId ? selectedDataSource.supplierId.toString() : ""}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map((supplier: any) => (
-                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                          {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="active" className="text-right">
-                    Status
-                  </Label>
-                  <Select name="active" defaultValue={selectedDataSource.active ? "true" : "false"}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">Active</SelectItem>
-                      <SelectItem value="false">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* SFTP Specific Config */}
-                {(selectedDataSource.type === 'sftp' || selectedDataSource.type === 'ftp') && (
-                  <>
-                    <Separator className="my-2" />
-                    <h3 className="font-medium text-lg mb-2">{selectedDataSource.type.toUpperCase()} Configuration</h3>
-                    
-                    {(() => {
-                      let config;
-                      try {
-                        if (typeof selectedDataSource.config === 'string') {
-                          config = JSON.parse(selectedDataSource.config || '{}');
-                        } else if (selectedDataSource.config && typeof selectedDataSource.config === 'object') {
-                          config = selectedDataSource.config;
-                        } else {
-                          config = {};
-                        }
-                      } catch (e) {
-                        console.error('Error parsing config:', e);
-                        config = {};
-                      }
-                      
-                      return (
-                        <>
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="sftp-host-edit" className="text-right">
-                              Host
-                            </Label>
-                            <Input
-                              id="sftp-host-edit"
-                              name="sftp-host-edit"
-                              defaultValue={config.host || ''}
-                              className="col-span-3"
-                              required
-                            />
-                          </div>
-                          
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="sftp-port-edit" className="text-right">
-                              Port
-                            </Label>
-                            <Input
-                              id="sftp-port-edit"
-                              name="sftp-port-edit"
-                              defaultValue={config.port || '22'}
-                              type="number"
-                              className="col-span-3"
-                            />
-                          </div>
-                          
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="sftp-username-edit" className="text-right">
-                              Username
-                            </Label>
-                            <Input
-                              id="sftp-username-edit"
-                              name="sftp-username-edit"
-                              defaultValue={config.username || ''}
-                              className="col-span-3"
-                              required
-                            />
-                          </div>
-                          
-                          <div className="flex items-center gap-4 ml-auto">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="requires-private-key-edit" 
-                                name="requires-private-key-edit" 
-                                checked={editRequiresPrivateKey}
-                                onCheckedChange={(checked) => setEditRequiresPrivateKey(checked as boolean)}
-                              />
-                              <label
-                                htmlFor="requires-private-key-edit"
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                Use private key authentication
-                              </label>
-                            </div>
-                          </div>
-                          
-                          {editRequiresPrivateKey ? (
-                            <div className="grid grid-cols-4 items-start gap-4">
-                              <Label htmlFor="sftp-private-key-edit" className="text-right pt-2">
-                                Private Key
-                              </Label>
-                              <Textarea
-                                id="sftp-private-key-edit"
-                                name="sftp-private-key-edit"
-                                defaultValue={config.private_key || ''}
-                                className="col-span-3"
-                                rows={6}
-                              />
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="sftp-password-edit" className="text-right">
-                                Password
-                              </Label>
-                              <Input
-                                id="sftp-password-edit"
-                                name="sftp-password-edit"
-                                type="password"
-                                placeholder="Enter password to update"
-                                className="col-span-3"
-                              />
-                            </div>
-                          )}
-                          
-                          <Separator className="my-2" />
-                          
-                          <h4 className="font-medium mb-2">Remote Paths</h4>
-                          <div className="space-y-4">
-                            {editRemotePaths.map((pathItem, index) => (
-                              <div key={pathItem.id} className="grid grid-cols-12 gap-3 items-start">
-                                <div className="col-span-5">
-                                  <Label htmlFor={`path-label-edit-${pathItem.id}`} className="mb-1 block">
-                                    Label
-                                  </Label>
-                                  <Input
-                                    id={`path-label-edit-${pathItem.id}`}
-                                    value={pathItem.label}
-                                    onChange={(e) => updateEditRemotePath(pathItem.id, 'label', e.target.value)}
-                                    placeholder="Product Catalog"
-                                  />
-                                </div>
-                                
-                                <div className="col-span-6">
-                                  <Label htmlFor={`path-value-edit-${pathItem.id}`} className="mb-1 block">
-                                    Path
-                                  </Label>
-                                  <Input
-                                    id={`path-value-edit-${pathItem.id}`}
-                                    value={pathItem.path}
-                                    onChange={(e) => updateEditRemotePath(pathItem.id, 'path', e.target.value)}
-                                    placeholder="/feeds/products.csv"
-                                  />
-                                </div>
-                                
-                                <div className="col-span-1 pt-7">
-                                  <Button 
-                                    type="button"
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => removeEditRemotePath(pathItem.id)}
-                                    disabled={editRemotePaths.length <= 1}
-                                  >
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                            
-                            <Button 
-                              type="button"
-                              variant="outline" 
-                              size="sm"
-                              onClick={addEditRemotePath}
-                            >
-                              <Plus className="h-4 w-4 mr-1" /> Add Path
-                            </Button>
-                          </div>
-                          
-                          {/* Test Connection Button */}
-                          <div className="mt-4">
-                            <div className="flex gap-2">
-                              <Button 
-                                type="button" 
-                                variant="outline" 
-                                disabled={isTestingConnection}
-                                onClick={handleTestEditSFTPConnection}
-                              >
-                                {isTestingConnection ? "Testing..." : "Test Connection"}
-                              </Button>
-                              
-                              {testConnectionResult?.success && (
-                                <Button 
-                                  type="button" 
-                                  variant="outline" 
-                                  disabled={isPullingSampleData}
-                                  onClick={handlePullEditSampleData}
-                                >
-                                  {isPullingSampleData ? "Loading..." : "Pull Sample Data"}
-                                </Button>
-                              )}
-                            </div>
-                            
-                            {testConnectionResult && (
-                              <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
-                                <AlertTitle>
-                                  {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
-                                </AlertTitle>
-                                <AlertDescription>
-                                  {testConnectionResult.message}
-                                  
-                                  {/* Show directory contents if successful */}
-                                  {testConnectionResult.success && testConnectionResult.details?.listing && (
-                                    <div className="mt-2">
-                                      <h4 className="text-sm font-semibold">Directory Contents:</h4>
-                                      <ul className="text-xs mt-1 list-disc list-inside">
-                                        {testConnectionResult.details.listing.slice(0, 5).map((item: any, idx: number) => (
-                                          <li key={idx}>{item.name} {item.size ? `(${Math.round(item.size / 1024)}KB)` : ''}</li>
-                                        ))}
-                                        {testConnectionResult.details.listing.length > 5 && (
-                                          <li>...and {testConnectionResult.details.listing.length - 5} more items</li>
-                                        )}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                            
-                            {/* Sample Data Display */}
-                            {sampleData && (
-                              <div className="mt-4 border rounded-lg p-4">
-                                <h3 className="text-lg font-medium mb-2">
-                                  Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
-                                </h3>
-                                
-                                {sampleData.success ? (
-                                  <>
-                                    {sampleData.data && sampleData.data.length > 0 ? (
-                                      <div className="border rounded-md overflow-auto max-h-60">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                          <thead className="bg-gray-50">
-                                            <tr>
-                                              {Object.keys(sampleData.data[0]).map(header => (
-                                                <th key={header} scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                  {header}
-                                                </th>
-                                              ))}
-                                            </tr>
-                                          </thead>
-                                          <tbody className="bg-white divide-y divide-gray-200">
-                                            {sampleData.data.map((row, rowIndex) => (
-                                              <tr key={rowIndex}>
-                                                {Object.values(row).map((value: any, cellIndex) => (
-                                                  <td key={cellIndex} className="px-3 py-2 text-xs">
-                                                    {value === null || value === undefined 
-                                                      ? <span className="text-gray-400">NULL</span> 
-                                                      : String(value).substring(0, 100) + (String(value).length > 100 ? '...' : '')}
-                                                  </td>
-                                                ))}
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    ) : (
-                                      <div className="text-sm text-muted-foreground">
-                                        {sampleData.message || "No sample data available"}
-                                      </div>
-                                    )}
-                                    
-                                    {sampleData.total_records && sampleData.total_records > sampleData.data?.length && (
-                                      <div className="text-xs text-muted-foreground mt-1">
-                                        Showing {sampleData.data?.length} of {sampleData.total_records} total records.
-                                      </div>
-                                    )}
-                                    
-                                    {sampleData.fileType && (
-                                      <div className="text-xs text-muted-foreground mt-2">
-                                        File Type: {sampleData.fileType} | Path: {sampleData.remote_path || "N/A"}
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <Alert variant="destructive">
-                                    <AlertTitle>Error Retrieving Sample Data</AlertTitle>
-                                    <AlertDescription>{sampleData.message}</AlertDescription>
-                                  </Alert>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-
-                {/* JSON Configuration for other source types */}
-                {selectedDataSource.type !== 'sftp' && (
-                  <div className="grid grid-cols-4 items-start gap-4">
-                    <Label htmlFor="config" className="text-right pt-2">
-                      Config (JSON)
-                    </Label>
-                    <Textarea
-                      id="config"
-                      name="config"
-                      className="col-span-3"
-                      rows={10}
-                      defaultValue={(() => {
-                        try {
-                          let config = {};
-                          if (typeof selectedDataSource.config === 'string') {
-                            config = JSON.parse(selectedDataSource.config || '{}');
-                          } else if (selectedDataSource.config && typeof selectedDataSource.config === 'object') {
-                            config = selectedDataSource.config;
-                          }
-                          return JSON.stringify(config, null, 2);
-                        } catch (error) {
-                          console.error('Error parsing config:', error);
-                          return '{}';
-                        }
-                      })()}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter>
-                <Button type="submit">Update</Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-    
-    {/* Sample Data Modal */}
-    {showSampleDataModal && sampleData && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-[90%] max-w-6xl max-h-[90vh] overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                Sample Data from {sampleData.filename || selectedFilePath?.label}
-              </h2>
-              <button 
-                onClick={() => setShowSampleDataModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <div className="flex gap-2 items-center">
-                <span className="font-semibold">Status:</span>
-                {sampleData.success ? (
-                  <span className="text-green-600 bg-green-100 px-2 py-1 rounded-full text-sm">
-                    Success
-                  </span>
-                ) : (
-                  <span className="text-red-600 bg-red-100 px-2 py-1 rounded-full text-sm">
-                    Error
-                  </span>
                 )}
               </div>
               
-              <div className="mt-2"><span className="font-semibold">Message:</span> {sampleData.message}</div>
-              {sampleData.total_records && (
-                <div className="mt-2"><span className="font-semibold">Total Records:</span> {sampleData.total_records}</div>
-              )}
-              {sampleData.fileType && (
-                <div className="mt-2"><span className="font-semibold">File Type:</span> {sampleData.fileType}</div>
-              )}
-            </div>
-
-            {sampleData.data && sampleData.data.length > 0 && (
-              <div className="border rounded overflow-auto max-h-[60vh]">
-                <table className="w-full">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr>
-                      {Object.keys(sampleData.data[0]).map((header, idx) => (
-                        <th key={idx} className="px-4 py-2 text-left border-b">{header}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sampleData.data.slice(0, 5).map((row, rowIdx) => (
-                      <tr key={rowIdx} className="border-b hover:bg-gray-50">
-                        {Object.values(row).map((value, colIdx) => (
-                          <td key={colIdx} className="px-4 py-2 truncate max-w-[200px]">
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {rawResponseData && (
-              <div className="mt-4">
-                <h3 className="text-lg font-medium mb-2">Raw Response Data</h3>
-                <div className="bg-gray-100 p-3 rounded overflow-auto max-h-[200px] text-sm font-mono">
-                  {rawResponseData}
+              {/* Test Connection and Sample Data sections */}
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    onClick={handleTestConnection}
+                    disabled={isTestingConnection}
+                    variant="outline"
+                    className="w-1/2"
+                  >
+                    {isTestingConnection ? "Testing..." : "Test Connection"}
+                  </Button>
+                  
+                  <Button 
+                    type="button" 
+                    onClick={() => handlePullSampleData()}
+                    disabled={isPullingSampleData}
+                    variant="outline"
+                    className="w-1/2"
+                  >
+                    {isPullingSampleData ? "Pulling Data..." : "Pull Sample Data"}
+                  </Button>
                 </div>
+                
+                {testConnectionResult && (
+                  <Alert variant={testConnectionResult.success ? "default" : "destructive"}>
+                    <AlertTitle>
+                      {testConnectionResult.success ? "Success" : "Error"}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {testConnectionResult.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-2">
-              {sampleData.success && selectedFilePath && (
-                <button
-                  onClick={() => {
-                    // Update the remote path with last pulled timestamp
-                    const updatedPaths = remotePaths.map(p => 
-                      p.id === selectedFilePath.id 
-                        ? { 
-                            ...p, 
-                            lastPulled: new Date().toISOString(),
-                            lastPullStatus: 'success' as const
-                          } 
-                        : p
-                    );
-                    setRemotePaths(updatedPaths);
-                    setShowSampleDataModal(false);
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Save Timestamp & Close
-                </button>
-              )}
-              <button
-                onClick={() => setShowSampleDataModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-              >
-                Close
-              </button>
             </div>
-          </div>
-        </div>
+            
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateDataSource}>
+                Create Data Source
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">All Sources</TabsTrigger>
+          <TabsTrigger value="api">API</TabsTrigger>
+          <TabsTrigger value="sftp">SFTP</TabsTrigger>
+          <TabsTrigger value="ftp">FTP</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
+          <TabsTrigger value="file">File Upload</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value={activeTab} className="space-y-4">
+          {isLoadingDataSources ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900"></div>
+            </div>
+          ) : filteredDataSources.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-gray-500">No data sources found. Create one to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDataSources.map((dataSource: DataSource) => (
+                <Card key={dataSource.id} className="overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg">{dataSource.name}</CardTitle>
+                        <CardDescription className="line-clamp-1">
+                          {dataSource.description || "No description"}
+                        </CardDescription>
+                      </div>
+                      <Badge variant={dataSource.active ? "default" : "outline"}>
+                        {dataSource.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-3">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        {dataSource.type === 'api' && <Link2 size={16} />}
+                        {dataSource.type === 'sftp' && <Server size={16} />}
+                        {dataSource.type === 'ftp' && <Server size={16} />}
+                        {dataSource.type === 'database' && <Database size={16} />}
+                        {dataSource.type === 'file' && <UploadCloud size={16} />}
+                        <span className="capitalize">{dataSource.type} Connection</span>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div className="flex justify-between">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1"
+                          onClick={() => setEditingDataSource(dataSource)}
+                        >
+                          <FileEdit size={14} />
+                          Edit
+                        </Button>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Settings size={14} />
+                              Actions
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              Test Connection
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              Pull Sample Data
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              Configure Scheduler
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600">
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+      
+      {/* Sample Data Modal */}
+      {showSampleDataModal && sampleData && (
+        <SampleDataModal
+          sampleData={sampleData}
+          selectedFilePath={selectedFilePath}
+          rawResponseData={rawResponseData}
+          onClose={() => setShowSampleDataModal(false)}
+          onSaveTimestamp={handleSaveTimestamp}
+        />
       )}
     </main>
   );
