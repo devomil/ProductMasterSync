@@ -44,6 +44,16 @@ export default function DataSources() {
   const [editRequiresPrivateKey, setEditRequiresPrivateKey] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
+  const [isPullingSampleData, setIsPullingSampleData] = useState(false);
+  const [sampleData, setSampleData] = useState<{ 
+    success: boolean; 
+    message: string; 
+    data?: any[]; 
+    filename?: string;
+    fileType?: string;
+    remote_path?: string;
+    total_records?: number;
+  } | null>(null);
   
   // For handling multiple remote paths
   const [remotePaths, setRemotePaths] = useState<RemotePathItem[]>([
@@ -448,6 +458,131 @@ export default function DataSources() {
     ));
   };
   
+  const handlePullSampleData = async () => {
+    // Clear previous sample data
+    setSampleData(null);
+    setIsPullingSampleData(true);
+    
+    // Get all SFTP-related form fields
+    const hostElement = document.getElementById('sftp-host') as HTMLInputElement;
+    const portElement = document.getElementById('sftp-port') as HTMLInputElement;
+    const usernameElement = document.getElementById('sftp-username') as HTMLInputElement;
+    const passwordElement = document.getElementById('sftp-password') as HTMLInputElement;
+    const privateKeyElement = document.getElementById('sftp-private-key') as HTMLTextAreaElement;
+    
+    // Validate basic connection info
+    if (!hostElement?.value || !usernameElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all required SFTP connection fields"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Validate remote paths
+    if (remotePaths.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "At least one remote path is required"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Check that all paths have valid values
+    const invalidPaths = remotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
+    if (invalidPaths.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "All remote paths must have labels and start with /"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Auth validation
+    const usesPrivateKey = requiresPrivateKey;
+    if (usesPrivateKey && !privateKeyElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Private key is required when using key authentication"
+      });
+      setIsPullingSampleData(false);
+      return;
+    } else if (!usesPrivateKey && !passwordElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Password is required"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Prepare credentials
+    const credentials = {
+      host: hostElement.value,
+      port: portElement.value ? parseInt(portElement.value, 10) : 22,
+      username: usernameElement.value,
+      remote_paths: remotePaths,
+      requiresPrivateKey: usesPrivateKey,
+      ...(usesPrivateKey 
+        ? { privateKey: privateKeyElement.value }
+        : { password: passwordElement.value }
+      )
+    };
+    
+    try {
+      // Make the request to pull sample data
+      const response = await fetch('/api/connections/sample-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'sftp',
+          credentials,
+          supplier_id: 1, // Hardcoded for now
+          limit: 10 // Only pull 10 records for sample
+        }),
+        credentials: 'include',
+      });
+      
+      // Parse the JSON response
+      const result = await response.json();
+      console.log('SFTP sample data pull response:', result);
+      
+      // Update the state with the result
+      setSampleData(result);
+      
+      // Display appropriate toast based on result
+      if (result.success) {
+        toast({
+          title: "Sample Data Retrieved",
+          description: result.message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Retrieve Sample Data",
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error('Error pulling sample data:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to pull sample data. Please check your connection settings."
+      });
+    } finally {
+      setIsPullingSampleData(false);
+    }
+  };
+
   const handleTestSFTPConnection = async () => {
     setTestConnectionResult(null);
     setIsTestingConnection(true);
@@ -492,6 +627,9 @@ export default function DataSources() {
       setIsTestingConnection(false);
       return;
     }
+    
+    // Reset sample data when testing connection
+    setSampleData(null);
     
     // Auth validation
     const usesPrivateKey = requiresPrivateKey;
