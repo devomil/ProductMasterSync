@@ -229,7 +229,7 @@ export default function DataSources() {
     }
     
     try {
-      const dataSource = await apiRequest('/api/data-sources', 'POST', { 
+      const dataSource = await apiRequest('POST', '/api/data-sources', { 
         name, 
         type, 
         supplierId, 
@@ -359,7 +359,7 @@ export default function DataSources() {
     }
     
     try {
-      const dataSource = await apiRequest(`/api/data-sources/${selectedDataSource.id}`, 'PUT', { 
+      const dataSource = await apiRequest('PUT', `/api/data-sources/${selectedDataSource.id}`, { 
         name, 
         supplierId, 
         config,
@@ -391,7 +391,7 @@ export default function DataSources() {
     }
     
     try {
-      await apiRequest(`/api/data-sources/${id}`, 'DELETE');
+      await apiRequest('DELETE', `/api/data-sources/${id}`);
       
       queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
       
@@ -493,7 +493,7 @@ export default function DataSources() {
       return;
     }
     
-    // Determine authentication method
+    // Auth validation
     const usesPrivateKey = requiresPrivateKey;
     if (usesPrivateKey && !privateKeyElement?.value) {
       toast({
@@ -503,9 +503,7 @@ export default function DataSources() {
       });
       setIsTestingConnection(false);
       return;
-    }
-    
-    if (!usesPrivateKey && !passwordElement?.value) {
+    } else if (!usesPrivateKey && !passwordElement?.value) {
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -515,7 +513,7 @@ export default function DataSources() {
       return;
     }
     
-    // Build credentials object
+    // Prepare credentials
     const credentials = {
       host: hostElement.value,
       port: portElement.value ? parseInt(portElement.value, 10) : 22,
@@ -528,7 +526,7 @@ export default function DataSources() {
     };
     
     try {
-      const result = await apiRequest('/api/connections/test', 'POST', {
+      const result = await apiRequest('POST', '/api/connections/test', {
         type: 'sftp',
         credentials
       });
@@ -550,62 +548,20 @@ export default function DataSources() {
     } catch (error) {
       setTestConnectionResult({
         success: false,
-        message: `Error: ${(error as Error).message}`
+        message: (error as Error).message || "Connection failed"
       });
       
       toast({
         variant: "destructive",
-        title: "Connection Error",
-        description: `Failed to test connection: ${(error as Error).message}`
+        title: "Connection Failed",
+        description: (error as Error).message || "Could not connect to SFTP server"
       });
     } finally {
       setIsTestingConnection(false);
     }
   };
   
-  const handleEditClick = (dataSource: DataSource) => {
-    setSelectedDataSource(dataSource);
-    setIsEditDialogOpen(true);
-    setTestConnectionResult(null);
-    
-    // Initialize form state based on the data source type
-    if (dataSource.type === 'sftp' && dataSource.config) {
-      try {
-        const config = dataSource.config as any;
-        
-        // Check if the config includes private key
-        setEditRequiresPrivateKey(!!config.private_key);
-        
-        // Initialize remote paths from config if available
-        if (Array.isArray(config.remote_paths) && config.remote_paths.length > 0) {
-          // Create path objects with unique IDs
-          const paths = config.remote_paths.map((path: any) => ({
-            id: uuidv4(),
-            label: path.label || '',
-            path: path.path || '/'
-          }));
-          setEditRemotePaths(paths);
-        } else {
-          // Fallback for legacy data source with single path
-          setEditRemotePaths([{
-            id: uuidv4(),
-            label: 'Default',
-            path: config.path || config.remoteDir || '/'
-          }]);
-        }
-      } catch (e) {
-        // Config parsing error, assume defaults
-        setEditRequiresPrivateKey(false);
-        setEditRemotePaths([{
-          id: uuidv4(),
-          label: 'Default',
-          path: '/'
-        }]);
-      }
-    }
-  };
-  
-  const handleTestSFTPConnectionEdit = async () => {
+  const handleTestEditSFTPConnection = async () => {
     setTestConnectionResult(null);
     setIsTestingConnection(true);
     
@@ -627,7 +583,7 @@ export default function DataSources() {
       return;
     }
     
-    // Validate remote paths
+    // Validate paths
     if (editRemotePaths.length === 0) {
       toast({
         variant: "destructive",
@@ -650,10 +606,7 @@ export default function DataSources() {
       return;
     }
     
-    // For testing, we'll use the first path in the list
-    const testPath = editRemotePaths[0].path;
-    
-    // Determine authentication method
+    // Auth validation
     const usesPrivateKey = editRequiresPrivateKey;
     if (usesPrivateKey && !privateKeyElement?.value) {
       toast({
@@ -663,9 +616,7 @@ export default function DataSources() {
       });
       setIsTestingConnection(false);
       return;
-    }
-    
-    if (!usesPrivateKey && !passwordElement?.value) {
+    } else if (!usesPrivateKey && !passwordElement?.value) {
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -675,7 +626,7 @@ export default function DataSources() {
       return;
     }
     
-    // Build credentials object
+    // Prepare credentials
     const credentials = {
       host: hostElement.value,
       port: portElement.value ? parseInt(portElement.value, 10) : 22,
@@ -688,7 +639,7 @@ export default function DataSources() {
     };
     
     try {
-      const result = await apiRequest('/api/connections/test', 'POST', {
+      const result = await apiRequest('POST', '/api/connections/test', {
         type: 'sftp',
         credentials
       });
@@ -710,104 +661,109 @@ export default function DataSources() {
     } catch (error) {
       setTestConnectionResult({
         success: false,
-        message: `Error: ${(error as Error).message}`
+        message: (error as Error).message || "Connection failed"
       });
       
       toast({
         variant: "destructive",
-        title: "Connection Error",
-        description: `Failed to test connection: ${(error as Error).message}`
+        title: "Connection Failed",
+        description: (error as Error).message || "Could not connect to SFTP server"
       });
     } finally {
       setIsTestingConnection(false);
     }
   };
   
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-full">Loading data sources...</div>;
-  }
-  
-  if (error) {
-    return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>Failed to load data sources: {(error as Error).message}</AlertDescription>
-      </Alert>
-    );
-  }
-  
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Data Sources</h1>
-          <p className="text-gray-500">Manage your product data integration sources</p>
+          <h1 className="text-3xl font-bold tracking-tight">Data Sources</h1>
+          <p className="text-muted-foreground">
+            Configure and manage data sources for product information
+          </p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <UploadCloud className="h-4 w-4 mr-2" />
-          Add Data Source
+          <Plus className="mr-2 h-4 w-4" /> Add Data Source
         </Button>
       </div>
       
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
           <TabsTrigger value="all">All Sources</TabsTrigger>
-          <TabsTrigger value="csv">CSV/Excel</TabsTrigger>
-          <TabsTrigger value="api">API</TabsTrigger>
-          <TabsTrigger value="edi_x12">EDI</TabsTrigger>
           <TabsTrigger value="sftp">SFTP/FTP</TabsTrigger>
+          <TabsTrigger value="api">API</TabsTrigger>
+          <TabsTrigger value="csv">Files (CSV/Excel)</TabsTrigger>
+          <TabsTrigger value="edi_x12">EDI</TabsTrigger>
         </TabsList>
         
         <TabsContent value={activeTab} className="space-y-4">
-          {filteredDataSources.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-gray-500">
-                No data sources found. Click "Add Data Source" to create one.
-              </CardContent>
-            </Card>
+          {isLoading ? (
+            <div className="text-center p-4">Loading data sources...</div>
+          ) : filteredDataSources.length === 0 ? (
+            <div className="text-center p-4 border rounded-lg bg-muted/20">
+              <p className="mb-2">No data sources found.</p>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Add Your First Data Source
+              </Button>
+            </div>
           ) : (
             filteredDataSources.map((dataSource: DataSource) => {
-              const supplierName = suppliers.find((s: any) => s.id === dataSource.supplierId)?.name || 'Unknown';
-              
               return (
-                <Card key={dataSource.id} className={!dataSource.active ? "opacity-70" : ""}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
+                <Card key={dataSource.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="p-4 flex flex-row items-center justify-between space-y-0">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                        {getSourceTypeIcon(dataSource.type)}
+                      </div>
                       <div>
-                        <CardTitle className="flex items-center">
-                          {getSourceTypeIcon(dataSource.type)}
-                          {dataSource.name}
-                        </CardTitle>
+                        <CardTitle className="text-xl">{dataSource.name}</CardTitle>
                         <CardDescription className="flex items-center mt-1">
-                          <span className="font-medium mr-2">Source Type:</span> 
                           {getSourceTypeName(dataSource.type)}
+                          <ChevronRight className="h-4 w-4 inline mx-1" />
+                          {suppliers.find((s: any) => s.id === dataSource.supplierId)?.name || 'No supplier'}
                         </CardDescription>
                       </div>
-                      <div className="flex items-center">
-                        {dataSource.active ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 mr-2">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200 mr-2">
-                            Inactive
-                          </Badge>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => handleEditClick(dataSource)}>
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDataSource(dataSource);
+                          setIsEditDialogOpen(true);
+                          setTestConnectionResult(null);
+                          
+                          // Set private key flag based on selected data source config
+                          try {
+                            const config = JSON.parse(dataSource.config || '{}');
+                            setEditRequiresPrivateKey(!!config.private_key);
+                          } catch (e) {
+                            setEditRequiresPrivateKey(false);
+                          }
+                        }}
+                      >
+                        <Settings className="h-4 w-4 mr-1" /> Configure
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDeleteDataSource(dataSource.id)}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardContent className="p-4 pt-0">
+                    <div className="flex justify-between mb-3">
                       <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Supplier</h4>
-                        <p>{supplierName}</p>
+                        <Badge variant={dataSource.active ? "default" : "secondary"}>
+                          {dataSource.active ? "Active" : "Inactive"}
+                        </Badge>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Last Updated</h4>
-                        <p>{new Date(dataSource.updatedAt).toLocaleString()}</p>
+                      
+                      <div className="text-sm text-muted-foreground">
+                        <p>Last updated: {new Date(dataSource.updatedAt).toLocaleString()}</p>
                       </div>
                     </div>
                     
@@ -840,39 +796,47 @@ export default function DataSources() {
           <form onSubmit={handleCreateDataSource}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" className="col-span-3" required />
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="Product Feed"
+                  className="col-span-3"
+                  required
+                />
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">Type</Label>
+                <Label htmlFor="type" className="text-right">
+                  Type
+                </Label>
                 <Select 
                   name="type" 
-                  required 
-                  defaultValue="csv"
-                  onValueChange={(value) => setSelectedSourceType(value)}
+                  defaultValue={selectedSourceType} 
+                  onValueChange={setSelectedSourceType}
                 >
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select source type" />
+                    <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="csv">CSV File</SelectItem>
                     <SelectItem value="excel">Excel File</SelectItem>
-                    <SelectItem value="json">JSON File</SelectItem>
-                    <SelectItem value="xml">XML File</SelectItem>
-                    <SelectItem value="api">API Integration</SelectItem>
-                    <SelectItem value="sftp">SFTP Connection</SelectItem>
-                    <SelectItem value="ftp">FTP Connection</SelectItem>
+                    <SelectItem value="api">API</SelectItem>
+                    <SelectItem value="sftp">SFTP</SelectItem>
+                    <SelectItem value="ftp">FTP</SelectItem>
                     <SelectItem value="edi_x12">EDI X12</SelectItem>
                     <SelectItem value="edifact">EDIFACT</SelectItem>
-                    <SelectItem value="manual">Manual Upload</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="supplierId" className="text-right">Supplier</Label>
-                <Select name="supplierId" required>
+                <Label htmlFor="supplierId" className="text-right">
+                  Supplier
+                </Label>
+                <Select name="supplierId" defaultValue="">
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
@@ -885,206 +849,212 @@ export default function DataSources() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              {selectedSourceType === "sftp" ? (
-                <div className="grid gap-4 border rounded-lg p-4 bg-gray-50">
-                  <h3 className="text-md font-medium">SFTP Configuration</h3>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-host" className="text-right">Host</Label>
-                    <Input 
-                      id="sftp-host" 
-                      name="sftp-host" 
-                      className="col-span-3" 
-                      placeholder="sftp.example.com" 
-                      required 
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-port" className="text-right">Port</Label>
-                    <Input 
-                      id="sftp-port" 
-                      name="sftp-port" 
-                      className="col-span-3" 
-                      type="number" 
-                      placeholder="22" 
-                      defaultValue="22" 
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-username" className="text-right">Username</Label>
-                    <Input 
-                      id="sftp-username" 
-                      name="sftp-username" 
-                      className="col-span-3" 
-                      required 
-                    />
-                  </div>
-                  
-                  {!requiresPrivateKey && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-password" className="text-right">Password</Label>
-                      <Input 
-                        id="sftp-password" 
-                        name="sftp-password" 
-                        className="col-span-3" 
-                        type="password" 
-                        required={!requiresPrivateKey}
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="grid gap-4">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-md font-medium">Remote Paths</Label>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={addRemotePath}
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Add Path
-                      </Button>
-                    </div>
 
-                    {remotePaths.length === 0 ? (
-                      <div className="p-4 text-center border rounded-md border-dashed">
-                        No remote paths. Click "Add Path" to add one.
-                      </div>
-                    ) : (
-                      <div className="max-h-[300px] overflow-y-auto pr-2">
-                        {remotePaths.map((path, index) => {
-                          return (
-                            <div key={path.id} className="grid gap-4 p-3 mb-3 border rounded-md bg-white">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium">Path {index + 1}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeRemotePath(path.id)}
-                                  disabled={remotePaths.length <= 1}
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor={`path-label-${path.id}`} className="text-right">Label</Label>
-                                <Input 
-                                  id={`path-label-${path.id}`}
-                                  value={path.label}
-                                  onChange={(e) => updateRemotePath(path.id, 'label', e.target.value)}
-                                  className="col-span-3" 
-                                  placeholder="Products" 
-                                />
-                              </div>
-                              
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor={`path-${path.id}`} className="text-right">Path</Label>
-                                <Input 
-                                  id={`path-${path.id}`}
-                                  value={path.path}
-                                  onChange={(e) => updateRemotePath(path.id, 'path', e.target.value)}
-                                  className="col-span-3" 
-                                  placeholder="/feeds/products.csv" 
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+              {/* SFTP Specific Config */}
+              {selectedSourceType === 'sftp' && (
+                <>
+                  <Separator className="my-2" />
+                  <h3 className="font-medium text-lg mb-2">SFTP Configuration</h3>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sftp-host" className="text-right">
+                      Host
+                    </Label>
+                    <Input
+                      id="sftp-host"
+                      name="sftp-host"
+                      placeholder="ftp.supplier.com"
+                      className="col-span-3"
+                      required
+                    />
                   </div>
                   
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <div className="text-right">Authentication</div>
-                    <div className="col-span-3 flex items-center space-x-2">
+                    <Label htmlFor="sftp-port" className="text-right">
+                      Port
+                    </Label>
+                    <Input
+                      id="sftp-port"
+                      name="sftp-port"
+                      placeholder="22"
+                      type="number"
+                      className="col-span-3"
+                      defaultValue="22"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sftp-username" className="text-right">
+                      Username
+                    </Label>
+                    <Input
+                      id="sftp-username"
+                      name="sftp-username"
+                      placeholder="username"
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-4 ml-auto">
+                    <div className="flex items-center space-x-2">
                       <Checkbox 
                         id="requires-private-key" 
-                        name="requires-private-key"
+                        name="requires-private-key" 
                         checked={requiresPrivateKey}
-                        onCheckedChange={(checked) => setRequiresPrivateKey(checked === true)}
+                        onCheckedChange={(checked) => setRequiresPrivateKey(checked as boolean)}
                       />
-                      <Label htmlFor="requires-private-key">Requires private key authentication</Label>
+                      <label
+                        htmlFor="requires-private-key"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Use private key authentication
+                      </label>
                     </div>
                   </div>
                   
-                  {requiresPrivateKey && (
+                  {requiresPrivateKey ? (
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label htmlFor="sftp-private-key" className="text-right pt-2">
+                        Private Key
+                      </Label>
+                      <Textarea
+                        id="sftp-private-key"
+                        name="sftp-private-key"
+                        placeholder="Paste private key here"
+                        className="col-span-3"
+                        rows={6}
+                      />
+                    </div>
+                  ) : (
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-private-key" className="text-right align-top mt-2">Private Key</Label>
-                      <Textarea 
-                        id="sftp-private-key" 
-                        name="sftp-private-key" 
-                        className="col-span-3 font-mono" 
-                        rows={4}
-                        placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----" 
-                        required={requiresPrivateKey}
+                      <Label htmlFor="sftp-password" className="text-right">
+                        Password
+                      </Label>
+                      <Input
+                        id="sftp-password"
+                        name="sftp-password"
+                        type="password"
+                        placeholder="password"
+                        className="col-span-3"
                       />
                     </div>
                   )}
                   
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={handleTestSFTPConnection}
-                    disabled={isTestingConnection}
-                  >
-                    {isTestingConnection ? "Testing..." : "Test Connection"}
-                  </Button>
+                  <Separator className="my-2" />
                   
-                  {testConnectionResult && (
-                    <Alert variant={testConnectionResult.success ? "default" : "destructive"}>
-                      <AlertTitle>
-                        {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
-                      </AlertTitle>
-                      <AlertDescription>
-                        {testConnectionResult.message}
-                        {testConnectionResult.success && testConnectionResult.details && (
-                          <div className="mt-2 text-xs">
-                            <p>Found {testConnectionResult.details.totalFiles || 0} files in directory</p>
-                            {testConnectionResult.details.directoryContents && (
-                              <div className="mt-1 bg-gray-50 p-2 rounded">
-                                {testConnectionResult.details.directoryContents.map((item: any, index: number) => (
-                                  <div key={index} className="truncate">{item.name}</div>
+                  <h4 className="font-medium mb-2">Remote Paths</h4>
+                  <div className="space-y-4">
+                    {remotePaths.map((pathItem, index) => (
+                      <div key={pathItem.id} className="grid grid-cols-12 gap-3 items-start">
+                        <div className="col-span-5">
+                          <Label htmlFor={`path-label-${pathItem.id}`} className="mb-1 block">
+                            Label
+                          </Label>
+                          <Input
+                            id={`path-label-${pathItem.id}`}
+                            value={pathItem.label}
+                            onChange={(e) => updateRemotePath(pathItem.id, 'label', e.target.value)}
+                            placeholder="Product Catalog"
+                          />
+                        </div>
+                        
+                        <div className="col-span-6">
+                          <Label htmlFor={`path-value-${pathItem.id}`} className="mb-1 block">
+                            Path
+                          </Label>
+                          <Input
+                            id={`path-value-${pathItem.id}`}
+                            value={pathItem.path}
+                            onChange={(e) => updateRemotePath(pathItem.id, 'path', e.target.value)}
+                            placeholder="/feeds/products.csv"
+                          />
+                        </div>
+                        
+                        <div className="col-span-1 pt-7">
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => removeRemotePath(pathItem.id)}
+                            disabled={remotePaths.length <= 1}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm"
+                      onClick={addRemotePath}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add Path
+                    </Button>
+                  </div>
+
+                  {/* Test Connection Button */}
+                  <div className="mt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      disabled={isTestingConnection}
+                      onClick={handleTestSFTPConnection}
+                    >
+                      {isTestingConnection ? "Testing..." : "Test Connection"}
+                    </Button>
+                    
+                    {testConnectionResult && (
+                      <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
+                        <AlertTitle>
+                          {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
+                        </AlertTitle>
+                        <AlertDescription>
+                          {testConnectionResult.message}
+                          
+                          {/* Show directory contents if successful */}
+                          {testConnectionResult.success && testConnectionResult.details?.listing && (
+                            <div className="mt-2">
+                              <h4 className="text-sm font-semibold">Directory Contents:</h4>
+                              <ul className="text-xs mt-1 list-disc list-inside">
+                                {testConnectionResult.details.listing.slice(0, 5).map((item: any, idx: number) => (
+                                  <li key={idx}>{item.name} {item.size ? `(${Math.round(item.size / 1024)}KB)` : ''}</li>
                                 ))}
-                                {(testConnectionResult.details.totalFiles || 0) > 5 && (
-                                  <div className="text-gray-500 mt-1">
-                                    + {(testConnectionResult.details.totalFiles || 0) - 5} more files
-                                  </div>
+                                {testConnectionResult.details.listing.length > 5 && (
+                                  <li>...and {testConnectionResult.details.listing.length - 5} more items</li>
                                 )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
-              ) : (
+                              </ul>
+                            </div>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* JSON Configuration for other source types */}
+              {selectedSourceType !== 'sftp' && (
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="config" className="text-right align-top mt-2">Configuration</Label>
-                  <Textarea 
-                    id="config" 
-                    name="config" 
-                    className="col-span-3 font-mono" 
-                    rows={8}
-                    placeholder="{}"
+                  <Label htmlFor="config" className="text-right">
+                    Config (JSON)
+                  </Label>
+                  <Textarea
+                    id="config"
+                    name="config"
+                    placeholder="{ }"
+                    className="col-span-3"
+                    rows={10}
                     defaultValue="{}"
-                    required 
                   />
                 </div>
               )}
             </div>
-            
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Create Data Source</Button>
+              <Button type="submit">Save</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1104,29 +1074,31 @@ export default function DataSources() {
             <form onSubmit={handleEditDataSource}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-name" className="text-right">Name</Label>
-                  <Input 
-                    id="edit-name" 
-                    name="name" 
-                    className="col-span-3" 
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    name="name"
                     defaultValue={selectedDataSource.name}
-                    required 
+                    className="col-span-3"
+                    required
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-type" className="text-right">Type</Label>
-                  <Input 
-                    id="edit-type" 
-                    className="col-span-3" 
-                    value={getSourceTypeName(selectedDataSource.type)}
-                    disabled
-                  />
+                  <Label className="text-right">Type</Label>
+                  <div className="col-span-3">
+                    <Badge>{getSourceTypeName(selectedDataSource.type)}</Badge>
+                    <input type="hidden" name="type" value={selectedDataSource.type} />
+                  </div>
                 </div>
-                
+
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-supplierId" className="text-right">Supplier</Label>
-                  <Select name="supplierId" defaultValue={selectedDataSource.supplierId.toString()}>
+                  <Label htmlFor="supplierId" className="text-right">
+                    Supplier
+                  </Label>
+                  <Select name="supplierId" defaultValue={selectedDataSource.supplierId ? selectedDataSource.supplierId.toString() : ""}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
@@ -1139,9 +1111,11 @@ export default function DataSources() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-active" className="text-right">Status</Label>
+                  <Label htmlFor="active" className="text-right">
+                    Status
+                  </Label>
                   <Select name="active" defaultValue={selectedDataSource.active ? "true" : "false"}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select status" />
@@ -1153,226 +1127,222 @@ export default function DataSources() {
                   </Select>
                 </div>
                 
-                {selectedDataSource.type === "sftp" ? (
-                  <div className="grid gap-4 border rounded-lg p-4 bg-gray-50">
-                    <h3 className="text-md font-medium">SFTP Configuration</h3>
+                {/* SFTP Specific Config */}
+                {selectedDataSource.type === 'sftp' && (
+                  <>
+                    <Separator className="my-2" />
+                    <h3 className="font-medium text-lg mb-2">SFTP Configuration</h3>
                     
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-host-edit" className="text-right">Host</Label>
-                      <Input 
-                        id="sftp-host-edit" 
-                        name="sftp-host-edit" 
-                        className="col-span-3" 
-                        placeholder="sftp.example.com" 
-                        defaultValue={(selectedDataSource.config as any)?.host || ''}
-                        required 
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-port-edit" className="text-right">Port</Label>
-                      <Input 
-                        id="sftp-port-edit" 
-                        name="sftp-port-edit" 
-                        className="col-span-3" 
-                        type="number" 
-                        placeholder="22" 
-                        defaultValue={(selectedDataSource.config as any)?.port || 22} 
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-username-edit" className="text-right">Username</Label>
-                      <Input 
-                        id="sftp-username-edit" 
-                        name="sftp-username-edit" 
-                        className="col-span-3" 
-                        defaultValue={(selectedDataSource.config as any)?.username || ''}
-                        required 
-                      />
-                    </div>
-                    
-                    {!editRequiresPrivateKey && (
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="sftp-password-edit" className="text-right">Password</Label>
-                        <Input 
-                          id="sftp-password-edit" 
-                          name="sftp-password-edit" 
-                          className="col-span-3" 
-                          type="password" 
-                          defaultValue={(selectedDataSource.config as any)?.password || ''}
-                          required={!editRequiresPrivateKey}
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="grid gap-4">
-                      <div className="flex justify-between items-center">
-                        <Label className="text-md font-medium">Remote Paths</Label>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={addEditRemotePath}
-                        >
-                          <Plus className="h-4 w-4 mr-1" /> Add Path
-                        </Button>
-                      </div>
-
-                      {editRemotePaths.length === 0 ? (
-                        <div className="p-4 text-center border rounded-md border-dashed">
-                          No remote paths. Click "Add Path" to add one.
-                        </div>
-                      ) : (
-                        <div className="max-h-[300px] overflow-y-auto pr-2">
-                          {editRemotePaths.map((path, index) => {
-                            return (
-                              <div key={path.id} className="grid gap-4 p-3 mb-3 border rounded-md bg-white">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium">Path {index + 1}</span>
-                                  <Button
+                    {(() => {
+                      let config;
+                      try {
+                        config = JSON.parse(selectedDataSource.config || '{}');
+                      } catch (e) {
+                        config = {};
+                      }
+                      
+                      return (
+                        <>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="sftp-host-edit" className="text-right">
+                              Host
+                            </Label>
+                            <Input
+                              id="sftp-host-edit"
+                              name="sftp-host-edit"
+                              defaultValue={config.host || ''}
+                              className="col-span-3"
+                              required
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="sftp-port-edit" className="text-right">
+                              Port
+                            </Label>
+                            <Input
+                              id="sftp-port-edit"
+                              name="sftp-port-edit"
+                              defaultValue={config.port || '22'}
+                              type="number"
+                              className="col-span-3"
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="sftp-username-edit" className="text-right">
+                              Username
+                            </Label>
+                            <Input
+                              id="sftp-username-edit"
+                              name="sftp-username-edit"
+                              defaultValue={config.username || ''}
+                              className="col-span-3"
+                              required
+                            />
+                          </div>
+                          
+                          <div className="flex items-center gap-4 ml-auto">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="requires-private-key-edit" 
+                                name="requires-private-key-edit" 
+                                checked={editRequiresPrivateKey}
+                                onCheckedChange={(checked) => setEditRequiresPrivateKey(checked as boolean)}
+                              />
+                              <label
+                                htmlFor="requires-private-key-edit"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                Use private key authentication
+                              </label>
+                            </div>
+                          </div>
+                          
+                          {editRequiresPrivateKey ? (
+                            <div className="grid grid-cols-4 items-start gap-4">
+                              <Label htmlFor="sftp-private-key-edit" className="text-right pt-2">
+                                Private Key
+                              </Label>
+                              <Textarea
+                                id="sftp-private-key-edit"
+                                name="sftp-private-key-edit"
+                                defaultValue={config.private_key || ''}
+                                className="col-span-3"
+                                rows={6}
+                              />
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="sftp-password-edit" className="text-right">
+                                Password
+                              </Label>
+                              <Input
+                                id="sftp-password-edit"
+                                name="sftp-password-edit"
+                                type="password"
+                                placeholder="Enter password to update"
+                                className="col-span-3"
+                              />
+                            </div>
+                          )}
+                          
+                          <Separator className="my-2" />
+                          
+                          <h4 className="font-medium mb-2">Remote Paths</h4>
+                          <div className="space-y-4">
+                            {editRemotePaths.map((pathItem, index) => (
+                              <div key={pathItem.id} className="grid grid-cols-12 gap-3 items-start">
+                                <div className="col-span-5">
+                                  <Label htmlFor={`path-label-edit-${pathItem.id}`} className="mb-1 block">
+                                    Label
+                                  </Label>
+                                  <Input
+                                    id={`path-label-edit-${pathItem.id}`}
+                                    value={pathItem.label}
+                                    onChange={(e) => updateEditRemotePath(pathItem.id, 'label', e.target.value)}
+                                    placeholder="Product Catalog"
+                                  />
+                                </div>
+                                
+                                <div className="col-span-6">
+                                  <Label htmlFor={`path-value-edit-${pathItem.id}`} className="mb-1 block">
+                                    Path
+                                  </Label>
+                                  <Input
+                                    id={`path-value-edit-${pathItem.id}`}
+                                    value={pathItem.path}
+                                    onChange={(e) => updateEditRemotePath(pathItem.id, 'path', e.target.value)}
+                                    placeholder="/feeds/products.csv"
+                                  />
+                                </div>
+                                
+                                <div className="col-span-1 pt-7">
+                                  <Button 
                                     type="button"
-                                    variant="ghost"
+                                    variant="ghost" 
                                     size="sm"
-                                    onClick={() => removeEditRemotePath(path.id)}
+                                    onClick={() => removeEditRemotePath(pathItem.id)}
                                     disabled={editRemotePaths.length <= 1}
                                   >
                                     <Trash className="h-4 w-4" />
                                   </Button>
                                 </div>
-                                
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor={`edit-path-label-${path.id}`} className="text-right">Label</Label>
-                                  <Input 
-                                    id={`edit-path-label-${path.id}`}
-                                    value={path.label}
-                                    onChange={(e) => updateEditRemotePath(path.id, 'label', e.target.value)}
-                                    className="col-span-3" 
-                                    placeholder="Products" 
-                                  />
-                                </div>
-                                
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label htmlFor={`edit-path-${path.id}`} className="text-right">Path</Label>
-                                  <Input 
-                                    id={`edit-path-${path.id}`}
-                                    value={path.path}
-                                    onChange={(e) => updateEditRemotePath(path.id, 'path', e.target.value)}
-                                    className="col-span-3" 
-                                    placeholder="/feeds/products.csv" 
-                                  />
-                                </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <div className="text-right">Authentication</div>
-                      <div className="col-span-3 flex items-center space-x-2">
-                        <Checkbox 
-                          id="requires-private-key-edit" 
-                          name="requires-private-key-edit"
-                          checked={editRequiresPrivateKey}
-                          onCheckedChange={(checked) => setEditRequiresPrivateKey(checked === true)}
-                        />
-                        <Label htmlFor="requires-private-key-edit">Requires private key authentication</Label>
-                      </div>
-                    </div>
-                    
-                    {editRequiresPrivateKey && (
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="sftp-private-key-edit" className="text-right align-top mt-2">Private Key</Label>
-                        <Textarea 
-                          id="sftp-private-key-edit" 
-                          name="sftp-private-key-edit" 
-                          className="col-span-3 font-mono" 
-                          rows={4}
-                          placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----" 
-                          defaultValue={(selectedDataSource.config as any)?.private_key || ''}
-                          required={editRequiresPrivateKey}
-                        />
-                      </div>
-                    )}
-                    
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="w-full" 
-                      onClick={handleTestSFTPConnectionEdit}
-                      disabled={isTestingConnection}
-                    >
-                      {isTestingConnection ? "Testing..." : "Test Connection"}
-                    </Button>
-                    
-                    {testConnectionResult && (
-                      <Alert variant={testConnectionResult.success ? "default" : "destructive"}>
-                        <AlertTitle>
-                          {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
-                        </AlertTitle>
-                        <AlertDescription>
-                          {testConnectionResult.message}
-                          {testConnectionResult.success && testConnectionResult.details && (
-                            <div className="mt-2 text-xs">
-                              <p>Found {testConnectionResult.details.totalFiles || 0} files in directory</p>
-                              {testConnectionResult.details.directoryContents && (
-                                <div className="mt-1 bg-gray-50 p-2 rounded">
-                                  {testConnectionResult.details.directoryContents.map((item: any, index: number) => (
-                                    <div key={index} className="truncate">{item.name}</div>
-                                  ))}
-                                  {(testConnectionResult.details.totalFiles || 0) > 5 && (
-                                    <div className="text-gray-500 mt-1">
-                                      + {(testConnectionResult.details.totalFiles || 0) - 5} more files
+                            ))}
+                            
+                            <Button 
+                              type="button"
+                              variant="outline" 
+                              size="sm"
+                              onClick={addEditRemotePath}
+                            >
+                              <Plus className="h-4 w-4 mr-1" /> Add Path
+                            </Button>
+                          </div>
+                          
+                          {/* Test Connection Button */}
+                          <div className="mt-4">
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              disabled={isTestingConnection}
+                              onClick={handleTestEditSFTPConnection}
+                            >
+                              {isTestingConnection ? "Testing..." : "Test Connection"}
+                            </Button>
+                            
+                            {testConnectionResult && (
+                              <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
+                                <AlertTitle>
+                                  {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
+                                </AlertTitle>
+                                <AlertDescription>
+                                  {testConnectionResult.message}
+                                  
+                                  {/* Show directory contents if successful */}
+                                  {testConnectionResult.success && testConnectionResult.details?.listing && (
+                                    <div className="mt-2">
+                                      <h4 className="text-sm font-semibold">Directory Contents:</h4>
+                                      <ul className="text-xs mt-1 list-disc list-inside">
+                                        {testConnectionResult.details.listing.slice(0, 5).map((item: any, idx: number) => (
+                                          <li key={idx}>{item.name} {item.size ? `(${Math.round(item.size / 1024)}KB)` : ''}</li>
+                                        ))}
+                                        {testConnectionResult.details.listing.length > 5 && (
+                                          <li>...and {testConnectionResult.details.listing.length - 5} more items</li>
+                                        )}
+                                      </ul>
                                     </div>
                                   )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="edit-config" className="text-right align-top mt-2">Configuration</Label>
-                    <Textarea 
-                      id="edit-config" 
-                      name="config" 
-                      className="col-span-3 font-mono" 
-                      rows={8}
-                      defaultValue={JSON.stringify(selectedDataSource.config, null, 2)}
-                      required 
+                                </AlertDescription>
+                              </Alert>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* JSON Configuration for other source types */}
+                {selectedDataSource.type !== 'sftp' && (
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="config" className="text-right pt-2">
+                      Config (JSON)
+                    </Label>
+                    <Textarea
+                      id="config"
+                      name="config"
+                      className="col-span-3"
+                      rows={10}
+                      defaultValue={JSON.stringify(JSON.parse(selectedDataSource.config || '{}'), null, 2)}
                     />
                   </div>
                 )}
               </div>
-              
-              <DialogFooter className="flex justify-between">
-                <Button 
-                  type="button" 
-                  variant="destructive" 
-                  onClick={() => handleDeleteDataSource(selectedDataSource.id)}
-                >
-                  Delete
-                </Button>
-                
-                <div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsEditDialogOpen(false);
-                      setSelectedDataSource(null);
-                    }}
-                    className="mr-2"
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit">Update</Button>
-                </div>
+
+              <DialogFooter>
+                <Button type="submit">Update</Button>
               </DialogFooter>
             </form>
           )}
