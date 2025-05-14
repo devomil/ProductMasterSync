@@ -1004,7 +1004,7 @@ export default function DataSources() {
           </DialogHeader>
           
           {editingDataSource && (
-            <div className="space-y-6 py-4">
+            <form id="edit-datasource-form" className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Data Source Name</Label>
@@ -1069,7 +1069,90 @@ export default function DataSources() {
             >
               Cancel
             </Button>
-            <Button type="submit">
+            <Button 
+              onClick={async () => {
+                if (!editingDataSource) return;
+                
+                // Get form values
+                const form = document.getElementById('edit-datasource-form');
+                if (!form) return;
+                
+                const formData = new FormData(form as HTMLFormElement);
+                
+                // Prepare data for API
+                const updatedDataSource = {
+                  ...editingDataSource,
+                  name: formData.get('name') as string,
+                  supplierId: formData.get('supplier') !== 'none' ? Number(formData.get('supplier')) : null,
+                  description: formData.get('description') as string,
+                };
+                
+                // For API type data sources, handle the config JSON
+                if (editingDataSource.type === 'api') {
+                  try {
+                    updatedDataSource.config = JSON.parse(formData.get('config') as string);
+                  } catch (e) {
+                    toast({
+                      variant: "destructive", 
+                      title: "Invalid JSON Configuration",
+                      description: "Please provide a valid JSON configuration"
+                    });
+                    return;
+                  }
+                }
+                
+                try {
+                  // Show loading state
+                  const loadingToast = toast({
+                    title: "Saving Changes",
+                    description: "Updating data source..."
+                  });
+                  
+                  // Send update request
+                  const response = await fetch(`/api/datasources/${editingDataSource.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedDataSource)
+                  });
+                  
+                  if (response.ok) {
+                    // Update local data
+                    const updatedDataSources = [...dataSources];
+                    const index = updatedDataSources.findIndex(ds => ds.id === editingDataSource.id);
+                    if (index !== -1) {
+                      updatedDataSources[index] = {
+                        ...updatedDataSources[index],
+                        ...updatedDataSource
+                      };
+                      setDataSources(updatedDataSources);
+                    }
+                    
+                    toast({
+                      title: "Data Source Updated",
+                      description: "Changes saved successfully"
+                    });
+                    
+                    // Close dialog
+                    setEditingDataSource(null);
+                  } else {
+                    // Handle error
+                    const errorData = await response.json();
+                    toast({
+                      variant: "destructive",
+                      title: "Update Failed",
+                      description: errorData.message || "Failed to update data source"
+                    });
+                  }
+                } catch (error) {
+                  console.error("Error updating data source:", error);
+                  toast({
+                    variant: "destructive",
+                    title: "Update Error",
+                    description: error instanceof Error ? error.message : "An unknown error occurred"
+                  });
+                }
+              }}
+            >
               Save Changes
             </Button>
           </DialogFooter>

@@ -97,7 +97,7 @@ export function useDataSourceActions() {
         }
       }
       
-      // Set loading state with toast
+      // Show loading toast
       const loadingToastId = toast({
         title: "Pulling Sample Data",
         description: "Retrieving data from source, please wait...",
@@ -116,29 +116,36 @@ export function useDataSourceActions() {
         credentials: 'include'
       });
       
-      // Get the raw response text
+      // Get the raw response text for debugging
       const responseText = await response.text();
       setRawResponseData(responseText);
       
-      // Try to parse as JSON
       try {
+        // Try to parse the response as JSON
         const result = JSON.parse(responseText);
         
+        // Process the result
         setSampleData({
           success: result.success || false,
           message: result.message || 'No response message',
-          data: result.records || [],
+          data: result.records || result.data || [],
           filename: result.filename || 'Unknown',
           fileType: result.fileType || 'Unknown',
-          total_records: result.total_records || (result.records ? result.records.length : 0)
+          total_records: result.total_records || 
+            (result.records ? result.records.length : 
+             (result.data ? result.data.length : 0))
         });
         
         // Show success or error message
         if (result.success) {
           toast({
             title: "Sample Data Retrieved",
-            description: `Retrieved ${result.records?.length || 0} records successfully`
+            description: `Retrieved ${result.total_records || result.records?.length || 0} records successfully`
           });
+          
+          // Set selected file path and show the modal
+          setSelectedFilePath(result.filename || 'Unknown');
+          setShowSampleDataModal(true);
         } else {
           toast({
             variant: "destructive",
@@ -146,11 +153,8 @@ export function useDataSourceActions() {
             description: result.message || "Unknown error occurred"
           });
         }
-        
-        // Show the modal
-        setShowSampleDataModal(true);
-      } catch (e) {
-        console.error("Error parsing response:", e);
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
         
         // If we couldn't parse the response, show it as a failure
         setSampleData({
@@ -165,8 +169,6 @@ export function useDataSourceActions() {
           title: "Response Parse Error",
           description: "The server returned an invalid response format"
         });
-        
-        setShowSampleDataModal(true);
       }
     } catch (error) {
       console.error("Sample data pull error:", error);
