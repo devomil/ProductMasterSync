@@ -1,5 +1,7 @@
 import React from 'react';
 import { AmazonBatchSync } from '@/components/marketplace/AmazonBatchSync';
+import { AmazonScheduler } from '@/components/marketplace/AmazonScheduler';
+import { AmazonSyncStats } from '@/components/marketplace/AmazonSyncStats';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -282,10 +284,11 @@ export default function AmazonIntegration() {
         </TabsContent>
         
         <TabsContent value="sync" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AmazonBatchSync />
+            <AmazonScheduler />
             
-            <Card>
+            <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>UPC Coverage</CardTitle>
                 <CardDescription>
@@ -312,7 +315,7 @@ export default function AmazonIntegration() {
                           <TableCell>{product.name}</TableCell>
                           <TableCell>{product.upc || '-'}</TableCell>
                           <TableCell>-</TableCell>
-                          <TableCell>-</TableCell>
+                          <TableCell>{product.lastAmazonSync ? new Date(product.lastAmazonSync).toLocaleString() : '-'}</TableCell>
                           <TableCell>
                             <Button variant="ghost" size="sm" disabled={!product.upc}>
                               <RefreshCw className="mr-2 h-4 w-4" />
@@ -336,6 +339,8 @@ export default function AmazonIntegration() {
         </TabsContent>
         
         <TabsContent value="monitoring" className="space-y-4">
+          <AmazonSyncStats />
+          
           <Card>
             <CardHeader>
               <CardTitle>Sync History</CardTitle>
@@ -348,37 +353,19 @@ export default function AmazonIntegration() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Operation</TableHead>
-                    <TableHead>Processed</TableHead>
-                    <TableHead>Successful</TableHead>
-                    <TableHead>Failed</TableHead>
-                    <TableHead>Duration</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>UPC</TableHead>
+                    <TableHead>ASIN</TableHead>
+                    <TableHead>Response Time</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* This will be replaced with real data from useAmazonSyncLogsByBatch hook */}
                   <TableRow>
-                    <TableCell>May 13, 2025</TableCell>
-                    <TableCell>Batch Sync</TableCell>
-                    <TableCell>10</TableCell>
-                    <TableCell>8</TableCell>
-                    <TableCell>2</TableCell>
-                    <TableCell>3m 24s</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>May 12, 2025</TableCell>
-                    <TableCell>Batch Sync</TableCell>
-                    <TableCell>25</TableCell>
-                    <TableCell>23</TableCell>
-                    <TableCell>2</TableCell>
-                    <TableCell>5m 17s</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>May 10, 2025</TableCell>
-                    <TableCell>Single Product</TableCell>
-                    <TableCell>1</TableCell>
-                    <TableCell>1</TableCell>
-                    <TableCell>0</TableCell>
-                    <TableCell>32s</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
+                      No sync history available yet. Run a batch sync to populate this data.
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
