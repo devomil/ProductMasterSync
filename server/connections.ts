@@ -794,6 +794,124 @@ const pullSampleDataFromSFTP = async (
           pathsToCheck.push('.');
         }
         
+        // Function to process a specific file once it's identified
+        const processFile = async (filePath: string, fileType: string, filename: string) => {
+          try {
+            console.log(`Processing file: ${filePath}, type: ${fileType}`);
+            const chunks: Buffer[] = [];
+            let totalLength = 0;
+            const stream = sftp.createReadStream(filePath);
+            
+            stream.on('data', (chunk: Buffer) => {
+              chunks.push(chunk);
+              totalLength += chunk.length;
+              
+              // Prevent downloading the entire file if it's very large
+              if (totalLength > 5 * 1024 * 1024) { // 5 MB limit
+                stream.close();
+              }
+            });
+            
+            stream.on('end', async () => {
+              client.end();
+              const content = Buffer.concat(chunks).toString('utf8');
+              
+              // Process the file content based on type
+              try {
+                let parsedData: any[] = [];
+                let total = 0;
+                
+                if (fileType === 'csv') {
+                  // Basic CSV parsing
+                  const lines = content.split(/\r?\n/);
+                  if (lines.length === 0) {
+                    resolve({ 
+                      success: false, 
+                      message: 'CSV file is empty' 
+                    });
+                    return;
+                  }
+                  
+                  // Assume first row is header
+                  const headers = lines[0].split(',').map(h => h.trim());
+                  total = lines.length - 1;
+                  
+                  // Get data rows (limit to requested amount)
+                  const dataRows = lines.slice(1, Math.min(lines.length, limit + 1));
+                  
+                  parsedData = dataRows.map(line => {
+                    const values = line.split(',').map(v => v.trim());
+                    const row: any = {};
+                    
+                    headers.forEach((header, i) => {
+                      row[header] = values[i] || '';
+                    });
+                    
+                    return row;
+                  });
+                } else if (fileType === 'json') {
+                  // Parse JSON
+                  const jsonData = JSON.parse(content);
+                  
+                  if (Array.isArray(jsonData)) {
+                    total = jsonData.length;
+                    parsedData = jsonData.slice(0, limit);
+                  } else if (jsonData && typeof jsonData === 'object') {
+                    // Handle case when JSON is an object, not an array
+                    if (jsonData.data && Array.isArray(jsonData.data)) {
+                      total = jsonData.data.length;
+                      parsedData = jsonData.data.slice(0, limit);
+                    } else {
+                      // Single object
+                      parsedData = [jsonData];
+                      total = 1;
+                    }
+                  }
+                } else {
+                  // Excel parsing would go here - omitted for simplicity
+                  parsedData = [{ message: "Excel parsing not implemented in sample data" }];
+                  total = 1;
+                }
+                
+                resolve({
+                  success: true,
+                  message: `Successfully pulled sample data from ${filename}`,
+                  data: parsedData,
+                  filename: filename,
+                  fileType: fileType,
+                  remote_path: filePath,
+                  total_records: total
+                });
+              } catch (parseError) {
+                resolve({
+                  success: false,
+                  message: `Error parsing file: ${parseError.message}`,
+                  filename: filename,
+                  remote_path: filePath
+                });
+              }
+            });
+            
+            stream.on('error', (streamErr) => {
+              client.end();
+              resolve({
+                success: false,
+                message: `Error reading file: ${streamErr.message}`,
+                filename: filename,
+                remote_path: filePath
+              });
+            });
+          } catch (e) {
+            client.end();
+            resolve({
+              success: false,
+              message: `Error processing file: ${e.message}`,
+              filename: filename,
+              remote_path: filePath
+            });
+          }
+        };
+        
         // Function to check each path and download/process a sample file
         const processPaths = async (index = 0) => {
           if (index >= pathsToCheck.length) {
@@ -806,19 +924,46 @@ const pullSampleDataFromSFTP = async (
           }
           
           const currentPath = pathsToCheck[index];
-          const dirPath = currentPath.endsWith('.csv') || currentPath.endsWith('.xlsx') || 
-                          currentPath.endsWith('.xls') || currentPath.endsWith('.json') 
-                            ? currentPath.split('/').slice(0, -1).join('/') || '/'
-                            : currentPath;
+          console.log(`Processing path: ${currentPath}`);
           
-          // List the directory
-          sftp.readdir(dirPath, async (err, list) => {
-            if (err) {
-              console.error(`Error reading directory ${dirPath}:`, err.message);
-              // Try next path
+          // First, try to stat the path to see if it's a file or directory
+          sftp.stat(currentPath, (statErr, stats) => {
+            if (statErr) {
+              console.error(`Cannot access path ${currentPath}:`, statErr.message);
               processPaths(index + 1);
               return;
             }
+            
+            // If it's a file, process it directly
+            if (stats.isFile()) {
+              console.log(`${currentPath} is a file, processing directly`);
+              const filename = currentPath.split('/').pop() || '';
+              const fileExt = filename.split('.').pop()?.toLowerCase() || '';
+              
+              // Check if it's a supported file type
+              if (['csv', 'xlsx', 'xls', 'json'].includes(fileExt)) {
+                const fileType = fileExt === 'csv' ? 'csv' : 
+                              fileExt === 'json' ? 'json' : 'excel';
+                              
+                processFile(currentPath, fileType, filename);
+                return;
+              } else {
+                console.log(`File ${currentPath} is not a supported type`);
+                processPaths(index + 1);
+                return;
+              }
+            }
+            
+            // It's a directory, list its contents
+            const dirPath = currentPath;
+            console.log(`${currentPath} is a directory, listing contents`);
+            
+            sftp.readdir(dirPath, async (err, list) => {
+              if (err) {
+                console.error(`Error reading directory ${dirPath}:`, err.message);
+                processPaths(index + 1);
+                return;
+              }
             
             // Filter for CSV, Excel or JSON files
             const files = list.filter(item => {
@@ -836,35 +981,58 @@ const pullSampleDataFromSFTP = async (
               return;
             }
             
-            // Check if we're looking at a specific file
-            let targetFile;
-            if (currentPath.endsWith('.csv') || currentPath.endsWith('.xlsx') || 
-                currentPath.endsWith('.xls') || currentPath.endsWith('.json')) {
-              // Looking for a specific file
-              const filename = currentPath.split('/').pop() || '';
-              targetFile = files.find(f => f.filename.toLowerCase() === filename.toLowerCase());
+            // We're looking at a directory listing now
+            // Filter for CSV, Excel or JSON files
+            if (files.length === 0) {
+              // No suitable files, try next path
+              console.log(`No suitable files found in directory ${dirPath}`);
+              processPaths(index + 1);
+              return;
+            }
+            
+            // Check if we were looking for a specific file in this directory
+            // The path might be a directory but we were actually looking for a file
+            const lastPathComponent = currentPath.split('/').pop() || '';
+            if (lastPathComponent.includes('.')) {
+              // Path looks like a file name, see if it's in this directory
+              const targetFilename = lastPathComponent;
+              const targetFile = files.find(f => f.filename.toLowerCase() === targetFilename.toLowerCase());
               
-              if (!targetFile) {
-                // Specified file not found, try next path
-                processPaths(index + 1);
+              if (targetFile) {
+                // Found the file! Process it
+                console.log(`Found specific file ${targetFile.filename} in directory ${dirPath}`);
+                const fullPath = `${dirPath === '/' ? '' : dirPath}/${targetFile.filename}`;
+                const fileExt = targetFile.filename.split('.').pop()?.toLowerCase() || '';
+                const fileType = fileExt === 'csv' ? 'csv' : 
+                              fileExt === 'json' ? 'json' : 'excel';
+                              
+                processFile(fullPath, fileType, targetFile.filename);
+                return;
+              } else {
+                // File specified but not found
+                console.log(`Specified file ${targetFilename} not found in directory ${dirPath}`);
+                client.end();
+                resolve({
+                  success: false,
+                  message: `File "${targetFilename}" not found in directory "${dirPath}". The directory exists but the specific file was not found.`,
+                  remote_path: currentPath
+                });
                 return;
               }
-            } else {
-              // Choose the first suitable file
-              targetFile = files[0];
             }
+            
+            // We're not looking for a specific file, pick the first suitable one
+            const targetFile = files[0];
+            console.log(`Choosing first suitable file: ${targetFile.filename}`);
             
             // Get remote file path
             const remoteFilePath = `${dirPath === '/' ? '' : dirPath}/${targetFile.filename}`;
-            const fileType = targetFile.filename.toLowerCase().endsWith('.csv') ? 'csv' :
-                           targetFile.filename.toLowerCase().endsWith('.json') ? 'json' : 'excel';
+            const fileExt = targetFile.filename.split('.').pop()?.toLowerCase() || '';
+            const fileType = fileExt === 'csv' ? 'csv' : 
+                           fileExt === 'json' ? 'json' : 'excel';
             
-            // Create a read stream to the file
-            console.log(`Processing sample data from ${remoteFilePath}`);
-            
-            try {
-              const chunks: Buffer[] = [];
-              let totalLength = 0;
+            // Process the file
+            processFile(remoteFilePath, fileType, targetFile.filename);
               const stream = sftp.createReadStream(remoteFilePath);
               
               stream.on('data', (chunk: Buffer) => {
