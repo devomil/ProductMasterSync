@@ -1,14 +1,5 @@
 import { db } from './db';
-import { 
-  eq, 
-  and, 
-  or, 
-  like, 
-  isNull, 
-  desc, 
-  asc, 
-  sql 
-} from 'drizzle-orm';
+import { eq, and, or, like, isNull, desc, asc, sql } from 'drizzle-orm';
 import * as schema from "@shared/schema";
 import type {
   User, InsertUser,
@@ -75,73 +66,73 @@ export class DatabaseStorage implements IStorage {
 
   // Category management
   async getCategories(): Promise<Category[]> {
-    return await db.select().from(categories);
+    return await db.select().from(schema.categories);
   }
 
   async getCategory(id: number): Promise<Category | undefined> {
-    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    const [category] = await db.select().from(schema.categories).where(eq(schema.categories.id, id));
     return category;
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
-    const [createdCategory] = await db.insert(categories).values(category).returning();
+    const [createdCategory] = await db.insert(schema.categories).values(category).returning();
     return createdCategory;
   }
 
   async updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined> {
     const [updatedCategory] = await db
-      .update(categories)
-      .set({...category, updatedAt: new Date()})
-      .where(eq(categories.id, id))
+      .update(schema.categories)
+      .set(category)
+      .where(eq(schema.categories.id, id))
       .returning();
     return updatedCategory;
   }
 
   // Product management
   async getProducts(): Promise<Product[]> {
-    return await db.select().from(products);
+    return await db.select().from(schema.products);
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
+    const [product] = await db.select().from(schema.products).where(eq(schema.products.id, id));
     return product;
   }
 
   async getProductBySku(sku: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.sku, sku));
+    const [product] = await db.select().from(schema.products).where(eq(schema.products.sku, sku));
     return product;
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const [createdProduct] = await db.insert(products).values(product).returning();
+    const [createdProduct] = await db.insert(schema.products).values(product).returning();
     return createdProduct;
   }
 
   async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined> {
     const [updatedProduct] = await db
-      .update(products)
-      .set({...product, updatedAt: new Date()})
-      .where(eq(products.id, id))
+      .update(schema.products)
+      .set(product)
+      .where(eq(schema.products.id, id))
       .returning();
     return updatedProduct;
   }
 
   async deleteProduct(id: number): Promise<boolean> {
-    const result = await db.delete(products).where(eq(products.id, id));
-    return true; // In PostgreSQL, delete doesn't return affected rows by default
+    await db.delete(schema.products).where(eq(schema.products.id, id));
+    return true;
   }
 
   // Product Supplier management
   async getProductSuppliers(productId: number): Promise<ProductSupplier[]> {
     return await db
       .select()
-      .from(productSuppliers)
-      .where(eq(productSuppliers.productId, productId));
+      .from(schema.productSuppliers)
+      .where(eq(schema.productSuppliers.productId, productId));
   }
 
   async createProductSupplier(productSupplier: InsertProductSupplier): Promise<ProductSupplier> {
     const [createdProductSupplier] = await db
-      .insert(productSuppliers)
+      .insert(schema.productSuppliers)
       .values(productSupplier)
       .returning();
     return createdProductSupplier;
@@ -149,209 +140,209 @@ export class DatabaseStorage implements IStorage {
 
   async updateProductSupplier(id: number, productSupplier: Partial<InsertProductSupplier>): Promise<ProductSupplier | undefined> {
     const [updatedProductSupplier] = await db
-      .update(productSuppliers)
-      .set({...productSupplier, updatedAt: new Date()})
-      .where(eq(productSuppliers.id, id))
+      .update(schema.productSuppliers)
+      .set(productSupplier)
+      .where(eq(schema.productSuppliers.id, id))
       .returning();
     return updatedProductSupplier;
   }
 
   // Import management
   async getImports(): Promise<Import[]> {
-    return await db.select().from(imports).orderBy(desc(imports.createdAt));
+    return await db.select().from(schema.imports).orderBy(desc(schema.imports.createdAt));
   }
 
   async getImport(id: number): Promise<Import | undefined> {
-    const [importData] = await db.select().from(imports).where(eq(imports.id, id));
+    const [importData] = await db.select().from(schema.imports).where(eq(schema.imports.id, id));
     return importData;
   }
 
   async createImport(importData: InsertImport): Promise<Import> {
-    const [createdImport] = await db.insert(imports).values(importData).returning();
+    const [createdImport] = await db.insert(schema.imports).values(importData).returning();
     return createdImport;
   }
 
   async updateImport(id: number, importData: Partial<InsertImport>): Promise<Import | undefined> {
     const [updatedImport] = await db
-      .update(imports)
-      .set({...importData, updatedAt: new Date()})
-      .where(eq(imports.id, id))
+      .update(schema.imports)
+      .set(importData)
+      .where(eq(schema.imports.id, id))
       .returning();
     return updatedImport;
   }
 
   // Export management
   async getExports(): Promise<Export[]> {
-    return await db.select().from(exportsTable).orderBy(desc(exportsTable.createdAt));
+    return await db.select().from(schema.exports).orderBy(desc(schema.exports.createdAt));
   }
 
   async getExport(id: number): Promise<Export | undefined> {
-    const [exportData] = await db.select().from(exportsTable).where(eq(exportsTable.id, id));
+    const [exportData] = await db.select().from(schema.exports).where(eq(schema.exports.id, id));
     return exportData;
   }
 
   async createExport(exportData: InsertExport): Promise<Export> {
-    const [createdExport] = await db.insert(exportsTable).values(exportData).returning();
+    const [createdExport] = await db.insert(schema.exports).values(exportData).returning();
     return createdExport;
   }
 
   async updateExport(id: number, exportData: Partial<InsertExport>): Promise<Export | undefined> {
     const [updatedExport] = await db
-      .update(exportsTable)
-      .set({...exportData, updatedAt: new Date()})
-      .where(eq(exportsTable.id, id))
+      .update(schema.exports)
+      .set(exportData)
+      .where(eq(schema.exports.id, id))
       .returning();
     return updatedExport;
   }
 
   // Approval management
   async getApprovals(): Promise<Approval[]> {
-    return await db.select().from(approvals).orderBy(desc(approvals.createdAt));
+    return await db.select().from(schema.approvals).orderBy(desc(schema.approvals.createdAt));
   }
 
   async getApproval(id: number): Promise<Approval | undefined> {
-    const [approval] = await db.select().from(approvals).where(eq(approvals.id, id));
+    const [approval] = await db.select().from(schema.approvals).where(eq(schema.approvals.id, id));
     return approval;
   }
 
   async createApproval(approval: InsertApproval): Promise<Approval> {
-    const [createdApproval] = await db.insert(approvals).values(approval).returning();
+    const [createdApproval] = await db.insert(schema.approvals).values(approval).returning();
     return createdApproval;
   }
 
   async updateApproval(id: number, approval: Partial<InsertApproval>): Promise<Approval | undefined> {
     const [updatedApproval] = await db
-      .update(approvals)
-      .set({...approval, updatedAt: new Date()})
-      .where(eq(approvals.id, id))
+      .update(schema.approvals)
+      .set(approval)
+      .where(eq(schema.approvals.id, id))
       .returning();
     return updatedApproval;
   }
 
   // Audit logs
   async getAuditLogs(): Promise<AuditLog[]> {
-    return await db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp));
+    return await db.select().from(schema.auditLogs).orderBy(desc(schema.auditLogs.timestamp));
   }
 
   async createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog> {
-    const [createdAuditLog] = await db.insert(auditLogs).values(auditLog).returning();
+    const [createdAuditLog] = await db.insert(schema.auditLogs).values(auditLog).returning();
     return createdAuditLog;
   }
 
   // Data source management
   async getDataSources(): Promise<DataSource[]> {
-    return await db.select().from(dataSources);
+    return await db.select().from(schema.dataSources);
   }
 
   async getDataSource(id: number): Promise<DataSource | undefined> {
-    const [dataSource] = await db.select().from(dataSources).where(eq(dataSources.id, id));
+    const [dataSource] = await db.select().from(schema.dataSources).where(eq(schema.dataSources.id, id));
     return dataSource;
   }
 
   async getDataSourcesByType(type: string): Promise<DataSource[]> {
-    return await db.select().from(dataSources).where(eq(dataSources.type, type));
+    return await db.select().from(schema.dataSources).where(eq(schema.dataSources.type, type as any));
   }
 
   async getDataSourcesBySupplier(supplierId: number): Promise<DataSource[]> {
-    return await db.select().from(dataSources).where(eq(dataSources.supplierId, supplierId));
+    return await db.select().from(schema.dataSources).where(eq(schema.dataSources.supplierId, supplierId));
   }
 
   async createDataSource(dataSource: InsertDataSource): Promise<DataSource> {
-    const [createdDataSource] = await db.insert(dataSources).values(dataSource).returning();
+    const [createdDataSource] = await db.insert(schema.dataSources).values(dataSource).returning();
     return createdDataSource;
   }
 
   async updateDataSource(id: number, dataSource: Partial<InsertDataSource>): Promise<DataSource | undefined> {
     const [updatedDataSource] = await db
-      .update(dataSources)
-      .set({...dataSource, updatedAt: new Date()})
-      .where(eq(dataSources.id, id))
+      .update(schema.dataSources)
+      .set(dataSource)
+      .where(eq(schema.dataSources.id, id))
       .returning();
     return updatedDataSource;
   }
 
   async deleteDataSource(id: number): Promise<boolean> {
-    await db.delete(dataSources).where(eq(dataSources.id, id));
+    await db.delete(schema.dataSources).where(eq(schema.dataSources.id, id));
     return true;
   }
-
+  
   // Schedule management
   async getSchedules(): Promise<Schedule[]> {
-    return await db.select().from(schedules);
+    return await db.select().from(schema.schedules);
   }
 
   async getSchedulesByDataSource(dataSourceId: number): Promise<Schedule[]> {
     return await db
       .select()
-      .from(schedules)
-      .where(eq(schedules.dataSourceId, dataSourceId));
+      .from(schema.schedules)
+      .where(eq(schema.schedules.dataSourceId, dataSourceId));
   }
 
   async getSchedule(id: number): Promise<Schedule | undefined> {
-    const [schedule] = await db.select().from(schedules).where(eq(schedules.id, id));
+    const [schedule] = await db.select().from(schema.schedules).where(eq(schema.schedules.id, id));
     return schedule;
   }
 
   async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
-    const [createdSchedule] = await db.insert(schedules).values(schedule).returning();
+    const [createdSchedule] = await db.insert(schema.schedules).values(schedule).returning();
     return createdSchedule;
   }
 
   async updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule | undefined> {
     const [updatedSchedule] = await db
-      .update(schedules)
-      .set({...schedule, updatedAt: new Date()})
-      .where(eq(schedules.id, id))
+      .update(schema.schedules)
+      .set(schedule)
+      .where(eq(schema.schedules.id, id))
       .returning();
     return updatedSchedule;
   }
 
   async deleteSchedule(id: number): Promise<boolean> {
-    await db.delete(schedules).where(eq(schedules.id, id));
+    await db.delete(schema.schedules).where(eq(schema.schedules.id, id));
     return true;
   }
 
   async updateScheduleLastRun(id: number, lastRun: Date): Promise<Schedule | undefined> {
     const [updatedSchedule] = await db
-      .update(schedules)
-      .set({lastRun, updatedAt: new Date()})
-      .where(eq(schedules.id, id))
+      .update(schema.schedules)
+      .set({ lastRun })
+      .where(eq(schema.schedules.id, id))
       .returning();
     return updatedSchedule;
   }
 
   async updateScheduleNextRun(id: number, nextRun: Date): Promise<Schedule | undefined> {
     const [updatedSchedule] = await db
-      .update(schedules)
-      .set({nextRun, updatedAt: new Date()})
-      .where(eq(schedules.id, id))
+      .update(schema.schedules)
+      .set({ nextRun })
+      .where(eq(schema.schedules.id, id))
       .returning();
     return updatedSchedule;
   }
 
   // Mapping template management
   async getMappingTemplates(): Promise<MappingTemplate[]> {
-    return await db.select().from(mappingTemplates);
+    return await db.select().from(schema.mappingTemplates);
   }
 
   async getMappingTemplate(id: number): Promise<MappingTemplate | undefined> {
     const [mappingTemplate] = await db
       .select()
-      .from(mappingTemplates)
-      .where(eq(mappingTemplates.id, id));
+      .from(schema.mappingTemplates)
+      .where(eq(schema.mappingTemplates.id, id));
     return mappingTemplate;
   }
 
   async getMappingTemplatesBySourceType(sourceType: string): Promise<MappingTemplate[]> {
     return await db
       .select()
-      .from(mappingTemplates)
-      .where(eq(mappingTemplates.sourceType, sourceType));
+      .from(schema.mappingTemplates)
+      .where(eq(schema.mappingTemplates.sourceType as any, sourceType));
   }
 
   async createMappingTemplate(mappingTemplate: InsertMappingTemplate): Promise<MappingTemplate> {
     const [createdMappingTemplate] = await db
-      .insert(mappingTemplates)
+      .insert(schema.mappingTemplates)
       .values(mappingTemplate)
       .returning();
     return createdMappingTemplate;
@@ -362,81 +353,84 @@ export class DatabaseStorage implements IStorage {
     mappingTemplate: Partial<InsertMappingTemplate>
   ): Promise<MappingTemplate | undefined> {
     const [updatedMappingTemplate] = await db
-      .update(mappingTemplates)
-      .set({...mappingTemplate, updatedAt: new Date()})
-      .where(eq(mappingTemplates.id, id))
+      .update(schema.mappingTemplates)
+      .set(mappingTemplate)
+      .where(eq(schema.mappingTemplates.id, id))
       .returning();
     return updatedMappingTemplate;
   }
 
   async deleteMappingTemplate(id: number): Promise<boolean> {
-    await db.delete(mappingTemplates).where(eq(mappingTemplates.id, id));
+    await db.delete(schema.mappingTemplates).where(eq(schema.mappingTemplates.id, id));
     return true;
   }
+
+  // Other methods - simplified implementations
+  // For the methods below, we'll provide simplified implementations just to make the interface work
 
   // Data lineage
   async getDataLineageByProduct(productId: number): Promise<DataLineage[]> {
     return await db
       .select()
-      .from(dataLineage)
-      .where(eq(dataLineage.productId, productId))
-      .orderBy(desc(dataLineage.timestamp));
+      .from(schema.dataLineage)
+      .where(eq(schema.dataLineage.productId, productId))
+      .orderBy(desc(schema.dataLineage.timestamp));
   }
 
   async getDataLineageByField(productId: number, fieldName: string): Promise<DataLineage[]> {
     return await db
       .select()
-      .from(dataLineage)
+      .from(schema.dataLineage)
       .where(
         and(
-          eq(dataLineage.productId, productId),
-          eq(dataLineage.field, fieldName)
+          eq(schema.dataLineage.productId, productId),
+          eq(schema.dataLineage.field as any, fieldName)
         )
       )
-      .orderBy(desc(dataLineage.timestamp));
+      .orderBy(desc(schema.dataLineage.timestamp));
   }
 
   async createDataLineage(lineageData: InsertDataLineage): Promise<DataLineage> {
     const [createdLineage] = await db
-      .insert(dataLineage)
-      .values({...lineageData, timestamp: new Date()})
+      .insert(schema.dataLineage)
+      .values(lineageData)
       .returning();
     return createdLineage;
   }
 
   // Data merging configuration
   async getDataMergingConfigs(): Promise<DataMergingConfig[]> {
-    return await db.select().from(dataMergingConfig);
+    return await db.select().from(schema.dataMergingConfig);
   }
 
   async getDataMergingConfig(id: number): Promise<DataMergingConfig | undefined> {
     const [config] = await db
       .select()
-      .from(dataMergingConfig)
-      .where(eq(dataMergingConfig.id, id));
+      .from(schema.dataMergingConfig)
+      .where(eq(schema.dataMergingConfig.id, id));
     return config;
   }
 
   async getActiveDataMergingConfig(): Promise<DataMergingConfig | undefined> {
     const [config] = await db
       .select()
-      .from(dataMergingConfig)
-      .where(eq(dataMergingConfig.isActive, true));
+      .from(schema.dataMergingConfig)
+      .where(eq(schema.dataMergingConfig.active as any, true));
     return config;
   }
 
   async createDataMergingConfig(config: InsertDataMergingConfig): Promise<DataMergingConfig> {
     // If this is being set as active, deactivate all other configs
-    if (config.isActive) {
+    if (config.active) {
       await db
-        .update(dataMergingConfig)
-        .set({isActive: false})
-        .where(eq(dataMergingConfig.isActive, true));
+        .update(schema.dataMergingConfig)
+        .set({ active: false })
+        .where(eq(schema.dataMergingConfig.active as any, true));
     }
 
     const [createdConfig] = await db
-      .insert(dataMergingConfig)
-      .values({...config, createdAt: new Date(), updatedAt: new Date()})
+      .insert(schema.dataMergingConfig)
+      .values(config)
       .returning();
     return createdConfig;
   }
@@ -446,57 +440,57 @@ export class DatabaseStorage implements IStorage {
     config: Partial<InsertDataMergingConfig>
   ): Promise<DataMergingConfig | undefined> {
     // If this is being set as active, deactivate all other configs
-    if (config.isActive) {
+    if (config.active) {
       await db
-        .update(dataMergingConfig)
-        .set({isActive: false})
+        .update(schema.dataMergingConfig)
+        .set({ active: false })
         .where(and(
-          eq(dataMergingConfig.isActive, true),
-          sql`${dataMergingConfig.id} != ${id}`
+          eq(schema.dataMergingConfig.active as any, true),
+          sql`${schema.dataMergingConfig.id} != ${id}`
         ));
     }
 
     const [updatedConfig] = await db
-      .update(dataMergingConfig)
-      .set({...config, updatedAt: new Date()})
-      .where(eq(dataMergingConfig.id, id))
+      .update(schema.dataMergingConfig)
+      .set(config)
+      .where(eq(schema.dataMergingConfig.id, id))
       .returning();
     return updatedConfig;
   }
 
   // Workflow management
   async getWorkflows(): Promise<Workflow[]> {
-    return await db.select().from(workflows);
+    return await db.select().from(schema.workflows);
   }
 
   async getWorkflow(id: number): Promise<Workflow | undefined> {
     const [workflow] = await db
       .select()
-      .from(workflows)
-      .where(eq(workflows.id, id));
+      .from(schema.workflows)
+      .where(eq(schema.workflows.id, id));
     return workflow;
   }
 
   async getActiveWorkflows(): Promise<Workflow[]> {
     return await db
       .select()
-      .from(workflows)
-      .where(eq(workflows.isActive, true));
+      .from(schema.workflows)
+      .where(eq(schema.workflows.active as any, true));
   }
 
   async createWorkflow(workflow: InsertWorkflow): Promise<Workflow> {
     const [createdWorkflow] = await db
-      .insert(workflows)
-      .values({...workflow, createdAt: new Date(), updatedAt: new Date()})
+      .insert(schema.workflows)
+      .values(workflow)
       .returning();
     return createdWorkflow;
   }
 
   async updateWorkflow(id: number, workflow: Partial<InsertWorkflow>): Promise<Workflow | undefined> {
     const [updatedWorkflow] = await db
-      .update(workflows)
-      .set({...workflow, updatedAt: new Date()})
-      .where(eq(workflows.id, id))
+      .update(schema.workflows)
+      .set(workflow)
+      .where(eq(schema.workflows.id, id))
       .returning();
     return updatedWorkflow;
   }
@@ -505,22 +499,22 @@ export class DatabaseStorage implements IStorage {
   async getWorkflowExecutions(workflowId: number): Promise<WorkflowExecution[]> {
     return await db
       .select()
-      .from(workflowExecutions)
-      .where(eq(workflowExecutions.workflowId, workflowId))
-      .orderBy(desc(workflowExecutions.startedAt));
+      .from(schema.workflowExecutions)
+      .where(eq(schema.workflowExecutions.workflowId, workflowId))
+      .orderBy(desc(schema.workflowExecutions.startedAt));
   }
 
   async getWorkflowExecution(id: number): Promise<WorkflowExecution | undefined> {
     const [execution] = await db
       .select()
-      .from(workflowExecutions)
-      .where(eq(workflowExecutions.id, id));
+      .from(schema.workflowExecutions)
+      .where(eq(schema.workflowExecutions.id, id));
     return execution;
   }
 
   async createWorkflowExecution(execution: InsertWorkflowExecution): Promise<WorkflowExecution> {
     const [createdExecution] = await db
-      .insert(workflowExecutions)
+      .insert(schema.workflowExecutions)
       .values({...execution, startedAt: new Date()})
       .returning();
     return createdExecution;
@@ -532,15 +526,17 @@ export class DatabaseStorage implements IStorage {
     results?: any,
     error?: string
   ): Promise<WorkflowExecution | undefined> {
+    const updates: any = { status };
+    if (results) updates.results = results;
+    if (error) updates.error = error;
+    if (status === "completed" || status === "failed") {
+      updates.completedAt = new Date();
+    }
+
     const [updatedExecution] = await db
-      .update(workflowExecutions)
-      .set({
-        status,
-        results: results || sql`${workflowExecutions.results}`,
-        error: error || sql`${workflowExecutions.error}`,
-        ...(status === "completed" || status === "failed" ? { completedAt: new Date() } : {})
-      })
-      .where(eq(workflowExecutions.id, id))
+      .update(schema.workflowExecutions)
+      .set(updates)
+      .where(eq(schema.workflowExecutions.id, id))
       .returning();
     return updatedExecution;
   }
@@ -553,7 +549,7 @@ export class DatabaseStorage implements IStorage {
     return this.updateWorkflowExecution(id, "failed", undefined, error);
   }
 
-  // Warehouse management - These are placeholder implementations that would need to be replaced with real DB tables
+  // Warehouse management - Temporary implementations until proper tables are created
   async getWarehouses(): Promise<any[]> {
     // This is a placeholder. In a real implementation, we'd have a warehouses table
     const mockWarehouses = [
@@ -564,7 +560,7 @@ export class DatabaseStorage implements IStorage {
     return mockWarehouses;
   }
   
-  // Product Fulfillment management - These are placeholder implementations that would need to be replaced with real DB tables
+  // Product Fulfillment management - Temporary implementations until proper tables are created
   async getProductFulfillment(productId: number): Promise<any | undefined> {
     // In a real implementation, we'd query a dedicated table for this
     const product = await this.getProduct(productId);

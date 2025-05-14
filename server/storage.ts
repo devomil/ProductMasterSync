@@ -1380,7 +1380,7 @@ export class MemStorage implements IStorage {
   }
 }
 
-import { DatabaseStorage } from './database-storage';
+import { DatabaseStorage } from './database-storage-simplified';
 
-// Use database storage for production use
+// Use database storage for real connections and API data testing
 export const storage = new DatabaseStorage();
