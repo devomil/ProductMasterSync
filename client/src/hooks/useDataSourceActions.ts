@@ -215,7 +215,9 @@ export function useDataSourceActions() {
       });
       
       // Remove from local state
-      setDataSources(dataSources.filter(ds => ds.id !== dataSourceToDelete));
+      if (Array.isArray(dataSources)) {
+        setDataSources(dataSources.filter(ds => ds.id !== dataSourceToDelete));
+      }
       
       toast({
         title: "Data Source Deleted",

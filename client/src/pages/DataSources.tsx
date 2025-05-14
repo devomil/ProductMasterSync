@@ -1017,17 +1017,17 @@ export default function DataSources() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-supplier">Supplier</Label>
-                  <Select defaultValue={String(editingDataSource.supplierId || '')}>
+                  <Select defaultValue={String(editingDataSource.supplierId || 'none')} name="supplier">
                     <SelectTrigger id="edit-supplier">
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No supplier</SelectItem>
-                      {suppliers.map((supplier: any) => (
+                      {Array.isArray(suppliers) ? suppliers.map((supplier: any) => (
                         <SelectItem key={supplier.id} value={String(supplier.id)}>
                           {supplier.name}
                         </SelectItem>
-                      ))}
+                      )) : null}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1038,7 +1038,7 @@ export default function DataSources() {
                 <Textarea
                   id="edit-description"
                   name="description"
-                  defaultValue={editingDataSource.description || ''}
+                  defaultValue={typeof editingDataSource.description === 'string' ? editingDataSource.description : ''}
                   placeholder="Description of this data source"
                   rows={2}
                 />
@@ -1059,7 +1059,7 @@ export default function DataSources() {
                   />
                 </div>
               )}
-            </div>
+            </form>
           )}
           
           <DialogFooter>
@@ -1117,7 +1117,7 @@ export default function DataSources() {
                   
                   if (response.ok) {
                     // Update local data
-                    const updatedDataSources = [...dataSources];
+                    const updatedDataSources = Array.isArray(dataSources) ? [...dataSources] : [];
                     const index = updatedDataSources.findIndex(ds => ds.id === editingDataSource.id);
                     if (index !== -1) {
                       updatedDataSources[index] = {
