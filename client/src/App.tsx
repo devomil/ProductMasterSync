@@ -13,6 +13,7 @@ import Suppliers from "@/pages/Suppliers";
 import ApiConfiguration from "@/pages/ApiConfiguration";
 import DataSources from "@/pages/DataSources";
 import MappingTemplates from "@/pages/MappingTemplates";
+import Connections from "@/pages/Connections";
 import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />
       <Route path="/mapping-templates" component={MappingTemplates} />
+      <Route path="/connections" component={Connections} />
       <Route path="/api-configuration" component={ApiConfiguration} />
       <Route path="/approvals" component={Approvals} />
       <Route path="/validation-rules" component={ValidationRules} />

@@ -18,6 +18,12 @@ export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
 export const resolutionStrategyEnum = pgEnum('resolution_strategy', [
   'newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all'
 ]);
+export const connectionTypeEnum = pgEnum('connection_type', [
+  'ftp', 'sftp', 'api', 'database'
+]);
+export const connectionStatusEnum = pgEnum('connection_status', [
+  'success', 'error', 'pending'
+]);
 
 // Users table
 export const users = pgTable("users", {
@@ -250,6 +256,21 @@ export const workflowExecutions = pgTable("workflow_executions", {
 });
 
 // Amazon sync logs table
+// Connections table for external data sources
+export const connections = pgTable("connections", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: connectionTypeEnum("type").notNull(),
+  description: text("description"),
+  supplierId: integer("supplier_id").references(() => suppliers.id),
+  isActive: boolean("is_active").default(true),
+  credentials: json("credentials").notNull(),
+  lastTested: timestamp("last_tested"),
+  lastStatus: connectionStatusEnum("last_status"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const amazonSyncLogs = pgTable("amazon_sync_logs", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id),
@@ -310,6 +331,7 @@ export const insertDataLineageSchema = createInsertSchema(dataLineage).omit({ id
 export const insertDataMergingConfigSchema = createInsertSchema(dataMergingConfig).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).omit({ id: true, startedAt: true });
+export const insertConnectionSchema = createInsertSchema(connections).omit({ id: true, createdAt: true, updatedAt: true, lastTested: true });
 export const insertAmazonMarketDataSchema = createInsertSchema(amazonMarketData).omit({ id: true, createdAt: true, updatedAt: true, dataFetchedAt: true });
 export const insertAmazonSyncLogSchema = createInsertSchema(amazonSyncLogs).omit({ id: true, syncStartedAt: true, createdAt: true });
 
@@ -332,6 +354,7 @@ export type InsertDataLineage = z.infer<typeof insertDataLineageSchema>;
 export type InsertDataMergingConfig = z.infer<typeof insertDataMergingConfigSchema>;
 export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
+export type InsertConnection = z.infer<typeof insertConnectionSchema>;
 export type InsertAmazonMarketData = z.infer<typeof insertAmazonMarketDataSchema>;
 export type InsertAmazonSyncLog = z.infer<typeof insertAmazonSyncLogSchema>;
 
@@ -354,5 +377,6 @@ export type DataLineage = typeof dataLineage.$inferSelect;
 export type DataMergingConfig = typeof dataMergingConfig.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
+export type Connection = typeof connections.$inferSelect;
 export type AmazonMarketData = typeof amazonMarketData.$inferSelect;
 export type AmazonSyncLog = typeof amazonSyncLogs.$inferSelect;
