@@ -1,5 +1,5 @@
 // Simple script to test SFTP sample data pull
-const { Client: SFTPClient } = require('ssh2');
+import { Client as SFTPClient } from 'ssh2';
 
 async function testSFTPSampleData() {
   return new Promise((resolve) => {

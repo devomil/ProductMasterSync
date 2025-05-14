@@ -100,7 +100,8 @@ export function useDataSourceActions() {
       // Show loading toast
       const loadingToastId = toast({
         title: "Pulling Sample Data",
-        description: "Retrieving data from source, please wait...",
+        description: "Retrieving data from source, please wait... (This may take up to 30 seconds for large files)",
+        duration: 30000,
       });
       
       // Make the API call to pull sample data

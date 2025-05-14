@@ -525,6 +525,12 @@ export const pullSampleData = async (req: Request, res: Response) => {
     
     console.log('Pull sample data request:', { type, supplier_id, limit, remote_path, specific_path });
     
+    // If this is SFTP, check if we have credentials for the standard server
+    if (type === 'sftp' && credentials && credentials.host === 'edi.cwrdistribution.com' && credentials.username === 'eco8') {
+      console.log('SFTP credentials detected for standard server, using environment variable password');
+      credentials.password = process.env.SFTP_PASSWORD || credentials.password;
+    }
+    
     // Validate credentials
     if (!credentials) {
       return res.status(400).json({
