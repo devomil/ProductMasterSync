@@ -19,7 +19,7 @@ interface PullSampleDataResult {
 }
 
 /**
- * Pull sample data for a specific file with enhanced error logging
+ * Pull sample data for a specific file with enhanced error logging and timeout handling
  */
 export const pullSampleDataForFile = async (
   params: PullSampleDataParams
@@ -34,6 +34,53 @@ export const pullSampleDataForFile = async (
     });
   }
   
+  // Set up progress notifications
+  let progressToastId: string | undefined = undefined;
+  let progressInterval: number | null = null;
+  let elapsedSeconds = 0;
+  
+  if (!suppressToast) {
+    // Show a progress toast that will update
+    const result = toast({
+      title: "Pulling Data...",
+      description: `Connecting to server (0s)`,
+      duration: 60000, // Long duration 
+    });
+    progressToastId = result.id;
+    
+    // Set up an interval to update the progress toast
+    progressInterval = window.setInterval(() => {
+      elapsedSeconds += 1;
+      let progressMessage = '';
+      
+      if (elapsedSeconds < 5) {
+        progressMessage = `Connecting to server (${elapsedSeconds}s)`;
+      } else if (elapsedSeconds < 15) {
+        progressMessage = `Downloading file data (${elapsedSeconds}s)`;
+      } else if (elapsedSeconds < 30) {
+        progressMessage = `Processing large file (${elapsedSeconds}s)`;
+      } else {
+        progressMessage = `Still working... (${elapsedSeconds}s) This may take a while for large files`;
+      }
+      
+      if (progressToastId) {
+        toast({
+          id: progressToastId,
+          title: "Pulling Data...",
+          description: progressMessage,
+          duration: 60000, // Long duration
+        });
+      }
+    }, 1000);
+  }
+  
+  // Create a timeout promise that will reject after a certain time
+  const timeoutPromise = new Promise<PullSampleDataResult>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error("Sample data pull timed out after 60 seconds"));
+    }, 60000); // 60 second timeout
+  });
+  
   try {
     // Create a copy of credentials with just the selected file path
     const requestCredentials = {
@@ -41,8 +88,8 @@ export const pullSampleDataForFile = async (
       remote_paths: [selectedFile]
     };
     
-    // Make the request
-    const response = await fetch('/api/connections/sample-data', {
+    // Make the request with a timeout
+    const fetchPromise = fetch('/api/connections/sample-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -51,12 +98,17 @@ export const pullSampleDataForFile = async (
         supplier_id: 1, // Hardcoded for now
         limit: 10, // Only pull 10 records for sample
         specific_path: selectedFile.path,
+        timeout: 45, // Tell server to timeout after 45 seconds
       }),
       credentials: 'include',
     });
     
+    // Race between the fetch and the timeout
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
+    
+    // If we get here, the fetch completed before the timeout
     // Get the full response text for raw display
-    const responseText = await response.text();
+    const responseText = await (response as Response).text();
     let result: any;
     
     try {
@@ -64,6 +116,12 @@ export const pullSampleDataForFile = async (
       result = JSON.parse(responseText);
     } catch (e) {
       console.error('Error parsing response as JSON:', e);
+      
+      // Clean up the progress interval if it exists
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      
       // Return non-JSON response with error details
       return {
         success: false,
@@ -76,11 +134,25 @@ export const pullSampleDataForFile = async (
     
     // Process successful response
     if (result.success) {
+      // Clean up the progress interval
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      
       if (!suppressToast) {
-        toast({
-          title: "Sample Data Retrieved",
-          description: `Successfully retrieved ${result.records?.length || 0} records from ${selectedFile.label}`,
-        });
+        // Clear the progress toast if it exists
+        if (progressToastId) {
+          toast({
+            id: progressToastId,
+            title: "Sample Data Retrieved",
+            description: `Successfully retrieved ${result.records?.length || 0} records from ${selectedFile.label}`,
+          });
+        } else {
+          toast({
+            title: "Sample Data Retrieved",
+            description: `Successfully retrieved ${result.records?.length || 0} records from ${selectedFile.label}`,
+          });
+        }
       }
       
       return {
@@ -94,13 +166,28 @@ export const pullSampleDataForFile = async (
         total_records: result.total_records || result.records?.length || 0,
       };
     } else {
+      // Clean up the progress interval
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      
       // Process error response
       if (!suppressToast) {
-        toast({
-          variant: "destructive",
-          title: "Error Retrieving Sample Data",
-          description: result.message || 'An unknown error occurred',
-        });
+        // Clear the progress toast if it exists
+        if (progressToastId) {
+          toast({
+            id: progressToastId,
+            variant: "destructive",
+            title: "Error Retrieving Sample Data",
+            description: result.message || 'An unknown error occurred',
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error Retrieving Sample Data",
+            description: result.message || 'An unknown error occurred',
+          });
+        }
       }
       
       return {
@@ -114,17 +201,39 @@ export const pullSampleDataForFile = async (
   } catch (error) {
     console.error('Error in sample data pull:', error);
     
-    if (!suppressToast) {
-      toast({
-        variant: "destructive",
-        title: "Connection Error",
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
-      });
+    // Clean up the progress interval
+    if (progressInterval) {
+      clearInterval(progressInterval);
     }
+    
+    if (!suppressToast) {
+      // Clear the progress toast if it exists
+      if (progressToastId) {
+        toast({
+          id: progressToastId,
+          variant: "destructive",
+          title: "Connection Error",
+          description: error instanceof Error ? error.message : 'Unknown error occurred',
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Connection Error",
+          description: error instanceof Error ? error.message : 'Unknown error occurred',
+        });
+      }
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    // Check if this is a timeout
+    const isTimeout = errorMessage.includes('timed out');
     
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      message: isTimeout 
+        ? `Operation timed out after ${Math.floor(elapsedSeconds)} seconds. The file may be too large or inaccessible.`
+        : errorMessage,
       rawResponse: JSON.stringify(error, Object.getOwnPropertyNames(error)),
       filename: selectedFile.label,
       remote_path: selectedFile.path,
@@ -146,11 +255,12 @@ export const retryPullWithBackoff = async (
     rawResponse: '',
   };
   
-  // Always show initial retry toast
-  toast({
+  // Create a progress toast for the retry
+  const retryToastId = toast({
     title: "Retrying Data Pull",
     description: `Attempting to retry data pull from ${params.selectedFile.label}...`,
-  });
+    duration: 10000,
+  }).id;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -161,8 +271,9 @@ export const retryPullWithBackoff = async (
       });
       
       if (result.success) {
-        // Success! Return the result.
+        // Success! Update the toast and return the result.
         toast({
+          id: retryToastId,
           title: "Retry Successful",
           description: `Successfully retrieved data after ${attempt + 1} attempt(s)`,
         });
