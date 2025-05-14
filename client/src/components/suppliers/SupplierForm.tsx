@@ -62,6 +62,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
       contactEmail: supplier.contactEmail,
       contactPhone: supplier.contactPhone,
       active: supplier.active !== null ? supplier.active : true,
+      notes: ""
     } : {
       name: "",
       code: "",
@@ -69,6 +70,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
       contactEmail: "",
       contactPhone: "",
       active: true,
+      notes: ""
     },
   });
 
@@ -230,8 +232,8 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                        checked={field.value === true}
+                        onCheckedChange={(checked) => field.onChange(checked)}
                       />
                     </FormControl>
                   </FormItem>
@@ -250,6 +252,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
                       placeholder="Additional information about this supplier"
                       className="min-h-[100px]"
                       {...field}
+                      value={field.value || ""}
                     />
                   </FormControl>
                   <FormMessage />
