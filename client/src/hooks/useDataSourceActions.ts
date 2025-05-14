@@ -85,6 +85,7 @@ export function useDataSourceActions() {
     try {
       setIsPullingSampleData(true);
       setSampleData(null);
+      setShowSampleDataModal(false);
       
       // Extract credentials from data source
       let credentials = dataSource.config;
@@ -95,6 +96,12 @@ export function useDataSourceActions() {
           credentials = { data: credentials };
         }
       }
+      
+      // Set loading state with toast
+      const loadingToastId = toast({
+        title: "Pulling Sample Data",
+        description: "Retrieving data from source, please wait...",
+      });
       
       // Make the API call to pull sample data
       const response = await fetch('/api/connections/sample-data', {

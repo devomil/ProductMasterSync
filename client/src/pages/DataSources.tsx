@@ -993,6 +993,90 @@ export default function DataSources() {
         />
       )}
       {/* Delete Confirmation Dialog */}
+      {/* Edit Dialog */}
+      <Dialog open={editingDataSource !== null} onOpenChange={(open) => !open && setEditingDataSource(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Data Source</DialogTitle>
+            <DialogDescription>
+              Update the details for this data source.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingDataSource && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Data Source Name</Label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    defaultValue={editingDataSource.name}
+                    placeholder="Supplier API"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-supplier">Supplier</Label>
+                  <Select defaultValue={String(editingDataSource.supplierId || '')}>
+                    <SelectTrigger id="edit-supplier">
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No supplier</SelectItem>
+                      {suppliers.map((supplier: any) => (
+                        <SelectItem key={supplier.id} value={String(supplier.id)}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  name="description"
+                  defaultValue={editingDataSource.description || ''}
+                  placeholder="Description of this data source"
+                  rows={2}
+                />
+              </div>
+              
+              {editingDataSource.type === 'api' && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-config">API Configuration (JSON)</Label>
+                  <Textarea
+                    id="edit-config"
+                    name="config"
+                    defaultValue={typeof editingDataSource.config === 'string' 
+                      ? editingDataSource.config 
+                      : JSON.stringify(editingDataSource.config, null, 2)}
+                    placeholder="{}"
+                    rows={8}
+                    className="font-mono text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setEditingDataSource(null)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
