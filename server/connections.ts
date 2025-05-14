@@ -4,7 +4,7 @@ import { db } from './db';
 import { connections } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { Client as SFTPClient } from 'ssh2';
-import Client from 'ftp';
+import FTP from 'ftp';
 import pg from 'pg';
 
 // Helper function to test database connection
@@ -136,7 +136,7 @@ const testSFTPConnection = async (credentials: any) => {
 // Helper function to test FTP connection
 const testFTPConnection = async (credentials: any) => {
   return new Promise((resolve) => {
-    const client = new FTP.Client();
+    const client = new FTP();
     
     // Set a timeout to avoid hanging connections
     const timeout = setTimeout(() => {
@@ -907,7 +907,7 @@ const pullSampleDataFromFTP = async (
   total_records?: number
 }> => {
   return new Promise((resolve) => {
-    const client = new FTP.Client();
+    const client = new FTP();
     
     // Set a timeout to avoid hanging connections
     const timeout = setTimeout(() => {

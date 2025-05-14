@@ -1,4 +1,4 @@
-import * as ftp from 'ftp';
+import FTP from 'ftp';
 import { Client as SFTPClient } from 'ssh2';
 import { createWriteStream, promises as fs } from 'fs';
 import path from 'path';
@@ -129,7 +129,7 @@ const pullFromFTP = async (
   };
   
   return new Promise((resolve) => {
-    const client = new ftp();
+    const client = new FTP();
     
     // Set a timeout to avoid hanging connections
     const timeout = setTimeout(() => {
