@@ -851,10 +851,10 @@ export default function DataSources() {
               </div>
 
               {/* SFTP Specific Config */}
-              {selectedSourceType === 'sftp' && (
+              {(selectedSourceType === 'sftp' || selectedSourceType === 'ftp') && (
                 <>
                   <Separator className="my-2" />
-                  <h3 className="font-medium text-lg mb-2">SFTP Configuration</h3>
+                  <h3 className="font-medium text-lg mb-2">{selectedSourceType.toUpperCase()} Configuration</h3>
                   
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="sftp-host" className="text-right">
@@ -1128,10 +1128,10 @@ export default function DataSources() {
                 </div>
                 
                 {/* SFTP Specific Config */}
-                {selectedDataSource.type === 'sftp' && (
+                {(selectedDataSource.type === 'sftp' || selectedDataSource.type === 'ftp') && (
                   <>
                     <Separator className="my-2" />
-                    <h3 className="font-medium text-lg mb-2">SFTP Configuration</h3>
+                    <h3 className="font-medium text-lg mb-2">{selectedDataSource.type.toUpperCase()} Configuration</h3>
                     
                     {(() => {
                       let config;
