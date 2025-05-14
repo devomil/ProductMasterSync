@@ -654,10 +654,20 @@ export default function DataSources() {
     };
     
     try {
-      const result = await apiRequest('POST', '/api/connections/test', {
-        type: 'sftp',
-        credentials
+      // First, make the request to test the connection
+      const response = await fetch('/api/connections/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'sftp',
+          credentials
+        }),
+        credentials: 'include',
       });
+      
+      // Parse the JSON response
+      const result = await response.json();
+      console.log('SFTP edit test connection response:', result);
       
       setTestConnectionResult(result);
       
