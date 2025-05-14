@@ -801,50 +801,84 @@ const pullSampleDataFromSFTP = async (
                   if (rowCount >= limit) {
                     reachedLimit = true;
                     stream.close();
+                    // Force early completion
+                    console.log(`Reached limit of ${limit} rows, stopping early`);
+                    client.end();
+                    
+                    // Parse the header using a proper CSV parsing function
+                    const headers = parseCSVLine(headerLine);
+                    
+                    // Parse each row
+                    const parsedData = dataRows.map(line => {
+                      if (!line.trim()) return null;
+                      
+                      const values = parseCSVLine(line);
+                      const row: any = {};
+                      
+                      headers.forEach((header, i) => {
+                        row[header] = i < values.length ? values[i] : '';
+                      });
+                      
+                      return row;
+                    }).filter(row => row !== null);
+                    
+                    resolve({
+                      success: true,
+                      message: `Successfully pulled ${parsedData.length} sample records from ${filename}`,
+                      data: parsedData,
+                      filename: filename,
+                      fileType: fileType,
+                      remote_path: filePath,
+                      total_records: parsedData.length
+                    });
+                    
                     break;
                   }
                 }
               });
               
               stream.on('end', async () => {
-                client.end();
-                console.log(`Finished reading CSV data. Processing ${dataRows.length} rows`);
-                
-                try {
-                  // Parse the header using a proper CSV parsing function
-                  const headers = parseCSVLine(headerLine);
-                  const total = dataRows.length;
+                // Only process if we haven't already resolved via the limit check
+                if (!reachedLimit) {
+                  client.end();
+                  console.log(`Finished reading CSV data. Processing ${dataRows.length} rows`);
                   
-                  // Parse each row
-                  const parsedData = dataRows.map(line => {
-                    if (!line.trim()) return null;
+                  try {
+                    // Parse the header using a proper CSV parsing function
+                    const headers = parseCSVLine(headerLine);
+                    const total = dataRows.length;
                     
-                    const values = parseCSVLine(line);
-                    const row: any = {};
+                    // Parse each row
+                    const parsedData = dataRows.map(line => {
+                      if (!line.trim()) return null;
+                      
+                      const values = parseCSVLine(line);
+                      const row: any = {};
+                      
+                      headers.forEach((header, i) => {
+                        row[header] = i < values.length ? values[i] : '';
+                      });
+                      
+                      return row;
+                    }).filter(row => row !== null);
                     
-                    headers.forEach((header, i) => {
-                      row[header] = i < values.length ? values[i] : '';
+                    resolve({
+                      success: true,
+                      message: `Successfully pulled ${parsedData.length} sample records from ${filename}`,
+                      data: parsedData,
+                      filename: filename,
+                      fileType: fileType,
+                      remote_path: filePath,
+                      total_records: total
                     });
-                    
-                    return row;
-                  }).filter(row => row !== null);
-                  
-                  resolve({
-                    success: true,
-                    message: `Successfully pulled sample data from ${filename}`,
-                    data: parsedData,
-                    filename: filename,
-                    fileType: fileType,
-                    remote_path: filePath,
-                    total_records: total
-                  });
-                } catch (err: any) {
-                  resolve({
-                    success: false,
-                    message: `Error parsing CSV data: ${err.message}`,
-                    filename: filename,
-                    remote_path: filePath
-                  });
+                  } catch (err: any) {
+                    resolve({
+                      success: false,
+                      message: `Error parsing CSV data: ${err.message}`,
+                      filename: filename,
+                      remote_path: filePath
+                    });
+                  }
                 }
               });
               
