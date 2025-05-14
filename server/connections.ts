@@ -1,599 +1,594 @@
-import { Router, Request, Response } from "express";
-import { db } from "./db";
-import { connections, connectionTypeEnum, connectionStatusEnum, insertConnectionSchema } from "@shared/schema";
-import { eq } from "drizzle-orm";
-import crypto from "crypto";
-import { z } from "zod";
+import { Request, Response } from 'express';
+import { db } from './db';
+import { connections, suppliers, connectionStatusEnum } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { Client as FTPClient } from 'ftp';
+import { Client as SFTPClient } from 'ssh2';
+import axios from 'axios';
+import { Pool } from 'pg';
+import { promisify } from 'util';
 
-// Create a router
-const router = Router();
-
-// Encryption key (would normally be stored in environment variable)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "a8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3";
-const ENCRYPTION_IV = process.env.ENCRYPTION_IV || "1234567890abcdef";
-
-// Encrypt sensitive data before saving to database
-function encrypt(text: string): string {
-  const cipher = crypto.createCipheriv(
-    'aes-256-cbc', 
-    Buffer.from(ENCRYPTION_KEY), 
-    Buffer.from(ENCRYPTION_IV)
-  );
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return encrypted;
-}
-
-// Decrypt sensitive data when retrieving from database
-function decrypt(text: string): string {
+// Helper to validate connection parameters based on type
+const validateConnectionParams = (type: string, credentials: any): { valid: boolean, message: string } => {
   try {
-    const decipher = crypto.createDecipheriv(
-      'aes-256-cbc', 
-      Buffer.from(ENCRYPTION_KEY), 
-      Buffer.from(ENCRYPTION_IV)
-    );
-    let decrypted = decipher.update(text, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
-  } catch (error) {
-    console.error("Decryption error:", error);
-    return "**ENCRYPTED**";
-  }
-}
-
-// Get all connections
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const allConnections = await db.select().from(connections);
-    
-    // Don't return the actual credentials, just a placeholder
-    const sanitizedConnections = allConnections.map(conn => ({
-      ...conn,
-      credentials: { 
-        ...conn.credentials as any,
-        // Remove any sensitive fields
-        password: conn.credentials && (conn.credentials as any).password ? "**HIDDEN**" : undefined,
-        accessToken: conn.credentials && (conn.credentials as any).accessToken ? "**HIDDEN**" : undefined,
-        secretKey: conn.credentials && (conn.credentials as any).secretKey ? "**HIDDEN**" : undefined,
-        apiKey: conn.credentials && (conn.credentials as any).apiKey ? "**HIDDEN**" : undefined
-      }
-    }));
-    
-    res.json(sanitizedConnections);
-  } catch (error) {
-    console.error("Error fetching connections:", error);
-    res.status(500).json({ error: "Failed to fetch connections" });
-  }
-});
-
-// Get one connection by ID
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid connection ID" });
-    }
-    
-    const [connection] = await db.select().from(connections).where(eq(connections.id, id));
-    
-    if (!connection) {
-      return res.status(404).json({ error: "Connection not found" });
-    }
-    
-    // Don't return the actual credentials, just a placeholder
-    const sanitizedConnection = {
-      ...connection,
-      credentials: { 
-        ...connection.credentials as any,
-        // Remove any sensitive fields
-        password: connection.credentials && (connection.credentials as any).password ? "**HIDDEN**" : undefined,
-        accessToken: connection.credentials && (connection.credentials as any).accessToken ? "**HIDDEN**" : undefined,
-        secretKey: connection.credentials && (connection.credentials as any).secretKey ? "**HIDDEN**" : undefined,
-        apiKey: connection.credentials && (connection.credentials as any).apiKey ? "**HIDDEN**" : undefined
-      }
-    };
-    
-    res.json(sanitizedConnection);
-  } catch (error) {
-    console.error("Error fetching connection:", error);
-    res.status(500).json({ error: "Failed to fetch connection" });
-  }
-});
-
-// Create a new connection
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    // Validate request body against schema
-    const validatedData = insertConnectionSchema.parse(req.body);
-    
-    // Encrypt any sensitive credentials
-    let encryptedCredentials = { ...validatedData.credentials as any };
-    
-    // Encrypt sensitive fields if they exist
-    if (encryptedCredentials.password) {
-      encryptedCredentials.password = encrypt(encryptedCredentials.password);
-    }
-    if (encryptedCredentials.accessToken) {
-      encryptedCredentials.accessToken = encrypt(encryptedCredentials.accessToken);
-    }
-    if (encryptedCredentials.secretKey) {
-      encryptedCredentials.secretKey = encrypt(encryptedCredentials.secretKey);
-    }
-    if (encryptedCredentials.apiKey) {
-      encryptedCredentials.apiKey = encrypt(encryptedCredentials.apiKey);
-    }
-    
-    // Create the connection with encrypted credentials
-    const [newConnection] = await db.insert(connections)
-      .values({
-        ...validatedData,
-        credentials: encryptedCredentials
-      })
-      .returning();
-    
-    // Return the new connection with sanitized credentials
-    const sanitizedConnection = {
-      ...newConnection,
-      credentials: { 
-        ...newConnection.credentials as any,
-        // Remove any sensitive fields
-        password: newConnection.credentials && (newConnection.credentials as any).password ? "**HIDDEN**" : undefined,
-        accessToken: newConnection.credentials && (newConnection.credentials as any).accessToken ? "**HIDDEN**" : undefined,
-        secretKey: newConnection.credentials && (newConnection.credentials as any).secretKey ? "**HIDDEN**" : undefined,
-        apiKey: newConnection.credentials && (newConnection.credentials as any).apiKey ? "**HIDDEN**" : undefined
-      }
-    };
-    
-    res.status(201).json(sanitizedConnection);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
-    }
-    console.error("Error creating connection:", error);
-    res.status(500).json({ error: "Failed to create connection" });
-  }
-});
-
-// Update a connection
-router.patch('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid connection ID" });
-    }
-    
-    // Get the existing connection
-    const [existingConnection] = await db.select().from(connections).where(eq(connections.id, id));
-    
-    if (!existingConnection) {
-      return res.status(404).json({ error: "Connection not found" });
-    }
-    
-    // Validate request body against schema
-    const validatedData = insertConnectionSchema.partial().parse(req.body);
-    
-    // Handle credentials separately for encryption
-    let updatedCredentials = existingConnection.credentials as any;
-    
-    if (validatedData.credentials) {
-      // Merge new credentials with existing ones
-      updatedCredentials = { ...updatedCredentials, ...validatedData.credentials as any };
-      
-      // Encrypt sensitive fields if they exist
-      if (updatedCredentials.password && updatedCredentials.password !== "**HIDDEN**") {
-        updatedCredentials.password = encrypt(updatedCredentials.password);
-      }
-      if (updatedCredentials.accessToken && updatedCredentials.accessToken !== "**HIDDEN**") {
-        updatedCredentials.accessToken = encrypt(updatedCredentials.accessToken);
-      }
-      if (updatedCredentials.secretKey && updatedCredentials.secretKey !== "**HIDDEN**") {
-        updatedCredentials.secretKey = encrypt(updatedCredentials.secretKey);
-      }
-      if (updatedCredentials.apiKey && updatedCredentials.apiKey !== "**HIDDEN**") {
-        updatedCredentials.apiKey = encrypt(updatedCredentials.apiKey);
-      }
-    }
-    
-    // Update the connection with encrypted credentials
-    const [updatedConnection] = await db.update(connections)
-      .set({
-        ...validatedData,
-        credentials: updatedCredentials,
-        updatedAt: new Date()
-      })
-      .where(eq(connections.id, id))
-      .returning();
-    
-    // Return the updated connection with sanitized credentials
-    const sanitizedConnection = {
-      ...updatedConnection,
-      credentials: { 
-        ...updatedConnection.credentials as any,
-        // Remove any sensitive fields
-        password: updatedConnection.credentials && (updatedConnection.credentials as any).password ? "**HIDDEN**" : undefined,
-        accessToken: updatedConnection.credentials && (updatedConnection.credentials as any).accessToken ? "**HIDDEN**" : undefined,
-        secretKey: updatedConnection.credentials && (updatedConnection.credentials as any).secretKey ? "**HIDDEN**" : undefined,
-        apiKey: updatedConnection.credentials && (updatedConnection.credentials as any).apiKey ? "**HIDDEN**" : undefined
-      }
-    };
-    
-    res.json(sanitizedConnection);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
-    }
-    console.error("Error updating connection:", error);
-    res.status(500).json({ error: "Failed to update connection" });
-  }
-});
-
-// Delete a connection
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid connection ID" });
-    }
-    
-    // Check if connection exists
-    const [existingConnection] = await db.select().from(connections).where(eq(connections.id, id));
-    
-    if (!existingConnection) {
-      return res.status(404).json({ error: "Connection not found" });
-    }
-    
-    // Delete the connection
-    await db.delete(connections).where(eq(connections.id, id));
-    
-    res.status(204).end();
-  } catch (error) {
-    console.error("Error deleting connection:", error);
-    res.status(500).json({ error: "Failed to delete connection" });
-  }
-});
-
-// Test a connection
-router.post('/test', async (req: Request, res: Response) => {
-  try {
-    // Validate the connection config
-    const testConfig = z.object({
-      type: connectionTypeEnum,
-      credentials: z.record(z.any()),
-    }).parse(req.body);
-    
-    let testResult = {
-      success: false,
-      message: "Connection test failed",
-      details: null
-    };
-    
-    // Test the connection based on type
-    switch (testConfig.type) {
+    switch (type) {
       case 'ftp':
-        testResult = await testFtpConnection(testConfig.credentials);
+        if (!credentials.host) return { valid: false, message: 'Host is required for FTP connection' };
+        if (!credentials.username) return { valid: false, message: 'Username is required for FTP connection' };
+        if (!credentials.password) return { valid: false, message: 'Password is required for FTP connection' };
         break;
+      
       case 'sftp':
-        testResult = await testSftpConnection(testConfig.credentials);
+        if (!credentials.host) return { valid: false, message: 'Host is required for SFTP connection' };
+        if (!credentials.username) return { valid: false, message: 'Username is required for SFTP connection' };
+        if ((!credentials.password && !credentials.privateKey)) {
+          return { valid: false, message: 'Either password or private key is required for SFTP connection' };
+        }
         break;
+      
       case 'api':
-        testResult = await testApiConnection(testConfig.credentials);
+        if (!credentials.url) return { valid: false, message: 'URL is required for API connection' };
+        if (credentials.authType === 'basic' && (!credentials.username || !credentials.password)) {
+          return { valid: false, message: 'Username and password are required for Basic Auth' };
+        }
+        if (credentials.authType === 'bearer' && !credentials.accessToken) {
+          return { valid: false, message: 'Access token is required for Bearer Auth' };
+        }
+        if (credentials.authType === 'apiKey' && (!credentials.apiKeyName || !credentials.apiKey)) {
+          return { valid: false, message: 'API key name and value are required for API Key Auth' };
+        }
         break;
+      
       case 'database':
-        testResult = await testDatabaseConnection(testConfig.credentials);
+        if (!credentials.host) return { valid: false, message: 'Host is required for database connection' };
+        if (!credentials.username) return { valid: false, message: 'Username is required for database connection' };
+        if (!credentials.password) return { valid: false, message: 'Password is required for database connection' };
+        if (!credentials.database) return { valid: false, message: 'Database name is required for database connection' };
         break;
+      
       default:
-        testResult = {
-          success: false,
-          message: `Unsupported connection type: ${testConfig.type}`,
-          details: null
-        };
+        return { valid: false, message: 'Invalid connection type' };
     }
     
-    res.json(testResult);
+    return { valid: true, message: 'Connection parameters are valid' };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
-    }
-    console.error("Error testing connection:", error);
-    res.status(500).json({ 
-      success: false,
-      message: "Failed to test connection",
-      details: error instanceof Error ? error.message : String(error)
-    });
+    return { valid: false, message: 'Error validating connection parameters' };
   }
-});
+};
 
-// Test FTP connection
-async function testFtpConnection(credentials: any) {
-  try {
-    const FTP = require('ftp');
-    const client = new FTP();
+// Helper function to test FTP connection
+const testFTPConnection = (credentials: any): Promise<{ success: boolean, message: string, details?: any }> => {
+  return new Promise((resolve) => {
+    const client = new FTPClient();
     
-    return new Promise((resolve, reject) => {
-      client.on('ready', () => {
-        client.list((err: Error, list: any[]) => {
+    // Set a timeout to avoid hanging connections
+    const timeout = setTimeout(() => {
+      client.destroy();
+      resolve({ success: false, message: 'Connection timed out' });
+    }, 10000);
+    
+    client.on('ready', () => {
+      clearTimeout(timeout);
+      
+      // Test listing a directory
+      client.list(credentials.remoteDir || '/', (err, list) => {
+        if (err) {
           client.end();
-          if (err) {
-            resolve({
-              success: false,
-              message: "Connected but failed to list directory",
-              details: err.message
-            });
-          } else {
-            resolve({
-              success: true,
-              message: "Successfully connected to FTP server",
-              details: {
-                fileCount: list.length,
-                sampleFiles: list.slice(0, 5).map((file: any) => file.name)
-              }
-            });
-          }
-        });
+          resolve({ 
+            success: false, 
+            message: 'Connected but failed to list directory', 
+            details: { error: err.message } 
+          });
+        } else {
+          client.end();
+          resolve({ 
+            success: true, 
+            message: 'Successfully connected to FTP server and listed directory', 
+            details: { 
+              directoryContents: list.slice(0, 5).map(item => ({
+                name: item.name,
+                type: item.type,
+                size: item.size,
+                date: item.date
+              })),
+              totalFiles: list.length,
+              remotePath: credentials.remoteDir || '/'
+            } 
+          });
+        }
       });
-      
-      client.on('error', (err: Error) => {
-        client.end();
-        resolve({
-          success: false,
-          message: "Failed to connect to FTP server",
-          details: err.message
-        });
-      });
-      
-      client.connect({
-        host: credentials.host,
-        port: credentials.port || 21,
-        user: credentials.username,
-        password: credentials.password,
-        secure: credentials.secure || false
-      });
-      
-      // Set a timeout in case the connection hangs
-      setTimeout(() => {
-        client.end();
-        resolve({
-          success: false,
-          message: "Connection timeout",
-          details: "The connection attempt took too long and was aborted"
-        });
-      }, 10000);
     });
-  } catch (error) {
-    return {
-      success: false,
-      message: "FTP connection test failed",
-      details: error instanceof Error ? error.message : String(error)
-    };
-  }
-}
-
-// Test SFTP connection
-async function testSftpConnection(credentials: any) {
-  try {
-    const { Client } = require('ssh2');
-    const client = new Client();
     
-    return new Promise((resolve, reject) => {
-      client.on('ready', () => {
-        client.sftp((err: Error, sftp: any) => {
-          if (err) {
+    client.on('error', (err) => {
+      clearTimeout(timeout);
+      resolve({ success: false, message: 'FTP connection error', details: { error: err.message } });
+    });
+    
+    // Connect to the FTP server
+    client.connect({
+      host: credentials.host,
+      port: parseInt(credentials.port) || 21,
+      user: credentials.username,
+      password: credentials.password,
+      secure: credentials.secure || false
+    });
+  });
+};
+
+// Helper function to test SFTP connection
+const testSFTPConnection = (credentials: any): Promise<{ success: boolean, message: string, details?: any }> => {
+  return new Promise((resolve) => {
+    const client = new SFTPClient();
+    
+    // Set a timeout to avoid hanging connections
+    const timeout = setTimeout(() => {
+      client.end();
+      resolve({ success: false, message: 'Connection timed out' });
+    }, 10000);
+    
+    client.on('ready', () => {
+      clearTimeout(timeout);
+      
+      // Test SFTP operations
+      client.sftp((err, sftp) => {
+        if (err) {
+          client.end();
+          resolve({ 
+            success: false, 
+            message: 'Connected but failed to start SFTP session', 
+            details: { error: err.message } 
+          });
+        } else {
+          // Read directory
+          sftp.readdir(credentials.remoteDir || '.', (err, list) => {
             client.end();
-            resolve({
-              success: false,
-              message: "Connected but failed to initialize SFTP",
-              details: err.message
-            });
-            return;
-          }
-          
-          sftp.readdir('.', (err: Error, list: any[]) => {
-            client.end();
+            
             if (err) {
-              resolve({
-                success: false,
-                message: "Connected but failed to list directory",
-                details: err.message
+              resolve({ 
+                success: false, 
+                message: 'Connected but failed to list directory', 
+                details: { error: err.message } 
               });
             } else {
-              resolve({
-                success: true,
-                message: "Successfully connected to SFTP server",
-                details: {
-                  fileCount: list.length,
-                  sampleFiles: list.slice(0, 5).map((file: any) => file.filename)
-                }
+              resolve({ 
+                success: true, 
+                message: 'Successfully connected to SFTP server and listed directory', 
+                details: { 
+                  directoryContents: list.slice(0, 5).map(item => ({
+                    name: item.filename,
+                    longname: item.longname
+                  })),
+                  totalFiles: list.length,
+                  remotePath: credentials.remoteDir || '.'
+                } 
               });
             }
           });
-        });
-      });
-      
-      client.on('error', (err: Error) => {
-        client.end();
-        resolve({
-          success: false,
-          message: "Failed to connect to SFTP server",
-          details: err.message
-        });
-      });
-      
-      const connectConfig: any = {
-        host: credentials.host,
-        port: credentials.port || 22,
-        username: credentials.username,
-      };
-      
-      // Handle different authentication methods
-      if (credentials.password) {
-        connectConfig.password = credentials.password;
-      } else if (credentials.privateKey) {
-        connectConfig.privateKey = credentials.privateKey;
-        if (credentials.passphrase) {
-          connectConfig.passphrase = credentials.passphrase;
         }
-      }
-      
-      client.connect(connectConfig);
-      
-      // Set a timeout in case the connection hangs
-      setTimeout(() => {
-        client.end();
-        resolve({
-          success: false,
-          message: "Connection timeout",
-          details: "The connection attempt took too long and was aborted"
-        });
-      }, 10000);
+      });
     });
-  } catch (error) {
-    return {
-      success: false,
-      message: "SFTP connection test failed",
-      details: error instanceof Error ? error.message : String(error)
+    
+    client.on('error', (err) => {
+      clearTimeout(timeout);
+      resolve({ success: false, message: 'SFTP connection error', details: { error: err.message } });
+    });
+    
+    // Connection options
+    const connectConfig: any = {
+      host: credentials.host,
+      port: parseInt(credentials.port) || 22,
+      username: credentials.username
     };
-  }
-}
-
-// Test API connection
-async function testApiConnection(credentials: any) {
-  try {
-    const axios = require('axios');
     
-    // Set up headers based on auth type
-    const headers: Record<string, string> = {};
-    
-    if (credentials.authType === 'basic') {
-      const auth = Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64');
-      headers['Authorization'] = `Basic ${auth}`;
-    } else if (credentials.authType === 'bearer') {
-      headers['Authorization'] = `Bearer ${credentials.accessToken}`;
-    } else if (credentials.authType === 'apiKey') {
-      if (credentials.apiKeyLocation === 'header') {
-        headers[credentials.apiKeyName] = credentials.apiKey;
+    // Authentication options
+    if (credentials.privateKey) {
+      connectConfig.privateKey = credentials.privateKey;
+      if (credentials.passphrase) {
+        connectConfig.passphrase = credentials.passphrase;
       }
+    } else {
+      connectConfig.password = credentials.password;
     }
     
-    // Set content type if provided
-    if (credentials.contentType) {
-      headers['Content-Type'] = credentials.contentType;
-    }
-    
-    // Create request options
-    const options: any = {
-      method: credentials.method || 'GET',
+    // Connect to the SFTP server
+    client.connect(connectConfig);
+  });
+};
+
+// Helper function to test API connection
+const testAPIConnection = async (credentials: any): Promise<{ success: boolean, message: string, details?: any }> => {
+  try {
+    const config: any = {
       url: credentials.url,
-      headers,
+      method: credentials.method || 'GET',
       timeout: 10000
     };
     
-    // Add query params for apiKey in query
-    if (credentials.authType === 'apiKey' && credentials.apiKeyLocation === 'query') {
-      options.params = {
-        [credentials.apiKeyName]: credentials.apiKey
+    // Add authentication if specified
+    if (credentials.authType === 'basic') {
+      config.auth = {
+        username: credentials.username,
+        password: credentials.password
+      };
+    } else if (credentials.authType === 'bearer') {
+      config.headers = {
+        ...config.headers,
+        'Authorization': `Bearer ${credentials.accessToken}`
+      };
+    } else if (credentials.authType === 'apiKey') {
+      if (credentials.apiKeyLocation === 'header') {
+        config.headers = {
+          ...config.headers,
+          [credentials.apiKeyName]: credentials.apiKey
+        };
+      } else if (credentials.apiKeyLocation === 'query') {
+        const url = new URL(credentials.url);
+        url.searchParams.append(credentials.apiKeyName, credentials.apiKey);
+        config.url = url.toString();
+      }
+    }
+    
+    // Add content-type if provided
+    if (credentials.contentType) {
+      config.headers = {
+        ...config.headers,
+        'Content-Type': credentials.contentType
       };
     }
     
-    // Add request body if method is POST/PUT/PATCH
-    if (['POST', 'PUT', 'PATCH'].includes(options.method) && credentials.body) {
-      options.data = credentials.body;
+    // Add custom headers if provided
+    if (credentials.headers) {
+      config.headers = {
+        ...config.headers,
+        ...credentials.headers
+      };
     }
     
-    // Make the request
-    const response = await axios(options);
+    // Add request body for POST or PUT requests
+    if (['POST', 'PUT'].includes(credentials.method) && credentials.body) {
+      try {
+        if (credentials.contentType?.includes('json')) {
+          config.data = JSON.parse(credentials.body);
+        } else {
+          config.data = credentials.body;
+        }
+      } catch (error) {
+        // If parsing fails, send as raw text
+        config.data = credentials.body;
+      }
+    }
+    
+    const response = await axios(config);
     
     return {
       success: true,
-      message: "Successfully connected to API",
+      message: `API connection successful: ${response.status} ${response.statusText}`,
       details: {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
-        sampleData: response.data
+        data: response.data
       }
     };
-  } catch (error: any) {
-    let details = "Unknown error";
+  } catch (error) {
+    let errorMessage = 'API connection error';
+    let details: any = {};
     
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
+    if (axios.isAxiosError(error)) {
+      errorMessage = `API connection failed: ${error.message}`;
       details = {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data
+        error: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
       };
-    } else if (error.request) {
-      // The request was made but no response was received
-      details = "No response received from server";
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      details = error.message;
+    } else if (error instanceof Error) {
+      errorMessage = `API connection error: ${error.message}`;
+      details = { error: error.message };
     }
     
-    return {
-      success: false,
-      message: "API connection test failed",
-      details
-    };
+    return { success: false, message: errorMessage, details };
   }
-}
+};
 
-// Test database connection
-async function testDatabaseConnection(credentials: any) {
+// Helper function to test database connection
+const testDatabaseConnection = async (credentials: any): Promise<{ success: boolean, message: string, details?: any }> => {
+  let client: Pool | null = null;
+  
   try {
-    let client;
-    let result;
+    // Connection string based on database type
+    let connectionString: string;
     
-    // Test based on database type
     switch (credentials.databaseType) {
       case 'postgresql':
-        const { Pool } = require('pg');
-        client = new Pool({
-          host: credentials.host,
-          port: credentials.port || 5432,
-          database: credentials.database,
-          user: credentials.username,
-          password: credentials.password,
-          ssl: credentials.ssl || false,
-          // Set a query timeout
-          statement_timeout: 10000
-        });
-        
-        // Test the connection
-        const { rows } = await client.query('SELECT NOW() as time');
-        
-        // Close the connection
-        await client.end();
-        
-        result = {
-          success: true,
-          message: "Successfully connected to PostgreSQL database",
-          details: {
-            time: rows[0].time,
-            serverVersion: "PostgreSQL"
-          }
-        };
+        connectionString = `postgres://${credentials.username}:${credentials.password}@${credentials.host}:${credentials.port || 5432}/${credentials.database}`;
+        if (credentials.ssl) {
+          connectionString += '?sslmode=require';
+        }
         break;
         
-      // Add support for other database types as needed
-      
+      case 'mysql':
+        // For MySQL we would use a different driver, but we'll simulate it here
+        connectionString = `postgres://${credentials.username}:${credentials.password}@${credentials.host}:${credentials.port || 3306}/${credentials.database}`;
+        break;
+        
+      case 'mssql':
+        // For SQL Server we would use a different driver, but we'll simulate it here
+        connectionString = `postgres://${credentials.username}:${credentials.password}@${credentials.host}:${credentials.port || 1433}/${credentials.database}`;
+        break;
+        
+      case 'oracle':
+        // For Oracle we would use a different driver, but we'll simulate it here
+        connectionString = `postgres://${credentials.username}:${credentials.password}@${credentials.host}:${credentials.port || 1521}/${credentials.database}`;
+        break;
+        
       default:
-        result = {
-          success: false,
-          message: `Unsupported database type: ${credentials.databaseType}`,
-          details: null
+        return { 
+          success: false, 
+          message: 'Unsupported database type', 
+          details: { error: 'Only PostgreSQL connection testing is currently supported' } 
         };
     }
     
-    return result;
-  } catch (error) {
+    if (credentials.databaseType !== 'postgresql') {
+      return { 
+        success: false, 
+        message: 'Simulated connection for non-PostgreSQL databases', 
+        details: { 
+          warning: 'Only PostgreSQL connection testing is currently implemented. This is a simulated successful connection.' 
+        } 
+      };
+    }
+    
+    // Create a new client
+    client = new Pool({ connectionString });
+    
+    // Test connection with query
+    const result = await client.query('SELECT current_database() as db, current_user as user, version() as version');
+    
     return {
-      success: false,
-      message: "Database connection test failed",
-      details: error instanceof Error ? error.message : String(error)
+      success: true,
+      message: 'Database connection successful',
+      details: {
+        database: result.rows[0].db,
+        user: result.rows[0].user,
+        version: result.rows[0].version,
+        tables: [] // We would get table info here in a real implementation
+      }
     };
+  } catch (error) {
+    let errorMessage = 'Database connection error';
+    let details: any = { error: 'Unknown error' };
+    
+    if (error instanceof Error) {
+      errorMessage = `Database connection error: ${error.message}`;
+      details = { error: error.message };
+    }
+    
+    return { success: false, message: errorMessage, details };
+  } finally {
+    // Close the connection
+    if (client) {
+      await client.end();
+    }
   }
-}
+};
 
-export default router;
+// API Endpoints
+export const getConnections = async (req: Request, res: Response) => {
+  try {
+    const result = await db.select().from(connections);
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching connections:', error);
+    res.status(500).json({ error: 'Failed to fetch connections' });
+  }
+};
+
+export const getConnection = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await db.select().from(connections).where(eq(connections.id, parseInt(id))).limit(1);
+    
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'Connection not found' });
+    }
+    
+    res.json(result[0]);
+  } catch (error) {
+    console.error('Error fetching connection:', error);
+    res.status(500).json({ error: 'Failed to fetch connection' });
+  }
+};
+
+export const createConnection = async (req: Request, res: Response) => {
+  try {
+    const { name, type, description, supplierId, isActive, credentials } = req.body;
+    
+    // Validate connection parameters
+    const validation = validateConnectionParams(type, credentials);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.message });
+    }
+    
+    // If supplier ID is provided, check if it exists
+    if (supplierId) {
+      const supplierExists = await db.select({ id: suppliers.id })
+        .from(suppliers)
+        .where(eq(suppliers.id, supplierId))
+        .limit(1);
+      
+      if (supplierExists.length === 0) {
+        return res.status(400).json({ error: `Supplier with ID ${supplierId} not found` });
+      }
+    }
+    
+    // Create the connection
+    const [connection] = await db.insert(connections)
+      .values({
+        name,
+        type,
+        description,
+        supplierId,
+        isActive,
+        credentials,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    res.status(201).json(connection);
+  } catch (error) {
+    console.error('Error creating connection:', error);
+    res.status(500).json({ error: 'Failed to create connection' });
+  }
+};
+
+export const updateConnection = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, type, description, supplierId, isActive, credentials } = req.body;
+    
+    // Check if connection exists
+    const existingConnection = await db.select().from(connections).where(eq(connections.id, parseInt(id))).limit(1);
+    if (existingConnection.length === 0) {
+      return res.status(404).json({ error: 'Connection not found' });
+    }
+    
+    // Validate connection parameters if type or credentials are being updated
+    if (type || credentials) {
+      const validation = validateConnectionParams(
+        type || existingConnection[0].type,
+        credentials || existingConnection[0].credentials
+      );
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.message });
+      }
+    }
+    
+    // If supplier ID is provided, check if it exists
+    if (supplierId) {
+      const supplierExists = await db.select({ id: suppliers.id })
+        .from(suppliers)
+        .where(eq(suppliers.id, supplierId))
+        .limit(1);
+      
+      if (supplierExists.length === 0) {
+        return res.status(400).json({ error: `Supplier with ID ${supplierId} not found` });
+      }
+    }
+    
+    // Update the connection
+    const [updatedConnection] = await db.update(connections)
+      .set({
+        name: name !== undefined ? name : existingConnection[0].name,
+        type: type !== undefined ? type : existingConnection[0].type,
+        description: description !== undefined ? description : existingConnection[0].description,
+        supplierId: supplierId !== undefined ? supplierId : existingConnection[0].supplierId,
+        isActive: isActive !== undefined ? isActive : existingConnection[0].isActive,
+        credentials: credentials !== undefined ? credentials : existingConnection[0].credentials,
+        updatedAt: new Date()
+      })
+      .where(eq(connections.id, parseInt(id)))
+      .returning();
+    
+    res.json(updatedConnection);
+  } catch (error) {
+    console.error('Error updating connection:', error);
+    res.status(500).json({ error: 'Failed to update connection' });
+  }
+};
+
+export const deleteConnection = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if connection exists
+    const existingConnection = await db.select().from(connections).where(eq(connections.id, parseInt(id))).limit(1);
+    if (existingConnection.length === 0) {
+      return res.status(404).json({ error: 'Connection not found' });
+    }
+    
+    // Delete the connection
+    await db.delete(connections).where(eq(connections.id, parseInt(id)));
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting connection:', error);
+    res.status(500).json({ error: 'Failed to delete connection' });
+  }
+};
+
+export const testConnection = async (req: Request, res: Response) => {
+  try {
+    const { type, credentials } = req.body;
+    
+    // Validate connection parameters
+    const validation = validateConnectionParams(type, credentials);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: validation.message 
+      });
+    }
+    
+    let testResult;
+    
+    // Test the connection based on type
+    switch (type) {
+      case 'ftp':
+        testResult = await testFTPConnection(credentials);
+        break;
+      
+      case 'sftp':
+        testResult = await testSFTPConnection(credentials);
+        break;
+      
+      case 'api':
+        testResult = await testAPIConnection(credentials);
+        break;
+      
+      case 'database':
+        testResult = await testDatabaseConnection(credentials);
+        break;
+      
+      default:
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Unsupported connection type' 
+        });
+    }
+    
+    // Update connection status in the database if connection ID is provided
+    if (req.query.id) {
+      const connectionId = parseInt(req.query.id as string);
+      
+      await db.update(connections)
+        .set({
+          lastTested: new Date(),
+          lastStatus: testResult.success ? 'success' : 'error',
+          updatedAt: new Date()
+        })
+        .where(eq(connections.id, connectionId));
+    }
+    
+    res.json(testResult);
+  } catch (error) {
+    console.error('Error testing connection:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error testing connection', 
+      details: { error: error instanceof Error ? error.message : 'Unknown error' } 
+    });
+  }
+};
+
+export const registerConnectionsRoutes = (app: any) => {
+  app.get('/api/connections', getConnections);
+  app.get('/api/connections/:id', getConnection);
+  app.post('/api/connections', createConnection);
+  app.patch('/api/connections/:id', updateConnection);
+  app.delete('/api/connections/:id', deleteConnection);
+  app.post('/api/connections/test', testConnection);
+};
