@@ -85,7 +85,7 @@ const SampleDataModal: React.FC<SampleDataModalProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {sampleData.data.slice(0, 5).map((row, rowIdx) => (
+                {sampleData.data.slice(0, 20).map((row, rowIdx) => (
                   <tr key={rowIdx} className="border-b hover:bg-gray-50">
                     {Object.values(row).map((value, colIdx) => (
                       <td key={colIdx} className="px-4 py-2 truncate max-w-[200px]">

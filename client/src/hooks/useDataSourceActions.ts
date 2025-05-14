@@ -119,7 +119,7 @@ export function useDataSourceActions() {
         type: dataSource.type,
         credentials,
         supplier_id: dataSource.supplierId || 1,
-        limit: 10
+        limit: 50
       };
       
       // Add remote_path specifically for SFTP connections if available
