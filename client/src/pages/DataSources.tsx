@@ -94,27 +94,8 @@ export default function DataSources() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Use our data source actions hook
-  // Get actions and state from the hook
-  const {
-    // States
-    isPullingSampleData,
-    sampleData: hookSampleData,
-    showSampleDataModal: hookShowModal,
-    rawResponseData: hookRawResponse,
-    selectedFilePath: hookSelectedPath,
-    
-    // Setters
-    setShowSampleDataModal: setHookShowModal,
-    setSampleData: setHookSampleData,
-    setSelectedFilePath: setHookSelectedPath,
-    
-    // Actions
-    handleTestConnectionForDataSource,
-    handlePullSampleDataForDataSource,
-    handleDeleteDataSource,
-    handleConfigureScheduler,
-    handleConfirmDelete
-  } = useDataSourceActions();
+  // Get data source actions
+  const dataSourceActions = useDataSourceActions();
 
   // Create default form state
   const [newDataSource, setNewDataSource] = useState({
@@ -1002,13 +983,16 @@ export default function DataSources() {
         </TabsContent>
       </Tabs>
       
-      {/* Sample Data Modal */}
-      {showSampleDataModal && sampleData && (
+      {/* Sample Data Modal - Get state from the hook */}
+      {(showSampleDataModal || dataSourceActions.showSampleDataModal) && (sampleData || dataSourceActions.sampleData) && (
         <SampleDataModal
-          sampleData={sampleData}
-          selectedFilePath={selectedFilePath}
-          rawResponseData={rawResponseData}
-          onClose={() => setShowSampleDataModal(false)}
+          sampleData={sampleData || dataSourceActions.sampleData!}
+          selectedFilePath={selectedFilePath || dataSourceActions.selectedFilePath}
+          rawResponseData={rawResponseData || dataSourceActions.rawResponseData}
+          onClose={() => {
+            setShowSampleDataModal(false);
+            dataSourceActions.setShowSampleDataModal(false);
+          }}
           onSaveTimestamp={handleSaveTimestamp}
         />
       )}
