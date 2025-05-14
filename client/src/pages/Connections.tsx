@@ -1,36 +1,31 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, MoreHorizontal, Settings, Trash2, RefreshCw, ExternalLink } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { PlusCircle, Trash2, Edit, RefreshCw, FolderSync, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+// Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
   DialogTrigger,
+  DialogClose
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -40,134 +35,203 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Textarea } from "@/components/ui/textarea";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Switch } from "@/components/ui/switch";
 
-// Form schema
+// Types
+type Connection = {
+  id: number;
+  name: string;
+  type: 'ftp' | 'sftp' | 'api' | 'database';
+  description: string | null;
+  supplierId: number | null;
+  isActive: boolean;
+  credentials: Record<string, any>;
+  lastTested: string | null;
+  lastStatus: 'success' | 'error' | 'pending' | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Schema for connection form
 const connectionFormSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
-  type: z.string().min(1, { message: "Type is required" }),
-  description: z.string().optional(),
-  supplierId: z.number().optional(),
+  name: z.string().min(1, "Name is required"),
+  type: z.enum(["ftp", "sftp", "api", "database"]),
+  description: z.string().nullable().optional(),
+  supplierId: z.number().nullable().optional(),
   isActive: z.boolean().default(true),
   credentials: z.record(z.any())
 });
 
-type ConnectionFormValues = z.infer<typeof connectionFormSchema>;
+// Credential schemas for different connection types
+const ftpCredentialsSchema = z.object({
+  host: z.string().min(1, "Host is required"),
+  port: z.string().transform(val => parseInt(val) || 21).optional(),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  secure: z.boolean().default(false),
+  remoteDir: z.string().optional()
+});
 
-// Default credential fields by type
-const defaultCredentialsByType = {
-  ftp: {
-    host: "",
-    port: "21",
-    username: "",
-    password: "",
-    path: "/"
-  },
-  sftp: {
-    host: "",
-    port: "22",
-    username: "",
-    password: "",
-    path: "/"
-  },
-  api: {
-    baseUrl: "",
-    authType: "basic", // or "token", "oauth", etc.
-    username: "",
-    password: "",
-    token: "",
-    apiKey: ""
-  },
-  database: {
-    host: "",
-    port: "",
-    database: "",
-    username: "",
-    password: ""
-  }
-};
+const sftpCredentialsSchema = z.object({
+  host: z.string().min(1, "Host is required"),
+  port: z.string().transform(val => parseInt(val) || 22).optional(),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required").or(z.literal("")),
+  privateKey: z.string().optional(),
+  passphrase: z.string().optional(),
+  remoteDir: z.string().optional()
+});
+
+const apiCredentialsSchema = z.object({
+  url: z.string().url("Must be a valid URL").min(1, "URL is required"),
+  method: z.enum(["GET", "POST", "PUT", "DELETE"]).default("GET"),
+  authType: z.enum(["none", "basic", "bearer", "apiKey"]).default("none"),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  accessToken: z.string().optional(),
+  apiKeyName: z.string().optional(),
+  apiKey: z.string().optional(),
+  apiKeyLocation: z.enum(["header", "query"]).default("header").optional(),
+  contentType: z.string().optional(),
+  headers: z.record(z.string()).optional(),
+  body: z.string().optional()
+});
+
+const databaseCredentialsSchema = z.object({
+  databaseType: z.enum(["postgresql", "mysql", "mssql", "oracle"]).default("postgresql"),
+  host: z.string().min(1, "Host is required"),
+  port: z.string().transform(val => parseInt(val) || 5432).optional(),
+  database: z.string().min(1, "Database name is required"),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  ssl: z.boolean().default(false)
+});
+
+type ConnectionFormValues = z.infer<typeof connectionFormSchema>;
 
 export default function Connections() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [testResults, setTestResults] = useState<any>(null);
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [editingConnection, setEditingConnection] = useState<any>(null);
-
-  // Query for fetching all connections
+  const [activeTab, setActiveTab] = useState("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testConnectionResult, setTestConnectionResult] = useState<null | {
+    success: boolean;
+    message: string;
+    details: any;
+  }>(null);
+  
+  // Form for creating/editing connections
+  const form = useForm<ConnectionFormValues>({
+    resolver: zodResolver(connectionFormSchema),
+    defaultValues: {
+      name: "",
+      type: "ftp",
+      description: "",
+      supplierId: null,
+      isActive: true,
+      credentials: {}
+    }
+  });
+  
+  // Get the current connection type from the form
+  const connectionType = form.watch("type");
+  
+  // Get connections from API
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ["/api/connections"],
-    retry: 1,
+    select: (data: Connection[]) => {
+      if (activeTab === "all") return data;
+      return data.filter(conn => conn.type === activeTab);
+    }
   });
-
-  // Query for fetching suppliers for the dropdown
+  
+  // Get suppliers for the dropdown
   const { data: suppliers = [] } = useQuery({
     queryKey: ["/api/suppliers"],
-    retry: 1,
   });
-
+  
   // Create connection mutation
-  const createConnection = useMutation({
+  const createMutation = useMutation({
     mutationFn: (data: ConnectionFormValues) => {
       return apiRequest("/api/connections", {
         method: "POST",
-        data
+        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      setIsCreateDialogOpen(false);
       toast({
         title: "Connection created",
         description: "The connection has been created successfully.",
       });
-      setOpen(false);
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to create connection. Please try again.",
-        variant: "destructive",
+        description: "Failed to create connection: " + (error as Error).message,
+        variant: "destructive"
       });
     }
   });
-
+  
   // Update connection mutation
-  const updateConnection = useMutation({
-    mutationFn: (data: ConnectionFormValues & { id: number }) => {
-      const { id, ...connectionData } = data;
-      return apiRequest(`/api/connections/${id}`, {
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: number; data: Partial<ConnectionFormValues> }) => {
+      return apiRequest(`/api/connections/${data.id}`, {
         method: "PATCH",
-        data: connectionData
+        body: JSON.stringify(data.data),
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      setIsEditDialogOpen(false);
       toast({
         title: "Connection updated",
         description: "The connection has been updated successfully.",
       });
-      setOpen(false);
-      setEditingConnection(null);
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update connection. Please try again.",
-        variant: "destructive",
+        description: "Failed to update connection: " + (error as Error).message,
+        variant: "destructive"
       });
     }
   });
-
+  
   // Delete connection mutation
-  const deleteConnection = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: (id: number) => {
       return apiRequest(`/api/connections/${id}`, {
-        method: "DELETE",
+        method: "DELETE"
       });
     },
     onSuccess: () => {
@@ -180,271 +244,832 @@ export default function Connections() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to delete connection. Please try again.",
-        variant: "destructive",
+        description: "Failed to delete connection: " + (error as Error).message,
+        variant: "destructive"
       });
     }
   });
-
+  
   // Test connection mutation
-  const testConnection = useMutation({
-    mutationFn: (data: ConnectionFormValues) => {
-      return apiRequest("/api/connections/test", {
+  const testMutation = useMutation({
+    mutationFn: (credentials: ConnectionFormValues) => {
+      return apiRequest(`/api/connections/test`, {
         method: "POST",
+        body: JSON.stringify({
+          type: credentials.type,
+          credentials: credentials.credentials
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+    }
+  });
+  
+  // Function to test a connection before saving
+  const testConnection = async () => {
+    try {
+      setIsTestingConnection(true);
+      setTestConnectionResult(null);
+      
+      // Validate form data based on connection type
+      const formData = form.getValues();
+      let isValid = true;
+      
+      switch (formData.type) {
+        case "ftp":
+          try {
+            ftpCredentialsSchema.parse(formData.credentials);
+          } catch (error) {
+            if (error instanceof z.ZodError) {
+              error.errors.forEach(err => {
+                form.setError(`credentials.${err.path[0]}` as any, {
+                  message: err.message
+                });
+              });
+              isValid = false;
+            }
+          }
+          break;
+        case "sftp":
+          try {
+            sftpCredentialsSchema.parse(formData.credentials);
+          } catch (error) {
+            if (error instanceof z.ZodError) {
+              error.errors.forEach(err => {
+                form.setError(`credentials.${err.path[0]}` as any, {
+                  message: err.message
+                });
+              });
+              isValid = false;
+            }
+          }
+          break;
+        case "api":
+          try {
+            apiCredentialsSchema.parse(formData.credentials);
+          } catch (error) {
+            if (error instanceof z.ZodError) {
+              error.errors.forEach(err => {
+                form.setError(`credentials.${err.path[0]}` as any, {
+                  message: err.message
+                });
+              });
+              isValid = false;
+            }
+          }
+          break;
+        case "database":
+          try {
+            databaseCredentialsSchema.parse(formData.credentials);
+          } catch (error) {
+            if (error instanceof z.ZodError) {
+              error.errors.forEach(err => {
+                form.setError(`credentials.${err.path[0]}` as any, {
+                  message: err.message
+                });
+              });
+              isValid = false;
+            }
+          }
+          break;
+      }
+      
+      if (!isValid) {
+        setIsTestingConnection(false);
+        toast({
+          title: "Validation Error",
+          description: "Please correct the form errors before testing the connection.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Send test request
+      const result = await testMutation.mutateAsync(formData);
+      setTestConnectionResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "Connection Test Successful",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Connection Test Failed",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Connection Test Error",
+        description: "An error occurred while testing the connection.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+  
+  const handleCreateSubmit = (data: ConnectionFormValues) => {
+    createMutation.mutate(data);
+  };
+  
+  const handleEditSubmit = (data: ConnectionFormValues) => {
+    if (selectedConnection) {
+      updateMutation.mutate({
+        id: selectedConnection.id,
         data
       });
-    },
-    onSuccess: (data) => {
-      setTestResults(data);
-      toast({
-        title: "Test completed",
-        description: data.success 
-          ? "Connection test was successful!" 
-          : "Connection test failed. Please check your details.",
-        variant: data.success ? "default" : "destructive",
-      });
-      setTestingConnection(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to test connection. Please try again.",
-        variant: "destructive",
-      });
-      setTestingConnection(false);
     }
-  });
-
-  // React Hook Form setup
-  const form = useForm<ConnectionFormValues>({
-    resolver: zodResolver(connectionFormSchema),
-    defaultValues: {
-      name: "",
-      type: "",
-      description: "",
-      isActive: true,
-      credentials: {}
-    }
-  });
-
-  const selectedType = form.watch("type");
-  
-  // Handle opening new connection dialog
-  const handleAddNew = () => {
-    form.reset({
-      name: "",
-      type: "",
-      description: "",
-      isActive: true,
-      credentials: {}
-    });
-    setTestResults(null);
-    setEditingConnection(null);
-    setOpen(true);
   };
-
-  // Handle editing a connection
-  const handleEdit = (connection: any) => {
-    setEditingConnection(connection);
+  
+  const handleDeleteConnection = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this connection?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+  
+  const handleEditConnection = (connection: Connection) => {
+    setSelectedConnection(connection);
     form.reset({
       name: connection.name,
       type: connection.type,
       description: connection.description || "",
       supplierId: connection.supplierId,
       isActive: connection.isActive,
-      credentials: connection.credentials || {}
+      credentials: connection.credentials
     });
-    setTestResults(null);
-    setOpen(true);
+    setIsEditDialogOpen(true);
   };
-
-  // Handle form submission
-  const onSubmit = (data: ConnectionFormValues) => {
-    if (editingConnection) {
-      updateConnection.mutate({ ...data, id: editingConnection.id });
-    } else {
-      createConnection.mutate(data);
+  
+  const handleCreateNewConnection = () => {
+    setSelectedConnection(null);
+    form.reset({
+      name: "",
+      type: "ftp",
+      description: "",
+      supplierId: null,
+      isActive: true,
+      credentials: {}
+    });
+    setIsCreateDialogOpen(true);
+  };
+  
+  const renderCredentialsForm = () => {
+    const type = form.watch("type");
+    
+    switch (type) {
+      case "ftp":
+        return (
+          <>
+            <FormField
+              control={form.control}
+              name="credentials.host"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Host</FormLabel>
+                  <FormControl>
+                    <Input placeholder="ftp.example.com" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.port"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Port</FormLabel>
+                  <FormControl>
+                    <Input placeholder="21" {...field} value={field.value || "21"} />
+                  </FormControl>
+                  <FormDescription>Default FTP port is 21</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.secure"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Use Secure FTP (FTPS)</FormLabel>
+                    <FormDescription>
+                      Use TLS/SSL encryption for FTP connection
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.remoteDir"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Remote Directory</FormLabel>
+                  <FormControl>
+                    <Input placeholder="/path/to/directory" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormDescription>Optional path to remote directory</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        );
+        
+      case "sftp":
+        return (
+          <>
+            <FormField
+              control={form.control}
+              name="credentials.host"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Host</FormLabel>
+                  <FormControl>
+                    <Input placeholder="sftp.example.com" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.port"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Port</FormLabel>
+                  <FormControl>
+                    <Input placeholder="22" {...field} value={field.value || "22"} />
+                  </FormControl>
+                  <FormDescription>Default SFTP port is 22</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormDescription>Leave blank if using private key authentication</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.privateKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Private Key</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="-----BEGIN RSA PRIVATE KEY-----..." 
+                      className="font-mono text-xs h-32" 
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormDescription>Optional SSH private key for authentication</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.passphrase"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Key Passphrase</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormDescription>Optional passphrase for private key</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.remoteDir"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Remote Directory</FormLabel>
+                  <FormControl>
+                    <Input placeholder="/path/to/directory" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormDescription>Optional path to remote directory</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        );
+        
+      case "api":
+        return (
+          <>
+            <FormField
+              control={form.control}
+              name="credentials.url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>API URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://api.example.com/endpoint" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.method"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>HTTP Method</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value || "GET"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select HTTP method" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="GET">GET</SelectItem>
+                      <SelectItem value="POST">POST</SelectItem>
+                      <SelectItem value="PUT">PUT</SelectItem>
+                      <SelectItem value="DELETE">DELETE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.authType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Authentication Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value || "none"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select authentication type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="basic">Basic Auth</SelectItem>
+                      <SelectItem value="bearer">Bearer Token</SelectItem>
+                      <SelectItem value="apiKey">API Key</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            {form.watch("credentials.authType") === "basic" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="credentials.username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="credentials.password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+            
+            {form.watch("credentials.authType") === "bearer" && (
+              <FormField
+                control={form.control}
+                name="credentials.accessToken"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bearer Token</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {form.watch("credentials.authType") === "apiKey" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="credentials.apiKeyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>API Key Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="X-API-Key" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="credentials.apiKey"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>API Key Value</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="credentials.apiKeyLocation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>API Key Location</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value || "header"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select API key location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="header">Header</SelectItem>
+                          <SelectItem value="query">Query Parameter</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+            
+            <FormField
+              control={form.control}
+              name="credentials.contentType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Content Type</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="application/json" 
+                      {...field} 
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormDescription>Optional content type header</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            {["POST", "PUT"].includes(form.watch("credentials.method") || "") && (
+              <FormField
+                control={form.control}
+                name="credentials.body"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Request Body</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder='{"key": "value"}' 
+                        className="font-mono h-32" 
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormDescription>JSON or form data payload</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </>
+        );
+        
+      case "database":
+        return (
+          <>
+            <FormField
+              control={form.control}
+              name="credentials.databaseType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Database Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value || "postgresql"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select database type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="postgresql">PostgreSQL</SelectItem>
+                      <SelectItem value="mysql">MySQL</SelectItem>
+                      <SelectItem value="mssql">Microsoft SQL Server</SelectItem>
+                      <SelectItem value="oracle">Oracle</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.host"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Host</FormLabel>
+                  <FormControl>
+                    <Input placeholder="db.example.com" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.port"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Port</FormLabel>
+                  <FormControl>
+                    <Input placeholder="5432" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormDescription>
+                    {form.watch("credentials.databaseType") === "postgresql" && "Default PostgreSQL port is 5432"}
+                    {form.watch("credentials.databaseType") === "mysql" && "Default MySQL port is 3306"}
+                    {form.watch("credentials.databaseType") === "mssql" && "Default SQL Server port is 1433"}
+                    {form.watch("credentials.databaseType") === "oracle" && "Default Oracle port is 1521"}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.database"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Database Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="credentials.ssl"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Use SSL</FormLabel>
+                    <FormDescription>
+                      Use encrypted connection to database
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </>
+        );
+      
+      default:
+        return null;
     }
   };
-
-  // Handle connection type change
-  const handleTypeChange = (type: string) => {
-    // Reset credentials when type changes
-    form.setValue("credentials", defaultCredentialsByType[type as keyof typeof defaultCredentialsByType] || {});
-  };
-
-  // Handle test connection
-  const handleTestConnection = () => {
-    const isValid = form.trigger();
-    if (isValid) {
-      setTestingConnection(true);
-      const data = form.getValues();
-      testConnection.mutate(data);
+  
+  // Function to render connection status badge
+  const renderStatusBadge = (status: string | null) => {
+    if (!status) return <Badge variant="outline">Not Tested</Badge>;
+    
+    switch (status) {
+      case "success":
+        return <Badge variant="success" className="bg-green-500">Success</Badge>;
+      case "error":
+        return <Badge variant="destructive">Error</Badge>;
+      case "pending":
+        return <Badge variant="outline" className="bg-yellow-500 text-white">Pending</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
-
+  
+  // Function to render connection type badge
+  const renderTypeBadge = (type: string) => {
+    switch (type) {
+      case "ftp":
+        return <Badge variant="outline" className="bg-blue-500 text-white">FTP</Badge>;
+      case "sftp":
+        return <Badge variant="outline" className="bg-indigo-600 text-white">SFTP</Badge>;
+      case "api":
+        return <Badge variant="outline" className="bg-purple-500 text-white">API</Badge>;
+      case "database":
+        return <Badge variant="outline" className="bg-emerald-600 text-white">Database</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+  
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Connections</h1>
           <p className="text-muted-foreground">
-            Manage your data source connections for imports, exports, and integrations.
+            Manage and test external connections for data integration
           </p>
         </div>
-        <Button onClick={handleAddNew}>
-          <Plus className="mr-2 h-4 w-4" /> Add Connection
+        <Button onClick={handleCreateNewConnection}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add Connection
         </Button>
       </div>
-
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="bg-muted/30 h-24" />
-              <CardContent className="h-32 mt-4">
-                <div className="h-4 bg-muted rounded w-3/4 mb-2" />
-                <div className="h-4 bg-muted rounded w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : connections.length === 0 ? (
-        <Card className="border-dashed border-2 border-muted">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Settings className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No connections configured</h3>
-            <p className="text-muted-foreground text-center max-w-md mb-4">
-              Create connections to external data sources like FTP servers, APIs, or databases to import and export data.
-            </p>
-            <Button onClick={handleAddNew}>
-              <Plus className="mr-2 h-4 w-4" /> Add Connection
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {connections.map((connection: any) => (
-            <Card key={connection.id} className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <CardTitle className="text-xl">{connection.name}</CardTitle>
-                    <CardDescription className="line-clamp-1">
-                      {connection.description || "No description"}
-                    </CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-5 w-5" />
-                        <span className="sr-only">Actions</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => handleEdit(connection)}>
-                        <Settings className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        // First edit to load the data, then test
-                        handleEdit(connection);
-                        setTimeout(() => {
-                          handleTestConnection();
-                        }, 100);
-                      }}>
-                        <RefreshCw className="mr-2 h-4 w-4" /> Test
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={() => deleteConnection.mutate(connection.id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={connection.isActive ? "default" : "outline"}>
-                      {connection.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                    <Badge variant="secondary">{connection.type.toUpperCase()}</Badge>
-                    {connection.supplierId && (
-                      <Badge variant="outline">
-                        {suppliers.find((s: any) => s.id === connection.supplierId)?.name || "Unknown supplier"}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-2">
-                    <p>Last tested: {connection.lastTested 
-                      ? new Date(connection.lastTested).toLocaleString() 
-                      : "Never"}</p>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="pt-2">
-                <div className="flex justify-between items-center w-full">
-                  <p className="text-xs text-muted-foreground">
-                    Created {new Date(connection.createdAt).toLocaleDateString()}
-                  </p>
-                  {connection.lastStatus && (
-                    <Badge 
-                      variant={connection.lastStatus === "success" ? "success" : "destructive"}
-                      className="ml-auto"
-                    >
-                      {connection.lastStatus === "success" ? "Success" : "Failed"}
-                    </Badge>
-                  )}
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+      
+      <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="ftp">FTP</TabsTrigger>
+          <TabsTrigger value="sftp">SFTP</TabsTrigger>
+          <TabsTrigger value="api">API</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="all" className="mt-6">
+          {renderConnectionsList()}
+        </TabsContent>
+        <TabsContent value="ftp" className="mt-6">
+          {renderConnectionsList()}
+        </TabsContent>
+        <TabsContent value="sftp" className="mt-6">
+          {renderConnectionsList()}
+        </TabsContent>
+        <TabsContent value="api" className="mt-6">
+          {renderConnectionsList()}
+        </TabsContent>
+        <TabsContent value="database" className="mt-6">
+          {renderConnectionsList()}
+        </TabsContent>
+      </Tabs>
+      
+      {/* Create Connection Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[625px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingConnection ? "Edit Connection" : "Add New Connection"}</DialogTitle>
+            <DialogTitle>Create New Connection</DialogTitle>
             <DialogDescription>
-              Configure a connection to an external data source. Fill out the details below and test your connection.
+              Add a new connection to an external data source
             </DialogDescription>
           </DialogHeader>
-
+          
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(handleCreateSubmit)} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>Connection Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="My Connection" {...field} />
+                        <Input placeholder="Production FTP Server" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
+                
                 <FormField
                   control={form.control}
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          handleTypeChange(value);
-                        }}
-                      >
+                      <FormLabel>Connection Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select connection type" />
@@ -462,7 +1087,60 @@ export default function Connections() {
                   )}
                 />
               </div>
-
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="supplierId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier (Optional)</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                        value={field.value ? field.value.toString() : ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a supplier" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {suppliers.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                              {supplier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Associate this connection with a supplier</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mt-6">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Active</FormLabel>
+                        <FormDescription>
+                          Enable or disable this connection
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
               <FormField
                 control={form.control}
                 name="description"
@@ -470,392 +1148,251 @@ export default function Connections() {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Optional description of this connection" {...field} />
+                      <Textarea 
+                        placeholder="Connection for daily inventory updates"
+                        className="min-h-[80px]"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="supplierId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Supplier (Optional)</FormLabel>
-                    <Select
-                      value={field.value?.toString() || ""}
-                      onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Link to a supplier" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        {suppliers.map((supplier: any) => (
-                          <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                            {supplier.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Associate this connection with a supplier for easier data management
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {selectedType && (
-                <div className="border rounded-lg p-4 space-y-4">
-                  <h3 className="text-lg font-medium">Connection Details</h3>
-                  
-                  {/* FTP/SFTP Connection Fields */}
-                  {(selectedType === "ftp" || selectedType === "sftp") && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="credentials.host"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Host</FormLabel>
-                              <FormControl>
-                                <Input placeholder="ftp.example.com" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="credentials.port"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Port</FormLabel>
-                              <FormControl>
-                                <Input placeholder={selectedType === "ftp" ? "21" : "22"} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="credentials.username"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Username</FormLabel>
-                              <FormControl>
-                                <Input placeholder="username" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="credentials.password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" placeholder="••••••••" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <FormField
-                        control={form.control}
-                        name="credentials.path"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Path</FormLabel>
-                            <FormControl>
-                              <Input placeholder="/path/to/files" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              The directory path where files are located
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-4">Connection Credentials</h3>
+                {renderCredentialsForm()}
+              </div>
+              
+              {testConnectionResult && (
+                <Alert variant={testConnectionResult.success ? "success" : "destructive"}>
+                  <div className="flex items-center gap-2">
+                    {testConnectionResult.success ? 
+                      <CheckCircle className="h-4 w-4" /> : 
+                      <AlertCircle className="h-4 w-4" />}
+                    <span className="font-semibold">{testConnectionResult.message}</span>
+                  </div>
+                  {testConnectionResult.details && (
+                    <AlertDescription className="mt-2">
+                      <pre className="text-xs mt-2 p-2 bg-muted rounded overflow-auto max-h-40">
+                        {JSON.stringify(testConnectionResult.details, null, 2)}
+                      </pre>
+                    </AlertDescription>
                   )}
-                  
-                  {/* API Connection Fields */}
-                  {selectedType === "api" && (
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="credentials.baseUrl"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Base URL</FormLabel>
-                            <FormControl>
-                              <Input placeholder="https://api.example.com/v1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="credentials.authType"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Authentication Type</FormLabel>
-                            <Select
-                              value={field.value}
-                              onValueChange={field.onChange}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select auth type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                <SelectItem value="basic">Basic Auth</SelectItem>
-                                <SelectItem value="token">Bearer Token</SelectItem>
-                                <SelectItem value="apiKey">API Key</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {form.watch("credentials.authType") === "basic" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="credentials.username"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Username</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="username" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="credentials.password"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Password</FormLabel>
-                                <FormControl>
-                                  <Input type="password" placeholder="••••••••" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      )}
-                      
-                      {form.watch("credentials.authType") === "token" && (
-                        <FormField
-                          control={form.control}
-                          name="credentials.token"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bearer Token</FormLabel>
-                              <FormControl>
-                                <Input placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI..." {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                      
-                      {form.watch("credentials.authType") === "apiKey" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="credentials.apiKeyName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>API Key Name</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="X-API-Key" {...field} />
-                                </FormControl>
-                                <FormDescription>
-                                  Header or query parameter name
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="credentials.apiKey"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>API Key</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="your-api-key" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Database Connection Fields */}
-                  {selectedType === "database" && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="credentials.host"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Host</FormLabel>
-                              <FormControl>
-                                <Input placeholder="db.example.com" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="credentials.port"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Port</FormLabel>
-                              <FormControl>
-                                <Input placeholder="5432" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <FormField
-                        control={form.control}
-                        name="credentials.database"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Database Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="my_database" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="credentials.username"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Username</FormLabel>
-                              <FormControl>
-                                <Input placeholder="db_user" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="credentials.password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" placeholder="••••••••" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </Alert>
               )}
-
-              {testResults && (
-                <div className={`p-4 border rounded-md ${testResults.success ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
-                  <h4 className={`font-medium ${testResults.success ? 'text-green-700' : 'text-red-700'}`}>
-                    {testResults.success ? 'Connection successful!' : 'Connection failed'}
-                  </h4>
-                  <p className="text-sm mt-1">
-                    {testResults.message || (testResults.success ? 'Connected to the external resource.' : 'Unable to connect. Please check your credentials.')}
-                  </p>
-                  {testResults.details && (
-                    <pre className="text-xs mt-2 p-2 bg-black/5 rounded overflow-x-auto">
-                      {JSON.stringify(testResults.details, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              )}
-
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active</FormLabel>
-                      <FormDescription>
-                        Toggle whether this connection is active and available for use
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={field.onChange}
-                        className="mr-2 h-4 w-4"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
+              
               <DialogFooter>
                 <Button 
-                  variant="outline" 
                   type="button" 
-                  onClick={handleTestConnection}
-                  disabled={!selectedType || testingConnection}
-                  className="mr-auto"
+                  variant="outline" 
+                  onClick={testConnection}
+                  disabled={isTestingConnection}
                 >
-                  {testingConnection ? "Testing..." : "Test Connection"}
+                  {isTestingConnection ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <FolderSync className="mr-2 h-4 w-4" />
+                      Test Connection
+                    </>
+                  )}
                 </Button>
-                <Button type="submit" disabled={createConnection.isPending || updateConnection.isPending}>
-                  {createConnection.isPending || updateConnection.isPending ? "Saving..." : "Save"}
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Connection"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Connection Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[625px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Connection</DialogTitle>
+            <DialogDescription>
+              Update connection details and credentials
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleEditSubmit)} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Connection Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Production FTP Server" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Connection Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select connection type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ftp">FTP</SelectItem>
+                          <SelectItem value="sftp">SFTP</SelectItem>
+                          <SelectItem value="api">API</SelectItem>
+                          <SelectItem value="database">Database</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="supplierId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier (Optional)</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                        value={field.value ? field.value.toString() : ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a supplier" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {suppliers.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                              {supplier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Associate this connection with a supplier</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mt-6">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Active</FormLabel>
+                        <FormDescription>
+                          Enable or disable this connection
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Connection for daily inventory updates"
+                        className="min-h-[80px]"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-4">Connection Credentials</h3>
+                {renderCredentialsForm()}
+              </div>
+              
+              {testConnectionResult && (
+                <Alert variant={testConnectionResult.success ? "success" : "destructive"}>
+                  <div className="flex items-center gap-2">
+                    {testConnectionResult.success ? 
+                      <CheckCircle className="h-4 w-4" /> : 
+                      <AlertCircle className="h-4 w-4" />}
+                    <span className="font-semibold">{testConnectionResult.message}</span>
+                  </div>
+                  {testConnectionResult.details && (
+                    <AlertDescription className="mt-2">
+                      <pre className="text-xs mt-2 p-2 bg-muted rounded overflow-auto max-h-40">
+                        {JSON.stringify(testConnectionResult.details, null, 2)}
+                      </pre>
+                    </AlertDescription>
+                  )}
+                </Alert>
+              )}
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={testConnection}
+                  disabled={isTestingConnection}
+                >
+                  {isTestingConnection ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <FolderSync className="mr-2 h-4 w-4" />
+                      Test Connection
+                    </>
+                  )}
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </Button>
               </DialogFooter>
             </form>
@@ -864,4 +1401,110 @@ export default function Connections() {
       </Dialog>
     </div>
   );
+  
+  // Helper function to render the connections list
+  function renderConnectionsList() {
+    if (isLoading) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <CardHeader className="p-4">
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-4 w-1/2 mt-2" />
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+                <div className="flex mt-4 space-x-2">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              </CardContent>
+              <CardFooter className="p-4 pt-0 flex justify-between">
+                <Skeleton className="h-9 w-20" />
+                <Skeleton className="h-9 w-20" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+    
+    if (connections.length === 0) {
+      return (
+        <Card className="p-8 text-center">
+          <CardTitle className="mb-2">No connections found</CardTitle>
+          <CardDescription>
+            Get started by creating your first connection to an external data source.
+          </CardDescription>
+          <Button className="mt-4" onClick={handleCreateNewConnection}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Connection
+          </Button>
+        </Card>
+      );
+    }
+    
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {connections.map((connection) => (
+          <Card key={connection.id} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <CardTitle>{connection.name}</CardTitle>
+                {!connection.isActive && (
+                  <Badge variant="outline" className="bg-gray-200 text-gray-700">
+                    Inactive
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                {connection.description && connection.description.length > 100
+                  ? `${connection.description.substring(0, 100)}...`
+                  : connection.description || "No description"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {renderTypeBadge(connection.type)}
+                {renderStatusBadge(connection.lastStatus)}
+                {connection.supplierId && (
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                    {suppliers.find(s => s.id === connection.supplierId)?.name || `Supplier #${connection.supplierId}`}
+                  </Badge>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Last tested: {connection.lastTested 
+                  ? new Date(connection.lastTested).toLocaleString() 
+                  : "Never"}
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleEditConnection(connection)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => handleDeleteConnection(connection.id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 }
