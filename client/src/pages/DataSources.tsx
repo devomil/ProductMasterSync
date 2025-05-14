@@ -906,17 +906,150 @@ export default function DataSources() {
                   </Select>
                 </div>
                 
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-config" className="text-right align-top mt-2">Configuration</Label>
-                  <Textarea 
-                    id="edit-config" 
-                    name="config" 
-                    className="col-span-3 font-mono" 
-                    rows={8}
-                    defaultValue={JSON.stringify(selectedDataSource.config, null, 2)}
-                    required 
-                  />
-                </div>
+                {selectedDataSource.type === "sftp" ? (
+                  <div className="grid gap-4 border rounded-lg p-4 bg-gray-50">
+                    <h3 className="text-md font-medium">SFTP Configuration</h3>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sftp-host-edit" className="text-right">Host</Label>
+                      <Input 
+                        id="sftp-host-edit" 
+                        name="sftp-host-edit" 
+                        className="col-span-3" 
+                        placeholder="sftp.example.com" 
+                        defaultValue={(selectedDataSource.config as any)?.host || ''}
+                        required 
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sftp-port-edit" className="text-right">Port</Label>
+                      <Input 
+                        id="sftp-port-edit" 
+                        name="sftp-port-edit" 
+                        className="col-span-3" 
+                        type="number" 
+                        placeholder="22" 
+                        defaultValue={(selectedDataSource.config as any)?.port || 22} 
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sftp-username-edit" className="text-right">Username</Label>
+                      <Input 
+                        id="sftp-username-edit" 
+                        name="sftp-username-edit" 
+                        className="col-span-3" 
+                        defaultValue={(selectedDataSource.config as any)?.username || ''}
+                        required 
+                      />
+                    </div>
+                    
+                    {!editRequiresPrivateKey && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="sftp-password-edit" className="text-right">Password</Label>
+                        <Input 
+                          id="sftp-password-edit" 
+                          name="sftp-password-edit" 
+                          className="col-span-3" 
+                          type="password" 
+                          defaultValue={(selectedDataSource.config as any)?.password || ''}
+                          required={!editRequiresPrivateKey}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sftp-path-edit" className="text-right">Remote Path</Label>
+                      <Input 
+                        id="sftp-path-edit" 
+                        name="sftp-path-edit" 
+                        className="col-span-3" 
+                        placeholder="/feeds/products.csv" 
+                        defaultValue={(selectedDataSource.config as any)?.path || '/'}
+                        required 
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <div className="text-right">Authentication</div>
+                      <div className="col-span-3 flex items-center space-x-2">
+                        <Checkbox 
+                          id="requires-private-key-edit" 
+                          name="requires-private-key-edit"
+                          checked={editRequiresPrivateKey}
+                          onCheckedChange={(checked) => setEditRequiresPrivateKey(checked === true)}
+                        />
+                        <Label htmlFor="requires-private-key-edit">Requires private key authentication</Label>
+                      </div>
+                    </div>
+                    
+                    {editRequiresPrivateKey && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="sftp-private-key-edit" className="text-right align-top mt-2">Private Key</Label>
+                        <Textarea 
+                          id="sftp-private-key-edit" 
+                          name="sftp-private-key-edit" 
+                          className="col-span-3 font-mono" 
+                          rows={4}
+                          placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----" 
+                          defaultValue={(selectedDataSource.config as any)?.private_key || ''}
+                          required={editRequiresPrivateKey}
+                        />
+                      </div>
+                    )}
+                    
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="w-full" 
+                      onClick={handleTestSFTPConnectionEdit}
+                      disabled={isTestingConnection}
+                    >
+                      {isTestingConnection ? "Testing..." : "Test Connection"}
+                    </Button>
+                    
+                    {testConnectionResult && (
+                      <Alert variant={testConnectionResult.success ? "default" : "destructive"}>
+                        <AlertTitle>
+                          {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
+                        </AlertTitle>
+                        <AlertDescription>
+                          {testConnectionResult.message}
+                          {testConnectionResult.success && testConnectionResult.details && (
+                            <div className="mt-2 text-xs">
+                              <p>Found {testConnectionResult.details.totalFiles || 0} files in directory</p>
+                              {testConnectionResult.details.directoryContents && (
+                                <div className="mt-1 bg-gray-50 p-2 rounded">
+                                  {testConnectionResult.details.directoryContents.map((item: any, index: number) => (
+                                    <div key={index} className="truncate">{item.name}</div>
+                                  ))}
+                                  {(testConnectionResult.details.totalFiles || 0) > 5 && (
+                                    <div className="text-gray-500 mt-1">
+                                      + {(testConnectionResult.details.totalFiles || 0) - 5} more files
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-config" className="text-right align-top mt-2">Configuration</Label>
+                    <Textarea 
+                      id="edit-config" 
+                      name="config" 
+                      className="col-span-3 font-mono" 
+                      rows={8}
+                      defaultValue={JSON.stringify(selectedDataSource.config, null, 2)}
+                      required 
+                    />
+                  </div>
+                )}
               </div>
               
               <DialogFooter className="flex justify-between">
