@@ -574,11 +574,35 @@ export default function DataSources() {
     if (dataSource.type === 'sftp' && dataSource.config) {
       try {
         const config = dataSource.config as any;
+        
         // Check if the config includes private key
         setEditRequiresPrivateKey(!!config.private_key);
+        
+        // Initialize remote paths from config if available
+        if (Array.isArray(config.remote_paths) && config.remote_paths.length > 0) {
+          // Create path objects with unique IDs
+          const paths = config.remote_paths.map((path: any) => ({
+            id: uuidv4(),
+            label: path.label || '',
+            path: path.path || '/'
+          }));
+          setEditRemotePaths(paths);
+        } else {
+          // Fallback for legacy data source with single path
+          setEditRemotePaths([{
+            id: uuidv4(),
+            label: 'Default',
+            path: config.path || config.remoteDir || '/'
+          }]);
+        }
       } catch (e) {
-        // Config parsing error, assume default
+        // Config parsing error, assume defaults
         setEditRequiresPrivateKey(false);
+        setEditRemotePaths([{
+          id: uuidv4(),
+          label: 'Default',
+          path: '/'
+        }]);
       }
     }
   };
