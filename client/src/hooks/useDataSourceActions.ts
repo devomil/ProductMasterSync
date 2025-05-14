@@ -104,6 +104,15 @@ export function useDataSourceActions() {
         duration: 30000,
       });
       
+      // Set up a timeout to show progress update for long-running requests
+      let progressTimeout = setTimeout(() => {
+        toast({
+          title: "Still Processing...",
+          description: "The file is large and still being processed. Please continue to wait...",
+          duration: 15000,
+        });
+      }, 15000); // Show after 15 seconds
+      
       // Make the API call to pull sample data
       // For SFTP, make sure we're sending the correct path
       let requestBody = {
@@ -132,6 +141,8 @@ export function useDataSourceActions() {
         }
       }
       
+      console.log('Sending sample data request:', requestBody);
+      
       const response = await fetch('/api/connections/sample-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,9 +150,15 @@ export function useDataSourceActions() {
         credentials: 'include'
       });
       
+      // Clear the progress timeout since we got a response
+      clearTimeout(progressTimeout);
+      
       // Get the raw response text for debugging
       const responseText = await response.text();
       setRawResponseData(responseText);
+      
+      // Log the raw response for debugging
+      console.log('Raw response:', responseText.substring(0, 500) + (responseText.length > 500 ? '...' : ''));
       
       try {
         // Try to parse the response as JSON
@@ -194,6 +211,9 @@ export function useDataSourceActions() {
         });
       }
     } catch (error) {
+      // Clear the progress timeout if still active
+      clearTimeout(progressTimeout);
+      
       console.error("Sample data pull error:", error);
       setSampleData({
         success: false,
@@ -207,6 +227,8 @@ export function useDataSourceActions() {
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
     } finally {
+      // Clear the progress timeout just to be sure
+      clearTimeout(progressTimeout);
       setIsPullingSampleData(false);
     }
   };
