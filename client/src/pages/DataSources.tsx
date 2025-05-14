@@ -94,7 +94,27 @@ export default function DataSources() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Use our data source actions hook
-  const dataSourceActions = useDataSourceActions();
+  // Get actions and state from the hook
+  const {
+    // States
+    isPullingSampleData,
+    sampleData: hookSampleData,
+    showSampleDataModal: hookShowModal,
+    rawResponseData: hookRawResponse,
+    selectedFilePath: hookSelectedPath,
+    
+    // Setters
+    setShowSampleDataModal: setHookShowModal,
+    setSampleData: setHookSampleData,
+    setSelectedFilePath: setHookSelectedPath,
+    
+    // Actions
+    handleTestConnectionForDataSource,
+    handlePullSampleDataForDataSource,
+    handleDeleteDataSource,
+    handleConfigureScheduler,
+    handleConfirmDelete
+  } = useDataSourceActions();
 
   // Create default form state
   const [newDataSource, setNewDataSource] = useState({
