@@ -50,6 +50,46 @@ export default function DataSources() {
   ]);
   const [editRemotePaths, setEditRemotePaths] = useState<RemotePathItem[]>([]);
   
+  // Initialize remote paths when source type changes
+  useEffect(() => {
+    if (selectedSourceType === 'sftp' && remotePaths.length === 0) {
+      // Add a default remote path if none exists
+      setRemotePaths([{ id: crypto.randomUUID(), label: "Product Catalog", path: "/feeds/products.csv" }]);
+    }
+  }, [selectedSourceType, remotePaths.length]);
+  
+  // Initialize edit remote paths when data is loaded
+  useEffect(() => {
+    if (selectedDataSource && selectedDataSource.type === 'sftp') {
+      const config = JSON.parse(selectedDataSource.config || '{}');
+      
+      if (config.remote_paths && Array.isArray(config.remote_paths)) {
+        // Convert saved remote paths to our format with IDs
+        setEditRemotePaths(
+          config.remote_paths.map((path: any) => ({
+            id: crypto.randomUUID(),
+            label: path.label || '',
+            path: path.path || ''
+          }))
+        );
+      } else if (config.path) {
+        // Legacy format - convert single path to our new format
+        setEditRemotePaths([{
+          id: crypto.randomUUID(),
+          label: "Default",
+          path: config.path
+        }]);
+      } else {
+        // Fallback
+        setEditRemotePaths([{
+          id: crypto.randomUUID(),
+          label: "Product Catalog",
+          path: "/feeds/products.csv"
+        }]);
+      }
+    }
+  }, [selectedDataSource]);
+  
   
   const { data: dataSources = [], isLoading, error } = useQuery({
     queryKey: ['/api/data-sources'],
@@ -1065,16 +1105,63 @@ export default function DataSources() {
                       </div>
                     )}
                     
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="sftp-path-edit" className="text-right">Remote Path</Label>
-                      <Input 
-                        id="sftp-path-edit" 
-                        name="sftp-path-edit" 
-                        className="col-span-3" 
-                        placeholder="/feeds/products.csv" 
-                        defaultValue={(selectedDataSource.config as any)?.path || '/'}
-                        required 
-                      />
+                    <div className="grid gap-4">
+                      <div className="flex justify-between items-center">
+                        <Label className="text-md font-medium">Remote Paths</Label>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={addEditRemotePath}
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Add Path
+                        </Button>
+                      </div>
+
+                      {editRemotePaths.length === 0 ? (
+                        <div className="p-4 text-center border rounded-md border-dashed">
+                          No remote paths. Click "Add Path" to add one.
+                        </div>
+                      ) : (
+                        editRemotePaths.map((path, index) => (
+                          <div key={path.id} className="grid gap-4 p-3 border rounded-md bg-white">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Path {index + 1}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeEditRemotePath(path.id)}
+                                disabled={editRemotePaths.length <= 1}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor={`edit-path-label-${path.id}`} className="text-right">Label</Label>
+                              <Input 
+                                id={`edit-path-label-${path.id}`}
+                                value={path.label}
+                                onChange={(e) => updateEditRemotePath(path.id, 'label', e.target.value)}
+                                className="col-span-3" 
+                                placeholder="Products" 
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor={`edit-path-${path.id}`} className="text-right">Path</Label>
+                              <Input 
+                                id={`edit-path-${path.id}`}
+                                value={path.path}
+                                onChange={(e) => updateEditRemotePath(path.id, 'path', e.target.value)}
+                                className="col-span-3" 
+                                placeholder="/feeds/products.csv" 
+                              />
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-4 items-center gap-4">
