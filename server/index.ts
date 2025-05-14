@@ -55,8 +55,16 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    // Set proper content type
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Send error response in JSON format
+    res.status(status).json({ 
+      success: false,
+      message,
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
+    // Don't throw after sending response
   });
 
   // importantly only setup vite in development and after
