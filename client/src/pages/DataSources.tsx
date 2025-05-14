@@ -45,6 +45,8 @@ export default function DataSources() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const [isPullingSampleData, setIsPullingSampleData] = useState(false);
+  const [pullStatus, setPullStatus] = useState<'idle' | 'connecting' | 'retrieving' | 'processing' | 'completed' | 'error'>('idle');
+  const [pullStatusMessage, setPullStatusMessage] = useState('');
   const [sampleData, setSampleData] = useState<{ 
     success: boolean; 
     message: string; 
@@ -470,9 +472,11 @@ export default function DataSources() {
   };
   
   const handlePullSampleData = async () => {
-    // Clear previous sample data
+    // Clear previous sample data and set initial status
     setSampleData(null);
     setIsPullingSampleData(true);
+    setPullStatus('connecting');
+    setPullStatusMessage('Establishing connection to server...');
     
     // Get all SFTP-related form fields
     const hostElement = document.getElementById('sftp-host') as HTMLInputElement;
@@ -550,6 +554,9 @@ export default function DataSources() {
     
     try {
       // Make the request to pull sample data
+      setPullStatus('retrieving');
+      setPullStatusMessage('Retrieving sample data from server...');
+      
       const response = await fetch('/api/connections/sample-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -562,6 +569,10 @@ export default function DataSources() {
         credentials: 'include',
       });
       
+      // Update to processing status
+      setPullStatus('processing');
+      setPullStatusMessage('Processing data...');
+      
       // Parse the JSON response
       const result = await response.json();
       console.log('SFTP sample data pull response:', result);
@@ -569,13 +580,17 @@ export default function DataSources() {
       // Update the state with the result
       setSampleData(result);
       
-      // Display appropriate toast based on result
+      // Update status based on result
       if (result.success) {
+        setPullStatus('completed');
+        setPullStatusMessage('Successfully retrieved sample data.');
         toast({
           title: "Sample Data Retrieved",
           description: result.message,
         });
       } else {
+        setPullStatus('error');
+        setPullStatusMessage(`Error: ${result.message}`);
         toast({
           variant: "destructive",
           title: "Failed to Retrieve Sample Data",
@@ -584,6 +599,8 @@ export default function DataSources() {
       }
     } catch (error) {
       console.error('Error pulling sample data:', error);
+      setPullStatus('error');
+      setPullStatusMessage('Connection error. Check your network and settings.');
       toast({
         variant: "destructive",
         title: "Error",
@@ -1322,13 +1339,43 @@ export default function DataSources() {
                           variant="outline" 
                           disabled={isPullingSampleData}
                           onClick={handlePullSampleData}
+                          className="relative min-w-[170px]"
                         >
-                          {isPullingSampleData ? "Loading..." : "Pull Sample Data"}
+                          {isPullingSampleData ? (
+                            <span className="flex items-center gap-2">
+                              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              {pullStatus === 'connecting' ? 'Connecting...' :
+                               pullStatus === 'retrieving' ? 'Retrieving...' :
+                               pullStatus === 'processing' ? 'Processing...' :
+                               'Loading...'}
+                            </span>
+                          ) : "Pull Sample Data"}
                         </Button>
                       )}
                     </div>
                     
-                    {testConnectionResult && (
+                    {/* Status indicator for Pull Sample Data */}
+                    {isPullingSampleData && (
+                      <Alert className="mt-3" variant="default">
+                        <AlertTitle className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {pullStatus === 'connecting' ? 'Connecting to SFTP server' : 
+                           pullStatus === 'retrieving' ? 'Retrieving data from server' :
+                           pullStatus === 'processing' ? 'Processing sample data' : 'Loading'}
+                        </AlertTitle>
+                        <AlertDescription>
+                          {pullStatusMessage}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    {testConnectionResult && !isPullingSampleData && (
                       <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
                         <AlertTitle>
                           {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
@@ -1357,9 +1404,21 @@ export default function DataSources() {
                     {/* Sample Data Display */}
                     {sampleData && (
                       <div className="mt-4 border rounded-lg p-4">
-                        <h3 className="text-lg font-medium mb-2">
-                          Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-medium">
+                            Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
+                          </h3>
+                          {pullStatus === 'completed' && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                              Successfully retrieved
+                            </span>
+                          )}
+                          {pullStatus === 'error' && (
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                              Error retrieving data
+                            </span>
+                          )}
+                        </div>
                         
                         {sampleData.success ? (
                           <>
