@@ -478,6 +478,12 @@ export default function DataSources() {
     setPullStatus('connecting');
     setPullStatusMessage('Establishing connection to server...');
     
+    // Clear any previous sample data from the UI to avoid confusion
+    const sampleDataContainer = document.getElementById('sample-data-container');
+    if (sampleDataContainer) {
+      sampleDataContainer.innerHTML = '';
+    }
+    
     // Get all SFTP-related form fields
     const hostElement = document.getElementById('sftp-host') as HTMLInputElement;
     const portElement = document.getElementById('sftp-port') as HTMLInputElement;
@@ -553,6 +559,12 @@ export default function DataSources() {
     };
     
     try {
+      // Show the toast first for immediate feedback
+      toast({
+        title: "Pull Sample Data Started",
+        description: "Starting to pull sample data from the SFTP server. This may take a moment...",
+      });
+      
       // Make the request to pull sample data
       setPullStatus('retrieving');
       setPullStatusMessage('Retrieving sample data from server...');
@@ -1336,10 +1348,10 @@ export default function DataSources() {
                       {testConnectionResult?.success && (
                         <Button 
                           type="button" 
-                          variant="outline" 
+                          variant="secondary" 
                           disabled={isPullingSampleData}
                           onClick={handlePullSampleData}
-                          className="relative min-w-[170px]"
+                          className="relative min-w-[170px] bg-blue-100 hover:bg-blue-200 ml-2"
                         >
                           {isPullingSampleData ? (
                             <span className="flex items-center gap-2">
@@ -1352,7 +1364,16 @@ export default function DataSources() {
                                pullStatus === 'processing' ? 'Processing...' :
                                'Loading...'}
                             </span>
-                          ) : "Pull Sample Data"}
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                              </svg>
+                              Pull Sample Data
+                            </span>
+                          )}
                         </Button>
                       )}
                     </div>
@@ -1403,7 +1424,7 @@ export default function DataSources() {
                     
                     {/* Sample Data Display */}
                     {sampleData && (
-                      <div className="mt-4 border rounded-lg p-4">
+                      <div id="sample-data-container" className="mt-4 border rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-lg font-medium">
                             Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
