@@ -955,44 +955,46 @@ export default function DataSources() {
                       </div>
                     ) : (
                       <div className="max-h-[300px] overflow-y-auto pr-2">
-                        {remotePaths.map((path, index) => (
-                          <div key={path.id} className="grid gap-4 p-3 mb-3 border rounded-md bg-white">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Path {index + 1}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeRemotePath(path.id)}
-                                disabled={remotePaths.length <= 1}
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
+                        {remotePaths.map((path, index) => {
+                          return (
+                            <div key={path.id} className="grid gap-4 p-3 mb-3 border rounded-md bg-white">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Path {index + 1}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeRemotePath(path.id)}
+                                  disabled={remotePaths.length <= 1}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor={`path-label-${path.id}`} className="text-right">Label</Label>
+                                <Input 
+                                  id={`path-label-${path.id}`}
+                                  value={path.label}
+                                  onChange={(e) => updateRemotePath(path.id, 'label', e.target.value)}
+                                  className="col-span-3" 
+                                  placeholder="Products" 
+                                />
+                              </div>
+                              
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor={`path-${path.id}`} className="text-right">Path</Label>
+                                <Input 
+                                  id={`path-${path.id}`}
+                                  value={path.path}
+                                  onChange={(e) => updateRemotePath(path.id, 'path', e.target.value)}
+                                  className="col-span-3" 
+                                  placeholder="/feeds/products.csv" 
+                                />
+                              </div>
                             </div>
-                            
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor={`path-label-${path.id}`} className="text-right">Label</Label>
-                              <Input 
-                                id={`path-label-${path.id}`}
-                                value={path.label}
-                                onChange={(e) => updateRemotePath(path.id, 'label', e.target.value)}
-                                className="col-span-3" 
-                                placeholder="Products" 
-                              />
-                            </div>
-                            
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor={`path-${path.id}`} className="text-right">Path</Label>
-                              <Input 
-                                id={`path-${path.id}`}
-                                value={path.path}
-                                onChange={(e) => updateRemotePath(path.id, 'path', e.target.value)}
-                                className="col-span-3" 
-                                placeholder="/feeds/products.csv" 
-                              />
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1222,44 +1224,48 @@ export default function DataSources() {
                           No remote paths. Click "Add Path" to add one.
                         </div>
                       ) : (
-                        editRemotePaths.map((path, index) => (
-                          <div key={path.id} className="grid gap-4 p-3 border rounded-md bg-white">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Path {index + 1}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeEditRemotePath(path.id)}
-                                disabled={editRemotePaths.length <= 1}
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor={`edit-path-label-${path.id}`} className="text-right">Label</Label>
-                              <Input 
-                                id={`edit-path-label-${path.id}`}
-                                value={path.label}
-                                onChange={(e) => updateEditRemotePath(path.id, 'label', e.target.value)}
-                                className="col-span-3" 
-                                placeholder="Products" 
-                              />
-                            </div>
-                            
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor={`edit-path-${path.id}`} className="text-right">Path</Label>
-                              <Input 
-                                id={`edit-path-${path.id}`}
-                                value={path.path}
-                                onChange={(e) => updateEditRemotePath(path.id, 'path', e.target.value)}
-                                className="col-span-3" 
-                                placeholder="/feeds/products.csv" 
-                              />
-                            </div>
-                          </div>
-                        ))
+                        <div className="max-h-[300px] overflow-y-auto pr-2">
+                          {editRemotePaths.map((path, index) => {
+                            return (
+                              <div key={path.id} className="grid gap-4 p-3 mb-3 border rounded-md bg-white">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-medium">Path {index + 1}</span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeEditRemotePath(path.id)}
+                                    disabled={editRemotePaths.length <= 1}
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label htmlFor={`edit-path-label-${path.id}`} className="text-right">Label</Label>
+                                  <Input 
+                                    id={`edit-path-label-${path.id}`}
+                                    value={path.label}
+                                    onChange={(e) => updateEditRemotePath(path.id, 'label', e.target.value)}
+                                    className="col-span-3" 
+                                    placeholder="Products" 
+                                  />
+                                </div>
+                                
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label htmlFor={`edit-path-${path.id}`} className="text-right">Path</Label>
+                                  <Input 
+                                    id={`edit-path-${path.id}`}
+                                    value={path.path}
+                                    onChange={(e) => updateEditRemotePath(path.id, 'path', e.target.value)}
+                                    className="col-span-3" 
+                                    placeholder="/feeds/products.csv" 
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                     
