@@ -19,7 +19,7 @@ import fs from "fs";
 import { parse as parseCsv } from "csv-parse/sync";
 
 // Import connections routes
-import connectionsRoutes from "./connections";
+import { registerConnectionsRoutes } from "./connections";
 
 // Set up multer for file uploads
 const upload = multer({
@@ -1177,7 +1177,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/marketplace", marketplaceRoutes);
   
   // Register connections management routes
-  app.use("/api/connections", connectionsRoutes);
+  // Register connections routes directly
+  registerConnectionsRoutes(app);
 
   const httpServer = createServer(app);
 

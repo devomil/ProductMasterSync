@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { db } from './db';
 import { connections, suppliers, connectionStatusEnum } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { Client as FTPClient } from 'ftp';
+import * as ftp from 'ftp';
 import { Client as SFTPClient } from 'ssh2';
 import axios from 'axios';
 import { Pool } from 'pg';
@@ -59,7 +59,7 @@ const validateConnectionParams = (type: string, credentials: any): { valid: bool
 // Helper function to test FTP connection
 const testFTPConnection = (credentials: any): Promise<{ success: boolean, message: string, details?: any }> => {
   return new Promise((resolve) => {
-    const client = new FTPClient();
+    const client = new ftp();
     
     // Set a timeout to avoid hanging connections
     const timeout = setTimeout(() => {
