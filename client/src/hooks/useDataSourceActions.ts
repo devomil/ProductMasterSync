@@ -184,7 +184,11 @@ export function useDataSourceActions() {
           });
           
           // Set selected file path and show the modal
-          setSelectedFilePath(result.filename || 'Unknown');
+          setSelectedFilePath({
+            id: 'sample-data',
+            label: result.filename || 'Sample Data',
+            path: result.remote_path || '/'
+          });
           setShowSampleDataModal(true);
         } else {
           toast({
@@ -209,6 +213,14 @@ export function useDataSourceActions() {
           title: "Response Parse Error",
           description: "The server returned an invalid response format"
         });
+        
+        // Still show the modal with the error information
+        setSelectedFilePath({
+          id: 'error',
+          label: 'Parse Error',
+          path: '/'
+        });
+        setShowSampleDataModal(true);
       }
     } catch (error) {
       // Clear the progress timeout if still active
@@ -226,6 +238,14 @@ export function useDataSourceActions() {
         title: "Sample Data Error",
         description: error instanceof Error ? error.message : "Unknown error occurred"
       });
+      
+      // Still show the modal with the error information
+      setSelectedFilePath({
+        id: 'error',
+        label: 'Error Occurred',
+        path: '/'
+      });
+      setShowSampleDataModal(true);
     } finally {
       // Clear the progress timeout just to be sure
       clearTimeout(progressTimeout);
