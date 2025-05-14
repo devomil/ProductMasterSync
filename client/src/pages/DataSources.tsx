@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -32,6 +33,9 @@ export default function DataSources() {
   const [selectedDataSource, setSelectedDataSource] = useState<DataSource | null>(null);
   const [selectedSourceType, setSelectedSourceType] = useState("csv");
   const [requiresPrivateKey, setRequiresPrivateKey] = useState(false);
+  const [editRequiresPrivateKey, setEditRequiresPrivateKey] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   
   const { data: dataSources = [], isLoading, error } = useQuery({
     queryKey: ['/api/data-sources'],
@@ -202,18 +206,74 @@ export default function DataSources() {
     const name = formData.get('name') as string;
     const supplierId = Number(formData.get('supplierId'));
     const active = formData.get('active') === 'true';
-    const configText = formData.get('config') as string;
-    let config;
+    const type = selectedDataSource.type; // Use the existing type
+    let config: any = {};
     
-    try {
-      config = JSON.parse(configText);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Invalid JSON",
-        description: "The configuration must be valid JSON"
-      });
-      return;
+    // Handle SFTP configuration similar to create form
+    if (type === 'sftp') {
+      const host = formData.get('sftp-host-edit') as string;
+      const portValue = formData.get('sftp-port-edit') as string;
+      const port = portValue ? parseInt(portValue, 10) : 22;
+      const username = formData.get('sftp-username-edit') as string;
+      const path = formData.get('sftp-path-edit') as string;
+      const usesPrivateKey = formData.get('requires-private-key-edit') === 'on';
+      
+      // Basic validation
+      if (!host || !username || !path) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Please fill in all required SFTP connection fields"
+        });
+        return;
+      }
+      
+      // Build the SFTP config
+      config = {
+        host,
+        port,
+        username,
+        path,
+        is_sftp: true
+      };
+      
+      // Add authentication based on chosen method
+      if (usesPrivateKey) {
+        const privateKey = formData.get('sftp-private-key-edit') as string;
+        if (!privateKey) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Private key is required when using key authentication"
+          });
+          return;
+        }
+        config.private_key = privateKey;
+      } else {
+        const password = formData.get('sftp-password-edit') as string;
+        if (!password) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Password is required"
+          });
+          return;
+        }
+        config.password = password;
+      }
+    } else {
+      // Handle other data source types with JSON
+      const configText = formData.get('config') as string;
+      try {
+        config = JSON.parse(configText);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Invalid JSON",
+          description: "The configuration must be valid JSON"
+        });
+        return;
+      }
     }
     
     try {
@@ -228,6 +288,7 @@ export default function DataSources() {
       
       setIsEditDialogOpen(false);
       setSelectedDataSource(null);
+      setTestConnectionResult(null);
       
       toast({
         title: "Data Source Updated",
@@ -265,9 +326,206 @@ export default function DataSources() {
     }
   };
   
+  const handleTestSFTPConnection = async () => {
+    setTestConnectionResult(null);
+    setIsTestingConnection(true);
+    
+    // Get all SFTP-related form fields
+    const hostElement = document.getElementById('sftp-host') as HTMLInputElement;
+    const portElement = document.getElementById('sftp-port') as HTMLInputElement;
+    const usernameElement = document.getElementById('sftp-username') as HTMLInputElement;
+    const passwordElement = document.getElementById('sftp-password') as HTMLInputElement;
+    const pathElement = document.getElementById('sftp-path') as HTMLInputElement;
+    const privateKeyElement = document.getElementById('sftp-private-key') as HTMLTextAreaElement;
+    
+    if (!hostElement?.value || !usernameElement?.value || !pathElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all required SFTP connection fields"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    // Determine authentication method
+    const usesPrivateKey = requiresPrivateKey;
+    if (usesPrivateKey && !privateKeyElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Private key is required when using key authentication"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    if (!usesPrivateKey && !passwordElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Password is required"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    // Build credentials object
+    const credentials = {
+      host: hostElement.value,
+      port: portElement.value ? parseInt(portElement.value, 10) : 22,
+      username: usernameElement.value,
+      remoteDir: pathElement.value || '/',
+      ...(usesPrivateKey 
+        ? { privateKey: privateKeyElement.value }
+        : { password: passwordElement.value }
+      )
+    };
+    
+    try {
+      const result = await apiRequest('/api/connections/test', 'POST', {
+        type: 'sftp',
+        credentials
+      });
+      
+      setTestConnectionResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "Connection Successful",
+          description: "Successfully connected to SFTP server"
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: result.message || "Could not connect to SFTP server"
+        });
+      }
+    } catch (error) {
+      setTestConnectionResult({
+        success: false,
+        message: `Error: ${(error as Error).message}`
+      });
+      
+      toast({
+        variant: "destructive",
+        title: "Connection Error",
+        description: `Failed to test connection: ${(error as Error).message}`
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+  
   const handleEditClick = (dataSource: DataSource) => {
     setSelectedDataSource(dataSource);
     setIsEditDialogOpen(true);
+    setTestConnectionResult(null);
+    
+    // Initialize form state based on the data source type
+    if (dataSource.type === 'sftp' && dataSource.config) {
+      try {
+        const config = dataSource.config as any;
+        // Check if the config includes private key
+        setEditRequiresPrivateKey(!!config.private_key);
+      } catch (e) {
+        // Config parsing error, assume default
+        setEditRequiresPrivateKey(false);
+      }
+    }
+  };
+  
+  const handleTestSFTPConnectionEdit = async () => {
+    setTestConnectionResult(null);
+    setIsTestingConnection(true);
+    
+    // Get all SFTP-related form fields from the edit form
+    const hostElement = document.getElementById('sftp-host-edit') as HTMLInputElement;
+    const portElement = document.getElementById('sftp-port-edit') as HTMLInputElement;
+    const usernameElement = document.getElementById('sftp-username-edit') as HTMLInputElement;
+    const passwordElement = document.getElementById('sftp-password-edit') as HTMLInputElement;
+    const pathElement = document.getElementById('sftp-path-edit') as HTMLInputElement;
+    const privateKeyElement = document.getElementById('sftp-private-key-edit') as HTMLTextAreaElement;
+    
+    if (!hostElement?.value || !usernameElement?.value || !pathElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all required SFTP connection fields"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    // Determine authentication method
+    const usesPrivateKey = editRequiresPrivateKey;
+    if (usesPrivateKey && !privateKeyElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Private key is required when using key authentication"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    if (!usesPrivateKey && !passwordElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Password is required"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    // Build credentials object
+    const credentials = {
+      host: hostElement.value,
+      port: portElement.value ? parseInt(portElement.value, 10) : 22,
+      username: usernameElement.value,
+      remoteDir: pathElement.value || '/',
+      ...(usesPrivateKey 
+        ? { privateKey: privateKeyElement.value }
+        : { password: passwordElement.value }
+      )
+    };
+    
+    try {
+      const result = await apiRequest('/api/connections/test', 'POST', {
+        type: 'sftp',
+        credentials
+      });
+      
+      setTestConnectionResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "Connection Successful",
+          description: "Successfully connected to SFTP server"
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: result.message || "Could not connect to SFTP server"
+        });
+      }
+    } catch (error) {
+      setTestConnectionResult({
+        success: false,
+        message: `Error: ${(error as Error).message}`
+      });
+      
+      toast({
+        variant: "destructive",
+        title: "Connection Error",
+        description: `Failed to test connection: ${(error as Error).message}`
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
   };
   
   if (isLoading) {
@@ -519,6 +777,44 @@ export default function DataSources() {
                         required={requiresPrivateKey}
                       />
                     </div>
+                  )}
+                  
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={handleTestSFTPConnection}
+                    disabled={isTestingConnection}
+                  >
+                    {isTestingConnection ? "Testing..." : "Test Connection"}
+                  </Button>
+                  
+                  {testConnectionResult && (
+                    <Alert variant={testConnectionResult.success ? "default" : "destructive"}>
+                      <AlertTitle>
+                        {testConnectionResult.success ? "Connection Successful" : "Connection Failed"}
+                      </AlertTitle>
+                      <AlertDescription>
+                        {testConnectionResult.message}
+                        {testConnectionResult.success && testConnectionResult.details && (
+                          <div className="mt-2 text-xs">
+                            <p>Found {testConnectionResult.details.totalFiles || 0} files in directory</p>
+                            {testConnectionResult.details.directoryContents && (
+                              <div className="mt-1 bg-gray-50 p-2 rounded">
+                                {testConnectionResult.details.directoryContents.map((item: any, index: number) => (
+                                  <div key={index} className="truncate">{item.name}</div>
+                                ))}
+                                {(testConnectionResult.details.totalFiles || 0) > 5 && (
+                                  <div className="text-gray-500 mt-1">
+                                    + {(testConnectionResult.details.totalFiles || 0) - 5} more files
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
               ) : (
