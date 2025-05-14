@@ -72,7 +72,18 @@ export default function DataSources() {
   // Initialize edit remote paths when data is loaded
   useEffect(() => {
     if (selectedDataSource && selectedDataSource.type === 'sftp') {
-      const config = JSON.parse(selectedDataSource.config || '{}');
+      let config = {};
+      try {
+        // Handle both string and object config formats
+        if (typeof selectedDataSource.config === 'string') {
+          config = JSON.parse(selectedDataSource.config || '{}');
+        } else if (selectedDataSource.config && typeof selectedDataSource.config === 'object') {
+          config = selectedDataSource.config;
+        }
+      } catch (error) {
+        console.error('Error parsing config:', error);
+        config = {}; // Fallback to empty object
+      }
       
       if (config.remote_paths && Array.isArray(config.remote_paths)) {
         // Convert saved remote paths to our format with IDs
@@ -1025,7 +1036,16 @@ export default function DataSources() {
                           
                           // Set private key flag based on selected data source config
                           try {
-                            const config = JSON.parse(dataSource.config || '{}');
+                            let config = {};
+                            try {
+                              if (typeof dataSource.config === 'string') {
+                                config = JSON.parse(dataSource.config || '{}');
+                              } else if (dataSource.config && typeof dataSource.config === 'object') {
+                                config = dataSource.config;
+                              }
+                            } catch (error) {
+                              console.error('Error parsing config:', error);
+                            }
                             setEditRequiresPrivateKey(!!config.private_key);
                           } catch (e) {
                             setEditRequiresPrivateKey(false);
@@ -1501,8 +1521,15 @@ export default function DataSources() {
                     {(() => {
                       let config;
                       try {
-                        config = JSON.parse(selectedDataSource.config || '{}');
+                        if (typeof selectedDataSource.config === 'string') {
+                          config = JSON.parse(selectedDataSource.config || '{}');
+                        } else if (selectedDataSource.config && typeof selectedDataSource.config === 'object') {
+                          config = selectedDataSource.config;
+                        } else {
+                          config = {};
+                        }
                       } catch (e) {
+                        console.error('Error parsing config:', e);
                         config = {};
                       }
                       
@@ -1776,7 +1803,20 @@ export default function DataSources() {
                       name="config"
                       className="col-span-3"
                       rows={10}
-                      defaultValue={JSON.stringify(JSON.parse(selectedDataSource.config || '{}'), null, 2)}
+                      defaultValue={(() => {
+                        try {
+                          let config = {};
+                          if (typeof selectedDataSource.config === 'string') {
+                            config = JSON.parse(selectedDataSource.config || '{}');
+                          } else if (selectedDataSource.config && typeof selectedDataSource.config === 'object') {
+                            config = selectedDataSource.config;
+                          }
+                          return JSON.stringify(config, null, 2);
+                        } catch (error) {
+                          console.error('Error parsing config:', error);
+                          return '{}';
+                        }
+                      })()}
                     />
                   </div>
                 )}
