@@ -499,9 +499,38 @@ export const testConnection = async (req: Request, res: Response) => {
 // Function to pull sample product data from SFTP
 export const pullSampleData = async (req: Request, res: Response) => {
   try {
+    // Ensure proper request body format
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        message: 'Request body is required'
+      });
+    }
+    
     const { type, credentials, supplier_id, limit = 100, remote_path, specific_path } = req.body;
     
     console.log('Pull sample data request:', { type, supplier_id, limit, remote_path, specific_path });
+    
+    // Validate credentials
+    if (!credentials) {
+      return res.status(400).json({
+        success: false,
+        message: 'Connection credentials are required'
+      });
+    }
+    
+    if (typeof credentials === 'string') {
+      try {
+        // Try to parse it if it's a string
+        req.body.credentials = JSON.parse(credentials);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid credentials format. Must be a valid JSON object'
+        });
+      }
+    }
+    
     console.log('Credentials structure:', Object.keys(credentials));
     
     // Use specific_path in credentials if provided in the request
@@ -509,10 +538,10 @@ export const pullSampleData = async (req: Request, res: Response) => {
       credentials.specific_path = specific_path;
     }
     
-    if (!type || !credentials) {
+    if (!type) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Connection type and credentials are required' 
+        message: 'Connection type is required' 
       });
     }
     
@@ -521,11 +550,27 @@ export const pullSampleData = async (req: Request, res: Response) => {
     // Handle different connection types
     switch (type) {
       case 'sftp':
-        result = await pullSampleDataFromSFTP(credentials, supplier_id, limit, remote_path);
+        try {
+          result = await pullSampleDataFromSFTP(credentials, supplier_id, limit, remote_path);
+        } catch (sftpError) {
+          console.error('SFTP sample data pull error:', sftpError);
+          result = {
+            success: false,
+            message: `SFTP error: ${sftpError instanceof Error ? sftpError.message : 'Unknown SFTP error'}`
+          };
+        }
         break;
       
       case 'ftp':
-        result = await pullSampleDataFromFTP(credentials, supplier_id, limit);
+        try {
+          result = await pullSampleDataFromFTP(credentials, supplier_id, limit);
+        } catch (ftpError) {
+          console.error('FTP sample data pull error:', ftpError);
+          result = {
+            success: false,
+            message: `FTP error: ${ftpError instanceof Error ? ftpError.message : 'Unknown FTP error'}`
+          };
+        }
         break;
       
       case 'api':
@@ -538,13 +583,25 @@ export const pullSampleData = async (req: Request, res: Response) => {
       default:
         return res.status(400).json({ 
           success: false, 
-          message: 'Unsupported connection type for sample data pull' 
+          message: `Unsupported connection type: ${type}` 
         });
     }
     
+    // Ensure proper result format
+    if (!result) {
+      result = {
+        success: false,
+        message: 'No result was returned from sample data pull'
+      };
+    }
+    
+    // Set proper content type and send response
+    res.setHeader('Content-Type', 'application/json');
     res.json(result);
   } catch (error) {
     console.error('Error pulling sample data:', error);
+    // Set proper content type to ensure client can parse it
+    res.setHeader('Content-Type', 'application/json');
     res.status(500).json({ 
       success: false, 
       message: 'Error pulling sample data', 
@@ -1091,4 +1148,5 @@ export const registerConnectionsRoutes = (app: any) => {
   app.delete('/api/connections/:id', deleteConnection);
   app.post('/api/connections/test', testConnection);
   app.post('/api/connections/pull-sample-data', pullSampleData);
+  app.post('/api/connections/sample-data', pullSampleData); // Added alias for client compatibility
 };
