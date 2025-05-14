@@ -32,10 +32,54 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SupplierForm } from "@/components/suppliers/SupplierForm";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Supplier } from "@shared/schema";
 
 const Suppliers = () => {
-  const { suppliers, isLoading } = useSuppliers();
+  const { suppliers, isLoading, refetch } = useSuppliers();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>(undefined);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Delete supplier mutation
+  const deleteMutation = useMutation({
+    mutationFn: (supplierId: number) => {
+      return apiRequest(`/api/suppliers/${supplierId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      toast({
+        title: "Supplier deleted",
+        description: "The supplier has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete supplier: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteSupplier = (supplierId: number) => {
+    if (window.confirm("Are you sure you want to delete this supplier?")) {
+      deleteMutation.mutate(supplierId);
+    }
+  };
+
+  const handleEditSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsEditDialogOpen(true);
+  };
 
   const filteredSuppliers = suppliers.filter(supplier => 
     supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -47,7 +91,7 @@ const Suppliers = () => {
       <div className="pb-5 border-b border-neutral-200 sm:flex sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-neutral-900">Suppliers</h1>
         <div className="mt-3 sm:mt-0 sm:ml-4">
-          <Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Supplier
           </Button>
@@ -149,7 +193,7 @@ const Suppliers = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditSupplier(supplier)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
@@ -158,7 +202,10 @@ const Suppliers = () => {
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onClick={() => handleDeleteSupplier(supplier.id)}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </DropdownMenuItem>
@@ -173,6 +220,21 @@ const Suppliers = () => {
           </div>
         </div>
       </div>
+
+      {/* Supplier Create Dialog */}
+      <SupplierForm
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+      />
+
+      {/* Supplier Edit Dialog */}
+      {selectedSupplier && (
+        <SupplierForm
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          supplier={selectedSupplier}
+        />
+      )}
     </>
   );
 };
