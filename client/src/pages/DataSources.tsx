@@ -493,9 +493,6 @@ export default function DataSources() {
       return;
     }
     
-    // For testing, we'll use the first path in the list
-    const testPath = remotePaths[0].path;
-    
     // Determine authentication method
     const usesPrivateKey = requiresPrivateKey;
     if (usesPrivateKey && !privateKeyElement?.value) {
@@ -523,7 +520,7 @@ export default function DataSources() {
       host: hostElement.value,
       port: portElement.value ? parseInt(portElement.value, 10) : 22,
       username: usernameElement.value,
-      remoteDir: pathElement.value || '/',
+      remote_paths: remotePaths,
       ...(usesPrivateKey 
         ? { privateKey: privateKeyElement.value }
         : { password: passwordElement.value }
