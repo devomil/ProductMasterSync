@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ChevronRight, FilePlus, FileEdit, Link2, Server, Database, UploadCloud, FileCode, Settings } from "lucide-react";
+import { ChevronRight, FilePlus, FileEdit, Link2, Server, Database, UploadCloud, FileCode, Settings, Plus, Trash } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -799,15 +799,63 @@ export default function DataSources() {
                     </div>
                   )}
                   
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sftp-path" className="text-right">Remote Path</Label>
-                    <Input 
-                      id="sftp-path" 
-                      name="sftp-path" 
-                      className="col-span-3" 
-                      placeholder="/feeds/products.csv" 
-                      required 
-                    />
+                  <div className="grid gap-4">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-md font-medium">Remote Paths</Label>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={addRemotePath}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Add Path
+                      </Button>
+                    </div>
+
+                    {remotePaths.length === 0 ? (
+                      <div className="p-4 text-center border rounded-md border-dashed">
+                        No remote paths. Click "Add Path" to add one.
+                      </div>
+                    ) : (
+                      remotePaths.map((path, index) => (
+                        <div key={path.id} className="grid gap-4 p-3 border rounded-md bg-white">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Path {index + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeRemotePath(path.id)}
+                              disabled={remotePaths.length <= 1}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor={`path-label-${path.id}`} className="text-right">Label</Label>
+                            <Input 
+                              id={`path-label-${path.id}`}
+                              value={path.label}
+                              onChange={(e) => updateRemotePath(path.id, 'label', e.target.value)}
+                              className="col-span-3" 
+                              placeholder="Products" 
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor={`path-${path.id}`} className="text-right">Path</Label>
+                            <Input 
+                              id={`path-${path.id}`}
+                              value={path.path}
+                              onChange={(e) => updateRemotePath(path.id, 'path', e.target.value)}
+                              className="col-span-3" 
+                              placeholder="/feeds/products.csv" 
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-4 items-center gap-4">
