@@ -141,10 +141,15 @@ router.post('/amazon/batch-sync', async (req, res) => {
  */
 router.get('/amazon/config-status', (req, res) => {
   try {
+    console.log('Checking Amazon SP-API config status');
+    console.log('Query params:', req.query);
+    
+    // This route doesn't need any parameters, just checks config from env vars
     const config = getAmazonConfig();
     const isValid = validateAmazonConfig(config);
     
-    return res.json({
+    // If we have parameters, ignore them - this API just checks env vars
+    const result = {
       configValid: isValid,
       missingEnvVars: !isValid ? [
         !config.clientId && 'AMAZON_SP_API_CLIENT_ID',
@@ -153,7 +158,10 @@ router.get('/amazon/config-status', (req, res) => {
         !config.accessKeyId && 'AMAZON_SP_API_ACCESS_KEY_ID',
         !config.secretKey && 'AMAZON_SP_API_SECRET_KEY'
       ].filter(Boolean) : []
-    });
+    };
+    
+    console.log('Config status result:', result);
+    return res.json(result);
   } catch (error) {
     console.error('Error in GET /marketplace/amazon/config-status:', error);
     return res.status(500).json({ error: (error as Error).message });

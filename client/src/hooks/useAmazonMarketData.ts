@@ -96,7 +96,9 @@ export function useFetchAmazonDataByUpc(productId: number) {
 export function useAmazonConfigStatus() {
   return useQuery({
     queryKey: ['/api/marketplace/amazon/config-status'],
-    retry: 1
+    retry: 1,
+    refetchInterval: 30000, // Refetch every 30 seconds to check for updated credentials
+    refetchOnWindowFocus: true
   });
 }
 
