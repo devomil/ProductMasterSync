@@ -526,13 +526,25 @@ export default function DataSources() {
     };
     
     try {
-      const result = await apiRequest('POST', '/api/connections/test', {
-        type: 'sftp',
-        credentials
+      // First, make the request to test the connection
+      const response = await fetch('/api/connections/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'sftp',
+          credentials
+        }),
+        credentials: 'include',
       });
       
+      // Parse the JSON response
+      const result = await response.json();
+      console.log('SFTP test connection response:', result);
+      
+      // Update the state with the result
       setTestConnectionResult(result);
       
+      // Display appropriate toast based on result
       if (result.success) {
         toast({
           title: "Connection Successful",
@@ -546,6 +558,9 @@ export default function DataSources() {
         });
       }
     } catch (error) {
+      // Handle any errors in the request
+      console.error('SFTP test connection error:', error);
+      
       setTestConnectionResult({
         success: false,
         message: (error as Error).message || "Connection failed"
