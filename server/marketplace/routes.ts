@@ -8,6 +8,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { fetchAmazonDataByUpc, getAmazonDataForProduct, batchSyncAmazonData } from './amazon-service';
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
+import { scheduler } from '../utils/scheduler';
+import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct } from './repository';
 
 const router = Router();
 
@@ -154,6 +156,120 @@ router.get('/amazon/config-status', (req, res) => {
     });
   } catch (error) {
     console.error('Error in GET /marketplace/amazon/config-status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/sync-stats
+ * Get statistics about Amazon data sync operations
+ */
+router.get('/amazon/sync-stats', async (req, res) => {
+  try {
+    const stats = await getSyncStats();
+    return res.json(stats);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/sync-stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/sync-logs/:productId
+ * Get sync logs for a specific product
+ */
+router.get('/amazon/sync-logs/:productId', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    if (isNaN(productId)) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+    
+    const logs = await getSyncLogsForProduct(productId);
+    return res.json(logs);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/sync-logs/:productId:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/batch-logs/:batchId
+ * Get sync logs for a specific batch
+ */
+router.get('/amazon/batch-logs/:batchId', async (req, res) => {
+  try {
+    const batchId = req.params.batchId;
+    if (!batchId) {
+      return res.status(400).json({ error: 'Batch ID is required' });
+    }
+    
+    const logs = await getSyncLogsByBatch(batchId);
+    return res.json(logs);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/batch-logs/:batchId:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/scheduler/status
+ * Get the status of the Amazon sync scheduler
+ */
+router.get('/amazon/scheduler/status', (req, res) => {
+  try {
+    const jobs = scheduler.getJobs();
+    const amazonSyncJob = jobs.find(job => job.id === 'amazon-sync');
+    
+    return res.json({
+      active: !!amazonSyncJob,
+      details: amazonSyncJob || null,
+      allJobs: jobs
+    });
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/scheduler/status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/amazon/scheduler/trigger
+ * Manually trigger the Amazon sync job
+ */
+router.post('/amazon/scheduler/trigger', async (req, res) => {
+  try {
+    // Validate config first
+    const config = getAmazonConfig();
+    if (!validateAmazonConfig(config)) {
+      return res.status(400).json({ 
+        error: 'Amazon SP-API configuration is missing. Please set the required environment variables.',
+        requiredEnvVars: [
+          'AMAZON_SP_API_CLIENT_ID',
+          'AMAZON_SP_API_CLIENT_SECRET', 
+          'AMAZON_SP_API_REFRESH_TOKEN',
+          'AMAZON_SP_API_ACCESS_KEY_ID',
+          'AMAZON_SP_API_SECRET_KEY'
+        ]
+      });
+    }
+    
+    try {
+      const result = await scheduler.triggerJob('amazon-sync');
+      return res.json({
+        success: true,
+        message: 'Amazon sync job triggered successfully',
+        result
+      });
+    } catch (error) {
+      if ((error as Error).message.includes('not found')) {
+        return res.status(404).json({ 
+          error: 'Amazon sync job is not currently scheduled. Please enable the scheduler first.' 
+        });
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error in POST /marketplace/amazon/scheduler/trigger:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
