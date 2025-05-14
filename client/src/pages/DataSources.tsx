@@ -30,6 +30,8 @@ export default function DataSources() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<DataSource | null>(null);
+  const [selectedSourceType, setSelectedSourceType] = useState("csv");
+  const [requiresPrivateKey, setRequiresPrivateKey] = useState(false);
   
   const { data: dataSources = [], isLoading, error } = useQuery({
     queryKey: ['/api/data-sources'],
@@ -94,18 +96,73 @@ export default function DataSources() {
     const name = formData.get('name') as string;
     const type = formData.get('type') as string;
     const supplierId = Number(formData.get('supplierId'));
-    const configText = formData.get('config') as string;
-    let config;
+    let config: any = {};
     
-    try {
-      config = JSON.parse(configText);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Invalid JSON",
-        description: "The configuration must be valid JSON"
-      });
-      return;
+    // Handle SFTP configuration
+    if (type === 'sftp') {
+      const host = formData.get('sftp-host') as string;
+      const portValue = formData.get('sftp-port') as string;
+      const port = portValue ? parseInt(portValue, 10) : 22;
+      const username = formData.get('sftp-username') as string;
+      const path = formData.get('sftp-path') as string;
+      const usesPrivateKey = formData.get('requires-private-key') === 'on';
+      
+      // Basic validation
+      if (!host || !username || !path) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Please fill in all required SFTP connection fields"
+        });
+        return;
+      }
+      
+      // Build the SFTP config
+      config = {
+        host,
+        port,
+        username,
+        path,
+        is_sftp: true
+      };
+      
+      // Add authentication based on chosen method
+      if (usesPrivateKey) {
+        const privateKey = formData.get('sftp-private-key') as string;
+        if (!privateKey) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Private key is required when using key authentication"
+          });
+          return;
+        }
+        config.private_key = privateKey;
+      } else {
+        const password = formData.get('sftp-password') as string;
+        if (!password) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Password is required"
+          });
+          return;
+        }
+        config.password = password;
+      }
+    } else {
+      // Handle other data source types with JSON
+      const configText = formData.get('config') as string;
+      try {
+        config = JSON.parse(configText);
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Invalid JSON",
+          description: "The configuration must be valid JSON"
+        });
+        return;
+      }
     }
     
     try {
@@ -336,7 +393,12 @@ export default function DataSources() {
               
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="type" className="text-right">Type</Label>
-                <Select name="type" required defaultValue="csv">
+                <Select 
+                  name="type" 
+                  required 
+                  defaultValue="csv"
+                  onValueChange={(value) => setSelectedSourceType(value)}
+                >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select source type" />
                   </SelectTrigger>
@@ -371,18 +433,108 @@ export default function DataSources() {
                 </Select>
               </div>
               
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="config" className="text-right align-top mt-2">Configuration</Label>
-                <Textarea 
-                  id="config" 
-                  name="config" 
-                  className="col-span-3 font-mono" 
-                  rows={8}
-                  placeholder="{}"
-                  defaultValue="{}"
-                  required 
-                />
-              </div>
+              {selectedSourceType === "sftp" ? (
+                <div className="grid gap-4 border rounded-lg p-4 bg-gray-50">
+                  <h3 className="text-md font-medium">SFTP Configuration</h3>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sftp-host" className="text-right">Host</Label>
+                    <Input 
+                      id="sftp-host" 
+                      name="sftp-host" 
+                      className="col-span-3" 
+                      placeholder="sftp.example.com" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sftp-port" className="text-right">Port</Label>
+                    <Input 
+                      id="sftp-port" 
+                      name="sftp-port" 
+                      className="col-span-3" 
+                      type="number" 
+                      placeholder="22" 
+                      defaultValue="22" 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sftp-username" className="text-right">Username</Label>
+                    <Input 
+                      id="sftp-username" 
+                      name="sftp-username" 
+                      className="col-span-3" 
+                      required 
+                    />
+                  </div>
+                  
+                  {!requiresPrivateKey && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sftp-password" className="text-right">Password</Label>
+                      <Input 
+                        id="sftp-password" 
+                        name="sftp-password" 
+                        className="col-span-3" 
+                        type="password" 
+                        required={!requiresPrivateKey}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sftp-path" className="text-right">Remote Path</Label>
+                    <Input 
+                      id="sftp-path" 
+                      name="sftp-path" 
+                      className="col-span-3" 
+                      placeholder="/feeds/products.csv" 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <div className="text-right">Authentication</div>
+                    <div className="col-span-3 flex items-center space-x-2">
+                      <Checkbox 
+                        id="requires-private-key" 
+                        name="requires-private-key"
+                        checked={requiresPrivateKey}
+                        onCheckedChange={(checked) => setRequiresPrivateKey(checked === true)}
+                      />
+                      <Label htmlFor="requires-private-key">Requires private key authentication</Label>
+                    </div>
+                  </div>
+                  
+                  {requiresPrivateKey && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="sftp-private-key" className="text-right align-top mt-2">Private Key</Label>
+                      <Textarea 
+                        id="sftp-private-key" 
+                        name="sftp-private-key" 
+                        className="col-span-3 font-mono" 
+                        rows={4}
+                        placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----" 
+                        required={requiresPrivateKey}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="config" className="text-right align-top mt-2">Configuration</Label>
+                  <Textarea 
+                    id="config" 
+                    name="config" 
+                    className="col-span-3 font-mono" 
+                    rows={8}
+                    placeholder="{}"
+                    defaultValue="{}"
+                    required 
+                  />
+                </div>
+              )}
             </div>
             
             <DialogFooter>
