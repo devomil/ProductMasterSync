@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { schedules, dataSources, connections, imports } from '@shared/schema';
+import { schedules, dataSources, imports } from '@shared/schema';
 import { eq, and, gte, lte, isNull, sql, desc } from 'drizzle-orm';
 import { pullFromFTPConnection } from './ftp-ingestion';
 import { processImportedFile } from './file-processor';
