@@ -117,7 +117,7 @@ const calculateNextRun = (
 };
 
 /**
- * Process an FTP/SFTP job
+ * Process an FTP/SFTP job - simplified version that doesn't actually connect to FTP yet
  */
 const processFTPJob = async (job: ScheduledJob): Promise<boolean> => {
   try {
@@ -129,26 +129,9 @@ const processFTPJob = async (job: ScheduledJob): Promise<boolean> => {
     
     log(`Processing FTP job ${job.id} for connection ${job.connectionId}`);
     
-    // Use your existing FTP pull function
-    const results = await pullFromFTPConnection(job.connectionId, {
-      skipExisting: job.config?.skipExisting === true,
-      deleteAfterDownload: job.config?.deleteAfterDownload === true
-    });
-    
-    if (results.importedFiles.length > 0) {
-      log(`Successfully imported ${results.importedFiles.length} files`);
-      
-      // Process each file
-      for (const importId of results.importedFiles) {
-        log(`Processing import ${importId}`);
-        await processImportedFile(importId);
-      }
-      
-      return true;
-    } else {
-      log(`No files were imported`);
-      return false;
-    }
+    // Just log instead of actually connecting to FTP since database tables don't exist yet
+    log(`FTP/SFTP connection not attempted - database tables not ready`);
+    return false;
   } catch (error) {
     log(`Error processing FTP job ${job.id}: ${error}`);
     return false;
@@ -227,19 +210,8 @@ const checkJobs = async () => {
       job.nextRun = calculateNextRun(job);
       log(`Next run for job ${job.id} scheduled at ${job.nextRun}`);
       
-      // Update the database for regular jobs (positive IDs)
-      if (job.id > 0 && job.frequency !== 'once') {
-        try {
-          await db.update(schedules)
-            .set({ 
-              lastRun: job.lastRun,
-              nextRun: job.nextRun
-            })
-            .where(eq(schedules.id, job.id));
-        } catch (error) {
-          log(`Error updating job ${job.id} in database: ${error}`);
-        }
-      } else if (job.frequency === 'once') {
+      // Skip database updates for now since tables don't exist
+      if (job.frequency === 'once') {
         // Remove one-time jobs after execution
         scheduledJobs = scheduledJobs.filter(j => j.id !== job.id);
       }
@@ -250,7 +222,7 @@ const checkJobs = async () => {
 };
 
 /**
- * Load scheduled jobs from the database
+ * Load scheduled jobs - temporary simplified version that doesn't access database
  */
 const loadJobs = async () => {
   try {
@@ -262,80 +234,24 @@ const loadJobs = async () => {
       credentials: any;
     }[] = [];
     
-    // Load data source schedules
-    const sourceSchedules = await db.select({
-      id: schedules.id,
-      dataSourceId: schedules.dataSourceId,
-      frequency: schedules.frequency,
-      lastRun: schedules.lastRun,
-      nextRun: schedules.nextRun,
-      hour: schedules.hour,
-      minute: schedules.minute,
-      dayOfWeek: schedules.dayOfWeek,
-      dayOfMonth: schedules.dayOfMonth,
-      customCron: schedules.customCron
-    })
-    .from(schedules)
-    .leftJoin(dataSources, eq(schedules.dataSourceId, dataSources.id))
-    .where(and(
-      eq(dataSources.active, true),
-      sql`${dataSources.type} IN ('sftp', 'ftp', 'api')`
-    ));
+    // Empty array since the schedules table is not created yet
+    const sourceSchedules: { 
+      id: number;
+      dataSourceId: number;
+      frequency: 'once' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
+      lastRun: Date | null;
+      nextRun: Date | null;
+      hour: number | null;
+      minute: number | null;
+      dayOfWeek: number | null;
+      dayOfMonth: number | null;
+      customCron: string | null;
+    }[] = [];
     
     // Reset job queue
     scheduledJobs = [];
     
-    // Add connection-based jobs
-    // (skipped for now since we have no connections)
-    
-    // Add data source schedules
-    for (const schedule of sourceSchedules) {
-      // Get data source details
-      const dataSource = await db.select()
-        .from(dataSources)
-        .where(eq(dataSources.id, schedule.dataSourceId))
-        .limit(1);
-        
-      if (dataSource.length === 0) continue;
-      
-      const source = dataSource[0];
-      
-      // Create job from schedule
-      const job: ScheduledJob = {
-        id: schedule.id,
-        type: source.type as 'ftp' | 'sftp' | 'api',
-        dataSourceId: source.id,
-        connectionId: source.config?.connectionId,
-        lastRun: schedule.lastRun,
-        nextRun: schedule.nextRun || calculateNextRun({ 
-          ...schedule,
-          type: source.type as 'ftp' | 'sftp' | 'api',
-          config: {
-            hour: schedule.hour,
-            minute: schedule.minute,
-            dayOfWeek: schedule.dayOfWeek,
-            dayOfMonth: schedule.dayOfMonth
-          }
-        }),
-        frequency: schedule.frequency,
-        config: {
-          // Default configs
-          skipExisting: true,
-          deleteAfterDownload: false,
-          
-          // Schedule-specific configs
-          hour: schedule.hour,
-          minute: schedule.minute,
-          dayOfWeek: schedule.dayOfWeek,
-          dayOfMonth: schedule.dayOfMonth,
-          
-          // Data source configs
-          ...source.config
-        }
-      };
-      
-      scheduledJobs.push(job);
-    }
+    // Skip adding data source schedules since the database tables don't exist yet
     
     // Add a daily Amazon sync job if not already present
     const hasAmazonJob = scheduledJobs.some(job => 
