@@ -2,73 +2,106 @@ import { db } from './db';
 import * as schema from '@shared/schema';
 import { sql } from 'drizzle-orm';
 
-async function setupDatabase() {
-  console.log('Starting database setup...');
-  
+async function createDataSourcesTable() {
   try {
-    // Create enum types first
     await db.execute(sql`
-      DO $$ BEGIN
-        CREATE TYPE IF NOT EXISTS import_status AS ENUM ('pending', 'processing', 'success', 'error');
-        CREATE TYPE IF NOT EXISTS approval_status AS ENUM ('pending', 'approved', 'rejected');
-        CREATE TYPE IF NOT EXISTS export_status AS ENUM ('pending', 'processing', 'success', 'error');
-        CREATE TYPE IF NOT EXISTS data_source_type AS ENUM ('csv', 'excel', 'json', 'xml', 'edi_x12', 'edifact', 'api', 'sftp', 'ftp', 'manual');
-        CREATE TYPE IF NOT EXISTS marketplace AS ENUM ('amazon', 'walmart', 'ebay', 'target', 'home_depot');
-        CREATE TYPE IF NOT EXISTS schedule_frequency AS ENUM ('once', 'hourly', 'daily', 'weekly', 'monthly', 'custom');
-        CREATE TYPE IF NOT EXISTS resolution_strategy AS ENUM ('newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all');
-        CREATE TYPE IF NOT EXISTS connection_type AS ENUM ('ftp', 'sftp', 'api', 'database');
-        CREATE TYPE IF NOT EXISTS connection_status AS ENUM ('success', 'error', 'pending');
-      EXCEPTION
-        WHEN duplicate_object THEN NULL;
-      END $$;
-    `);
-    
-    console.log('Enum types created successfully');
-    
-    // Create tables using Drizzle schema definitions
-    // This is just for example as we'll use drizzle-kit to push schema
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        full_name TEXT,
-        email TEXT,
-        role TEXT DEFAULT 'user'
-      );
-      
-      CREATE TABLE IF NOT EXISTS suppliers (
+      CREATE TABLE IF NOT EXISTS data_sources (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
-        code TEXT NOT NULL UNIQUE,
-        contact_name TEXT,
-        contact_email TEXT,
-        contact_phone TEXT,
-        active BOOLEAN DEFAULT TRUE
-      );
-      
-      CREATE TABLE IF NOT EXISTS connections (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        type connection_type NOT NULL,
-        description TEXT,
-        supplier_id INTEGER REFERENCES suppliers(id),
-        is_active BOOLEAN DEFAULT TRUE,
-        credentials JSONB NOT NULL,
-        last_tested TIMESTAMP,
-        last_status connection_status,
+        type TEXT NOT NULL,
+        supplier_id INTEGER,
+        config JSONB NOT NULL,
+        active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    
-    console.log('Basic tables created successfully');
-    
-    console.log('Database setup completed successfully');
+    console.log('data_sources table created successfully');
+    return true;
   } catch (error) {
-    console.error('Error setting up database:', error);
-    process.exit(1);
+    console.error('Error creating data_sources table:', error);
+    return false;
   }
+}
+
+async function createMappingTemplatesTable() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS mapping_templates (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        source_type TEXT NOT NULL,
+        mappings JSONB NOT NULL,
+        transformations JSONB DEFAULT '[]',
+        validation_rules JSONB DEFAULT '[]',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log('mapping_templates table created successfully');
+    return true;
+  } catch (error) {
+    console.error('Error creating mapping_templates table:', error);
+    return false;
+  }
+}
+
+async function createAmazonMarketplaceDataTable() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS amazon_marketplace_data (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER,
+        asin TEXT,
+        marketplace_sku TEXT,
+        amazon_status TEXT,
+        price DECIMAL,
+        rank INTEGER,
+        category TEXT,
+        rating DECIMAL,
+        review_count INTEGER,
+        fulfillment_type TEXT,
+        sync_status TEXT DEFAULT 'pending',
+        last_synced TIMESTAMP,
+        full_data JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log('amazon_marketplace_data table created successfully');
+    return true;
+  } catch (error) {
+    console.error('Error creating amazon_marketplace_data table:', error);
+    return false;
+  }
+}
+
+async function setupDatabase() {
+  console.log('Starting database setup...');
+  
+  // Create the tables we need - execute in parallel for speed
+  const results = await Promise.allSettled([
+    createDataSourcesTable(),
+    createMappingTemplatesTable(),
+    createAmazonMarketplaceDataTable()
+  ]);
+  
+  // Log results
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      if (result.value) {
+        console.log(`Table #${index + 1} created successfully`);
+      } else {
+        console.log(`Table #${index + 1} creation failed but didn't throw`);
+      }
+    } else {
+      console.error(`Table #${index + 1} creation rejected:`, result.reason);
+    }
+  });
+  
+  console.log('Database setup completed');
+  return results.some(r => r.status === 'fulfilled' && r.value === true);
 }
 
 // Run setup only if executed directly

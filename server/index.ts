@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./utils/temporary-scheduler";
+import setupDatabase from "./db-setup";
 
 const app = express();
 app.use(express.json());
@@ -38,6 +39,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database tables before registering routes
+  try {
+    log('Setting up database tables...');
+    await setupDatabase();
+    log('Database tables setup complete.');
+  } catch (error) {
+    log('Error setting up database tables:', String(error));
+    // Continue initialization even if there's an error
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
