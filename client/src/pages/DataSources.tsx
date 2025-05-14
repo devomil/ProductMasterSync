@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { ChevronRight, FilePlus, FileEdit, Link2, Server, Database, UploadCloud, FileCode, Settings, Plus, Trash } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { v4 as uuidv4 } from "uuid";
 import { 
   Dialog, 
   DialogContent, 
