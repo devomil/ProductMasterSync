@@ -255,7 +255,7 @@ export default function DataSources() {
       setRawResponseData("");
       
       // If a specific file was provided, use that
-      const fileToUse = selectedFile || null;
+      const fileToUse = selectedFile || (remotePaths.length > 0 ? remotePaths[0] : null);
       
       if (!fileToUse && newDataSource.type !== 'api') {
         toast({
@@ -265,6 +265,11 @@ export default function DataSources() {
         });
         setIsPullingSampleData(false);
         return;
+      }
+      
+      // Set the selected file path for tracking and display
+      if (fileToUse) {
+        setSelectedFilePath(fileToUse);
       }
       
       // Prepare the request config
