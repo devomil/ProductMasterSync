@@ -7,6 +7,7 @@ export function useSuppliers() {
     isLoading,
     isError,
     error,
+    refetch,
   } = useQuery<Supplier[]>({
     queryKey: ['/api/suppliers'],
   });
@@ -16,5 +17,6 @@ export function useSuppliers() {
     isLoading,
     isError,
     error,
+    refetch,
   };
 }

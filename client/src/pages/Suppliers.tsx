@@ -49,10 +49,17 @@ const Suppliers = () => {
 
   // Delete supplier mutation
   const deleteMutation = useMutation({
-    mutationFn: (supplierId: number) => {
-      return apiRequest(`/api/suppliers/${supplierId}`, {
+    mutationFn: async (supplierId: number) => {
+      const response = await fetch(`/api/suppliers/${supplierId}`, {
         method: "DELETE",
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete supplier");
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });

@@ -28,17 +28,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Supplier } from "@shared/schema";
+import { Supplier, insertSupplierSchema } from "@shared/schema";
 
-// Define the form schema with Zod
-const supplierFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  code: z.string().min(2, "Code must be at least 2 characters"),
-  contactName: z.string().optional(),
-  contactEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
-  contactPhone: z.string().optional(),
-  active: z.boolean().default(true),
-  notes: z.string().optional(),
+// Define the form schema with Zod, extending the insertSupplierSchema
+const supplierFormSchema = insertSupplierSchema.extend({
+  // Add fields that are optional in the form but not in the schema
+  contactName: z.string().optional().nullable(),
+  contactEmail: z.string().email("Invalid email address").optional().nullable(),
+  contactPhone: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 type SupplierFormValues = z.infer<typeof supplierFormSchema>;
@@ -60,11 +58,10 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
     defaultValues: supplier ? {
       name: supplier.name,
       code: supplier.code,
-      contactName: supplier.contactName || "",
-      contactEmail: supplier.contactEmail || "",
-      contactPhone: supplier.contactPhone || "",
-      active: supplier.active,
-      notes: supplier.notes || "",
+      contactName: supplier.contactName,
+      contactEmail: supplier.contactEmail,
+      contactPhone: supplier.contactPhone,
+      active: supplier.active !== null ? supplier.active : true,
     } : {
       name: "",
       code: "",
@@ -72,28 +69,28 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
       contactEmail: "",
       contactPhone: "",
       active: true,
-      notes: "",
     },
   });
 
   // Create or update supplier mutation
   const mutation = useMutation({
-    mutationFn: (data: SupplierFormValues) => {
-      return supplier
-        ? apiRequest(`/api/suppliers/${supplier.id}`, {
-            method: "PUT",
-            body: JSON.stringify(data),
-            headers: {
-              "Content-Type": "application/json",
-            },
-          })
-        : apiRequest("/api/suppliers", {
-            method: "POST",
-            body: JSON.stringify(data),
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
+    mutationFn: async (data: SupplierFormValues) => {
+      const response = await fetch(supplier
+        ? `/api/suppliers/${supplier.id}`
+        : "/api/suppliers", {
+          method: supplier ? "PUT" : "POST",
+          body: JSON.stringify(data),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "An error occurred");
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       // Invalidate suppliers query to refresh the list
@@ -111,7 +108,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
       form.reset();
       onClose();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: `Failed to ${supplier ? "update" : "create"} supplier: ${error.message}`,
@@ -183,7 +180,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
                   <FormItem>
                     <FormLabel>Contact Person</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="John Doe" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -213,7 +210,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="+1 (555) 123-4567" {...field} />
+                      <Input placeholder="+1 (555) 123-4567" {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
