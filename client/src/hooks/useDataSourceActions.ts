@@ -104,15 +104,37 @@ export function useDataSourceActions() {
       });
       
       // Make the API call to pull sample data
+      // For SFTP, make sure we're sending the correct path
+      let requestBody = {
+        type: dataSource.type,
+        credentials,
+        supplier_id: dataSource.supplierId || 1,
+        limit: 10
+      };
+      
+      // Add remote_path specifically for SFTP connections if available
+      if (dataSource.type === 'sftp') {
+        // If we have a path from the remote_paths array, use it
+        if (credentials.remote_paths && credentials.remote_paths.length > 0) {
+          requestBody = {
+            ...requestBody,
+            remote_path: credentials.remote_paths[0].path || '/eco8/out/catalog.csv',
+            specific_path: credentials.remote_paths[0].path || '/eco8/out/catalog.csv'
+          };
+        } else {
+          // Otherwise use a default path
+          requestBody = {
+            ...requestBody,
+            remote_path: '/eco8/out/catalog.csv',
+            specific_path: '/eco8/out/catalog.csv'
+          };
+        }
+      }
+      
       const response = await fetch('/api/connections/sample-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: dataSource.type,
-          credentials,
-          supplier_id: dataSource.supplierId || 1,
-          limit: 10
-        }),
+        body: JSON.stringify(requestBody),
         credentials: 'include'
       });
       
