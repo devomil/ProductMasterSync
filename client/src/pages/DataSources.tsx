@@ -472,6 +472,18 @@ export default function DataSources() {
   };
   
   const handlePullSampleData = async () => {
+    // Set up a failsafe timeout to ensure loading state is always reset
+    const failsafeTimeout = setTimeout(() => {
+      console.log('Failsafe timeout triggered for sample data pull');
+      setIsPullingSampleData(false);
+      setPullStatus('idle');
+      toast({
+        variant: "destructive",
+        title: "Operation Timeout",
+        description: "The sample data pull operation took too long. Please try again."
+      });
+    }, 30000); // 30 second safety timeout
+    
     // Clear previous sample data and set initial status
     setSampleData(null);
     setIsPullingSampleData(true);
@@ -499,6 +511,7 @@ export default function DataSources() {
         description: "Please fill in all required SFTP connection fields"
       });
       setIsPullingSampleData(false);
+      clearTimeout(failsafeTimeout);
       return;
     }
     
@@ -510,6 +523,7 @@ export default function DataSources() {
         description: "At least one remote path is required"
       });
       setIsPullingSampleData(false);
+      clearTimeout(failsafeTimeout);
       return;
     }
     
@@ -522,6 +536,7 @@ export default function DataSources() {
         description: "All remote paths must have labels and start with /"
       });
       setIsPullingSampleData(false);
+      clearTimeout(failsafeTimeout);
       return;
     }
     
@@ -534,6 +549,7 @@ export default function DataSources() {
         description: "Private key is required when using key authentication"
       });
       setIsPullingSampleData(false);
+      clearTimeout(failsafeTimeout);
       return;
     } else if (!usesPrivateKey && !passwordElement?.value) {
       toast({
@@ -542,6 +558,7 @@ export default function DataSources() {
         description: "Password is required"
       });
       setIsPullingSampleData(false);
+      clearTimeout(failsafeTimeout);
       return;
     }
     
@@ -620,6 +637,13 @@ export default function DataSources() {
       });
     } finally {
       setIsPullingSampleData(false);
+      clearTimeout(failsafeTimeout); // Clear the failsafe timeout on normal completion
+      
+      // Add another reset just to be extra safe
+      setTimeout(() => {
+        console.log('Extra safety reset for loading state');
+        setIsPullingSampleData(false);
+      }, 500);
     }
   };
 
