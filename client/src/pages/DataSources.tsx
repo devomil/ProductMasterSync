@@ -122,11 +122,10 @@ export default function DataSources() {
       const portValue = formData.get('sftp-port') as string;
       const port = portValue ? parseInt(portValue, 10) : 22;
       const username = formData.get('sftp-username') as string;
-      const path = formData.get('sftp-path') as string;
       const usesPrivateKey = formData.get('requires-private-key') === 'on';
       
-      // Basic validation
-      if (!host || !username || !path) {
+      // Basic validation for connection
+      if (!host || !username) {
         toast({
           variant: "destructive",
           title: "Validation Error",
@@ -135,13 +134,18 @@ export default function DataSources() {
         return;
       }
       
-      // Build the SFTP config
+
+      
+      // Build the SFTP config with multiple paths
       config = {
         host,
         port,
         username,
-        path,
-        is_sftp: true
+        is_sftp: true,
+        remote_paths: remotePaths.map(p => ({
+          label: p.label,
+          path: p.path
+        }))
       };
       
       // Add authentication based on chosen method
@@ -338,6 +342,46 @@ export default function DataSources() {
         description: `Failed to delete data source: ${(error as Error).message}`
       });
     }
+  };
+  
+  // Helper functions for managing remote paths
+  const addRemotePath = () => {
+    setRemotePaths([
+      ...remotePaths,
+      { id: crypto.randomUUID(), label: "", path: "" }
+    ]);
+  };
+  
+  const removeRemotePath = (id: string) => {
+    // Don't allow removing the last path
+    if (remotePaths.length <= 1) return;
+    setRemotePaths(remotePaths.filter(p => p.id !== id));
+  };
+  
+  const updateRemotePath = (id: string, field: 'label' | 'path', value: string) => {
+    setRemotePaths(remotePaths.map(p => 
+      p.id === id ? { ...p, [field]: value } : p
+    ));
+  };
+  
+  // Similar helpers for edit mode
+  const addEditRemotePath = () => {
+    setEditRemotePaths([
+      ...editRemotePaths,
+      { id: crypto.randomUUID(), label: "", path: "" }
+    ]);
+  };
+  
+  const removeEditRemotePath = (id: string) => {
+    // Don't allow removing the last path
+    if (editRemotePaths.length <= 1) return;
+    setEditRemotePaths(editRemotePaths.filter(p => p.id !== id));
+  };
+  
+  const updateEditRemotePath = (id: string, field: 'label' | 'path', value: string) => {
+    setEditRemotePaths(editRemotePaths.map(p => 
+      p.id === id ? { ...p, [field]: value } : p
+    ));
   };
   
   const handleTestSFTPConnection = async () => {
