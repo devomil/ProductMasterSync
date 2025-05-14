@@ -655,7 +655,10 @@ export const testConnection = async (req: Request, res: Response) => {
 // Function to pull sample product data from SFTP
 export const pullSampleData = async (req: Request, res: Response) => {
   try {
-    const { type, credentials, supplier_id, limit = 100 } = req.body;
+    const { type, credentials, supplier_id, limit = 100, remote_path } = req.body;
+    
+    console.log('Pull sample data request:', { type, supplier_id, limit, remote_path });
+    console.log('Credentials structure:', Object.keys(credentials));
     
     if (!type || !credentials) {
       return res.status(400).json({ 
@@ -675,7 +678,7 @@ export const pullSampleData = async (req: Request, res: Response) => {
     
     // Currently only support SFTP sample data pull
     if (type === 'sftp') {
-      const result = await pullSampleDataFromSFTP(credentials, Number(supplier_id), Number(limit));
+      const result = await pullSampleDataFromSFTP(credentials, Number(supplier_id), Number(limit), remote_path);
       return res.json(result);
     } else {
       return res.status(400).json({ 
