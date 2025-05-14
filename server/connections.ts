@@ -6,6 +6,40 @@ import { eq } from 'drizzle-orm';
 import { Client as SFTPClient } from 'ssh2';
 import FTP from 'ftp';
 import pg from 'pg';
+import path from 'path';
+
+// Helper function to properly parse CSV lines, handling quoted fields
+const parseCSVLine = (line: string): string[] => {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && i < line.length - 1 && line[i + 1] === '"') {
+        // Double quotes inside quotes - add a single quote
+        current += '"';
+        i++; // Skip the next quote
+      } else {
+        // Toggle quote mode
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // End of field
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add the last field
+  result.push(current);
+  
+  return result;
+};
 
 // Helper to apply environment credentials to server SFTP connections
 const applySFTPCredentials = (credentials: any, connectConfig: any) => {
@@ -720,6 +754,108 @@ const pullSampleDataFromSFTP = async (
         const processFile = async (filePath: string, fileType: string, filename: string) => {
           try {
             console.log(`Processing file: ${filePath}, type: ${fileType}`);
+            
+            // For CSV files, use a streaming approach with limits
+            if (fileType === 'csv') {
+              console.log('Using optimized CSV streaming parser');
+              
+              let headerLine = '';
+              let dataRows: string[] = [];
+              let rowCount = 0;
+              let inHeader = true;
+              let buffer = '';
+              let reachedLimit = false;
+              
+              const stream = sftp.createReadStream(filePath);
+              
+              stream.on('data', (chunk: Buffer) => {
+                if (reachedLimit) return;
+                
+                buffer += chunk.toString('utf8');
+                
+                // Process buffer line by line
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop() || ''; // Keep the last partial line in the buffer
+                
+                for (const line of lines) {
+                  if (line.trim() === '') continue;
+                  
+                  if (inHeader) {
+                    headerLine = line;
+                    inHeader = false;
+                    continue;
+                  }
+                  
+                  if (rowCount < limit) {
+                    dataRows.push(line);
+                    rowCount++;
+                  }
+                  
+                  // If we have enough rows, stop processing
+                  if (rowCount >= limit) {
+                    reachedLimit = true;
+                    stream.close();
+                    break;
+                  }
+                }
+              });
+              
+              stream.on('end', async () => {
+                client.end();
+                console.log(`Finished reading CSV data. Processing ${dataRows.length} rows`);
+                
+                try {
+                  // Parse the header using a proper CSV parsing function
+                  const headers = parseCSVLine(headerLine);
+                  const total = dataRows.length;
+                  
+                  // Parse each row
+                  const parsedData = dataRows.map(line => {
+                    if (!line.trim()) return null;
+                    
+                    const values = parseCSVLine(line);
+                    const row: any = {};
+                    
+                    headers.forEach((header, i) => {
+                      row[header] = i < values.length ? values[i] : '';
+                    });
+                    
+                    return row;
+                  }).filter(row => row !== null);
+                  
+                  resolve({
+                    success: true,
+                    message: `Successfully pulled sample data from ${filename}`,
+                    data: parsedData,
+                    filename: filename,
+                    fileType: fileType,
+                    remote_path: filePath,
+                    total_records: total
+                  });
+                } catch (err: any) {
+                  resolve({
+                    success: false,
+                    message: `Error parsing CSV data: ${err.message}`,
+                    filename: filename,
+                    remote_path: filePath
+                  });
+                }
+              });
+              
+              stream.on('error', (streamErr) => {
+                client.end();
+                resolve({
+                  success: false,
+                  message: `Error reading file: ${streamErr.message}`,
+                  filename: filename,
+                  remote_path: filePath
+                });
+              });
+              
+              return; // Early return for CSV processing
+            }
+            
+            // For other file types, use the original approach
             const chunks: Buffer[] = [];
             let totalLength = 0;
             const stream = sftp.createReadStream(filePath);
@@ -743,35 +879,7 @@ const pullSampleDataFromSFTP = async (
                 let parsedData: any[] = [];
                 let total = 0;
                 
-                if (fileType === 'csv') {
-                  // Basic CSV parsing
-                  const lines = content.split(/\r?\n/);
-                  if (lines.length === 0) {
-                    resolve({ 
-                      success: false, 
-                      message: 'CSV file is empty' 
-                    });
-                    return;
-                  }
-                  
-                  // Assume first row is header
-                  const headers = lines[0].split(',').map(h => h.trim());
-                  total = lines.length - 1;
-                  
-                  // Get data rows (limit to requested amount)
-                  const dataRows = lines.slice(1, Math.min(lines.length, limit + 1));
-                  
-                  parsedData = dataRows.map(line => {
-                    const values = line.split(',').map(v => v.trim());
-                    const row: any = {};
-                    
-                    headers.forEach((header, i) => {
-                      row[header] = values[i] || '';
-                    });
-                    
-                    return row;
-                  });
-                } else if (fileType === 'json') {
+                if (fileType === 'json') {
                   // Parse JSON
                   const jsonData = JSON.parse(content);
                   
