@@ -23,7 +23,8 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ import SampleDataModal from "@/components/data-sources/SampleDataModal";
 import FilePathList from "@/components/data-sources/FilePathList";
 import { pullSampleDataForFile, retryPullWithBackoff } from "@/components/data-sources/PullSampleDataUtils";
 import { RemotePathItem } from "@/components/data-sources/SampleDataModal";
+import { useDataSourceActions } from "@/hooks/useDataSourceActions";
 
 export default function DataSources() {
   const [activeTab, setActiveTab] = useState("all");
@@ -75,6 +77,14 @@ export default function DataSources() {
     { id: uuidv4(), label: 'Default Path', path: '/' }
   ]);
   const [requiresPrivateKey, setRequiresPrivateKey] = useState(false);
+  
+  // For data source actions
+  const [dataSourceToDelete, setDataSourceToDelete] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Use our data source actions hook
+  const dataSourceActions = useDataSourceActions();
 
   // Create default form state
   const [newDataSource, setNewDataSource] = useState({
@@ -932,16 +942,17 @@ export default function DataSources() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleTestConnectionForDataSource(dataSource)}>
                               Test Connection
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePullSampleDataForDataSource(dataSource)}>
                               Pull Sample Data
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleConfigureScheduler(dataSource)}>
                               Configure Scheduler
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDeleteDataSource(dataSource.id)} className="text-red-600">
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
