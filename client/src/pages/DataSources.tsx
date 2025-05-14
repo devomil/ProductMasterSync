@@ -199,14 +199,15 @@ export default function DataSources() {
       }
       
       // Make the API call to test the connection
-      const response = await apiRequest('/api/connections/test', {
+      const response = await fetch('/api/connections/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: newDataSource.type,
           credentials: requestConfig
-        })
-      });
+        }),
+        credentials: 'include'
+      }).then(res => res.json());
       
       // Process and display the results
       setTestConnectionResult({
@@ -515,14 +516,16 @@ export default function DataSources() {
         }
       }
       
-      const response = await apiRequest('/api/datasources', {
+      const response = await fetch('/api/datasources', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newDataSource,
           config: JSON.stringify(configToSubmit),
           supplier_id: parseInt(newDataSource.supplier_id)
-        })
-      });
+        }),
+        credentials: 'include'
+      }).then(res => res.json());
       
       if (response.id) {
         toast({
