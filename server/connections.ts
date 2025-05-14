@@ -652,6 +652,330 @@ export const testConnection = async (req: Request, res: Response) => {
   }
 };
 
+// Function to pull sample product data from SFTP
+export const pullSampleData = async (req: Request, res: Response) => {
+  try {
+    const { type, credentials, supplier_id, limit = 100 } = req.body;
+    
+    if (!type || !credentials) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Connection type and credentials are required' 
+      });
+    }
+    
+    // Validate connection parameters
+    const validation = validateConnectionParams(type, credentials);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: validation.message 
+      });
+    }
+    
+    // Currently only support SFTP sample data pull
+    if (type === 'sftp') {
+      const result = await pullSampleDataFromSFTP(credentials, Number(supplier_id), Number(limit));
+      return res.json(result);
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Sample data pull not implemented for ${type} connection type` 
+      });
+    }
+  } catch (error) {
+    console.error('Error in pullSampleData:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error pulling sample data',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Helper function to pull sample data from SFTP connection
+const pullSampleDataFromSFTP = async (
+  credentials: any, 
+  supplierId: number,
+  limit: number = 100
+): Promise<{ 
+  success: boolean, 
+  message: string, 
+  data?: any[],
+  filename?: string,
+  fileType?: string,
+  remote_path?: string,
+  total_records?: number
+}> => {
+  return new Promise((resolve) => {
+    const client = new SFTPClient();
+    
+    // Set a timeout to avoid hanging connections
+    const timeout = setTimeout(() => {
+      client.end();
+      resolve({ 
+        success: false, 
+        message: 'Connection timed out' 
+      });
+    }, 30000); // 30 seconds timeout
+    
+    // Prepare connection config
+    const connectConfig: any = {
+      host: credentials.host,
+      port: credentials.port || 22,
+      username: credentials.username
+    };
+    
+    // Handle authentication
+    if (credentials.privateKey && credentials.requiresPrivateKey) {
+      connectConfig.privateKey = credentials.privateKey;
+      
+      if (credentials.passphrase) {
+        connectConfig.passphrase = credentials.passphrase;
+      }
+    } else {
+      connectConfig.password = credentials.password;
+    }
+    
+    client.on('ready', () => {
+      clearTimeout(timeout);
+      
+      // Start SFTP session
+      client.sftp((err, sftp) => {
+        if (err) {
+          client.end();
+          resolve({ 
+            success: false, 
+            message: `SFTP session error: ${err.message}` 
+          });
+          return;
+        }
+        
+        // Determine paths to check
+        const pathsToCheck: string[] = [];
+        
+        if (credentials.remoteDir) {
+          pathsToCheck.push(credentials.remoteDir);
+        } else if (Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0) {
+          // Add all specified paths
+          credentials.remote_paths.forEach((pathObj: any) => {
+            pathsToCheck.push(pathObj.path);
+          });
+        } else {
+          // Default to home directory
+          pathsToCheck.push('.');
+        }
+        
+        // Function to check each path and download/process a sample file
+        const processPaths = async (index = 0) => {
+          if (index >= pathsToCheck.length) {
+            client.end();
+            resolve({ 
+              success: false, 
+              message: 'No suitable files found in the specified paths' 
+            });
+            return;
+          }
+          
+          const currentPath = pathsToCheck[index];
+          const dirPath = currentPath.endsWith('.csv') || currentPath.endsWith('.xlsx') || 
+                          currentPath.endsWith('.xls') || currentPath.endsWith('.json') 
+                            ? currentPath.split('/').slice(0, -1).join('/') || '/'
+                            : currentPath;
+          
+          // List the directory
+          sftp.readdir(dirPath, async (err, list) => {
+            if (err) {
+              console.error(`Error reading directory ${dirPath}:`, err.message);
+              // Try next path
+              processPaths(index + 1);
+              return;
+            }
+            
+            // Filter for CSV, Excel or JSON files
+            const files = list.filter(item => {
+              const filename = item.filename.toLowerCase();
+              return item.attrs.isFile() && 
+                    (filename.endsWith('.csv') || 
+                     filename.endsWith('.xlsx') || 
+                     filename.endsWith('.xls') || 
+                     filename.endsWith('.json'));
+            });
+            
+            if (files.length === 0) {
+              // No suitable files, try next path
+              processPaths(index + 1);
+              return;
+            }
+            
+            // Check if we're looking at a specific file
+            let targetFile;
+            if (currentPath.endsWith('.csv') || currentPath.endsWith('.xlsx') || 
+                currentPath.endsWith('.xls') || currentPath.endsWith('.json')) {
+              // Looking for a specific file
+              const filename = currentPath.split('/').pop() || '';
+              targetFile = files.find(f => f.filename.toLowerCase() === filename.toLowerCase());
+              
+              if (!targetFile) {
+                // Specified file not found, try next path
+                processPaths(index + 1);
+                return;
+              }
+            } else {
+              // Choose the first suitable file
+              targetFile = files[0];
+            }
+            
+            // Get remote file path
+            const remoteFilePath = `${dirPath === '/' ? '' : dirPath}/${targetFile.filename}`;
+            const fileType = targetFile.filename.toLowerCase().endsWith('.csv') ? 'csv' :
+                           targetFile.filename.toLowerCase().endsWith('.json') ? 'json' : 'excel';
+            
+            // Create a read stream to the file
+            console.log(`Processing sample data from ${remoteFilePath}`);
+            
+            try {
+              const chunks: Buffer[] = [];
+              let totalLength = 0;
+              const stream = sftp.createReadStream(remoteFilePath);
+              
+              stream.on('data', (chunk: Buffer) => {
+                chunks.push(chunk);
+                totalLength += chunk.length;
+                
+                // Prevent downloading the entire file if it's very large
+                if (totalLength > 5 * 1024 * 1024) { // 5 MB limit
+                  stream.close();
+                }
+              });
+              
+              stream.on('end', async () => {
+                client.end();
+                const content = Buffer.concat(chunks).toString('utf8');
+                
+                // Process the file content based on type
+                try {
+                  let parsedData: any[] = [];
+                  let total = 0;
+                  
+                  if (fileType === 'csv') {
+                    // Basic CSV parsing
+                    const lines = content.split(/\r?\n/);
+                    if (lines.length === 0) {
+                      resolve({ 
+                        success: false, 
+                        message: 'CSV file is empty' 
+                      });
+                      return;
+                    }
+                    
+                    // Assume first row is header
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    total = lines.length - 1;
+                    
+                    // Parse data rows
+                    for (let i = 1; i < lines.length && parsedData.length < limit; i++) {
+                      if (!lines[i].trim()) continue;
+                      
+                      const values = lines[i].split(',').map(v => v.trim());
+                      const row: any = {};
+                      
+                      headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                      });
+                      
+                      parsedData.push(row);
+                    }
+                  } else if (fileType === 'json') {
+                    // Parse JSON
+                    const jsonData = JSON.parse(content);
+                    
+                    if (Array.isArray(jsonData)) {
+                      total = jsonData.length;
+                      parsedData = jsonData.slice(0, limit);
+                    } else if (typeof jsonData === 'object') {
+                      // Find the first array property
+                      for (const key in jsonData) {
+                        if (Array.isArray(jsonData[key])) {
+                          total = jsonData[key].length;
+                          parsedData = jsonData[key].slice(0, limit);
+                          break;
+                        }
+                      }
+                      
+                      if (parsedData.length === 0) {
+                        // No array found, treat the object as a single record
+                        parsedData = [jsonData];
+                        total = 1;
+                      }
+                    }
+                  } else {
+                    // For Excel files, we'd need a more complex parser
+                    resolve({ 
+                      success: true, 
+                      message: 'Excel files cannot be previewed directly. Please download the file and use the file upload feature.',
+                      filename: targetFile.filename,
+                      fileType,
+                      remote_path: remoteFilePath
+                    });
+                    return;
+                  }
+                  
+                  resolve({ 
+                    success: true, 
+                    message: `Successfully pulled sample data from ${remoteFilePath}`,
+                    data: parsedData,
+                    filename: targetFile.filename,
+                    fileType,
+                    remote_path: remoteFilePath,
+                    total_records: total
+                  });
+                } catch (parseError) {
+                  console.error('Error parsing file:', parseError);
+                  resolve({ 
+                    success: false, 
+                    message: `Error parsing file: ${parseError instanceof Error ? parseError.message : String(parseError)}` 
+                  });
+                }
+              });
+              
+              stream.on('error', (err) => {
+                client.end();
+                console.error('Stream error:', err);
+                resolve({ 
+                  success: false, 
+                  message: `Error reading file: ${err.message}` 
+                });
+              });
+            } catch (readError) {
+              client.end();
+              console.error('Error creating read stream:', readError);
+              resolve({ 
+                success: false, 
+                message: `Error creating read stream: ${readError instanceof Error ? readError.message : String(readError)}` 
+              });
+            }
+          });
+        };
+        
+        // Start processing paths
+        processPaths();
+      });
+    });
+    
+    client.on('error', (err) => {
+      clearTimeout(timeout);
+      resolve({ 
+        success: false, 
+        message: `SFTP connection error: ${err.message}` 
+      });
+    });
+    
+    // Connect to the SFTP server
+    client.connect(connectConfig);
+  });
+};
+
 export const registerConnectionsRoutes = (app: any) => {
   app.get('/api/connections', getConnections);
   app.get('/api/connections/:id', getConnection);
@@ -659,4 +983,5 @@ export const registerConnectionsRoutes = (app: any) => {
   app.patch('/api/connections/:id', updateConnection);
   app.delete('/api/connections/:id', deleteConnection);
   app.post('/api/connections/test', testConnection);
+  app.post('/api/connections/sample-data', pullSampleData);
 };
