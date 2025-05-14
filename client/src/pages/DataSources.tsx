@@ -27,14 +27,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-// Interface for remote path items
-interface RemotePathItem {
-  id: string; // used for UI manipulation
-  label: string;
-  path: string;
-  lastPulled?: string; // ISO timestamp of last successful pull
-  lastPullStatus?: 'success' | 'error'; // Status of the last pull attempt
-}
+// Import our new components
+import SampleDataModal from "@/components/data-sources/SampleDataModal";
+import FilePathList from "@/components/data-sources/FilePathList";
+import { pullSampleDataForFile, retryPullWithBackoff } from "@/components/data-sources/PullSampleDataUtils";
+import { RemotePathItem } from "@/components/data-sources/SampleDataModal";
 
 export default function DataSources() {
   const [activeTab, setActiveTab] = useState("all");
@@ -1941,11 +1938,11 @@ export default function DataSources() {
         </DialogContent>
       </Dialog>
     </div>
-
-      {/* Sample Data Modal */}
-      {showSampleDataModal && sampleData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-[90%] max-w-6xl max-h-[90vh] overflow-auto">
+    
+    {/* Sample Data Modal */}
+    {showSampleDataModal && sampleData && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-[90%] max-w-6xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">
                 Sample Data from {sampleData.filename || selectedFilePath?.label}
@@ -2050,5 +2047,6 @@ export default function DataSources() {
           </div>
         </div>
       )}
+    </main>
   );
 }
