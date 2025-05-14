@@ -7,6 +7,20 @@ import { Client as SFTPClient } from 'ssh2';
 import FTP from 'ftp';
 import pg from 'pg';
 
+// Helper to apply environment credentials to server SFTP connections
+const applySFTPCredentials = (credentials: any, connectConfig: any) => {
+  // Use environment variable for password if available and credentials match our expected SFTP server
+  if (process.env.SFTP_PASSWORD && 
+      connectConfig.host === 'edi.cwrdistribution.com' && 
+      connectConfig.username === 'eco8') {
+    console.log('Using SFTP_PASSWORD from environment variables');
+    connectConfig.password = process.env.SFTP_PASSWORD;
+  } else {
+    connectConfig.password = credentials.password;
+  }
+  return connectConfig;
+};
+
 // Helper function to test database connection
 const testDatabaseConnection = async (credentials: any) => {
   const { host, port, username, password, database } = credentials;
