@@ -680,7 +680,7 @@ export default function DataSources() {
       host: hostElement.value,
       port: portElement.value ? parseInt(portElement.value, 10) : 22,
       username: usernameElement.value,
-      remoteDir: pathElement.value || '/',
+      remote_paths: editRemotePaths,
       ...(usesPrivateKey 
         ? { privateKey: privateKeyElement.value }
         : { password: passwordElement.value }
