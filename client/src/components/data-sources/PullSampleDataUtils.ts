@@ -301,8 +301,9 @@ export const retryPullWithBackoff = async (
     }
   }
   
-  // If we've exhausted all retries, return the last error
+  // If we've exhausted all retries, update the toast and return the last error
   toast({
+    id: retryToastId,
     variant: "destructive",
     title: "Retry Failed",
     description: `Failed to retrieve data after ${maxRetries} attempts.`,
