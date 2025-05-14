@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { initializeScheduledJobs } from "./utils/scheduler";
+import { scheduler } from "./utils/scheduler";
 
 const app = express();
 app.use(express.json());
@@ -71,7 +71,7 @@ app.use((req, res, next) => {
     // Initialize scheduled jobs after server is up and running
     if (process.env.AMAZON_SP_API_CLIENT_ID) {
       log('Initializing scheduled jobs for Amazon data sync');
-      initializeScheduledJobs();
+      scheduler.init();
     } else {
       log('Amazon SP-API credentials not found. Skipping scheduled jobs initialization.');
     }
