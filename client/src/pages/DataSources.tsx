@@ -714,6 +714,132 @@ export default function DataSources() {
     }
   };
   
+  // Create a handler for pulling sample data from edit form
+  const handlePullEditSampleData = async () => {
+    // Clear previous sample data
+    setSampleData(null);
+    setIsPullingSampleData(true);
+    
+    // Get all SFTP-related form fields from the edit form
+    const hostElement = document.getElementById('sftp-host-edit') as HTMLInputElement;
+    const portElement = document.getElementById('sftp-port-edit') as HTMLInputElement;
+    const usernameElement = document.getElementById('sftp-username-edit') as HTMLInputElement;
+    const passwordElement = document.getElementById('sftp-password-edit') as HTMLInputElement;
+    const privateKeyElement = document.getElementById('sftp-private-key-edit') as HTMLTextAreaElement;
+    
+    // Validate basic connection info
+    if (!hostElement?.value || !usernameElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all required SFTP connection fields"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Validate remote paths
+    if (editRemotePaths.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "At least one remote path is required"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Check that all paths have valid values
+    const invalidPaths = editRemotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
+    if (invalidPaths.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "All remote paths must have labels and start with /"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Auth validation
+    const usesPrivateKey = editRequiresPrivateKey;
+    if (usesPrivateKey && !privateKeyElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Private key is required when using key authentication"
+      });
+      setIsPullingSampleData(false);
+      return;
+    } else if (!usesPrivateKey && !passwordElement?.value) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Password is required"
+      });
+      setIsPullingSampleData(false);
+      return;
+    }
+    
+    // Prepare credentials
+    const credentials = {
+      host: hostElement.value,
+      port: portElement.value ? parseInt(portElement.value, 10) : 22,
+      username: usernameElement.value,
+      remote_paths: editRemotePaths,
+      requiresPrivateKey: usesPrivateKey,
+      ...(usesPrivateKey 
+        ? { privateKey: privateKeyElement.value }
+        : { password: passwordElement.value }
+      )
+    };
+    
+    try {
+      // Make the request to pull sample data
+      const response = await fetch('/api/connections/sample-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'sftp',
+          credentials,
+          supplier_id: selectedDataSource?.supplierId || 1,
+          limit: 10 // Only pull 10 records for sample
+        }),
+        credentials: 'include',
+      });
+      
+      // Parse the JSON response
+      const result = await response.json();
+      console.log('SFTP sample data pull response (edit form):', result);
+      
+      // Update the state with the result
+      setSampleData(result);
+      
+      // Display appropriate toast based on result
+      if (result.success) {
+        toast({
+          title: "Sample Data Retrieved",
+          description: result.message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Retrieve Sample Data",
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error('Error pulling sample data:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to pull sample data. Please check your connection settings."
+      });
+    } finally {
+      setIsPullingSampleData(false);
+    }
+  };
+  
   const handleTestEditSFTPConnection = async () => {
     setTestConnectionResult(null);
     setIsTestingConnection(true);
@@ -1160,14 +1286,27 @@ export default function DataSources() {
 
                   {/* Test Connection Button */}
                   <div className="mt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      disabled={isTestingConnection}
-                      onClick={handleTestSFTPConnection}
-                    >
-                      {isTestingConnection ? "Testing..." : "Test Connection"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={isTestingConnection}
+                        onClick={handleTestSFTPConnection}
+                      >
+                        {isTestingConnection ? "Testing..." : "Test Connection"}
+                      </Button>
+                      
+                      {testConnectionResult?.success && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          disabled={isPullingSampleData}
+                          onClick={handlePullSampleData}
+                        >
+                          {isPullingSampleData ? "Loading..." : "Pull Sample Data"}
+                        </Button>
+                      )}
+                    </div>
                     
                     {testConnectionResult && (
                       <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
@@ -1193,6 +1332,69 @@ export default function DataSources() {
                           )}
                         </AlertDescription>
                       </Alert>
+                    )}
+                    
+                    {/* Sample Data Display */}
+                    {sampleData && (
+                      <div className="mt-4 border rounded-lg p-4">
+                        <h3 className="text-lg font-medium mb-2">
+                          Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
+                        </h3>
+                        
+                        {sampleData.success ? (
+                          <>
+                            {sampleData.data && sampleData.data.length > 0 ? (
+                              <div className="border rounded-md overflow-auto max-h-60">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      {Object.keys(sampleData.data[0]).map(header => (
+                                        <th key={header} scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          {header}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {sampleData.data.map((row, rowIndex) => (
+                                      <tr key={rowIndex}>
+                                        {Object.values(row).map((value: any, cellIndex) => (
+                                          <td key={cellIndex} className="px-3 py-2 text-xs">
+                                            {value === null || value === undefined 
+                                              ? <span className="text-gray-400">NULL</span> 
+                                              : String(value).substring(0, 100) + (String(value).length > 100 ? '...' : '')}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-muted-foreground">
+                                {sampleData.message || "No sample data available"}
+                              </div>
+                            )}
+                            
+                            {sampleData.total_records && sampleData.total_records > sampleData.data?.length && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Showing {sampleData.data?.length} of {sampleData.total_records} total records.
+                              </div>
+                            )}
+                            
+                            {sampleData.fileType && (
+                              <div className="text-xs text-muted-foreground mt-2">
+                                File Type: {sampleData.fileType} | Path: {sampleData.remote_path || "N/A"}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <Alert variant="destructive">
+                            <AlertTitle>Error Retrieving Sample Data</AlertTitle>
+                            <AlertDescription>{sampleData.message}</AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
                     )}
                   </div>
                 </>
@@ -1446,14 +1648,27 @@ export default function DataSources() {
                           
                           {/* Test Connection Button */}
                           <div className="mt-4">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              disabled={isTestingConnection}
-                              onClick={handleTestEditSFTPConnection}
-                            >
-                              {isTestingConnection ? "Testing..." : "Test Connection"}
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                disabled={isTestingConnection}
+                                onClick={handleTestEditSFTPConnection}
+                              >
+                                {isTestingConnection ? "Testing..." : "Test Connection"}
+                              </Button>
+                              
+                              {testConnectionResult?.success && (
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  disabled={isPullingSampleData}
+                                  onClick={handlePullEditSampleData}
+                                >
+                                  {isPullingSampleData ? "Loading..." : "Pull Sample Data"}
+                                </Button>
+                              )}
+                            </div>
                             
                             {testConnectionResult && (
                               <Alert className="mt-3" variant={testConnectionResult.success ? "default" : "destructive"}>
@@ -1479,6 +1694,69 @@ export default function DataSources() {
                                   )}
                                 </AlertDescription>
                               </Alert>
+                            )}
+                            
+                            {/* Sample Data Display */}
+                            {sampleData && (
+                              <div className="mt-4 border rounded-lg p-4">
+                                <h3 className="text-lg font-medium mb-2">
+                                  Sample Data {sampleData.filename ? `from ${sampleData.filename}` : ''}
+                                </h3>
+                                
+                                {sampleData.success ? (
+                                  <>
+                                    {sampleData.data && sampleData.data.length > 0 ? (
+                                      <div className="border rounded-md overflow-auto max-h-60">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                          <thead className="bg-gray-50">
+                                            <tr>
+                                              {Object.keys(sampleData.data[0]).map(header => (
+                                                <th key={header} scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                  {header}
+                                                </th>
+                                              ))}
+                                            </tr>
+                                          </thead>
+                                          <tbody className="bg-white divide-y divide-gray-200">
+                                            {sampleData.data.map((row, rowIndex) => (
+                                              <tr key={rowIndex}>
+                                                {Object.values(row).map((value: any, cellIndex) => (
+                                                  <td key={cellIndex} className="px-3 py-2 text-xs">
+                                                    {value === null || value === undefined 
+                                                      ? <span className="text-gray-400">NULL</span> 
+                                                      : String(value).substring(0, 100) + (String(value).length > 100 ? '...' : '')}
+                                                  </td>
+                                                ))}
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground">
+                                        {sampleData.message || "No sample data available"}
+                                      </div>
+                                    )}
+                                    
+                                    {sampleData.total_records && sampleData.total_records > sampleData.data?.length && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        Showing {sampleData.data?.length} of {sampleData.total_records} total records.
+                                      </div>
+                                    )}
+                                    
+                                    {sampleData.fileType && (
+                                      <div className="text-xs text-muted-foreground mt-2">
+                                        File Type: {sampleData.fileType} | Path: {sampleData.remote_path || "N/A"}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <Alert variant="destructive">
+                                    <AlertTitle>Error Retrieving Sample Data</AlertTitle>
+                                    <AlertDescription>{sampleData.message}</AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
                             )}
                           </div>
                         </>
