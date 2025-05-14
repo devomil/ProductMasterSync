@@ -82,6 +82,9 @@ export function useDataSourceActions() {
   
   // Function to handle pull sample data for an existing data source
   const handlePullSampleDataForDataSource = async (dataSource: DataSource) => {
+    // Declare progressTimeout at the top level of the function so it's accessible in try/catch/finally
+    let progressTimeout: NodeJS.Timeout | undefined;
+    
     try {
       setIsPullingSampleData(true);
       setSampleData(null);
@@ -105,7 +108,7 @@ export function useDataSourceActions() {
       });
       
       // Set up a timeout to show progress update for long-running requests
-      const progressTimeout = setTimeout(() => {
+      progressTimeout = setTimeout(() => {
         toast({
           title: "Still Processing...",
           description: "The file is large and still being processed. Please continue to wait...",
@@ -151,7 +154,7 @@ export function useDataSourceActions() {
       });
       
       // Clear the progress timeout since we got a response
-      clearTimeout(progressTimeout);
+      if (progressTimeout) clearTimeout(progressTimeout);
       
       // Get the raw response text for debugging
       const responseText = await response.text();
@@ -224,7 +227,7 @@ export function useDataSourceActions() {
       }
     } catch (error) {
       // Clear the progress timeout if still active
-      clearTimeout(progressTimeout);
+      if (progressTimeout) clearTimeout(progressTimeout);
       
       console.error("Sample data pull error:", error);
       setSampleData({
@@ -248,7 +251,7 @@ export function useDataSourceActions() {
       setShowSampleDataModal(true);
     } finally {
       // Clear the progress timeout just to be sure
-      clearTimeout(progressTimeout);
+      if (progressTimeout) clearTimeout(progressTimeout);
       setIsPullingSampleData(false);
     }
   };
