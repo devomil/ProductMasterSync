@@ -700,7 +700,8 @@ export const pullSampleData = async (req: Request, res: Response) => {
 const pullSampleDataFromSFTP = async (
   credentials: any, 
   supplierId: number,
-  limit: number = 100
+  limit: number = 100,
+  remote_path?: string
 ): Promise<{ 
   success: boolean, 
   message: string, 
@@ -710,6 +711,7 @@ const pullSampleDataFromSFTP = async (
   remote_path?: string,
   total_records?: number
 }> => {
+  console.log('SFTP sample data function called with remote_path:', remote_path);
   return new Promise((resolve) => {
     const client = new SFTPClient();
     
@@ -757,7 +759,18 @@ const pullSampleDataFromSFTP = async (
         // Determine paths to check
         const pathsToCheck: string[] = [];
         
-        if (credentials.remoteDir) {
+        // If a specific remote_path is passed as a parameter, use only that one
+        if (remote_path) {
+          console.log('Using specific path from parameter:', remote_path);
+          pathsToCheck.push(remote_path);
+        }
+        // If a specific path is in the credentials (from client)
+        else if (credentials.specific_path) {
+          console.log('Using specific path from credentials:', credentials.specific_path);
+          pathsToCheck.push(credentials.specific_path);
+        }
+        // Otherwise use standard paths from configuration 
+        else if (credentials.remoteDir) {
           pathsToCheck.push(credentials.remoteDir);
         } else if (Array.isArray(credentials.remote_paths) && credentials.remote_paths.length > 0) {
           // Add all specified paths
