@@ -592,10 +592,10 @@ export default function DataSources() {
     const portElement = document.getElementById('sftp-port-edit') as HTMLInputElement;
     const usernameElement = document.getElementById('sftp-username-edit') as HTMLInputElement;
     const passwordElement = document.getElementById('sftp-password-edit') as HTMLInputElement;
-    const pathElement = document.getElementById('sftp-path-edit') as HTMLInputElement;
     const privateKeyElement = document.getElementById('sftp-private-key-edit') as HTMLTextAreaElement;
     
-    if (!hostElement?.value || !usernameElement?.value || !pathElement?.value) {
+    // Validate basic connection info
+    if (!hostElement?.value || !usernameElement?.value) {
       toast({
         variant: "destructive",
         title: "Validation Error",
@@ -604,6 +604,32 @@ export default function DataSources() {
       setIsTestingConnection(false);
       return;
     }
+    
+    // Validate remote paths
+    if (editRemotePaths.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "At least one remote path is required"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    // Check that all paths have valid values
+    const invalidPaths = editRemotePaths.filter(p => !p.label || !p.path || !p.path.startsWith('/'));
+    if (invalidPaths.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "All remote paths must have labels and start with /"
+      });
+      setIsTestingConnection(false);
+      return;
+    }
+    
+    // For testing, we'll use the first path in the list
+    const testPath = editRemotePaths[0].path;
     
     // Determine authentication method
     const usesPrivateKey = editRequiresPrivateKey;
