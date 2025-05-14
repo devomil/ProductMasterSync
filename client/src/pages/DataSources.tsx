@@ -812,8 +812,22 @@ export default function DataSources() {
                   
                   <Button 
                     type="button" 
-                    onClick={() => handlePullSampleData()}
-                    disabled={isPullingSampleData}
+                    onClick={() => {
+                      if (remotePaths && remotePaths.length > 0) {
+                        // If we have paths, use the first one
+                        const firstPath = remotePaths[0];
+                        setSelectedFilePath(firstPath);
+                        handlePullSampleData(firstPath);
+                      } else {
+                        // No paths, show error
+                        toast({
+                          variant: "destructive",
+                          title: "No Path Available",
+                          description: "Please add at least one remote path before pulling sample data."
+                        });
+                      }
+                    }}
+                    disabled={isPullingSampleData || (newDataSource.type === 'sftp' && (!remotePaths || remotePaths.length === 0))}
                     variant="outline"
                     className="w-1/2"
                   >
