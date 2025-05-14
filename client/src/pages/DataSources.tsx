@@ -26,6 +26,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+// Interface for remote path items
+interface RemotePathItem {
+  id: string; // used for UI manipulation
+  label: string;
+  path: string;
+}
+
 export default function DataSources() {
   const [activeTab, setActiveTab] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -36,6 +43,13 @@ export default function DataSources() {
   const [editRequiresPrivateKey, setEditRequiresPrivateKey] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
+  
+  // For handling multiple remote paths
+  const [remotePaths, setRemotePaths] = useState<RemotePathItem[]>([
+    { id: crypto.randomUUID(), label: "Product Catalog", path: "/feeds/products.csv" }
+  ]);
+  const [editRemotePaths, setEditRemotePaths] = useState<RemotePathItem[]>([]);
+  
   
   const { data: dataSources = [], isLoading, error } = useQuery({
     queryKey: ['/api/data-sources'],

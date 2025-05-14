@@ -1,0 +1,87 @@
+ChatGPT said:
+Excellent — here is your Replit-ready prompt to implement support for multiple labeled remote file paths in an SFTP data source. This will make your system more scalable, vendor-friendly, and automation-ready.
+
+🧠 Replit Prompt: Extend SFTP Data Source to Support Multiple Remote File Paths
+🧾 Instruction
+Enhance the SFTP Data Source configuration form and backend to support multiple labeled remote file paths per vendor. Each remote path should be associated with a descriptive label (e.g., “Catalog Feed”, “Inventory Feed”) so users can clearly manage multiple files under one supplier connection.
+
+🎯 UI Requirements
+Update the Add Data Source modal for SFTP Connection type:
+
+1. Replace the single Remote Path input with a dynamic list UI:
+Each entry contains:
+
+Label (e.g., “Product Catalog”, “Inventory File”)
+
+Remote Path (e.g., /feeds/products.csv)
+
+Allow users to:
+
+➕ Add more file paths
+
+🗑️ Remove any path row
+
+Example UI layout:
+
+markdown
+Copy
+Edit
+[Label]              [Path]
+------------------------------
+Product Catalog      /feeds/products.csv
+Inventory            /feeds/inventory.csv
+🧱 Backend Requirements
+Data Model Update:
+
+Store file paths in an array of labeled objects:
+
+json
+Copy
+Edit
+"remote_paths": [
+  {
+    "label": "Product Catalog",
+    "path": "/feeds/products.csv"
+  },
+  {
+    "label": "Inventory",
+    "path": "/feeds/inventory.csv"
+  }
+]
+Validation:
+
+Ensure at least one labeled path is provided
+
+Validate that paths start with / and contain no invalid characters
+
+⚙️ Ingestion Workflow
+Update the ingestion pipeline to:
+
+Loop through remote_paths for each SFTP data source
+
+For each path:
+
+Download file
+
+Match against a configured mapping template (if available)
+
+Log success/failure per file in ingestion logs
+
+Optional:
+
+Allow users to assign mapping templates to each file path (future prompt)
+
+🧪 API Requirements
+Accept remote_paths as part of POST/PUT data source creation/update
+
+Return structured file path objects on GET /data-sources/{id}
+
+✅ Output Expectations
+User-friendly SFTP form supporting multiple labeled paths
+
+Secure and validated backend data structure
+
+Ingestion process supports looping over each path per supplier
+
+Backward-compatible with single-path configurations
+
