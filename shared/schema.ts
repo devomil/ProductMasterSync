@@ -2,6 +2,16 @@ import { pgTable, text, serial, integer, boolean, timestamp, json, uniqueIndex, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Custom types for the application
+export interface ValidationRule {
+  field: string;
+  type: "required" | "type" | "format" | "range" | "enum" | "custom";
+  value?: any;
+  message?: string;
+  errorLevel: "error" | "warning";
+  defaultValue?: any;
+}
+
 // Enums
 export const importStatusEnum = pgEnum('import_status', ['pending', 'processing', 'success', 'error']);
 export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
