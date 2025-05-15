@@ -160,53 +160,7 @@ export default function MappingTemplatesUpdate() {
     setIsFullScreen(fullscreenState);
   };
   
-  // State for field mappings
-  const [fieldMappings, setFieldMappings] = useState<Array<{ sourceField: string; targetField: string }>>([
-    { sourceField: "", targetField: "" }
-  ]);
-  
-  // Functions for managing field mappings
-  const updateFieldMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
-    const updatedMappings = [...fieldMappings];
-    updatedMappings[index][field] = value;
-    setFieldMappings(updatedMappings);
-    
-    // Update mappings in template form
-    const mappingsObj: Record<string, string> = {};
-    updatedMappings.forEach(mapping => {
-      if (mapping.sourceField && mapping.targetField) {
-        mappingsObj[mapping.sourceField] = mapping.targetField;
-      }
-    });
-    
-    setTemplateForm(prev => ({
-      ...prev,
-      mappings: mappingsObj
-    }));
-  };
-  
-  const addMappingRow = () => {
-    setFieldMappings([...fieldMappings, { sourceField: "", targetField: "" }]);
-  };
-  
-  const removeMappingRow = (index: number) => {
-    const updatedMappings = fieldMappings.filter((_, i) => i !== index);
-    setFieldMappings(updatedMappings);
-    
-    // Update mappings in template form
-    const mappingsObj: Record<string, string> = {};
-    updatedMappings.forEach(mapping => {
-      if (mapping.sourceField && mapping.targetField) {
-        mappingsObj[mapping.sourceField] = mapping.targetField;
-      }
-    });
-    
-    setTemplateForm(prev => ({
-      ...prev,
-      mappings: mappingsObj
-    }));
-  };
-  
+  // Add a saveMapping function that resolves immediately (will be used by MappingFieldInterface)
   const saveMapping = async () => {
     // Conversion already handled by updateFieldMapping
     return Promise.resolve();
