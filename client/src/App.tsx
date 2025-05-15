@@ -12,7 +12,7 @@ import Categories from "@/pages/Categories";
 import Suppliers from "@/pages/Suppliers";
 import ApiConfiguration from "@/pages/ApiConfiguration";
 import DataSources from "@/pages/DataSources";
-import MappingTemplates from "@/pages/MappingTemplates";
+import MappingTemplates from "./pages/MappingTemplatesUpdate";
 import Connections from "@/pages/Connections";
 import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
