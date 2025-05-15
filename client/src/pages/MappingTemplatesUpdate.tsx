@@ -943,7 +943,10 @@ export default function MappingTemplatesUpdate() {
                   addMappingRow={addMappingRow}
                   removeMappingRow={removeMappingRow}
                   targetFields={AVAILABLE_TARGET_FIELDS}
-                  saveMapping={handleCreateTemplate}
+                  saveMapping={async () => {
+                    await handleCreateTemplate();
+                    setIsCreateDialogOpen(false);
+                  }}
                 />
               </div>
             </TabsContent>
@@ -1142,7 +1145,10 @@ export default function MappingTemplatesUpdate() {
                   addMappingRow={addMappingRow}
                   removeMappingRow={removeMappingRow}
                   targetFields={AVAILABLE_TARGET_FIELDS}
-                  saveMapping={isCreateDialogOpen ? handleCreateTemplate : handleUpdateTemplate}
+                  saveMapping={async () => {
+                    await handleUpdateTemplate();
+                    setIsEditDialogOpen(false);
+                  }}
                 />
               </div>
             </TabsContent>
@@ -1201,9 +1207,6 @@ export default function MappingTemplatesUpdate() {
           <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
-            </Button>
-            <Button onClick={handleUpdateTemplate}>
-              Update Template
             </Button>
           </DialogFooter>
         </DialogContent>

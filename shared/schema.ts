@@ -213,6 +213,8 @@ export const mappingTemplates = pgTable("mapping_templates", {
   mappings: json("mappings").notNull(), // Array of field mappings
   transformations: json("transformations").default([]), // Array of transformations
   validationRules: json("validation_rules").default([]), // Array of validation rules
+  supplierId: integer("supplier_id").references(() => suppliers.id),
+  fileLabel: text("file_label"), // Label for specific file paths this template applies to
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
