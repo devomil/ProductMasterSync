@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -301,6 +302,48 @@ export default function MappingTemplates() {
     setSampleData(null);
     setSampleHeaders([]);
     setUploadedFileName("");
+  };
+  
+  // Find data source for a template
+  const findDataSourceForTemplate = (template: MappingTemplate) => {
+    if (!template.supplierId) return null;
+    
+    return dataSources.find((ds: DataSource) => 
+      ds.supplierId === template.supplierId && ds.type === 'sftp'
+    );
+  };
+  
+  // Handle processing SFTP ingestion
+  const handleProcessSftp = async () => {
+    if (!selectedTemplate) return;
+    
+    const dataSource = findDataSourceForTemplate(selectedTemplate);
+    if (!dataSource) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No SFTP data source found for this template's supplier"
+      });
+      return;
+    }
+    
+    try {
+      await handleProcessSftpIngestion(
+        dataSource,
+        selectedTemplate.id,
+        selectedRemotePath,
+        deleteAfterProcessing
+      );
+      
+      setShowProcessSftpDialog(false);
+      
+      toast({
+        title: "Processing Started",
+        description: "SFTP ingestion process has been started successfully"
+      });
+    } catch (error) {
+      console.error("Error processing SFTP ingestion:", error);
+    }
   };
 
   // Handle file upload for sample data
@@ -1233,6 +1276,86 @@ export default function MappingTemplates() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Process SFTP Dialog */}
+      <Dialog open={showProcessSftpDialog} onOpenChange={setShowProcessSftpDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Process SFTP Data</DialogTitle>
+            <DialogDescription>
+              Configure SFTP ingestion for template "{selectedTemplate?.name}"
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {(() => {
+              const dataSource = selectedTemplate ? findDataSourceForTemplate(selectedTemplate) : null;
+              
+              if (!dataSource) {
+                return (
+                  <div className="text-destructive">
+                    No SFTP data source found for this template's supplier.
+                  </div>
+                );
+              }
+              
+              // Get remote paths from the data source config
+              const remotePaths = dataSource.config?.remote_paths || [];
+              
+              return (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="remotePath">Select Remote Path</Label>
+                    <Select
+                      value={selectedRemotePath}
+                      onValueChange={setSelectedRemotePath}
+                    >
+                      <SelectTrigger id="remotePath">
+                        <SelectValue placeholder="Select a remote path" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {remotePaths.map((pathItem: RemotePathItem, index: number) => (
+                          <SelectItem key={index} value={pathItem.path}>
+                            {pathItem.label || pathItem.path}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="deleteAfterProcessing"
+                      checked={deleteAfterProcessing}
+                      onCheckedChange={setDeleteAfterProcessing}
+                    />
+                    <Label htmlFor="deleteAfterProcessing">Delete file after processing</Label>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProcessSftpDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleProcessSftp} 
+              disabled={!selectedRemotePath || isProcessingIngestion}
+            >
+              {isProcessingIngestion ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent"></div>
+                  Processing...
+                </>
+              ) : (
+                <>Start Processing</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
