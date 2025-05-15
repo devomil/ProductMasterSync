@@ -54,12 +54,14 @@ export const SchedulerConfigDialog: React.FC<SchedulerConfigDialogProps> = ({
       // Get schedules for this data source
       const fetchSchedules = async () => {
         try {
-          const response = await apiRequest<any[]>(`/api/schedules?dataSourceId=${dataSource.id}`);
+          const response = await apiRequest('GET', `/api/schedules?dataSourceId=${dataSource.id}`);
+          const responseData = await response.json();
+          const schedules = Array.isArray(responseData) ? responseData : [];
           
           // Map remote paths to include schedule info
           const pathsWithSchedules = dataSource.config.remote_paths.map((path: any) => {
             // Find schedule for this path if it exists
-            const schedule = response.find(s => s.remotePath === path.path);
+            const schedule = schedules.find((s: any) => s.remotePath === path.path);
             
             return {
               path: path.path,
@@ -126,16 +128,16 @@ export const SchedulerConfigDialog: React.FC<SchedulerConfigDialogProps> = ({
         
         if (pathSchedule.scheduleId) {
           // Update existing schedule
-          return apiRequest(`/api/schedules/${pathSchedule.scheduleId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(scheduleData)
-          });
+          return apiRequest('PATCH', 
+            `/api/schedules/${pathSchedule.scheduleId}`, 
+            scheduleData
+          );
         } else {
           // Create new schedule
-          return apiRequest('/api/schedules', {
-            method: 'POST',
-            body: JSON.stringify(scheduleData)
-          });
+          return apiRequest('POST',
+            '/api/schedules',
+            scheduleData
+          );
         }
       });
       
@@ -335,13 +337,13 @@ export const SchedulerConfigDialog: React.FC<SchedulerConfigDialogProps> = ({
                         <div className="text-sm mt-1">
                           <span className="font-medium">Frequency:</span> {path.frequency}
                           {path.frequency === 'daily' && (
-                            <span> at {path.hour}:{path.minute.toString().padStart(2, '0')}</span>
+                            <span> at {path.hour || 0}:{(path.minute || 0).toString().padStart(2, '0')}</span>
                           )}
                           {path.frequency === 'weekly' && (
-                            <span> on {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][path.dayOfWeek || 0]} at {path.hour}:{path.minute.toString().padStart(2, '0')}</span>
+                            <span> on {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][path.dayOfWeek || 0]} at {path.hour || 0}:{(path.minute || 0).toString().padStart(2, '0')}</span>
                           )}
                           {path.frequency === 'monthly' && (
-                            <span> on day {path.dayOfMonth} at {path.hour}:{path.minute.toString().padStart(2, '0')}</span>
+                            <span> on day {path.dayOfMonth || 1} at {path.hour || 0}:{(path.minute || 0).toString().padStart(2, '0')}</span>
                           )}
                           {path.frequency === 'custom' && (
                             <span> with CRON expression: {path.customCron}</span>
