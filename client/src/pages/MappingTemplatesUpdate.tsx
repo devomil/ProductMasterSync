@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash, FileUp, Download, Upload } from "lucide-react";
+import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
@@ -141,6 +141,24 @@ export default function MappingTemplatesUpdate() {
   const [isValidationViewOpen, setIsValidationViewOpen] = useState(false);
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  
+  // Toggle full screen mode
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+  };
+  
+  // Add ESC key handler for exiting full screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
   
   // Get data source actions hook
   const { handleProcessSftpIngestion, handleTestPull, isProcessingIngestion, setIsProcessingIngestion } = useDataSourceActions();
@@ -815,13 +833,29 @@ export default function MappingTemplatesUpdate() {
 
       {/* Create Template Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Mapping Template</DialogTitle>
-            <DialogDescription>
-              Define how source data fields map to your internal schema fields.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className={`${isFullScreen ? 'fixed inset-0 w-full h-full z-[9999] p-6 rounded-none flex flex-col max-w-none max-h-none' : 'max-w-4xl max-h-[90vh]'} overflow-y-auto`}>
+          <div className="flex items-center justify-between">
+            <DialogHeader className="flex-1">
+              <DialogTitle>Create Mapping Template</DialogTitle>
+              <DialogDescription>
+                Define how source data fields map to your internal schema fields.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleFullScreen} 
+                className="h-8 w-8 rounded-full p-0"
+                title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
+              >
+                {isFullScreen ? 
+                  <Minimize className="h-4 w-4" /> : 
+                  <Maximize className="h-4 w-4" />
+                }
+              </Button>
+            </div>
+          </div>
 
           <Tabs defaultValue="general">
             <TabsList>
@@ -916,6 +950,18 @@ export default function MappingTemplatesUpdate() {
                   <h3 className="text-lg font-medium">Field Mappings</h3>
                   
                   <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={toggleFullScreen}
+                      title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
+                      className="mr-2"
+                    >
+                      {isFullScreen ? 
+                        <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
+                        <><Maximize className="h-4 w-4 mr-2" /> Fullscreen</>
+                      }
+                    </Button>
+                    
                     {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
                       <Button 
                         variant="outline" 
