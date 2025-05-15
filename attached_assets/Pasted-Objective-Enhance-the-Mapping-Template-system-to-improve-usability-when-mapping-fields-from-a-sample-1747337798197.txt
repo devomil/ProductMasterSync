@@ -1,0 +1,73 @@
+Objective
+Enhance the Mapping Template system to improve usability when mapping fields from a sample file and ensure that the mapping logic is reliably persisted and applied to the full dataset during actual ingestion (e.g., 28,000 products).
+
+✅ 1. Fix the Field Mapping UI Layout
+Current Problem:
+When I pull in a sample file (e.g., 50 products), the screen becomes cluttered
+
+The field mapping interface becomes too tall and is not scrollable or collapsible
+
+This makes it hard to match source fields to internal schema fields
+
+What to Do:
+Make the field mapping UI scrollable within the modal or pane
+
+Add the following enhancements:
+
+Limit initial sample preview to 5 rows with a “Show more” toggle
+
+Make mapping rows collapsible or paginated
+
+Allow columns to auto-align side-by-side instead of stacking vertically
+
+Add a sticky header for the sample preview so users can match values easily
+
+✅ 2. Save the Mapping Template Properly
+Current Problem:
+After pulling sample data and mapping fields, there is no confirmation that mappings are saved
+
+Mappings do not automatically apply to the main ingestion job
+
+What to Do:
+On “Create Template”, store the mapping as a reusable object:
+
+json
+Copy
+Edit
+{
+  "supplier_id": "CWR",
+  "file_label": "Catalog",
+  "mappings": {
+    "CWR Part Number": "sku",
+    "Manufacturer Part Number": "mfg_part_number",
+    "UPC Code": "upc",
+    "Quantity Available to Ship (Combined)": "stock_total"
+  }
+}
+Show a confirmation toast: ✅ “Mapping template saved and ready for ingestion”
+
+✅ 3. Ensure Mapping Is Applied in Full File Ingest
+Requirements:
+When I later trigger a full data import (e.g., from the catalog.csv on SFTP), the system should:
+
+Detect existing mapping template based on:
+
+Supplier + file label or path
+
+Apply the saved mapping to the raw file headers
+
+Normalize and ingest into the master_catalog using mapped fields
+
+Optional Improvements:
+Show a banner: “Using mapping template: Catalog - CWR”
+
+Allow override/edit of the mapping during ingest (future)
+
+✅ Output Expectations
+A clean, scrollable field mapping UI
+
+Mapping templates persist and are listed under "Mapping Templates"
+
+Full ingestion uses saved templates automatically
+
+Error logging if field mapping fails (e.g., missing headers)
