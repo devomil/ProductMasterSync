@@ -7,6 +7,7 @@ import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from 
 import { cn } from "@/lib/utils";
 import { FullscreenButton, FullscreenActionButton } from "@/components/ui/fullscreen-button";
 import MappingFieldInterface from "@/components/mapping/MappingFieldInterface";
+import FullscreenMapping from "@/components/mapping/FullscreenMapping";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
@@ -136,6 +137,7 @@ export default function MappingTemplatesUpdate() {
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isFullScreenMappingOpen, setIsFullScreenMappingOpen] = useState(false);
   
   // Target fields for product mapping
   const targetFields = [
@@ -945,6 +947,14 @@ export default function MappingTemplatesUpdate() {
                   <h3 className="text-lg font-medium">Field Mappings</h3>
                   
                   <div className="flex items-center space-x-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => sampleData && sampleData.length > 0 && setIsFullScreenMappingOpen(true)}
+                      disabled={!sampleData || sampleData.length === 0}
+                    >
+                      <Maximize className="h-4 w-4 mr-2" />
+                      Open Full Mapping
+                    </Button>
                     <FullscreenActionButton onToggle={handleFullScreenToggle} className="mr-2" />
                     {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
                       <Button 
@@ -1487,6 +1497,22 @@ export default function MappingTemplatesUpdate() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Fullscreen Mapping Component */}
+      <FullscreenMapping
+        isOpen={isFullScreenMappingOpen}
+        onOpenChange={setIsFullScreenMappingOpen}
+        title="Field Mapping"
+        description="Map source fields to your internal schema fields"
+        sampleData={sampleData || []}
+        sampleHeaders={sampleHeaders}
+        fieldMappings={fieldMappings}
+        updateFieldMapping={updateFieldMapping}
+        addMappingRow={addMappingRow}
+        removeMappingRow={removeMappingRow}
+        targetFields={targetFields}
+        saveMapping={saveMapping}
+      />
     </div>
   );
 }
