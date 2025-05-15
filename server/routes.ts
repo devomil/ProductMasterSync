@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { z } from "zod";
 import { 
   insertProductSchema, 
@@ -10,9 +11,13 @@ import {
   insertExportSchema,
   insertApprovalSchema,
   insertDataSourceSchema,
-  insertMappingTemplateSchema
+  insertMappingTemplateSchema,
+  schedules,
+  dataSources
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import marketplaceRoutes from "./marketplace/routes";
+import schedulerRoutes from './routes/scheduler';
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1302,6 +1307,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register marketplace routes
   app.use("/api/marketplace", marketplaceRoutes);
+  
+  // Direct implementation of scheduling routes until we fix the module structure
+  
+  // Utility function to handle errors
+  const handleError = (res: Response, error: any) => {
+    console.error('API Error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message || 'Unknown error occurred'
+    });
+  };
+  
+  // Get all schedules for a data source
+  app.get("/api/schedules", async (req, res) => {
+    try {
+      const dataSourceId = req.query.dataSourceId ? Number(req.query.dataSourceId) : undefined;
+      
+      // If dataSourceId is provided, filter by it
+      const results = dataSourceId 
+        ? await db.select().from(schedules).where(eq(schedules.dataSourceId, dataSourceId))
+        : await db.select().from(schedules);
+      
+      res.json(results);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  // Create a new schedule
+  app.post("/api/schedules", async (req, res) => {
+    try {
+      const { 
+        dataSourceId, remotePath, pathLabel, frequency,
+        hour, minute, dayOfWeek, dayOfMonth, customCron,
+        startDate, endDate 
+      } = req.body;
+      
+      // Simple validation
+      if (!dataSourceId || !frequency) {
+        return res.status(400).json({ 
+          error: 'Invalid schedule data', 
+          details: 'dataSourceId and frequency are required' 
+        });
+      }
+      
+      // Verify data source exists
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+      
+      if (!dataSource) {
+        return res.status(404).json({ error: 'Data source not found' });
+      }
+      
+      // Calculate next run time (simplified)
+      const nextRun = new Date();
+      nextRun.setDate(nextRun.getDate() + 1); // Default to tomorrow
+      
+      const [created] = await db
+        .insert(schedules)
+        .values({
+          dataSourceId,
+          remotePath,
+          pathLabel,
+          frequency,
+          hour: hour || 0,
+          minute: minute || 0,
+          dayOfWeek: dayOfWeek || null,
+          dayOfMonth: dayOfMonth || null,
+          customCron: customCron || null,
+          startDate: startDate ? new Date(startDate) : null,
+          endDate: endDate ? new Date(endDate) : null,
+          nextRun
+        })
+        .returning();
+      
+      res.status(201).json(created);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  // Update an existing schedule
+  app.patch("/api/schedules/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { 
+        dataSourceId, remotePath, pathLabel, frequency,
+        hour, minute, dayOfWeek, dayOfMonth, customCron,
+        startDate, endDate 
+      } = req.body;
+      
+      // Verify schedule exists
+      const [existingSchedule] = await db
+        .select()
+        .from(schedules)
+        .where(eq(schedules.id, id));
+      
+      if (!existingSchedule) {
+        return res.status(404).json({ error: 'Schedule not found' });
+      }
+      
+      // Calculate next run time (simplified)
+      const nextRun = new Date();
+      nextRun.setDate(nextRun.getDate() + 1); // Default to tomorrow
+      
+      const [updated] = await db
+        .update(schedules)
+        .set({
+          dataSourceId: dataSourceId || existingSchedule.dataSourceId,
+          remotePath: remotePath !== undefined ? remotePath : existingSchedule.remotePath,
+          pathLabel: pathLabel !== undefined ? pathLabel : existingSchedule.pathLabel,
+          frequency: frequency || existingSchedule.frequency,
+          hour: hour !== undefined ? hour : existingSchedule.hour,
+          minute: minute !== undefined ? minute : existingSchedule.minute,
+          dayOfWeek: dayOfWeek !== undefined ? dayOfWeek : existingSchedule.dayOfWeek,
+          dayOfMonth: dayOfMonth !== undefined ? dayOfMonth : existingSchedule.dayOfMonth,
+          customCron: customCron !== undefined ? customCron : existingSchedule.customCron,
+          startDate: startDate ? new Date(startDate) : existingSchedule.startDate,
+          endDate: endDate ? new Date(endDate) : existingSchedule.endDate,
+          nextRun,
+          updatedAt: new Date()
+        })
+        .where(eq(schedules.id, id))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+  
+  // Delete a schedule
+  app.delete("/api/schedules/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      
+      // Verify schedule exists
+      const [existingSchedule] = await db
+        .select()
+        .from(schedules)
+        .where(eq(schedules.id, id));
+      
+      if (!existingSchedule) {
+        return res.status(404).json({ error: 'Schedule not found' });
+      }
+      
+      await db
+        .delete(schedules)
+        .where(eq(schedules.id, id));
+      
+      res.status(204).send();
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
   
   // Register connections management routes
   // Register connections routes directly
