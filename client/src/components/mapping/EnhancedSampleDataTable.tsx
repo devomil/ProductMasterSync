@@ -15,6 +15,8 @@ interface EnhancedSampleDataTableProps {
   maxRows?: number;
   maxHeight?: string;
   showInstructions?: boolean;
+  highlightedColumn?: string | null;
+  selectedColumn?: string | null;
 }
 
 // Helper function to detect data type
@@ -91,7 +93,9 @@ export default function EnhancedSampleDataTable({
   sampleData,
   maxRows = 10,
   maxHeight = '400px',
-  showInstructions = true
+  showInstructions = true,
+  highlightedColumn = null,
+  selectedColumn = null
 }: EnhancedSampleDataTableProps) {
   const [showTypeLabels, setShowTypeLabels] = useState(true);
   
@@ -154,7 +158,14 @@ export default function EnhancedSampleDataTable({
             <TableHeader className="bg-slate-50 sticky top-0">
               <TableRow>
                 {headers.map(header => (
-                  <TableHead key={header} className="relative whitespace-nowrap">
+                  <TableHead 
+                    key={header} 
+                    className={`
+                      relative whitespace-nowrap
+                      ${header === highlightedColumn ? 'bg-blue-100' : ''}
+                      ${header === selectedColumn ? 'bg-blue-200' : ''}
+                    `}
+                  >
                     <div className="flex flex-col">
                       <span>{header}</span>
                       {showTypeLabels && (
@@ -181,7 +192,12 @@ export default function EnhancedSampleDataTable({
                     return (
                       <TableCell 
                         key={`${rowIndex}-${header}`}
-                        className={`whitespace-nowrap ${type === 'null' ? 'text-gray-400 italic' : ''}`}
+                        className={`
+                          whitespace-nowrap 
+                          ${type === 'null' ? 'text-gray-400 italic' : ''}
+                          ${header === highlightedColumn ? 'bg-blue-100' : ''}
+                          ${header === selectedColumn ? 'bg-blue-200' : ''}
+                        `}
                       >
                         {displayValue}
                       </TableCell>
