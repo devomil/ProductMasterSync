@@ -127,7 +127,7 @@ const AVAILABLE_TARGET_FIELDS = [
 
 export default function MappingTemplatesUpdate() {
   // Hooks
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   
   // State for template list
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

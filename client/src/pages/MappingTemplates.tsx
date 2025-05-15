@@ -632,7 +632,7 @@ export default function MappingTemplates() {
           <h1 className="text-3xl font-bold">Mapping Templates</h1>
           <p className="text-gray-500">Manage field mappings between supplier data and internal schema</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => navigate('/mapping-templates/new')}>
           <Plus className="mr-2 h-4 w-4" /> Create New Template
         </Button>
       </div>
