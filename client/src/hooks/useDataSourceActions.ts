@@ -349,9 +349,8 @@ export function useDataSourceActions() {
     remotePath: string,
     deleteAfterProcessing: boolean = false
   ) => {
-    const [isProcessing, setIsProcessing] = useState(false);
     try {
-      setIsProcessing(true);
+      setIsProcessingIngestion(true);
       
       const response = await fetch('/api/mapping-templates/process-sftp', {
         method: 'POST',
@@ -389,7 +388,7 @@ export function useDataSourceActions() {
       
       throw error;
     } finally {
-      setIsProcessing(false);
+      setIsProcessingIngestion(false);
     }
   };
 
@@ -433,6 +432,7 @@ export function useDataSourceActions() {
     // States
     isTestingConnection,
     isPullingSampleData,
+    isProcessingIngestion,
     sampleData,
     showSampleDataModal,
     showPathSelector,
@@ -446,6 +446,7 @@ export function useDataSourceActions() {
     // Setters
     setIsTestingConnection,
     setIsPullingSampleData,
+    setIsProcessingIngestion,
     setSampleData,
     setShowSampleDataModal,
     setShowPathSelector,
@@ -460,6 +461,7 @@ export function useDataSourceActions() {
     handleTestConnectionForDataSource,
     handlePullSampleDataForDataSource,
     processPullSampleDataForPath,
+    handleProcessSftpIngestion,
     handleDeleteDataSource,
     handleConfigureScheduler,
     handleConfirmDelete

@@ -610,6 +610,18 @@ export default function MappingTemplates() {
                               >
                                 <Trash className="h-4 w-4 mr-1" /> Delete
                               </Button>
+                              {template.sourceType === 'sftp' && supplier && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedTemplate(template);
+                                    setShowProcessSftpDialog(true);
+                                  }}
+                                >
+                                  <Upload className="h-4 w-4 mr-1" /> Process SFTP
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
