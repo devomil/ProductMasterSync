@@ -347,6 +347,11 @@ export default function MappingTemplateWorkspace() {
         
         // Auto-map fields if headers match target fields
         const autoMappings = autoMapFields(Object.keys(data.sample_data[0]));
+        
+        // After data and mappings are set, generate preview
+        setTimeout(() => {
+          setPreviewData(generateMappingPreview());
+        }, 100);
         if (autoMappings.length > 0) {
           setFieldMappings(autoMappings);
         }
@@ -371,15 +376,65 @@ export default function MappingTemplateWorkspace() {
   };
   
   // Function to update field mapping
+  // Generate a preview of mapped data
+  const generateMappingPreview = () => {
+    if (!sampleData || sampleData.length === 0) return null;
+    
+    // Create a mapping object from field mappings
+    const mappingObj: Record<string, string> = {};
+    fieldMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingObj[mapping.sourceField] = mapping.targetField;
+      }
+    });
+    
+    // Take the first row of sample data and map it to target fields
+    const firstRow = sampleData[0];
+    const preview: Record<string, any> = {};
+    
+    // Initialize all target fields with null
+    targetFields.forEach(field => {
+      preview[field.id] = null;
+    });
+    
+    // Apply mappings
+    Object.entries(firstRow).forEach(([key, value]) => {
+      if (mappingObj[key]) {
+        preview[mappingObj[key]] = value;
+      }
+    });
+    
+    return preview;
+  };
+
   const updateFieldMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
     const newMappings = [...fieldMappings];
     newMappings[index][field] = value;
     setFieldMappings(newMappings);
+    
+    // Create a mapping object for the form
+    const mappingObj: Record<string, string> = {};
+    newMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingObj[mapping.sourceField] = mapping.targetField;
+      }
+    });
+    
+    // Update the template form with new mappings
+    setTemplateForm({
+      ...templateForm,
+      mappings: mappingObj
+    });
+    
+    // Update the preview data
+    setPreviewData(generateMappingPreview());
   };
   
   // Function to add a new mapping row
   const addMappingRow = () => {
-    setFieldMappings([...fieldMappings, { sourceField: "", targetField: "" }]);
+    const newMappings = [...fieldMappings, { sourceField: "", targetField: "" }];
+    setFieldMappings(newMappings);
+    // No need to update mappingObj or preview since the new row is empty
   };
   
   // Function to remove a mapping row
@@ -387,6 +442,23 @@ export default function MappingTemplateWorkspace() {
     if (fieldMappings.length <= 1) return;
     const newMappings = fieldMappings.filter((_, i) => i !== index);
     setFieldMappings(newMappings);
+    
+    // Create a mapping object for the form
+    const mappingObj: Record<string, string> = {};
+    newMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingObj[mapping.sourceField] = mapping.targetField;
+      }
+    });
+    
+    // Update the template form with new mappings
+    setTemplateForm({
+      ...templateForm,
+      mappings: mappingObj
+    });
+    
+    // Update the preview data
+    setPreviewData(generateMappingPreview());
   };
   
   // Convert field mappings to mappings object
