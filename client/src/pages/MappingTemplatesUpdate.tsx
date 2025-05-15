@@ -4,8 +4,8 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
-import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import { cn } from "@/lib/utils";
+import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
   DialogContent,
@@ -150,6 +150,20 @@ export default function MappingTemplatesUpdate() {
   };
   
   // Add ESC key handler for exiting full screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
+    setIsFullScreen(!isFullScreen);
+  };
+  
+  // Handle ESC key to exit fullscreen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullScreen) {
