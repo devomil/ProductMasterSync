@@ -815,28 +815,17 @@ export default function MappingTemplateWorkspace() {
                 <CardContent className="py-4">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" onClick={() => setShowSidebar(!showSidebar)}>
-                        {showSidebar ? <PanelLeftOpen className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                        {showSidebar ? "Hide Sidebar" : "Show Sidebar"}
-                      </Button>
-                      
                       <Button
                         variant="outline"
                         onClick={() => setExpandedPreview(!expandedPreview)}
                       >
-                        {expandedPreview ? "Collapse Preview" : "Expand Preview"}
+                        {expandedPreview ? 
+                          <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
+                          <><Maximize className="h-4 w-4 mr-2" /> Fullscreen Mode</>
+                        }
                       </Button>
                       
                       <div className="flex items-center gap-4 ml-4">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id="show-mapped"
-                            checked={showOnlyMapped}
-                            onCheckedChange={setShowOnlyMapped}
-                          />
-                          <Label htmlFor="show-mapped">Show only mapped fields</Label>
-                        </div>
-                        
                         <div className="flex items-center gap-2">
                           <Switch
                             id="collapse-unmapped"
