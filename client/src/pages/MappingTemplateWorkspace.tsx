@@ -431,7 +431,7 @@ export default function MappingTemplateWorkspace() {
   // Function to update field mapping
   // Generate a preview of mapped data
   const generateMappingPreview = () => {
-    if (!sampleData || sampleData.length === 0) return null;
+    if (!sampleData || sampleData.length === 0) return [];
     
     // Create a mapping object from field mappings
     const mappingObj: Record<string, string> = {};
