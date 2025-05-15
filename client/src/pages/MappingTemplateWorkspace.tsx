@@ -16,6 +16,7 @@ import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Downl
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import MappingManagerWrapper from "@/components/mapping/MappingManagerWrapper";
+import EnhancedMappingInterface from "@/components/mapping/EnhancedMappingInterface";
 
 // View Toggle Component for Enhanced/Simple view
 interface ViewToggleProps {
@@ -672,15 +673,31 @@ export default function MappingTemplateWorkspace() {
 
               {/* Enhanced mapping interface */}
               {sampleData.length > 0 ? (
-                <MappingManagerWrapper
-                  sampleData={sampleData}
-                  sampleHeaders={sampleHeaders}
-                  fieldMappings={fieldMappings}
-                  targetFields={targetFields}
-                  onUpdateMappings={setFieldMappings}
-                  expandedPreview={expandedPreview}
-                  maxPreviewRows={rowCount}
-                />
+                displayEnhanced ? (
+                  <EnhancedMappingInterface
+                    sampleData={sampleData}
+                    sampleHeaders={sampleHeaders}
+                    fieldMappings={fieldMappings}
+                    targetFields={targetFields}
+                    onUpdateMappings={setFieldMappings}
+                    onAutoMap={() => {
+                      const autoMappings = autoMapFields(sampleHeaders);
+                      setFieldMappings(autoMappings);
+                    }}
+                    maxPreviewRows={rowCount}
+                    isFullscreen={expandedPreview}
+                  />
+                ) : (
+                  <MappingManagerWrapper
+                    sampleData={sampleData}
+                    sampleHeaders={sampleHeaders}
+                    fieldMappings={fieldMappings}
+                    targetFields={targetFields}
+                    onUpdateMappings={setFieldMappings}
+                    expandedPreview={expandedPreview}
+                    maxPreviewRows={rowCount}
+                  />
+                )
               ) : (
                 <div className="p-8 text-center">
                   <div className="mb-4 text-muted-foreground">
