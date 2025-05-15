@@ -1,114 +1,204 @@
-import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+import { useState, useMemo } from 'react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Info } from 'lucide-react';
 
 interface EnhancedSampleDataTableProps {
   sampleData: any[];
-  maxHeight?: string;
   maxRows?: number;
+  maxHeight?: string;
   showInstructions?: boolean;
 }
 
-const EnhancedSampleDataTable: React.FC<EnhancedSampleDataTableProps> = ({ 
-  sampleData,
-  maxHeight = '400px',
-  maxRows = 10,
-  showInstructions = true
-}) => {
-  if (!sampleData || sampleData.length === 0) {
-    return null;
+// Helper function to detect data type
+const detectDataType = (value: any): string => {
+  if (value === null || value === undefined || value === '') {
+    return 'null';
   }
-
-  const headers = Object.keys(sampleData[0]);
-  const displayRows = sampleData.slice(0, maxRows);
-
-  // Helper to get value type to colorize cells
-  const getCellTypeClass = (value: any) => {
-    if (value === null || value === undefined || value === '') {
-      return 'text-gray-400 italic';
+  
+  if (typeof value === 'number') {
+    return 'number';
+  }
+  
+  if (typeof value === 'boolean') {
+    return 'boolean';
+  }
+  
+  // Check for ISO date format
+  if (typeof value === 'string') {
+    // Date detection - ISO date format check
+    if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}Z?)?$/.test(value)) {
+      return 'date';
     }
-    if (typeof value === 'number') {
-      return 'text-blue-700';
+    
+    // Numeric strings
+    if (!isNaN(Number(value)) && value.trim() !== '') {
+      return 'number';
     }
-    if (typeof value === 'boolean') {
-      return 'text-purple-700 font-medium';
+    
+    // Boolean strings
+    if (['true', 'false', 'yes', 'no'].includes(value.toLowerCase())) {
+      return 'boolean';
     }
-    if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}|^\d{2}\/\d{2}\/\d{4}/)) {
-      return 'text-green-700';
-    }
-    return '';
-  };
-
-  return (
-    <>
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-md font-medium">Sample Data Preview</h3>
-        <div className="text-sm text-muted-foreground">
-          Showing {Math.min(sampleData.length, maxRows)} of {sampleData.length} rows
-        </div>
-      </div>
-      
-      <div className="border rounded-md overflow-auto mb-6" style={{ maxHeight }}>
-        <Table className="min-w-full table-fixed">
-          <TableHeader className="sticky top-0 bg-slate-50 z-10">
-            <TableRow>
-              {headers.map((header) => (
-                <TableHead 
-                  key={header} 
-                  className="font-bold text-black bg-slate-100 whitespace-nowrap px-4 py-3 min-w-[150px]"
-                >
-                  {header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {displayRows.map((row, index) => (
-              <TableRow key={index} className={index % 2 === 0 ? "bg-white" : "bg-slate-50 hover:bg-gray-100"}>
-                {headers.map((header, i) => {
-                  const cellValue = row[header];
-                  const typeClass = getCellTypeClass(cellValue);
-                  
-                  return (
-                    <TableCell 
-                      key={`${index}-${i}`} 
-                      className={`px-4 py-3 border-b whitespace-nowrap overflow-hidden text-ellipsis ${typeClass}`}
-                      title={cellValue !== undefined && cellValue !== null ? String(cellValue) : ''}
-                    >
-                      {cellValue !== undefined && cellValue !== null ? String(cellValue) : '—'}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      
-      {showInstructions && (
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
-          <h4 className="font-medium text-amber-800 mb-2 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            Field Mapping Instructions
-          </h4>
-          <p className="text-sm text-amber-700">
-            Map each source field (from your data) to a target field (in your system). 
-            Use the dropdown selectors below to create these mappings.
-          </p>
-        </div>
-      )}
-    </>
-  );
+  }
+  
+  return 'string';
 };
 
-export default EnhancedSampleDataTable;
+// Helper function to get color based on data type
+const getTypeColor = (type: string): string => {
+  switch (type) {
+    case 'number':
+      return 'bg-blue-50 text-blue-700';
+    case 'string':
+      return 'bg-green-50 text-green-700';
+    case 'boolean':
+      return 'bg-purple-50 text-purple-700';
+    case 'date':
+      return 'bg-amber-50 text-amber-700';
+    case 'null':
+      return 'bg-gray-50 text-gray-500';
+    default:
+      return 'bg-slate-50 text-slate-700';
+  }
+};
+
+// Helper function to format value for display
+const formatValue = (value: any): string => {
+  if (value === null || value === undefined) {
+    return '(empty)';
+  }
+  
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return String(value);
+    }
+  }
+  
+  return String(value);
+};
+
+export default function EnhancedSampleDataTable({
+  sampleData,
+  maxRows = 10,
+  maxHeight = '400px',
+  showInstructions = true
+}: EnhancedSampleDataTableProps) {
+  const [showTypeLabels, setShowTypeLabels] = useState(true);
+  
+  // Early return if no data
+  if (!sampleData || sampleData.length === 0) {
+    return (
+      <div className="text-center p-6 bg-slate-50 rounded-md">
+        <p className="text-slate-600">No sample data available</p>
+        <p className="text-sm text-slate-400 mt-1">
+          Upload a sample file to view data
+        </p>
+      </div>
+    );
+  }
+  
+  // Get headers once
+  const headers = Object.keys(sampleData[0]);
+  
+  // Determine column types using all rows (more accurate)
+  const columnTypes = useMemo(() => {
+    return headers.reduce((acc, header) => {
+      // Examine values across all rows to determine most likely type
+      const types = sampleData.map(row => detectDataType(row[header]));
+      
+      // Get most common type
+      const typeCounts: Record<string, number> = {};
+      let maxCount = 0;
+      let dominantType = 'string'; // Default
+      
+      types.forEach(type => {
+        if (!typeCounts[type]) typeCounts[type] = 0;
+        typeCounts[type]++;
+        
+        if (typeCounts[type] > maxCount) {
+          maxCount = typeCounts[type];
+          dominantType = type;
+        }
+      });
+      
+      acc[header] = dominantType;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [sampleData, headers]);
+  
+  // Limit rows for performance
+  const limitedData = sampleData.slice(0, maxRows);
+  
+  return (
+    <div className="space-y-2">
+      {showInstructions && (
+        <div className="flex items-center text-xs text-slate-500 mb-2">
+          <Info className="h-3 w-3 mr-1" />
+          <span>Data types are auto-detected and color-coded for easier mapping</span>
+        </div>
+      )}
+      
+      <div className="border rounded-md overflow-hidden">
+        <div style={{ maxHeight, overflowY: 'auto' }} className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-50 sticky top-0">
+              <TableRow>
+                {headers.map(header => (
+                  <TableHead key={header} className="relative whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>{header}</span>
+                      {showTypeLabels && (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-[10px] font-normal mt-1 py-0 px-1 ${getTypeColor(columnTypes[header])}`}
+                        >
+                          {columnTypes[header]}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {limitedData.map((row, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {headers.map(header => {
+                    const value = row[header];
+                    const type = detectDataType(value);
+                    const displayValue = formatValue(value);
+                    
+                    return (
+                      <TableCell 
+                        key={`${rowIndex}-${header}`}
+                        className={`whitespace-nowrap ${type === 'null' ? 'text-gray-400 italic' : ''}`}
+                      >
+                        {displayValue}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+      
+      {sampleData.length > maxRows && (
+        <div className="text-xs text-center text-slate-500">
+          Showing {maxRows} of {sampleData.length} rows
+        </div>
+      )}
+    </div>
+  );
+}
