@@ -148,7 +148,11 @@ export default function MappingTemplates() {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setTemplateForm({ ...templateForm, [name]: value });
+    if (name === "supplierId" && value === "none") {
+      setTemplateForm({ ...templateForm, [name]: "" });
+    } else {
+      setTemplateForm({ ...templateForm, [name]: value });
+    }
   };
 
   // Add a new field mapping row
@@ -357,8 +361,8 @@ export default function MappingTemplates() {
         sourceType: templateForm.sourceType,
         mappings: templateForm.mappings,
         transformations: [],
-        validationRules: [],
-        supplierId: templateForm.supplierId ? parseInt(templateForm.supplierId) : null,
+        validationRules: templateForm.validationRules,
+        supplierId: templateForm.supplierId && templateForm.supplierId !== "none" ? parseInt(templateForm.supplierId) : null,
         fileLabel: templateForm.fileLabel || null
       };
 
@@ -417,8 +421,8 @@ export default function MappingTemplates() {
         sourceType: templateForm.sourceType,
         mappings: templateForm.mappings,
         transformations: selectedTemplate.transformations || [],
-        validationRules: selectedTemplate.validationRules || [],
-        supplierId: templateForm.supplierId ? parseInt(templateForm.supplierId) : null,
+        validationRules: templateForm.validationRules,
+        supplierId: templateForm.supplierId && templateForm.supplierId !== "none" ? parseInt(templateForm.supplierId) : null,
         fileLabel: templateForm.fileLabel || null
       };
 
