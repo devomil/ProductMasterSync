@@ -874,7 +874,7 @@ export default function MappingTemplatesUpdate() {
                               </SelectItem>
                             ))
                           ) : (
-                            <SelectItem value="" disabled>
+                            <SelectItem value="no_headers" disabled>
                               Upload a sample file or enter manually
                             </SelectItem>
                           )}
