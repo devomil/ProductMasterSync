@@ -977,6 +977,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Test pull data from a data source
+  app.post("/api/data-sources/:id/test-pull", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { remotePath, limit = 50 } = req.body;
+      
+      // Check if data source exists
+      const dataSource = await storage.getDataSource(id);
+      
+      if (!dataSource) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Data source not found" 
+        });
+      }
+      
+      // For now, return sample data as a placeholder
+      // In a real implementation, you would connect to the data source and fetch data
+      const sampleData = [
+        { sku: "ABC123", name: "Test Product 1", price: "19.99", inventory: "100" },
+        { sku: "DEF456", name: "Test Product 2", price: "29.99", inventory: "50" },
+        { sku: "GHI789", name: "Test Product 3", price: "39.99", inventory: "75" }
+      ];
+      
+      // Log info for debugging
+      console.log(`Test pull request for data source ${id}, path: ${remotePath}`);
+      
+      res.json({
+        success: true,
+        message: "Sample data retrieved successfully",
+        sample_data: sampleData,
+        remote_path: remotePath,
+        total_records: sampleData.length
+      });
+    } catch (error) {
+      console.error("Error in test-pull:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to pull test data"
+      });
+    }
+  });
+  
   // Mapping Templates API
   app.get("/api/mapping-templates", async (req, res) => {
     try {
