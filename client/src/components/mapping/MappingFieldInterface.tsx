@@ -41,6 +41,7 @@ export default function MappingFieldInterface({
   const [expandedPanel, setExpandedPanel] = useState<'sample' | 'mapping' | 'both'>('both');
   const [isSaving, setIsSaving] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'enhanced'>('enhanced');
 
   // Get required fields from target fields
   const requiredFields = targetFields.filter(field => field.required).map(field => field.id);
@@ -173,12 +174,65 @@ export default function MappingFieldInterface({
         <CollapsibleContent className="p-4">
           {sampleData && sampleData.length > 0 ? (
             <>
-              <EnhancedSampleDataTable 
-                sampleData={sampleData} 
-                maxHeight={isFullScreen ? "35vh" : "300px"}
-                maxRows={showAllRows || isFullScreen ? sampleData.length : 5} 
-                showInstructions={false}
-              />
+              <div className="flex justify-between items-center mb-2">
+                <div className="text-xs text-muted-foreground">
+                  {viewMode === 'enhanced' ? 'Enhanced view with data type detection' : 'Simple table view'}
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant={viewMode === 'enhanced' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode('enhanced')}
+                    className="text-xs"
+                  >
+                    Enhanced View
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'table' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="text-xs"
+                  >
+                    Simple View
+                  </Button>
+                </div>
+              </div>
+              
+              {viewMode === 'enhanced' ? (
+                <EnhancedSampleDataTable 
+                  sampleData={sampleData} 
+                  maxHeight={isFullScreen ? "35vh" : "300px"}
+                  maxRows={showAllRows || isFullScreen ? sampleData.length : 5} 
+                  showInstructions={false}
+                />
+              ) : (
+                <div className="border rounded overflow-auto" style={{maxHeight: isFullScreen ? "35vh" : "300px"}}>
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        {Object.keys(sampleData[0]).map((header, i) => (
+                          <th key={i} className="text-left p-2 border-b font-medium">{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sampleData.slice(0, showAllRows || isFullScreen ? sampleData.length : 5).map((row, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                          {Object.values(row).map((value: any, j) => (
+                            <td key={j} className="p-2 border-b border-r">
+                              {value === null || value === undefined ? 
+                                <span className="text-slate-400 italic">null</span> : 
+                                String(value)
+                              }
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
               <div className="flex justify-center mt-2">
                 <Button 
                   variant="ghost" 
