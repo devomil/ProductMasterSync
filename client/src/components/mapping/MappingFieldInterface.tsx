@@ -96,7 +96,7 @@ export default function MappingFieldInterface({
   return (
     <div className={`
       space-y-6 
-      ${isFullScreen ? 'fixed inset-0 bg-white p-6 z-50 overflow-auto' : ''}
+      ${isFullScreen ? 'fixed inset-0 bg-white dark:bg-slate-900 p-6 z-50 overflow-auto flex flex-col h-full' : ''}
     `}>
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Field Mappings</h3>
@@ -147,7 +147,7 @@ export default function MappingFieldInterface({
             <>
               <EnhancedSampleDataTable 
                 sampleData={sampleData} 
-                maxHeight={isFullScreen ? "40vh" : "300px"}
+                maxHeight={isFullScreen ? "35vh" : "300px"}
                 maxRows={showAllRows || isFullScreen ? sampleData.length : 5} 
                 showInstructions={false}
               />
@@ -188,9 +188,9 @@ export default function MappingFieldInterface({
           }
         </CollapsibleTrigger>
         <CollapsibleContent className="p-4">
-          <div className={`space-y-3 overflow-y-auto pr-2 ${isFullScreen ? 'max-h-[40vh]' : 'max-h-[400px]'}`}>
+          <div className={`space-y-3 overflow-y-auto pr-2 ${isFullScreen ? 'max-h-[38vh]' : 'max-h-[400px]'}`}>
             {fieldMappings.map((mapping, index) => (
-              <div key={index} className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-50">
+              <div key={index} className={`flex items-center space-x-2 p-2 rounded-md hover:bg-slate-50 ${isFullScreen ? 'border border-slate-200' : ''}`}>
                 <div className="flex-1">
                   <Select 
                     value={mapping.sourceField}
@@ -262,13 +262,16 @@ export default function MappingFieldInterface({
       </Collapsible>
       
       {/* Info Panel */}
-      <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+      <div className={`bg-amber-50 border border-amber-200 rounded-md p-4 ${isFullScreen ? 'mt-auto' : ''}`}>
         <h4 className="font-medium text-amber-800 mb-2">Mapping Instructions</h4>
         <ul className="text-sm text-amber-700 list-disc pl-5 space-y-1">
           <li>Map source fields from your data to target fields in your system</li>
           <li>Fields marked with an asterisk (*) are required</li>
           <li>Your mapping will be saved and used for future ingestions</li>
           <li>Sample data is limited to {sampleData.length} rows for preview purposes</li>
+          {isFullScreen && (
+            <li className="mt-2 text-blue-700 font-medium">Press ESC key or click the minimize button to exit full-screen mode</li>
+          )}
         </ul>
       </div>
     </div>
