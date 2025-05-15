@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, ChevronDown, ChevronUp, Trash, Save, Maximize, Minimize } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash, Save, Maximize, Minimize, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import EnhancedSampleDataTable from "@/components/mapping/EnhancedSampleDataTable";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FieldMapping {
   sourceField: string;
@@ -19,7 +20,7 @@ interface MappingFieldInterfaceProps {
   updateFieldMapping: (index: number, field: 'sourceField' | 'targetField', value: string) => void;
   addMappingRow: () => void;
   removeMappingRow: (index: number) => void;
-  targetFields: { id: string; name: string; required?: boolean }[];
+  targetFields: { id: string; name: string; required?: boolean; description?: string }[];
   saveMapping: () => Promise<void>;
   externalFullScreen?: boolean;
   onFullScreenChange?: (state: boolean) => void;
@@ -122,10 +123,11 @@ export default function MappingFieldInterface({
   }, [isFullScreen]);
 
   return (
-    <div className={`
-      space-y-6 
-      ${isFullScreen ? 'fixed inset-0 left-0 right-0 top-0 bottom-0 bg-white dark:bg-slate-900 p-6 z-[9999] overflow-auto flex flex-col h-full w-full m-0' : ''}
-    `}>
+    <TooltipProvider>
+      <div className={`
+        space-y-6 
+        ${isFullScreen ? 'fixed inset-0 left-0 right-0 top-0 bottom-0 bg-white dark:bg-slate-900 p-6 z-[9999] overflow-auto flex flex-col h-full w-full m-0' : ''}
+      `}>
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Field Mappings</h3>
         <div className="flex gap-2">
@@ -309,9 +311,19 @@ export default function MappingFieldInterface({
                     </SelectTrigger>
                     <SelectContent>
                       {targetFields.map((field) => (
-                        <SelectItem key={field.id} value={field.id}>
-                          {field.name}{field.required ? " *" : ""}
-                        </SelectItem>
+                        <Tooltip key={field.id}>
+                          <TooltipTrigger asChild>
+                            <SelectItem value={field.id}>
+                              {field.name}{field.required ? " *" : ""}
+                              {field.description && <Info className="inline-block ml-1 h-3 w-3 text-blue-500" />}
+                            </SelectItem>
+                          </TooltipTrigger>
+                          {field.description && (
+                            <TooltipContent side="right" className="max-w-[300px]">
+                              <p>{field.description}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                       ))}
                     </SelectContent>
                   </Select>
