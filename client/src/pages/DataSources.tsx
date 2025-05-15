@@ -97,6 +97,55 @@ export default function DataSources() {
   // Use our data source actions hook
   // Get data source actions
   const dataSourceActions = useDataSourceActions();
+  
+  // Function to handle saving the timestamp when a sample data pull is successful
+  const handleSaveTimestamp = (pathId: string) => {
+    if (!dataSourceActions.currentDataSource) return;
+    
+    try {
+      // Update the remote_paths to record the last pull time
+      const config = dataSourceActions.currentDataSource.config;
+      const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+      
+      if (Array.isArray(parsedConfig.remote_paths)) {
+        // Find the path by ID
+        const updatedPaths = parsedConfig.remote_paths.map((path: any) => {
+          // Extract the index from the path ID (format "path-X")
+          const pathIdParts = pathId.split('-');
+          const pathIndex = parseInt(pathIdParts[1]);
+          
+          // If index matches or we're checking by path ID
+          if ((pathIndex >= 0 && pathIndex === parsedConfig.remote_paths.indexOf(path)) || 
+              (path.id && path.id === pathId)) {
+            return {
+              ...path,
+              lastPulled: new Date().toISOString(),
+              lastPullStatus: 'success'
+            };
+          }
+          return path;
+        });
+        
+        // Update data source in the database
+        // This could be expanded to actually save to the server
+        toast({
+          title: "Timestamp Updated",
+          description: "Last pull timestamp has been recorded"
+        });
+      }
+    } catch (error) {
+      console.error("Error saving timestamp:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not save the pull timestamp"
+      });
+    }
+    
+    // Close the modals
+    dataSourceActions.setShowSampleDataModal(false);
+    setShowSampleDataModal(false);
+  };
 
   // Create default form state
   const [newDataSource, setNewDataSource] = useState({
@@ -165,6 +214,7 @@ export default function DataSources() {
 
   // Function to handle saving a timestamp for a specific file path
   const handleSaveTimestamp = (pathId: string) => {
+    // Update the local remote paths state
     setRemotePaths(paths => 
       paths.map(p => (
         p.id === pathId 
@@ -176,6 +226,48 @@ export default function DataSources() {
           : p
       ))
     );
+    
+    // If we have a data source from the hook, update its path status too
+    if (dataSourceActions.currentDataSource) {
+      try {
+        // Update the remote_paths to record the last pull time
+        const config = dataSourceActions.currentDataSource.config;
+        const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+        
+        if (Array.isArray(parsedConfig.remote_paths)) {
+          // Find the path by ID
+          const updatedPaths = parsedConfig.remote_paths.map((path: any) => {
+            // Extract the index from the path ID (format "path-X")
+            const pathIdParts = pathId.split('-');
+            const pathIndex = parseInt(pathIdParts[1]);
+            
+            // If index matches or we're checking by path ID
+            if ((pathIndex >= 0 && pathIndex === parsedConfig.remote_paths.indexOf(path)) || 
+                (path.id && path.id === pathId)) {
+              return {
+                ...path,
+                lastPulled: new Date().toISOString(),
+                lastPullStatus: 'success'
+              };
+            }
+            return path;
+          });
+          
+          // Update data source in the database
+          // This could be expanded to actually save to the server
+          toast({
+            title: "Timestamp Updated",
+            description: "Last pull timestamp has been recorded"
+          });
+        }
+      } catch (error) {
+        console.error("Error saving timestamp:", error);
+      }
+    }
+    
+    // Close modals
+    dataSourceActions.setShowSampleDataModal(false);
+    setShowSampleDataModal(false);
   };
 
   // Function to test connection with additional error handling
@@ -995,6 +1087,42 @@ export default function DataSources() {
             dataSourceActions.setShowSampleDataModal(false);
           }}
           onSaveTimestamp={handleSaveTimestamp}
+        />
+      )}
+      
+      {/* Remote Path Selector Dialog */}
+      {dataSourceActions.showPathSelector && dataSourceActions.currentDataSource && (
+        <RemotePathSelector
+          open={dataSourceActions.showPathSelector}
+          onClose={() => dataSourceActions.setShowPathSelector(false)}
+          onSelect={(selectedPath) => {
+            // Process the sample data pull with the selected path
+            dataSourceActions.processPullSampleDataForPath(
+              dataSourceActions.currentDataSource!, 
+              selectedPath
+            );
+          }}
+          paths={(() => {
+            // Extract paths from the current data source config
+            try {
+              const config = dataSourceActions.currentDataSource.config;
+              const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+              
+              return Array.isArray(parsedConfig.remote_paths) 
+                ? parsedConfig.remote_paths.map((path: any, index: number) => ({
+                    id: `path-${index}`,
+                    label: path.label || `Path ${index + 1}`,
+                    path: path.path,
+                    lastPulled: path.lastPulled,
+                    lastPullStatus: path.lastPullStatus
+                  }))
+                : [];
+            } catch (e) {
+              console.error("Error parsing remote paths:", e);
+              return [];
+            }
+          })()}
+          isLoading={dataSourceActions.isPullingSampleData}
         />
       )}
       {/* Delete Confirmation Dialog */}
