@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FullscreenButton, FullscreenActionButton } from "@/components/ui/fullscreen-button";
+import MappingFieldInterface from "@/components/mapping/MappingFieldInterface";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
@@ -136,9 +137,79 @@ export default function MappingTemplatesUpdate() {
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   
+  // Target fields for product mapping
+  const targetFields = [
+    { id: "sku", name: "SKU", required: true },
+    { id: "product_name", name: "Product Name", required: true },
+    { id: "description", name: "Description" },
+    { id: "category", name: "Category" },
+    { id: "manufacturer", name: "Manufacturer" },
+    { id: "upc", name: "UPC" },
+    { id: "mpn", name: "Manufacturer Part Number" },
+    { id: "price", name: "Price" },
+    { id: "cost", name: "Cost" },
+    { id: "weight", name: "Weight" },
+    { id: "status", name: "Status" },
+    { id: "stock_quantity", name: "Stock Quantity" },
+    { id: "attributes", name: "Attributes" },
+    { id: "images", name: "Images" }
+  ];
+  
   // Fullscreen handler
   const handleFullScreenToggle = (fullscreenState: boolean) => {
     setIsFullScreen(fullscreenState);
+  };
+  
+  // State for field mappings
+  const [fieldMappings, setFieldMappings] = useState<Array<{ sourceField: string; targetField: string }>>([
+    { sourceField: "", targetField: "" }
+  ]);
+  
+  // Functions for managing field mappings
+  const updateFieldMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
+    const updatedMappings = [...fieldMappings];
+    updatedMappings[index][field] = value;
+    setFieldMappings(updatedMappings);
+    
+    // Update mappings in template form
+    const mappingsObj: Record<string, string> = {};
+    updatedMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingsObj[mapping.sourceField] = mapping.targetField;
+      }
+    });
+    
+    setTemplateForm(prev => ({
+      ...prev,
+      mappings: mappingsObj
+    }));
+  };
+  
+  const addMappingRow = () => {
+    setFieldMappings([...fieldMappings, { sourceField: "", targetField: "" }]);
+  };
+  
+  const removeMappingRow = (index: number) => {
+    const updatedMappings = fieldMappings.filter((_, i) => i !== index);
+    setFieldMappings(updatedMappings);
+    
+    // Update mappings in template form
+    const mappingsObj: Record<string, string> = {};
+    updatedMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingsObj[mapping.sourceField] = mapping.targetField;
+      }
+    });
+    
+    setTemplateForm(prev => ({
+      ...prev,
+      mappings: mappingsObj
+    }));
+  };
+  
+  const saveMapping = async () => {
+    // Conversion already handled by updateFieldMapping
+    return Promise.resolve();
   };
   
   // Get data source actions hook
