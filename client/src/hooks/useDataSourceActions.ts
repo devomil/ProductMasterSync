@@ -21,6 +21,7 @@ export interface ConnectionTestResult {
 export function useDataSourceActions() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [isPullingSampleData, setIsPullingSampleData] = useState(false);
+  const [isProcessingIngestion, setIsProcessingIngestion] = useState(false);
   const [sampleData, setSampleData] = useState<SampleDataResult | null>(null);
   const [showSampleDataModal, setShowSampleDataModal] = useState(false);
   const [showPathSelector, setShowPathSelector] = useState(false);
@@ -339,6 +340,57 @@ export function useDataSourceActions() {
       title: "Scheduler Configuration",
       description: "Scheduler configuration feature coming soon!"
     });
+  };
+  
+  // Function to process SFTP ingestion using a mapping template
+  const handleProcessSftpIngestion = async (
+    dataSource: DataSource,
+    mappingTemplateId: number,
+    remotePath: string,
+    deleteAfterProcessing: boolean = false
+  ) => {
+    const [isProcessing, setIsProcessing] = useState(false);
+    try {
+      setIsProcessing(true);
+      
+      const response = await fetch('/api/mapping-templates/process-sftp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          dataSourceId: dataSource.id,
+          mappingTemplateId,
+          remotePath,
+          deleteAfterProcessing
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Unknown error occurred during ingestion');
+      }
+      
+      toast({
+        title: "Ingestion Started",
+        description: `Processing started for ${remotePath}. Import ID: ${result.importId}`
+      });
+      
+      return result;
+    } catch (error) {
+      console.error("SFTP ingestion error:", error);
+      
+      toast({
+        variant: "destructive",
+        title: "Ingestion Error",
+        description: error instanceof Error ? error.message : "Failed to start SFTP ingestion process"
+      });
+      
+      throw error;
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Function to handle delete confirmation

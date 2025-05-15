@@ -1190,6 +1190,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Process data from SFTP using a mapping template
+  app.post("/api/mapping-templates/process-sftp", async (req, res) => {
+    try {
+      const { dataSourceId, mappingTemplateId, remotePath, deleteAfterProcessing = false } = req.body;
+      
+      if (!dataSourceId || !mappingTemplateId || !remotePath) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required parameters: dataSourceId, mappingTemplateId, and remotePath are required"
+        });
+      }
+      
+      // Get the data source details
+      const [dataSource] = await db.select().from(dataSources).where(eq(dataSources.id, dataSourceId));
+      
+      if (!dataSource) {
+        return res.status(404).json({
+          success: false,
+          message: `Data source with ID ${dataSourceId} not found`
+        });
+      }
+      
+      // Create an import record to track the progress
+      const [importRecord] = await db.insert(imports).values({
+        type: 'sftp-ingest',
+        status: 'pending',
+        supplierId: dataSource.supplierId,
+        filename: remotePath,
+        createdAt: new Date()
+      }).returning();
+      
+      // Process the SFTP ingestion asynchronously
+      const processPromise = processSFTPIngestion(
+        remotePath,
+        { id: dataSourceId, credentials: dataSource.config, type: dataSource.type },
+        mappingTemplateId,
+        {
+          deleteSourceAfterProcessing: deleteAfterProcessing,
+          createImportRecord: false, // We already created one
+          skipExistingProducts: true 
+        },
+        importRecord.id
+      );
+      
+      // Start processing in the background
+      processPromise.then(result => {
+        console.log(`SFTP ingestion result for import ${importRecord.id}:`, result);
+      }).catch(error => {
+        console.error(`SFTP ingestion error for import ${importRecord.id}:`, error);
+      });
+      
+      // Return the import ID immediately so the client can track progress
+      res.json({
+        success: true,
+        message: "SFTP ingestion started",
+        importId: importRecord.id
+      });
+    } catch (error) {
+      console.error("Error starting SFTP ingestion:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "An error occurred starting the SFTP ingestion"
+      });
+    }
+  });
+
   // Product Fulfillment API
   app.get("/api/products/:id/fulfillment", async (req, res) => {
     try {
