@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash, FileUp, Download, Upload } from "lucide-react";
+import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
@@ -130,6 +130,24 @@ export default function MappingTemplates() {
   const [isValidationViewOpen, setIsValidationViewOpen] = useState(false);
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  
+  // Toggle full screen handler
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+  };
+  
+  // ESC key handler for exiting full screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
   
   // Get data source actions hook
   const { handleProcessSftpIngestion, isProcessingIngestion } = useDataSourceActions();
