@@ -758,8 +758,10 @@ export const getImportStatus = async (filenames: string[]): Promise<Record<strin
   
   // Safely add statuses to the result object
   for (const stat of statuses) {
-    if (stat.filename && typeof stat.filename === 'string') {
-      result[stat.filename] = stat.status as 'pending' | 'processing' | 'success' | 'error';
+    if (stat.filename && typeof stat.filename === 'string' && stat.status) {
+      // Default to pending if status is null
+      const status = stat.status || 'pending';
+      result[stat.filename] = status as 'pending' | 'processing' | 'success' | 'error';
     }
   }
   
