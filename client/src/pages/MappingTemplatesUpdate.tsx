@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash, FileUp, Download, Upload } from "lucide-react";
@@ -124,11 +124,12 @@ const AVAILABLE_TARGET_FIELDS = [
 
 export default function MappingTemplatesUpdate() {
   // Get URL parameters for creating a template from sample data
-  const [searchParams, setSearchParams] = useSearchParams();
-  const createFromParams = searchParams.get('create') === 'true';
-  const pathFromParams = searchParams.get('path');
-  const labelFromParams = searchParams.get('label');
-  const sourceTypeFromParams = searchParams.get('source');
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(window.location.search);
+  const createFromParams = urlParams.get('create') === 'true';
+  const pathFromParams = urlParams.get('path');
+  const labelFromParams = urlParams.get('label');
+  const sourceTypeFromParams = urlParams.get('source');
   
   // State for template list
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(createFromParams);
@@ -144,13 +145,13 @@ export default function MappingTemplatesUpdate() {
   // Get data source actions hook
   const { handleProcessSftpIngestion, handleTestPull, isProcessingIngestion, setIsProcessingIngestion } = useDataSourceActions();
 
-  // State for template form
+  // State for template form with values from URL params if available
   const [templateForm, setTemplateForm] = useState({
-    name: "",
-    description: "",
-    sourceType: "csv",
+    name: pathFromParams ? `Template for ${labelFromParams || pathFromParams}` : "",
+    description: pathFromParams ? `Mapping template for ${labelFromParams || pathFromParams}` : "",
+    sourceType: sourceTypeFromParams || "csv",
     supplierId: "",
-    fileLabel: "",
+    fileLabel: labelFromParams || "",
     mappings: {} as Record<string, string>,
     validationRules: [] as ValidationRule[]
   });

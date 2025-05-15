@@ -114,12 +114,32 @@ const SampleDataModal: React.FC<SampleDataModalProps> = ({
             {sampleData.success && selectedFilePath && (
               <button
                 onClick={() => {
-                  toast({
-                    title: "Create Mapping Template",
-                    description: "Redirecting to create a mapping template using this sample data"
-                  });
-                  // Navigate to the mapping templates page with query params to pre-populate data
-                  window.location.href = `/mapping-templates?create=true&path=${encodeURIComponent(selectedFilePath.path)}&label=${encodeURIComponent(selectedFilePath.label)}&source=${sampleData.fileType || "csv"}`;
+                  try {
+                    if (!selectedFilePath || !selectedFilePath.path) {
+                      throw new Error("No file path selected");
+                    }
+                    
+                    toast({
+                      title: "Create Mapping Template",
+                      description: "Redirecting to create a mapping template using this sample data"
+                    });
+                    
+                    // Build the query parameters with proper encoding
+                    const params = new URLSearchParams();
+                    params.set('create', 'true');
+                    params.set('path', selectedFilePath.path);
+                    params.set('label', selectedFilePath.label || '');
+                    params.set('source', sampleData.fileType || "csv");
+                    
+                    // Navigate to the mapping templates page with query params to pre-populate data
+                    window.location.href = `/mapping-templates?${params.toString()}`;
+                  } catch (error) {
+                    toast({
+                      variant: "destructive",
+                      title: "Navigation Error",
+                      description: error instanceof Error ? error.message : "Unknown error occurred"
+                    });
+                  }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
