@@ -126,6 +126,9 @@ const AVAILABLE_TARGET_FIELDS = [
 ];
 
 export default function MappingTemplatesUpdate() {
+  // Hooks
+  const [, setLocation] = useLocation();
+  
   // State for template list
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -727,7 +730,7 @@ export default function MappingTemplatesUpdate() {
             Manage your data mapping templates for various data sources
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => navigate('/mapping-templates/new')}>
           <Plus className="mr-2 h-4 w-4" /> Create Template
         </Button>
       </div>
@@ -795,7 +798,7 @@ export default function MappingTemplatesUpdate() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleEditTemplate(template)}
+                                  onClick={() => navigate(`/mapping-templates/edit/${template.id}`)}
                                 >
                                   <Edit className="h-4 w-4 mr-1" /> Edit
                                 </Button>
