@@ -567,14 +567,14 @@ export default function MappingTemplateWorkspace() {
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="supplier">Supplier (Optional)</Label>
                   <Select
-                    value={templateForm.supplierId?.toString() || ""}
-                    onValueChange={(value) => handleInputChange("supplierId", value ? parseInt(value) : null)}
+                    value={templateForm.supplierId?.toString() || "none"}
+                    onValueChange={(value) => handleInputChange("supplierId", value && value !== "none" ? parseInt(value) : null)}
                   >
                     <SelectTrigger id="supplier">
                       <SelectValue placeholder="Select supplier" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id.toString()}>
                           {supplier.name}
