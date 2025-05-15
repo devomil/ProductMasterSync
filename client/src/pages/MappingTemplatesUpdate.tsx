@@ -132,7 +132,7 @@ export default function MappingTemplatesUpdate() {
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
   
   // Get data source actions hook
-  const { handleProcessSftpIngestion, isProcessingIngestion } = useDataSourceActions();
+  const { handleProcessSftpIngestion, handleTestPull, isProcessingIngestion, setIsProcessingIngestion } = useDataSourceActions();
 
   // State for template form
   const [templateForm, setTemplateForm] = useState({
@@ -311,6 +311,95 @@ export default function MappingTemplatesUpdate() {
     return dataSources.find((ds: DataSource) => 
       ds.supplierId === template.supplierId && ds.type === 'sftp'
     );
+  };
+  
+  // Pull sample data from SFTP connection
+  const handlePullSftpSampleData = async (supplierId: number) => {
+    try {
+      setIsUploading(true);
+      
+      // Find the data source for this supplier
+      const dataSource = dataSources.find((ds: DataSource) => 
+        ds.supplierId === supplierId && ds.type === 'sftp'
+      );
+      
+      if (!dataSource) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No SFTP data source found for this supplier"
+        });
+        return;
+      }
+      
+      // Show a dialog to select the remote path if there are multiple paths
+      const remotePaths = dataSource.config?.remote_paths || [];
+      let selectedPath = "";
+      
+      if (remotePaths.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No remote paths configured for this SFTP connection"
+        });
+        return;
+      } else if (remotePaths.length === 1) {
+        selectedPath = remotePaths[0].path;
+      } else {
+        // For simplicity, we'll use the first path for now
+        // In a real implementation, you'd show a dialog to select the path
+        selectedPath = remotePaths[0].path;
+      }
+      
+      // Use the test pull function from the data source actions hook
+      const result = await handleTestPull(dataSource.id, selectedPath);
+      
+      if (result.success) {
+        // Update the sample data
+        setSampleData(result.sample_data?.slice(0, 10) || []);
+        
+        // Extract headers from the first record
+        if (result.sample_data && result.sample_data.length > 0) {
+          const headers = Object.keys(result.sample_data[0]);
+          setSampleHeaders(headers);
+          
+          // Auto-populate source fields
+          const initialMappings = headers.map((header: string) => ({
+            sourceField: header,
+            targetField: ""
+          }));
+          setFieldMappings(initialMappings);
+          
+          setUploadedFileName(selectedPath.split('/').pop() || selectedPath);
+          
+          toast({
+            title: "SFTP Data Retrieved",
+            description: `Successfully loaded ${result.sample_data.length} records from ${selectedPath}`
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "No Data",
+            description: "No records found in the selected file"
+          });
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.message || "Failed to retrieve data from SFTP"
+        });
+      }
+    } catch (error) {
+      console.error("Error pulling SFTP sample data:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
   
   // Handle processing SFTP ingestion
@@ -812,10 +901,21 @@ export default function MappingTemplatesUpdate() {
                   <h3 className="text-lg font-medium">Field Mappings</h3>
                   
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" onClick={() => document.getElementById('file-upload')?.click()}>
-                      <FileUp className="h-4 w-4 mr-2" />
-                      {isUploading ? "Uploading..." : "Upload Sample File"}
-                    </Button>
+                    {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handlePullSftpSampleData(parseInt(templateForm.supplierId))}
+                        disabled={isUploading}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isUploading ? "Loading..." : "Pull Sample From SFTP"}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" onClick={() => document.getElementById('file-upload')?.click()}>
+                        <FileUp className="h-4 w-4 mr-2" />
+                        {isUploading ? "Uploading..." : "Upload Sample File"}
+                      </Button>
+                    )}
                     <input
                       id="file-upload"
                       type="file"

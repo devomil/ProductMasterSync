@@ -342,6 +342,41 @@ export function useDataSourceActions() {
     });
   };
   
+  // Function to test pull data directly from a data source with a specific path
+  const handleTestPull = async (dataSourceId: number, remotePath: string) => {
+    try {
+      setIsPullingSampleData(true);
+      
+      const response = await fetch(`/api/data-sources/${dataSourceId}/test-pull`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          remotePath,
+          limit: 50
+        })
+      });
+      
+      const result = await response.json();
+      
+      return {
+        success: result.success || false,
+        message: result.message || 'No response message',
+        sample_data: result.sample_data || result.records || []
+      };
+    } catch (error) {
+      console.error("Test pull error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to pull test data",
+        sample_data: []
+      };
+    } finally {
+      setIsPullingSampleData(false);
+    }
+  };
+  
   // Function to process SFTP ingestion using a mapping template
   const handleProcessSftpIngestion = async (
     dataSource: DataSource,
@@ -464,6 +499,7 @@ export function useDataSourceActions() {
     handleProcessSftpIngestion,
     handleDeleteDataSource,
     handleConfigureScheduler,
-    handleConfirmDelete
+    handleConfirmDelete,
+    handleTestPull
   };
 }
