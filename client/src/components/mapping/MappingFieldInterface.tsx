@@ -120,7 +120,7 @@ export default function MappingFieldInterface({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullScreen]);
+  }, [isFullScreen, onFullScreenChange]);
 
   return (
     <TooltipProvider>
@@ -128,246 +128,247 @@ export default function MappingFieldInterface({
         space-y-6 
         ${isFullScreen ? 'fixed inset-0 left-0 right-0 top-0 bottom-0 bg-white dark:bg-slate-900 p-6 z-[9999] overflow-auto flex flex-col h-full w-full m-0' : ''}
       `}>
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Field Mappings</h3>
-        <div className="flex gap-2">
-          <Button 
-            variant={isFullScreen ? "default" : "outline"}
-            onClick={toggleFullScreen}
-            title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
-            className={isFullScreen ? "bg-blue-600 hover:bg-blue-700" : ""}
-          >
-            {isFullScreen ? 
-              <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
-              <><Maximize className="h-4 w-4 mr-2" /> Fullscreen</>
-            }
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={isSaving || !areRequiredFieldsMapped}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Saving..." : "Save Mapping"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Sample Data Panel */}
-      <Collapsible 
-        open={expandedPanel === 'sample' || expandedPanel === 'both'} 
-        onOpenChange={() => setExpandedPanel(expandedPanel === 'sample' ? 'both' : (expandedPanel === 'both' ? 'mapping' : 'sample'))}
-        className={`border rounded-md ${isFullScreen ? 'border-2 border-green-200' : ''}`}
-      >
-        <CollapsibleTrigger className="flex w-full items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
-          <div className="font-medium flex items-center">
-            <span>Sample Data Preview</span>
-            {sampleData.length > 0 && (
-              <Badge variant="outline" className="ml-2 bg-blue-50">
-                {sampleData.length} rows
-              </Badge>
-            )}
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Field Mappings</h3>
+          <div className="flex gap-2">
+            <Button 
+              variant={isFullScreen ? "default" : "outline"}
+              onClick={toggleFullScreen}
+              title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+              className={isFullScreen ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              {isFullScreen ? 
+                <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
+                <><Maximize className="h-4 w-4 mr-2" /> Fullscreen</>
+              }
+            </Button>
+            <Button 
+              onClick={handleSave}
+              disabled={isSaving || !areRequiredFieldsMapped}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? "Saving..." : "Save Mapping"}
+            </Button>
           </div>
-          {expandedPanel === 'sample' || expandedPanel === 'both' 
-            ? <ChevronUp className="h-4 w-4" /> 
-            : <ChevronDown className="h-4 w-4" />
-          }
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-4">
-          {sampleData && sampleData.length > 0 ? (
-            <>
-              <div className="flex justify-between items-center mb-2">
-                <div className="text-xs text-muted-foreground">
-                  {viewMode === 'enhanced' ? 'Enhanced view with data type detection' : 'Simple table view'}
+        </div>
+
+        {/* Sample Data Panel */}
+        <Collapsible 
+          open={expandedPanel === 'sample' || expandedPanel === 'both'} 
+          onOpenChange={() => setExpandedPanel(expandedPanel === 'sample' ? 'both' : (expandedPanel === 'both' ? 'mapping' : 'sample'))}
+          className={`border rounded-md ${isFullScreen ? 'border-2 border-green-200' : ''}`}
+        >
+          <CollapsibleTrigger className="flex w-full items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
+            <div className="font-medium flex items-center">
+              <span>Sample Data Preview</span>
+              {sampleData.length > 0 && (
+                <Badge variant="outline" className="ml-2 bg-blue-50">
+                  {sampleData.length} rows
+                </Badge>
+              )}
+            </div>
+            {expandedPanel === 'sample' || expandedPanel === 'both' 
+              ? <ChevronUp className="h-4 w-4" /> 
+              : <ChevronDown className="h-4 w-4" />
+            }
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4">
+            {sampleData && sampleData.length > 0 ? (
+              <>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-xs text-muted-foreground">
+                    {viewMode === 'enhanced' ? 'Enhanced view with data type detection' : 'Simple table view'}
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant={viewMode === 'enhanced' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setViewMode('enhanced')}
+                      className="text-xs"
+                    >
+                      Enhanced View
+                    </Button>
+                    <Button 
+                      variant={viewMode === 'table' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setViewMode('table')}
+                      className="text-xs"
+                    >
+                      Simple View
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <Button 
-                    variant={viewMode === 'enhanced' ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode('enhanced')}
-                    className="text-xs"
-                  >
-                    Enhanced View
-                  </Button>
-                  <Button 
-                    variant={viewMode === 'table' ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className="text-xs"
-                  >
-                    Simple View
-                  </Button>
-                </div>
-              </div>
-              
-              {viewMode === 'enhanced' ? (
-                <EnhancedSampleDataTable 
-                  sampleData={sampleData} 
-                  maxHeight={isFullScreen ? "35vh" : "300px"}
-                  maxRows={showAllRows || isFullScreen ? sampleData.length : 5} 
-                  showInstructions={false}
-                />
-              ) : (
-                <div className="border rounded overflow-auto" style={{maxHeight: isFullScreen ? "35vh" : "300px"}}>
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        {Object.keys(sampleData[0]).map((header, i) => (
-                          <th key={i} className="text-left p-2 border-b font-medium">{header}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sampleData.slice(0, showAllRows || isFullScreen ? sampleData.length : 5).map((row, i) => (
-                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                          {Object.values(row).map((value: any, j) => (
-                            <td key={j} className="p-2 border-b border-r">
-                              {value === null || value === undefined ? 
-                                <span className="text-slate-400 italic">null</span> : 
-                                String(value)
-                              }
-                            </td>
+                
+                {viewMode === 'enhanced' ? (
+                  <EnhancedSampleDataTable 
+                    sampleData={sampleData} 
+                    maxHeight={isFullScreen ? "35vh" : "300px"}
+                    maxRows={showAllRows || isFullScreen ? sampleData.length : 5} 
+                    showInstructions={false}
+                  />
+                ) : (
+                  <div className="border rounded overflow-auto" style={{maxHeight: isFullScreen ? "35vh" : "300px"}}>
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr>
+                          {Object.keys(sampleData[0]).map((header, i) => (
+                            <th key={i} className="text-left p-2 border-b font-medium">{header}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {sampleData.slice(0, showAllRows || isFullScreen ? sampleData.length : 5).map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                            {Object.values(row).map((value: any, j) => (
+                              <td key={j} className="p-2 border-b border-r">
+                                {value === null || value === undefined ? 
+                                  <span className="text-slate-400 italic">null</span> : 
+                                  String(value)
+                                }
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                
+                <div className="flex justify-center mt-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowAllRows(!showAllRows)}
+                  >
+                    {showAllRows ? "Show Less" : `Show All (${sampleData.length} rows)`}
+                  </Button>
                 </div>
-              )}
-              
-              <div className="flex justify-center mt-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowAllRows(!showAllRows)}
-                >
-                  {showAllRows ? "Show Less" : `Show All (${sampleData.length} rows)`}
-                </Button>
+              </>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                No sample data available. Please upload a sample file.
               </div>
-            </>
-          ) : (
-            <div className="text-center py-6 text-muted-foreground">
-              No sample data available. Please upload a sample file.
-            </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
 
-      {/* Field Mapping Panel */}
-      <Collapsible 
-        open={expandedPanel === 'mapping' || expandedPanel === 'both'} 
-        onOpenChange={() => setExpandedPanel(expandedPanel === 'mapping' ? 'both' : (expandedPanel === 'both' ? 'sample' : 'mapping'))}
-        className={`border rounded-md ${isFullScreen ? 'border-2 border-blue-200' : ''}`}
-      >
-        <CollapsibleTrigger className="flex w-full items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
-          <div className="font-medium flex items-center">
-            <span>Field Mappings</span>
-            <Badge variant="outline" className="ml-2 bg-blue-50">
-              {fieldMappings.filter(m => m.sourceField && m.targetField).length} mapped
-            </Badge>
-          </div>
-          {expandedPanel === 'mapping' || expandedPanel === 'both' 
-            ? <ChevronUp className="h-4 w-4" /> 
-            : <ChevronDown className="h-4 w-4" />
-          }
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-4">
-          <div className={`space-y-3 overflow-y-auto pr-2 ${isFullScreen ? 'max-h-[38vh]' : 'max-h-[400px]'}`}>
-            {fieldMappings.map((mapping, index) => (
-              <div key={index} className={`flex items-center space-x-2 p-2 rounded-md hover:bg-slate-50 ${isFullScreen ? 'border border-slate-200' : ''}`}>
-                <div className="flex-1">
-                  <Select 
-                    value={mapping.sourceField}
-                    onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Source Field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sampleHeaders.length > 0 ? (
-                        sampleHeaders.map((header) => (
-                          <SelectItem key={header} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no_headers">
-                          Upload a sample file first
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <span className="text-muted-foreground">→</span>
-                
-                <div className="flex-1">
-                  <Select 
-                    value={mapping.targetField}
-                    onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Target Field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {targetFields.map((field) => (
-                        <Tooltip key={field.id}>
-                          <TooltipTrigger asChild>
-                            <SelectItem value={field.id}>
-                              {field.name}{field.required ? " *" : ""}
-                              {field.description && <Info className="inline-block ml-1 h-3 w-3 text-blue-500" />}
-                            </SelectItem>
-                          </TooltipTrigger>
-                          {field.description && (
-                            <TooltipContent side="right" className="max-w-[300px]">
-                              <p>{field.description}</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeMappingRow(index)}
-                  disabled={fieldMappings.length <= 1}
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-4 flex items-center justify-between">
-            <Button variant="outline" onClick={addMappingRow}>
-              <Plus className="h-4 w-4 mr-2" /> Add Mapping
-            </Button>
-            
-            <div className="text-sm text-muted-foreground">
-              {!areRequiredFieldsMapped && (
-                <span className="text-red-500">Missing required fields *</span>
-              )}
+        {/* Field Mapping Panel */}
+        <Collapsible 
+          open={expandedPanel === 'mapping' || expandedPanel === 'both'} 
+          onOpenChange={() => setExpandedPanel(expandedPanel === 'mapping' ? 'both' : (expandedPanel === 'both' ? 'sample' : 'mapping'))}
+          className={`border rounded-md ${isFullScreen ? 'border-2 border-blue-200' : ''}`}
+        >
+          <CollapsibleTrigger className="flex w-full items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
+            <div className="font-medium flex items-center">
+              <span>Field Mappings</span>
+              <Badge variant="outline" className="ml-2 bg-blue-50">
+                {fieldMappings.filter(m => m.sourceField && m.targetField).length} mapped
+              </Badge>
             </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-      
-      {/* Info Panel */}
-      <div className={`bg-amber-50 border border-amber-200 rounded-md p-4 ${isFullScreen ? 'mt-auto' : ''}`}>
-        <h4 className="font-medium text-amber-800 mb-2">Mapping Instructions</h4>
-        <ul className="text-sm text-amber-700 list-disc pl-5 space-y-1">
-          <li>Map source fields from your data to target fields in your system</li>
-          <li>Fields marked with an asterisk (*) are required</li>
-          <li>Your mapping will be saved and used for future ingestions</li>
-          <li>Sample data is limited to {sampleData.length} rows for preview purposes</li>
-          {isFullScreen && (
-            <li className="mt-2 text-blue-700 font-medium">Press ESC key or click the minimize button to exit full-screen mode</li>
-          )}
-        </ul>
+            {expandedPanel === 'mapping' || expandedPanel === 'both' 
+              ? <ChevronUp className="h-4 w-4" /> 
+              : <ChevronDown className="h-4 w-4" />
+            }
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4">
+            <div className={`space-y-3 overflow-y-auto pr-2 ${isFullScreen ? 'max-h-[38vh]' : 'max-h-[400px]'}`}>
+              {fieldMappings.map((mapping, index) => (
+                <div key={index} className={`flex items-center space-x-2 p-2 rounded-md hover:bg-slate-50 ${isFullScreen ? 'border border-slate-200' : ''}`}>
+                  <div className="flex-1">
+                    <Select 
+                      value={mapping.sourceField}
+                      onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Source Field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sampleHeaders.length > 0 ? (
+                          sampleHeaders.map((header) => (
+                            <SelectItem key={header} value={header}>
+                              {header}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no_headers">
+                            Upload a sample file first
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <span className="text-muted-foreground">→</span>
+                  
+                  <div className="flex-1">
+                    <Select 
+                      value={mapping.targetField}
+                      onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Target Field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {targetFields.map((field) => (
+                          <Tooltip key={field.id}>
+                            <TooltipTrigger asChild>
+                              <SelectItem value={field.id}>
+                                {field.name}{field.required ? " *" : ""}
+                                {field.description && <Info className="inline-block ml-1 h-3 w-3 text-blue-500" />}
+                              </SelectItem>
+                            </TooltipTrigger>
+                            {field.description && (
+                              <TooltipContent side="right" className="max-w-[300px]">
+                                <p>{field.description}</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeMappingRow(index)}
+                    disabled={fieldMappings.length <= 1}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 flex items-center justify-between">
+              <Button variant="outline" onClick={addMappingRow}>
+                <Plus className="h-4 w-4 mr-2" /> Add Mapping
+              </Button>
+              
+              <div className="text-sm text-muted-foreground">
+                {!areRequiredFieldsMapped && (
+                  <span className="text-red-500">Missing required fields *</span>
+                )}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+        
+        {/* Info Panel */}
+        <div className={`bg-amber-50 border border-amber-200 rounded-md p-4 ${isFullScreen ? 'mt-auto' : ''}`}>
+          <h4 className="font-medium text-amber-800 mb-2">Mapping Instructions</h4>
+          <ul className="text-sm text-amber-700 list-disc pl-5 space-y-1">
+            <li>Map source fields from your data to target fields in your system</li>
+            <li>Fields marked with an asterisk (*) are required</li>
+            <li>Your mapping will be saved and used for future ingestions</li>
+            <li>Sample data is limited to {sampleData.length} rows for preview purposes</li>
+            {isFullScreen && (
+              <li className="mt-2 text-blue-700 font-medium">Press ESC key or click the minimize button to exit full-screen mode</li>
+            )}
+          </ul>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

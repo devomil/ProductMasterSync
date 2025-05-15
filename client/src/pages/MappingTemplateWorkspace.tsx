@@ -120,6 +120,7 @@ export default function MappingTemplateWorkspace() {
   const [showOnlyMapped, setShowOnlyMapped] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
   const [displayEnhanced, setDisplayEnhanced] = useState(true);
+  const [previewData, setPreviewData] = useState<any>(null);
   
   // List of target fields for product mapping
   const targetFields = [
