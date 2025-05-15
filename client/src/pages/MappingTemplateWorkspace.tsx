@@ -120,7 +120,8 @@ export default function MappingTemplateWorkspace() {
   const [showOnlyMapped, setShowOnlyMapped] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
   const [displayEnhanced, setDisplayEnhanced] = useState(true);
-  const [previewData, setPreviewData] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [remotePaths, setRemotePaths] = useState<{ path: string; label: string; selected: boolean }[]>([]);
   
   // List of target fields for product mapping
   const targetFields = [
@@ -167,6 +168,58 @@ export default function MappingTemplateWorkspace() {
       setFieldMappings(mappings.length > 0 ? mappings : [{ sourceField: "", targetField: "" }]);
     }
   }, [templateForm.mappings]);
+  
+  // Effect to load remote paths when supplier or data source type changes
+  useEffect(() => {
+    const fetchRemotePaths = async () => {
+      if (!templateForm.supplierId || !templateForm.sourceType) {
+        setRemotePaths([]);
+        return;
+      }
+      
+      // Only fetch for SFTP/FTP sources
+      if (!['sftp', 'ftp'].includes(templateForm.sourceType)) {
+        setRemotePaths([]);
+        return;
+      }
+      
+      try {
+        // Find the matching data source for this supplier
+        const dataSource = dataSources.find(
+          ds => ds.supplierId === templateForm.supplierId && 
+                ds.type === templateForm.sourceType
+        );
+        
+        if (!dataSource) {
+          setRemotePaths([]);
+          return;
+        }
+        
+        // Fetch remote paths for this data source
+        const response = await fetch(`/api/data-sources/${dataSource.id}/remote-paths`);
+        const data = await response.json();
+        
+        if (data.success && data.paths) {
+          const formattedPaths = data.paths.map((path: string) => ({
+            path: path,
+            label: path.split('/').pop() || path, // Use the filename as label
+            selected: templateForm.fileLabel === path // Pre-select if it matches fileLabel
+          }));
+          
+          setRemotePaths(formattedPaths);
+        }
+      } catch (err) {
+        console.error("Error fetching remote paths:", err);
+        toast({
+          title: "Warning",
+          description: "Could not load remote paths for this data source",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchRemotePaths();
+  }, [templateForm.supplierId, templateForm.sourceType, dataSources, templateForm.fileLabel, toast]);
   
   // Function to load template data
   const loadTemplateData = async (id: number) => {
@@ -653,6 +706,7 @@ export default function MappingTemplateWorkspace() {
               <TabsTrigger value="general">General Information</TabsTrigger>
               <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
               <TabsTrigger value="validation">Validation Rules</TabsTrigger>
+              <TabsTrigger value="remote-paths">Remote Paths</TabsTrigger>
             </TabsList>
             
             <div className="flex gap-2">
