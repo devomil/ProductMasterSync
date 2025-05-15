@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
@@ -131,6 +132,7 @@ export default function MappingTemplates() {
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [, navigate] = useLocation();
   
   // Toggle full screen handler
   const toggleFullScreen = () => {
