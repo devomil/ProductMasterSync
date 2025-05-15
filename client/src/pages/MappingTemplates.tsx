@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash, FileUp, Download } from "lucide-react";
+import { Plus, Edit, Trash, FileUp, Download, Upload } from "lucide-react";
+import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,24 @@ interface Supplier {
   active: boolean;
 }
 
+interface RemotePathItem {
+  path: string;
+  label?: string;
+  type?: 'file' | 'directory';
+  fileType?: string;
+}
+
+interface DataSource {
+  id: number;
+  name: string;
+  type: "csv" | "excel" | "json" | "xml" | "edi_x12" | "edifact" | "api" | "sftp" | "ftp" | "manual";
+  active: boolean | null;
+  supplierId: number | null;
+  config: any;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
 interface FieldMapping {
   sourceField: string;
   targetField: string;
@@ -104,9 +123,15 @@ export default function MappingTemplates() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [showProcessSftpDialog, setShowProcessSftpDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<MappingTemplate | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [isValidationViewOpen, setIsValidationViewOpen] = useState(false);
+  const [selectedRemotePath, setSelectedRemotePath] = useState("");
+  const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
+  
+  // Get data source actions hook
+  const { handleProcessSftpIngestion, isProcessingIngestion } = useDataSourceActions();
 
   // State for template form
   const [templateForm, setTemplateForm] = useState({
@@ -138,6 +163,11 @@ export default function MappingTemplates() {
 
   const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
     queryKey: ['/api/suppliers'],
+    select: (data) => data || []
+  });
+
+  const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
+    queryKey: ['/api/data-sources'],
     select: (data) => data || []
   });
 
