@@ -302,13 +302,14 @@ export default function MappingManagerWrapper({
                   <div className="flex-grow grid grid-cols-2 gap-2">
                     <div>
                       <Select
-                        value={mapping.sourceField}
-                        onValueChange={(val) => updateMapping(index, 'sourceField', val)}
+                        value={mapping.sourceField || "select_source"}
+                        onValueChange={(val) => updateMapping(index, 'sourceField', val === "select_source" ? "" : val)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Source field" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="select_source">Select source field</SelectItem>
                           {sampleHeaders.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -320,13 +321,14 @@ export default function MappingManagerWrapper({
                     
                     <div>
                       <Select
-                        value={mapping.targetField}
-                        onValueChange={(val) => updateMapping(index, 'targetField', val)}
+                        value={mapping.targetField || "select_target"}
+                        onValueChange={(val) => updateMapping(index, 'targetField', val === "select_target" ? "" : val)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Target field" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="select_target">Select target field</SelectItem>
                           {targetFields.map((field) => (
                             <SelectItem key={field.id} value={field.id}>
                               {field.name}
