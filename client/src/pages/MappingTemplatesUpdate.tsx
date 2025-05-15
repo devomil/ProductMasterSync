@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import EnhancedSampleDataTable from "@/components/mapping/EnhancedSampleDataTable";
+import MappingFieldInterface from "@/components/mapping/MappingFieldInterface";
 
 // Types
 interface MappingTemplate {
@@ -1207,71 +1208,16 @@ export default function MappingTemplatesUpdate() {
                   </div>
                 )}
                 
-                {sampleData && sampleData.length > 0 && (
-                  <div className="border rounded-md overflow-x-auto mb-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {Object.keys(sampleData[0]).map((header) => (
-                            <TableHead key={header}>{header}</TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sampleData.map((row, index) => (
-                          <TableRow key={index}>
-                            {Object.values(row).map((value: any, i) => (
-                              <TableCell key={i}>{value}</TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  {fieldMappings.map((mapping, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <Input
-                        value={mapping.sourceField}
-                        onChange={(e) => updateFieldMapping(index, 'sourceField', e.target.value)}
-                        placeholder="Source Field"
-                      />
-                      
-                      <span>→</span>
-                      
-                      <Select 
-                        value={mapping.targetField}
-                        onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Target Field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AVAILABLE_TARGET_FIELDS.map((field) => (
-                            <SelectItem key={field.id} value={field.id}>
-                              {field.name}{field.required ? " *" : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMappingRow(index)}
-                        disabled={fieldMappings.length <= 1}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  <Button variant="outline" onClick={addMappingRow}>
-                    <Plus className="h-4 w-4 mr-2" /> Add Mapping
-                  </Button>
-                </div>
+                <MappingFieldInterface
+                  sampleData={sampleData || []}
+                  sampleHeaders={sampleHeaders}
+                  fieldMappings={fieldMappings}
+                  updateFieldMapping={updateFieldMapping}
+                  addMappingRow={addMappingRow}
+                  removeMappingRow={removeMappingRow}
+                  targetFields={AVAILABLE_TARGET_FIELDS}
+                  saveMapping={isCreateDialogOpen ? handleCreateTemplate : handleUpdateTemplate}
+                />
               </div>
             </TabsContent>
             <TabsContent value="validation" className="pt-4">
