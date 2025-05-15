@@ -16,6 +16,31 @@ import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Downl
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
+// View Toggle Component for Enhanced/Simple view
+interface ViewToggleProps {
+  enhanced: boolean;
+  onToggle: () => void;
+}
+
+const ViewToggle = ({ enhanced, onToggle }: ViewToggleProps) => {
+  return (
+    <div className="flex items-center space-x-2 p-1 bg-slate-200 rounded">
+      <button 
+        className={`px-2 py-1 text-xs rounded ${enhanced ? 'bg-blue-500 text-white' : 'hover:bg-slate-300'}`}
+        onClick={() => enhanced || onToggle()}
+      >
+        Enhanced
+      </button>
+      <button 
+        className={`px-2 py-1 text-xs rounded ${!enhanced ? 'bg-blue-500 text-white' : 'hover:bg-slate-300'}`} 
+        onClick={() => !enhanced || onToggle()}
+      >
+        Simple
+      </button>
+    </div>
+  );
+};
+
 // Define interfaces for our data structures
 interface MappingTemplate {
   id: number;
@@ -94,6 +119,7 @@ export default function MappingTemplateWorkspace() {
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [showOnlyMapped, setShowOnlyMapped] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
+  const [displayEnhanced, setDisplayEnhanced] = useState(true);
   
   // List of target fields for product mapping
   const targetFields = [
@@ -462,10 +488,21 @@ export default function MappingTemplateWorkspace() {
       .map(field => field.name);
   };
   
-  // Filter field mappings based on showOnlyMapped setting
-  const filteredFieldMappings = showOnlyMapped 
-    ? fieldMappings.filter(m => m.sourceField && m.targetField)
-    : fieldMappings;
+  // Filter field mappings based on view preferences
+  const filteredFieldMappings = fieldMappings.filter(mapping => {
+    // If "Show only mapped fields" is enabled, only show mappings that have both source and target fields
+    if (showOnlyMapped) {
+      return mapping.sourceField && mapping.targetField;
+    }
+    
+    // If "Collapse unmapped fields" is enabled, hide mappings without either source or target
+    if (collapseUnmapped) {
+      return mapping.sourceField || mapping.targetField;
+    }
+    
+    // Otherwise show all mappings
+    return true;
+  });
   
   // Row count selection
   const [rowCount, setRowCount] = useState(10);
