@@ -108,21 +108,43 @@ const SampleDataModal: React.FC<SampleDataModalProps> = ({
           </div>
         )}
 
-        <div className="mt-6 flex justify-end gap-2">
-          {sampleData.success && selectedFilePath && (
+        <div className="mt-6 flex justify-between">
+          {/* Left side buttons */}
+          <div className="flex gap-2">
+            {sampleData.success && selectedFilePath && (
+              <button
+                onClick={() => {
+                  toast({
+                    title: "Create Mapping Template",
+                    description: "Redirecting to create a mapping template using this sample data"
+                  });
+                  // Navigate to the mapping templates page with query params to pre-populate data
+                  window.location.href = `/mapping-templates?create=true&path=${encodeURIComponent(selectedFilePath.path)}&label=${encodeURIComponent(selectedFilePath.label)}&source=${sampleData.fileType || "csv"}`;
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Create Mapping Template
+              </button>
+            )}
+          </div>
+          
+          {/* Right side buttons */}
+          <div className="flex gap-2">
+            {sampleData.success && selectedFilePath && (
+              <button
+                onClick={() => selectedFilePath && onSaveTimestamp(selectedFilePath.id)}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Save Timestamp & Close
+              </button>
+            )}
             <button
-              onClick={() => selectedFilePath && onSaveTimestamp(selectedFilePath.id)}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
             >
-              Save Timestamp & Close
+              Close
             </button>
-          )}
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-          >
-            Close
-          </button>
+          </div>
         </div>
       </div>
     </div>
