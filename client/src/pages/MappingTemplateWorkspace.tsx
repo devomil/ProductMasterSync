@@ -465,8 +465,11 @@ export default function MappingTemplateWorkspace() {
     ? fieldMappings.filter(m => m.sourceField && m.targetField)
     : fieldMappings;
   
-  // Determine max preview rows based on expanded state
-  const maxPreviewRows = expandedPreview ? 15 : 5;
+  // Row count selection
+  const [rowCount, setRowCount] = useState(10);
+  
+  // Determine max preview rows based on expanded state and row count selection
+  const maxPreviewRows = expandedPreview ? 50 : rowCount;
   
   return (
     <div className="container py-4">
@@ -706,8 +709,19 @@ export default function MappingTemplateWorkspace() {
                                 </Select>
                                 
                                 {mapping.sourceField && sampleData.length > 0 && (
-                                  <div className="text-xs text-muted-foreground mt-1 truncate max-w-[150px]">
-                                    Sample: {sampleData[0][mapping.sourceField] || "N/A"}
+                                  <div className="text-xs bg-slate-50 p-1 rounded mt-1 border border-slate-200">
+                                    <span className="font-medium text-slate-500">Sample:</span>{' '}
+                                    <span className="font-mono truncate inline-block max-w-[250px]" title={String(sampleData[0][mapping.sourceField] || "")}>
+                                      {sampleData[0][mapping.sourceField] === null || sampleData[0][mapping.sourceField] === undefined
+                                        ? <span className="italic text-slate-400">null</span>
+                                        : String(sampleData[0][mapping.sourceField])}
+                                    </span>
+                                    <div className="mt-1 text-slate-500">
+                                      <span className="inline-block px-1 rounded bg-slate-100 border border-slate-200">
+                                        {sampleData[0] && typeof sampleData[0][mapping.sourceField] === 'number' ? 'Number' : 
+                                         sampleData[0] && sampleData[0][mapping.sourceField] instanceof Date ? 'Date' : 'Text'}
+                                      </span>
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -771,9 +785,27 @@ export default function MappingTemplateWorkspace() {
                         <div>
                           <div className="bg-slate-100 p-3 font-medium border-b flex justify-between items-center">
                             <span>Sample Data Preview</span>
-                            <span className="text-xs text-muted-foreground">
-                              Showing {Math.min(maxPreviewRows, sampleData.length)} of {sampleData.length} rows
-                            </span>
+                            <div className="flex items-center gap-4">
+                              {!expandedPreview && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-muted-foreground">Show rows:</span>
+                                  <div className="flex border rounded overflow-hidden">
+                                    {[10, 25, 50].map((count) => (
+                                      <button
+                                        key={count}
+                                        className={`px-2 py-1 text-xs ${rowCount === count ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'}`}
+                                        onClick={() => setRowCount(count)}
+                                      >
+                                        {count}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                Showing {Math.min(maxPreviewRows, sampleData.length)} of {sampleData.length} rows
+                              </span>
+                            </div>
                           </div>
                           
                           <div className="overflow-x-auto" style={{ maxHeight: expandedPreview ? '650px' : '350px' }}>
