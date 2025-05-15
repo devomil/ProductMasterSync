@@ -1063,6 +1063,181 @@ export default function DataSources() {
                   />
                 </div>
               )}
+              
+              {editingDataSource.type === 'sftp' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-sftp-host">SFTP Host</Label>
+                      <Input
+                        id="edit-sftp-host"
+                        name="host"
+                        defaultValue={
+                          typeof editingDataSource.config === 'object' && editingDataSource.config?.host
+                            ? editingDataSource.config.host
+                            : ''
+                        }
+                        placeholder="sftp.example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-sftp-port">Port</Label>
+                      <Input
+                        id="edit-sftp-port"
+                        name="port"
+                        type="number"
+                        defaultValue={
+                          typeof editingDataSource.config === 'object' && editingDataSource.config?.port
+                            ? editingDataSource.config.port
+                            : 22
+                        }
+                        placeholder="22"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-sftp-username">Username</Label>
+                      <Input
+                        id="edit-sftp-username"
+                        name="username"
+                        defaultValue={
+                          typeof editingDataSource.config === 'object' && editingDataSource.config?.username
+                            ? editingDataSource.config.username
+                            : ''
+                        }
+                        placeholder="username"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-sftp-password">Password</Label>
+                      <Input
+                        id="edit-sftp-password"
+                        name="password"
+                        type="password"
+                        defaultValue={
+                          typeof editingDataSource.config === 'object' && editingDataSource.config?.password
+                            ? editingDataSource.config.password
+                            : ''
+                        }
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Remote Paths</Label>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        type="button" 
+                        onClick={() => {
+                          // Get current config
+                          const currentConfig = typeof editingDataSource.config === 'object' 
+                            ? editingDataSource.config || {}
+                            : {};
+                            
+                          // Get remote paths or initialize empty array
+                          const remote_paths = Array.isArray(currentConfig.remote_paths) 
+                            ? [...currentConfig.remote_paths]
+                            : [];
+                            
+                          // Open an input dialog for new path
+                          const path = window.prompt('Enter remote path (e.g., /eco8/out/inventory.csv)');
+                          if (!path) return;
+                          
+                          const label = window.prompt('Enter a label for this path (e.g., Inventory File)');
+                          if (!label) return;
+                          
+                          // Add new path
+                          remote_paths.push({
+                            path,
+                            label,
+                            lastPulled: null,
+                            lastPullStatus: null
+                          });
+                          
+                          // Update data source
+                          setEditingDataSource({
+                            ...editingDataSource,
+                            config: {
+                              ...currentConfig,
+                              remote_paths
+                            }
+                          });
+                        }}
+                      >
+                        Add Path
+                      </Button>
+                    </div>
+                    <div className="border rounded-md p-4 bg-gray-50">
+                      <div className="text-sm font-medium mb-2">Configured Remote Paths:</div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {typeof editingDataSource.config === 'object' && 
+                         editingDataSource.config?.remote_paths && 
+                         Array.isArray(editingDataSource.config.remote_paths) ? (
+                          <div className="space-y-2">
+                            {editingDataSource.config.remote_paths.map((path, idx) => (
+                              <div key={idx} className="flex items-center justify-between bg-white p-2 rounded border">
+                                <div>
+                                  <span className="font-medium">{path.label || 'Path ' + (idx + 1)}</span>
+                                  <div className="text-sm text-gray-500">{path.path}</div>
+                                  {path.lastPulled && (
+                                    <div className="text-xs text-gray-400">
+                                      Last pulled: {new Date(path.lastPulled).toLocaleString()}
+                                      {path.lastPullStatus && (
+                                        <span className={path.lastPullStatus === 'success' ? 'text-green-600' : 'text-red-600'}>
+                                          {' '}({path.lastPullStatus})
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm" 
+                                    variant="ghost" 
+                                    type="button" 
+                                    onClick={() => {
+                                      // Get current config
+                                      const currentConfig = typeof editingDataSource.config === 'object' 
+                                        ? editingDataSource.config || {}
+                                        : {};
+                                        
+                                      // Get remote paths
+                                      const remote_paths = Array.isArray(currentConfig.remote_paths) 
+                                        ? [...currentConfig.remote_paths]
+                                        : [];
+                                      
+                                      // Remove path at index
+                                      remote_paths.splice(idx, 1);
+                                      
+                                      // Update data source
+                                      setEditingDataSource({
+                                        ...editingDataSource,
+                                        config: {
+                                          ...currentConfig,
+                                          remote_paths
+                                        }
+                                      });
+                                    }}
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">No remote paths configured</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </form>
           )}
           
@@ -1091,9 +1266,10 @@ export default function DataSources() {
                   description: formData.get('description') as string,
                 };
                 
-                // For API type data sources, handle the config JSON
+                // Handle different data source types
                 if (editingDataSource.type === 'api') {
                   try {
+                    // For API type, parse JSON config
                     updatedDataSource.config = JSON.parse(formData.get('config') as string);
                   } catch (e) {
                     toast({
@@ -1103,6 +1279,32 @@ export default function DataSources() {
                     });
                     return;
                   }
+                } else if (editingDataSource.type === 'sftp') {
+                  // For SFTP type, preserve remote_paths while updating other settings
+                  const host = formData.get('host') as string;
+                  const port = Number(formData.get('port'));
+                  const username = formData.get('username') as string;
+                  const password = formData.get('password') as string;
+                  
+                  // Get current config and ensure it's an object
+                  const currentConfig = typeof editingDataSource.config === 'object' 
+                    ? editingDataSource.config || {}
+                    : {};
+                  
+                  // Make sure remote_paths exists and is preserved
+                  const remote_paths = currentConfig.remote_paths || [];
+                  
+                  // Update config with form values
+                  updatedDataSource.config = {
+                    ...currentConfig,
+                    host,
+                    port,
+                    username,
+                    is_sftp: true,
+                    remote_paths,
+                    // Only update password if provided
+                    ...(password ? { password } : {})
+                  };
                 }
                 
                 try {
