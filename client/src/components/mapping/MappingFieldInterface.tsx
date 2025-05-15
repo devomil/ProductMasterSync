@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Plus, ChevronDown, ChevronUp, Trash, Save } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash, Save, Maximize, Minimize } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import EnhancedSampleDataTable from "@/components/mapping/EnhancedSampleDataTable";
 import { toast } from "@/hooks/use-toast";
@@ -36,6 +36,7 @@ export default function MappingFieldInterface({
   const [showAllRows, setShowAllRows] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<'sample' | 'mapping' | 'both'>('both');
   const [isSaving, setIsSaving] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Get required fields from target fields
   const requiredFields = targetFields.filter(field => field.required).map(field => field.id);
@@ -69,19 +70,56 @@ export default function MappingFieldInterface({
       setIsSaving(false);
     }
   };
+  
+  // Handle toggling full screen mode
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    
+    // When entering full-screen, make sure both panels are expanded
+    if (!isFullScreen) {
+      setExpandedPanel('both');
+    }
+  };
+  
+  // Add/remove event listener for ESC key to exit full screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
 
   return (
-    <div className="space-y-6">
+    <div className={`
+      space-y-6 
+      ${isFullScreen ? 'fixed inset-0 bg-white p-6 z-50 overflow-auto' : ''}
+    `}>
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Field Mappings</h3>
-        <Button 
-          onClick={handleSave}
-          disabled={isSaving || !areRequiredFieldsMapped}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? "Saving..." : "Save Mapping"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={toggleFullScreen}
+            title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+          >
+            {isFullScreen ? 
+              <Minimize className="h-4 w-4" /> : 
+              <Maximize className="h-4 w-4" />
+            }
+          </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={isSaving || !areRequiredFieldsMapped}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? "Saving..." : "Save Mapping"}
+          </Button>
+        </div>
       </div>
 
       {/* Sample Data Panel */}
@@ -109,8 +147,8 @@ export default function MappingFieldInterface({
             <>
               <EnhancedSampleDataTable 
                 sampleData={sampleData} 
-                maxHeight="300px"
-                maxRows={showAllRows ? sampleData.length : 5} 
+                maxHeight={isFullScreen ? "40vh" : "300px"}
+                maxRows={showAllRows || isFullScreen ? sampleData.length : 5} 
                 showInstructions={false}
               />
               <div className="flex justify-center mt-2">
@@ -150,7 +188,7 @@ export default function MappingFieldInterface({
           }
         </CollapsibleTrigger>
         <CollapsibleContent className="p-4">
-          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+          <div className={`space-y-3 overflow-y-auto pr-2 ${isFullScreen ? 'max-h-[40vh]' : 'max-h-[400px]'}`}>
             {fieldMappings.map((mapping, index) => (
               <div key={index} className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-50">
                 <div className="flex-1">
