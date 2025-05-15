@@ -642,6 +642,30 @@ export default function MappingTemplateWorkspace() {
                       <><Maximize className="h-4 w-4 mr-2" /> Fullscreen Mode</>
                     }
                   </Button>
+                  
+                  <ViewToggle 
+                    enhanced={displayEnhanced}
+                    onToggle={() => setDisplayEnhanced(!displayEnhanced)}
+                  />
+                  
+                  <div className="flex items-center space-x-1">
+                    <Label htmlFor="row-count" className="text-sm">Rows:</Label>
+                    <Select 
+                      value={String(rowCount)}
+                      onValueChange={(val) => setRowCount(Number(val))}
+                    >
+                      <SelectTrigger className="w-[80px] h-8">
+                        <SelectValue placeholder="20" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
