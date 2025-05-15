@@ -96,19 +96,20 @@ export default function MappingFieldInterface({
   return (
     <div className={`
       space-y-6 
-      ${isFullScreen ? 'fixed inset-0 bg-white dark:bg-slate-900 p-6 z-50 overflow-auto flex flex-col h-full' : ''}
+      ${isFullScreen ? 'fixed inset-0 bg-white dark:bg-slate-900 p-6 z-[9999] overflow-auto flex flex-col h-full w-full' : ''}
     `}>
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Field Mappings</h3>
         <div className="flex gap-2">
           <Button 
-            variant="outline"
+            variant={isFullScreen ? "default" : "outline"}
             onClick={toggleFullScreen}
             title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+            className={isFullScreen ? "bg-blue-600 hover:bg-blue-700" : ""}
           >
             {isFullScreen ? 
-              <Minimize className="h-4 w-4" /> : 
-              <Maximize className="h-4 w-4" />
+              <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
+              <><Maximize className="h-4 w-4 mr-2" /> Fullscreen</>
             }
           </Button>
           <Button 
@@ -126,7 +127,7 @@ export default function MappingFieldInterface({
       <Collapsible 
         open={expandedPanel === 'sample' || expandedPanel === 'both'} 
         onOpenChange={() => setExpandedPanel(expandedPanel === 'sample' ? 'both' : (expandedPanel === 'both' ? 'mapping' : 'sample'))}
-        className="border rounded-md"
+        className={`border rounded-md ${isFullScreen ? 'border-2 border-green-200' : ''}`}
       >
         <CollapsibleTrigger className="flex w-full items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
           <div className="font-medium flex items-center">
@@ -173,7 +174,7 @@ export default function MappingFieldInterface({
       <Collapsible 
         open={expandedPanel === 'mapping' || expandedPanel === 'both'} 
         onOpenChange={() => setExpandedPanel(expandedPanel === 'mapping' ? 'both' : (expandedPanel === 'both' ? 'sample' : 'mapping'))}
-        className="border rounded-md"
+        className={`border rounded-md ${isFullScreen ? 'border-2 border-blue-200' : ''}`}
       >
         <CollapsibleTrigger className="flex w-full items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors">
           <div className="font-medium flex items-center">

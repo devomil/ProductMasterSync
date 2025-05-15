@@ -57,7 +57,7 @@ const SampleDataModal: React.FC<SampleDataModalProps> = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className={`
         bg-white rounded-lg p-6 overflow-auto
-        ${isFullScreen ? 'fixed inset-0 z-50 m-0 max-w-none max-h-none rounded-none' : 'w-[90%] max-w-6xl max-h-[90vh]'}
+        ${isFullScreen ? 'fixed inset-0 z-[9999] m-0 max-w-none max-h-none rounded-none w-full h-full' : 'w-[90%] max-w-6xl max-h-[90vh]'}
       `}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">
