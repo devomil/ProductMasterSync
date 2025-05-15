@@ -510,6 +510,33 @@ export default function MappingTemplateWorkspace() {
   // Determine max preview rows based on expanded state and row count selection
   const maxPreviewRows = expandedPreview ? 50 : rowCount;
   
+  // Helper functions for enhanced sample data visualization
+  const getValueType = (value: any): string => {
+    if (value === null || value === undefined) return 'null';
+    if (typeof value === 'number') return 'number';
+    if (typeof value === 'boolean') return 'boolean';
+    if (value instanceof Date) return 'date';
+    if (typeof value === 'object') return 'object';
+    return 'string';
+  };
+  
+  const getColumnType = (data: any[], header: string): string => {
+    if (!data.length) return 'Unknown';
+    
+    // Check the first non-null value to determine type
+    const sample = data.find(row => row[header] !== null && row[header] !== undefined);
+    if (!sample) return 'Unknown';
+    
+    return getValueType(sample[header]);
+  };
+  
+  const formatCellValue = (value: any): string => {
+    if (value === null || value === undefined) return 'null';
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+  
   return (
     <div className="container py-4">
       <div className="flex items-center mb-6">
@@ -877,6 +904,12 @@ export default function MappingTemplateWorkspace() {
                           <div className="bg-slate-100 p-3 font-medium border-b flex justify-between items-center">
                             <span>Sample Data Preview</span>
                             <div className="flex items-center gap-4">
+                              {/* View Mode Toggle (Enhanced/Simple) */}
+                              <ViewToggle 
+                                enhanced={displayEnhanced} 
+                                onToggle={() => setDisplayEnhanced(!displayEnhanced)} 
+                              />
+                              
                               {!expandedPreview && (
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm text-muted-foreground">Show rows:</span>
@@ -900,43 +933,106 @@ export default function MappingTemplateWorkspace() {
                           </div>
                           
                           <div className="overflow-x-auto" style={{ maxHeight: expandedPreview ? '650px' : '350px' }}>
-                            <table className="w-full">
-                              <thead className="sticky top-0 bg-white border-b">
-                                <tr>
-                                  {sampleHeaders.map((header, i) => (
-                                    <th key={i} className="text-left p-2 text-sm font-medium text-slate-700 whitespace-nowrap">
-                                      <div className="flex flex-col">
-                                        <span className="flex items-center gap-1">
-                                          {header}
-                                          {fieldMappings.some(m => m.sourceField === header && m.targetField) && (
-                                            <Badge variant="secondary" className="ml-1 text-xs">
-                                              {targetFields.find(f => f.id === fieldMappings.find(m => m.sourceField === header)?.targetField)?.name || "Mapped"}
-                                            </Badge>
-                                          )}
-                                        </span>
-                                        <span className="text-xs text-slate-500 font-normal">
-                                          {sampleData[0] && typeof sampleData[0][header] === 'number' ? 'Number' : 
-                                           sampleData[0] && sampleData[0][header] instanceof Date ? 'Date' : 'Text'}
-                                        </span>
-                                      </div>
-                                    </th>
+                            {displayEnhanced ? (
+                              // Enhanced view with data type visualization and better formatting
+                              <table className="w-full">
+                                <thead className="sticky top-0 bg-white border-b">
+                                  <tr>
+                                    {sampleHeaders.map((header, i) => {
+                                      const columnType = getColumnType(sampleData, header);
+                                      
+                                      // Style for column type label
+                                      let typeStyle = "text-xs font-normal px-1 py-0.5 rounded-sm ";
+                                      if (columnType === 'number') typeStyle += "bg-blue-50 text-blue-700";
+                                      else if (columnType === 'boolean') typeStyle += "bg-purple-50 text-purple-700";
+                                      else if (columnType === 'date') typeStyle += "bg-green-50 text-green-700";
+                                      else if (columnType === 'object') typeStyle += "bg-amber-50 text-amber-700";
+                                      else typeStyle += "bg-slate-50 text-slate-700";
+                                      
+                                      return (
+                                        <th key={i} className="text-left p-2 text-sm font-medium text-slate-700 whitespace-nowrap">
+                                          <div className="flex flex-col gap-1">
+                                            <span className="flex items-center gap-1">
+                                              {header}
+                                              {fieldMappings.some(m => m.sourceField === header && m.targetField) && (
+                                                <Badge variant="secondary" className="ml-1 text-xs">
+                                                  {targetFields.find(f => f.id === fieldMappings.find(m => m.sourceField === header)?.targetField)?.name || "Mapped"}
+                                                </Badge>
+                                              )}
+                                            </span>
+                                            <span className={typeStyle}>
+                                              {columnType}
+                                            </span>
+                                          </div>
+                                        </th>
+                                      );
+                                    })}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {sampleData.slice(0, maxPreviewRows).map((row, rowIndex) => (
+                                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                                      {sampleHeaders.map((header, colIndex) => {
+                                        const cellValue = row[header];
+                                        const dataType = getValueType(cellValue);
+                                        
+                                        // Cell style based on data type
+                                        let cellStyle = "p-2 text-sm border-b border-r last:border-r-0 font-mono ";
+                                        if (dataType === 'number') cellStyle += "text-blue-700 ";
+                                        else if (dataType === 'boolean') cellStyle += "text-purple-700 ";
+                                        else if (dataType === 'date') cellStyle += "text-green-700 ";
+                                        else if (dataType === 'object') cellStyle += "text-amber-700 ";
+                                        else if (dataType === 'null') cellStyle += "text-slate-400 italic ";
+                                        
+                                        return (
+                                          <td key={colIndex} className={cellStyle}>
+                                            {cellValue === null || cellValue === undefined 
+                                              ? <span className="text-slate-400 italic">null</span> 
+                                              : formatCellValue(cellValue)
+                                            }
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
                                   ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {sampleData.slice(0, maxPreviewRows).map((row, rowIndex) => (
-                                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                                    {sampleHeaders.map((header, colIndex) => (
-                                      <td key={colIndex} className="p-2 text-sm border-b border-r last:border-r-0 font-mono">
-                                        {row[header] === null || row[header] === undefined 
-                                          ? <span className="text-slate-400 italic">null</span> 
-                                          : String(row[header])}
-                                      </td>
+                                </tbody>
+                              </table>
+                            ) : (
+                              // Simple view
+                              <table className="w-full">
+                                <thead className="sticky top-0 bg-white border-b">
+                                  <tr>
+                                    {sampleHeaders.map((header, i) => (
+                                      <th key={i} className="text-left p-2 text-sm font-medium text-slate-700 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                          <span className="flex items-center gap-1">
+                                            {header}
+                                            {fieldMappings.some(m => m.sourceField === header && m.targetField) && (
+                                              <Badge variant="secondary" className="ml-1 text-xs">
+                                                {targetFields.find(f => f.id === fieldMappings.find(m => m.sourceField === header)?.targetField)?.name || "Mapped"}
+                                              </Badge>
+                                            )}
+                                          </span>
+                                        </div>
+                                      </th>
                                     ))}
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {sampleData.slice(0, maxPreviewRows).map((row, rowIndex) => (
+                                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                                      {sampleHeaders.map((header, colIndex) => (
+                                        <td key={colIndex} className="p-2 text-sm border-b border-r last:border-r-0 font-mono">
+                                          {row[header] === null || row[header] === undefined 
+                                            ? <span className="text-slate-400 italic">null</span> 
+                                            : String(row[header])}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
                           </div>
                           
                           {!expandedPreview && sampleData.length > maxPreviewRows && (
