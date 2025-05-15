@@ -755,3 +755,189 @@ export const getImportStatus = async (filenames: string[]): Promise<Record<strin
     return acc;
   }, {} as Record<string, 'pending' | 'processing' | 'success' | 'error'>);
 };
+
+/**
+ * Get remote paths from an SFTP/FTP server
+ * @param credentials FTP/SFTP connection credentials
+ * @returns List of files and directories
+ */
+export const getRemotePaths = async (
+  credentials: FTPCredentials
+): Promise<{
+  success: boolean;
+  message: string;
+  paths?: string[];
+  error?: any;
+}> => {
+  const result = {
+    success: false,
+    message: '',
+    paths: [] as string[],
+    error: null as any
+  };
+
+  // Default remote directory to root if not specified
+  const remoteDir = credentials.remoteDir || '/';
+  
+  // Determine if SFTP or FTP based on port/secure flag
+  const isSFTP = credentials.port === 22 || credentials.privateKey;
+  
+  if (isSFTP) {
+    // Use SFTP protocol
+    return new Promise((resolve) => {
+      const conn = new SFTPClient();
+      
+      conn.on('ready', () => {
+        conn.sftp((err, sftp) => {
+          if (err) {
+            result.success = false;
+            result.message = `SFTP error: ${err.message}`;
+            result.error = err;
+            conn.end();
+            resolve(result);
+            return;
+          }
+          
+          // List directories recursively up to 2 levels deep
+          const explorePath = async (currentPath: string, depth: number = 0) => {
+            if (depth > 2) return; // Limit recursion depth
+            
+            try {
+              const list = await new Promise<any[]>((pathResolve, pathReject) => {
+                sftp.readdir(currentPath, (dirErr, dirList) => {
+                  if (dirErr) pathReject(dirErr);
+                  else pathResolve(dirList || []);
+                });
+              });
+              
+              // Add the current path
+              result.paths.push(currentPath);
+              
+              // Process directories only for recursive listing
+              const directories = list.filter(item => item.longname.startsWith('d'));
+              
+              for (const dir of directories) {
+                const newPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${dir.filename}`;
+                await explorePath(newPath, depth + 1);
+              }
+            } catch (pathErr) {
+              console.error(`Error exploring path ${currentPath}:`, pathErr);
+            }
+          };
+          
+          // Start exploring from the remote directory
+          explorePath(remoteDir)
+            .then(() => {
+              result.success = true;
+              result.message = 'Successfully retrieved remote paths';
+              conn.end();
+              resolve(result);
+            })
+            .catch((explorationErr) => {
+              result.success = false;
+              result.message = `Error exploring SFTP paths: ${explorationErr.message}`;
+              result.error = explorationErr;
+              conn.end();
+              resolve(result);
+            });
+        });
+      });
+      
+      conn.on('error', (err) => {
+        result.success = false;
+        result.message = `SFTP connection error: ${err.message}`;
+        result.error = err;
+        resolve(result);
+      });
+      
+      // Connect using the provided credentials
+      const connectOptions: any = {
+        host: credentials.host,
+        port: credentials.port || 22,
+        username: credentials.username,
+      };
+      
+      if (credentials.password) {
+        connectOptions.password = credentials.password;
+      } else if (credentials.privateKey) {
+        connectOptions.privateKey = credentials.privateKey;
+        if (credentials.passphrase) {
+          connectOptions.passphrase = credentials.passphrase;
+        }
+      }
+      
+      conn.connect(connectOptions);
+    });
+  } else {
+    // Use FTP protocol
+    return new Promise((resolve) => {
+      const client = new FTP();
+      
+      client.on('ready', () => {
+        const exploredPaths = new Set<string>();
+        
+        // Function to explore a directory
+        const explorePath = async (currentPath: string, depth: number = 0) => {
+          if (depth > 2) return; // Limit recursion depth
+          if (exploredPaths.has(currentPath)) return; // Avoid duplicate exploration
+          
+          exploredPaths.add(currentPath);
+          
+          try {
+            const list = await new Promise<any[]>((pathResolve, pathReject) => {
+              client.list(currentPath, (listErr, listResult) => {
+                if (listErr) pathReject(listErr);
+                else pathResolve(listResult || []);
+              });
+            });
+            
+            // Add the current path
+            result.paths.push(currentPath);
+            
+            // Process directories for recursive listing
+            const directories = list.filter(item => item.type === 'd');
+            
+            for (const dir of directories) {
+              const newPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${dir.name}`;
+              await explorePath(newPath, depth + 1);
+            }
+          } catch (pathErr) {
+            console.error(`Error exploring FTP path ${currentPath}:`, pathErr);
+          }
+        };
+        
+        // Start exploring from the remote directory
+        explorePath(remoteDir)
+          .then(() => {
+            result.success = true;
+            result.message = 'Successfully retrieved remote paths';
+            client.end();
+            resolve(result);
+          })
+          .catch((explorationErr) => {
+            result.success = false;
+            result.message = `Error exploring FTP paths: ${explorationErr.message}`;
+            result.error = explorationErr;
+            client.end();
+            resolve(result);
+          });
+      });
+      
+      client.on('error', (err) => {
+        result.success = false;
+        result.message = `FTP connection error: ${err.message}`;
+        result.error = err;
+        resolve(result);
+      });
+      
+      // Connect using the provided credentials
+      client.connect({
+        host: credentials.host,
+        port: credentials.port || 21,
+        user: credentials.username,
+        password: credentials.password,
+        secure: credentials.secure || false
+      });
+    });
+  }
+};
