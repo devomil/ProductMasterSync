@@ -441,23 +441,22 @@ export default function MappingTemplateWorkspace() {
       }
     });
     
-    // Take the first row of sample data and map it to target fields
-    const firstRow = sampleData[0];
-    const preview: Record<string, any> = {};
-    
-    // Initialize all target fields with null
-    targetFields.forEach(field => {
-      preview[field.id] = null;
-    });
-    
-    // Apply mappings
-    Object.entries(firstRow).forEach(([key, value]) => {
-      if (mappingObj[key]) {
-        preview[mappingObj[key]] = value;
+    // Map each row of sample data to target fields
+    const previewData = sampleData.slice(0, 10).map(row => {
+      const mappedRow: Record<string, any> = {};
+      
+      // Get the field name for display instead of ID
+      for (const [sourceField, targetFieldId] of Object.entries(mappingObj)) {
+        const targetField = targetFields.find(f => f.id === targetFieldId);
+        const displayName = targetField ? targetField.name : targetFieldId;
+        
+        mappedRow[displayName] = row[sourceField];
       }
+      
+      return mappedRow;
     });
     
-    return preview;
+    return previewData;
   };
 
   const updateFieldMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
@@ -1291,6 +1290,76 @@ export default function MappingTemplateWorkspace() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Remote Paths Tab */}
+          <TabsContent value="remote-paths" className="mt-4">
+            <Card>
+              <CardContent className="py-4">
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium">Remote Path Associations</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Associate this mapping template with specific remote file paths. The template will be used when processing files from these paths.
+                  </p>
+                </div>
+                
+                {!templateForm.supplierId ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed rounded-md">
+                    <p className="text-muted-foreground">
+                      Select a supplier in the General Information tab to view available remote paths.
+                    </p>
+                  </div>
+                ) : !['sftp', 'ftp'].includes(templateForm.sourceType) ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed rounded-md">
+                    <p className="text-muted-foreground">
+                      Remote path associations are only available for SFTP and FTP data sources.
+                    </p>
+                  </div>
+                ) : remotePaths.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed rounded-md">
+                    <p className="text-muted-foreground">
+                      No remote paths found for this supplier. Make sure the data source is configured properly.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-3">
+                      <p className="text-sm font-medium mb-1">Selected path: {templateForm.fileLabel || "None"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        This template will be used when processing files from the selected path.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto border rounded-md p-2">
+                      {remotePaths.map((item, index) => (
+                        <div 
+                          key={index}
+                          className={`flex items-center p-3 rounded-md cursor-pointer ${templateForm.fileLabel === item.path ? 'bg-primary/10 border-primary' : 'hover:bg-accent'}`}
+                          onClick={() => {
+                            setTemplateForm({
+                              ...templateForm,
+                              fileLabel: item.path
+                            });
+                          }}
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium">{item.label}</p>
+                            <p className="text-xs text-muted-foreground">{item.path}</p>
+                          </div>
+                          <div className="flex items-center">
+                            {templateForm.fileLabel === item.path && (
+                              <Badge variant="outline" className="bg-primary/10 text-primary">
+                                Selected
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
