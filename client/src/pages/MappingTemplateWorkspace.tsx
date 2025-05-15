@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
@@ -95,20 +96,20 @@ export default function MappingTemplateWorkspace() {
   
   // List of target fields for product mapping
   const targetFields = [
-    { id: "sku", name: "SKU", required: true },
-    { id: "product_name", name: "Product Name", required: true },
-    { id: "description", name: "Description" },
-    { id: "category", name: "Category" },
-    { id: "manufacturer", name: "Manufacturer" },
-    { id: "upc", name: "UPC" },
-    { id: "mpn", name: "MPN" },
-    { id: "price", name: "Price" },
-    { id: "cost", name: "Cost" },
-    { id: "weight", name: "Weight" },
-    { id: "status", name: "Status" },
-    { id: "stock_quantity", name: "Stock Quantity" },
-    { id: "attributes", name: "Attributes" },
-    { id: "images", name: "Images" }
+    { id: "sku", name: "SKU", required: true, description: "Unique product identifier (Stock Keeping Unit)" },
+    { id: "product_name", name: "Product Name", required: true, description: "The name of the product as displayed to customers" },
+    { id: "description", name: "Description", description: "Detailed product description" },
+    { id: "category", name: "Category", description: "Product category or classification" },
+    { id: "manufacturer", name: "Manufacturer", description: "Name of the product manufacturer" },
+    { id: "upc", name: "UPC", description: "Universal Product Code barcode identifier" },
+    { id: "mpn", name: "MPN", description: "Manufacturer Part Number" },
+    { id: "price", name: "Price", description: "Retail price of the product" },
+    { id: "cost", name: "Cost", description: "Product cost to your business" },
+    { id: "weight", name: "Weight", description: "Product weight, used for shipping calculations" },
+    { id: "status", name: "Status", description: "Product status (active, inactive, discontinued)" },
+    { id: "stock_quantity", name: "Stock Quantity", description: "Current inventory quantity" },
+    { id: "attributes", name: "Attributes", description: "Product attributes like color, size, material, etc." },
+    { id: "images", name: "Images", description: "URLs or identifiers for product images" }
   ];
   
   // Get all suppliers and data sources
@@ -738,11 +739,23 @@ export default function MappingTemplateWorkspace() {
                                       <SelectValue placeholder="Target Field" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {targetFields.map((field) => (
-                                        <SelectItem key={field.id} value={field.id}>
-                                          {field.name}{field.required ? " *" : ""}
-                                        </SelectItem>
-                                      ))}
+                                      <TooltipProvider>
+                                        {targetFields.map((field) => (
+                                          <Tooltip key={field.id}>
+                                            <TooltipTrigger asChild>
+                                              <SelectItem value={field.id}>
+                                                {field.name}{field.required ? " *" : ""}
+                                              </SelectItem>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="right" align="start" className="max-w-[250px] text-xs">
+                                              <p>{field.description}</p>
+                                              {field.required && (
+                                                <p className="mt-1 text-orange-500 font-medium">Required field</p>
+                                              )}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        ))}
+                                      </TooltipProvider>
                                     </SelectContent>
                                   </Select>
                                 </div>
