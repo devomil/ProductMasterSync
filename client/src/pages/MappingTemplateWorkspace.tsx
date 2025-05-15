@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown, Minimize, Maximize, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import MappingFieldInterface from "@/components/mapping/MappingFieldInterface";
+import EnhancedMappingInterface from "@/components/mapping/EnhancedMappingInterface";
 
 // View Toggle Component for Enhanced/Simple view
 interface ViewToggleProps {
@@ -812,7 +812,7 @@ export default function MappingTemplateWorkspace() {
           <TabsContent value="mapping" className="mt-4">
             <div className="flex flex-col space-y-4">
               <Card>
-                <CardContent className="py-4">
+                <CardContent className="p-4">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                       <Button
@@ -824,17 +824,6 @@ export default function MappingTemplateWorkspace() {
                           <><Maximize className="h-4 w-4 mr-2" /> Fullscreen Mode</>
                         }
                       </Button>
-                      
-                      <div className="flex items-center gap-4 ml-4">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id="collapse-unmapped"
-                            checked={collapseUnmapped}
-                            onCheckedChange={setCollapseUnmapped}
-                          />
-                          <Label htmlFor="collapse-unmapped">Collapse unmapped fields</Label>
-                        </div>
-                      </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -1043,15 +1032,26 @@ export default function MappingTemplateWorkspace() {
                     {/* Sample Data Preview */}
                     <div className="border rounded-md overflow-hidden">
                       {sampleData.length > 0 ? (
-                        <div>
-                          <div className="bg-slate-100 p-3 font-medium border-b flex justify-between items-center">
-                            <span>Sample Data Preview</span>
-                            <div className="flex items-center gap-4">
-                              {/* View Mode Toggle (Enhanced/Simple) */}
-                              <ViewToggle 
-                                enhanced={displayEnhanced} 
-                                onToggle={() => setDisplayEnhanced(!displayEnhanced)} 
-                              />
+                        <div className={expandedPreview ? "h-[85vh]" : "h-[70vh]"}>
+                          <EnhancedMappingInterface
+                            sampleData={sampleData}
+                            sampleHeaders={sampleHeaders}
+                            fieldMappings={fieldMappings}
+                            targetFields={targetFields}
+                            onUpdateMappings={setFieldMappings}
+                            onAutoMap={() => {
+                              if (sampleHeaders.length > 0) {
+                                const autoMappings = autoMapFields(sampleHeaders);
+                                setFieldMappings(autoMappings);
+                                toast({
+                                  title: "Auto-mapping complete",
+                                  description: `Mapped ${autoMappings.filter(m => m.targetField).length} of ${autoMappings.length} fields.`,
+                                });
+                              }
+                            }}
+                            maxPreviewRows={rowCount}
+                            isFullscreen={expandedPreview}
+                          />
                               
                               {!expandedPreview && (
                                 <div className="flex items-center gap-2">
