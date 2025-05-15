@@ -329,9 +329,9 @@ export default function MappingTemplate({
   const mappingPreview = generateMappingPreview();
   
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <div className="flex flex-col gap-6">
       {/* Top controls bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white py-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 py-2 border-b mb-2">
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowOnlyMapped(!showOnlyMapped)}>
             {showOnlyMapped ? 
@@ -371,16 +371,16 @@ export default function MappingTemplate({
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <div className="ml-2 flex items-center">
-            <Label htmlFor="collapse-unmapped" className="mr-2 text-sm">
+          <div className="ml-1 flex items-center">
+            <Label htmlFor="hide-sidebar" className="mr-2 text-sm">
               Hide Sidebar
             </Label>
-            <Switch id="collapse-unmapped" />
+            <Switch id="hide-sidebar" />
           </div>
           
-          <div className="ml-2 flex items-center">
+          <div className="ml-1 flex items-center">
             <Label htmlFor="collapse-unmapped" className="mr-2 text-sm">
-              Collapse Unmapped
+              Collapse Unmapped Fields
             </Label>
             <Switch 
               id="collapse-unmapped" 
@@ -397,7 +397,7 @@ export default function MappingTemplate({
             </Button>
           )}
           
-          <Button size="sm" onClick={autoMapFields}>
+          <Button size="sm" onClick={autoMapFields} className="bg-blue-500 hover:bg-blue-600">
             Auto-Map Fields
           </Button>
         </div>
@@ -406,16 +406,16 @@ export default function MappingTemplate({
       {/* Main content area */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left panel - Field Mappings */}
-        <div className="border rounded-md">
+        <div className="border rounded-md overflow-hidden">
           <div className="border-b bg-slate-50 p-3 flex justify-between items-center">
             <div className="flex items-center">
               <h3 className="font-medium">Field Mappings</h3>
-              <Badge variant="outline" className="ml-2 bg-blue-50">
-                {mappedCount}/{fieldMappings.length} mapped
+              <Badge variant="outline" className="ml-2 bg-blue-50 text-xs">
+                {mappedCount} of {sampleHeaders.length} mapped
               </Badge>
               <Badge 
                 variant={mappedRequiredFields.length === requiredFields.length ? "outline" : "destructive"} 
-                className={mappedRequiredFields.length === requiredFields.length ? "ml-2 bg-green-50" : "ml-2"}
+                className={mappedRequiredFields.length === requiredFields.length ? "ml-2 bg-green-50 text-xs" : "ml-2 text-xs"}
               >
                 {mappedRequiredFields.length}/{requiredFields.length} required
               </Badge>
@@ -430,7 +430,7 @@ export default function MappingTemplate({
             <div className="relative">
               <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search fields..."
+                placeholder="Source Fields"
                 className="pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -438,8 +438,17 @@ export default function MappingTemplate({
             </div>
           </div>
           
+          {/* Column headers */}
+          <div className="grid grid-cols-2 gap-2 px-8 py-2 border-b bg-gray-50 text-xs font-medium text-gray-600">
+            <div>Source Field</div>
+            <div className="flex items-center justify-between">
+              <span>Target Field</span>
+              <ChevronUp className="h-3 w-3" />
+            </div>
+          </div>
+          
           {/* Field mapping list */}
-          <div className="overflow-auto max-h-[calc(100vh-300px)]">
+          <div className="overflow-auto max-h-[calc(100vh-370px)]">
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="field-mappings">
                 {(provided) => (
@@ -475,7 +484,7 @@ export default function MappingTemplate({
                                 scrollToField(mapping.sourceField);
                               }}
                             >
-                              <div className="flex flex-col justify-center text-gray-400">
+                              <div className="flex flex-col justify-center text-gray-400 cursor-grab">
                                 <ArrowUp className="h-3 w-3" />
                                 <ArrowDown className="h-3 w-3" />
                               </div>
@@ -489,7 +498,7 @@ export default function MappingTemplate({
                                     val === "select_source" ? "" : val
                                   )}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger className="text-sm h-9">
                                     <SelectValue placeholder="Source field" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -510,7 +519,7 @@ export default function MappingTemplate({
                                     val === "select_target" ? "" : val
                                   )}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger className="text-sm h-9">
                                     <SelectValue placeholder="Target field" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -545,7 +554,10 @@ export default function MappingTemplate({
                                 <Button 
                                   variant="ghost" 
                                   size="icon"
-                                  onClick={() => removeMapping(index)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeMapping(index);
+                                  }}
                                   className="h-8 w-8 text-gray-500 hover:text-red-500"
                                 >
                                   <Trash className="h-4 w-4" />
@@ -567,68 +579,69 @@ export default function MappingTemplate({
         {/* Right panel - Sample Data Preview */}
         <div className="space-y-4">
           {/* Sample Data Preview */}
-          <Card>
-            <CardHeader className="p-3 pb-0">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-base">Sample Data Preview</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Tabs defaultValue="enhanced" className="w-auto">
-                    <TabsList className="h-8">
-                      <TabsTrigger 
-                        value="enhanced" 
-                        className="px-2 py-1 text-xs"
-                        onClick={() => setActiveView("enhanced")}
-                      >
-                        Enhanced
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="simple" 
-                        className="px-2 py-1 text-xs"
-                        onClick={() => setActiveView("simple")}
-                      >
-                        Simple
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor="rows-limit" className="text-xs">Show rows:</Label>
-                    <Select 
-                      value={String(rowsLimit)}
-                      onValueChange={(val) => onChangeRowsLimit?.(Number(val))}
+          <Card className="border rounded-md">
+            <CardHeader className="py-2 px-3 bg-slate-50 border-b flex flex-row justify-between items-center">
+              <div className="flex items-center">
+                <CardTitle className="text-sm font-medium">Sample Data Preview</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                <Tabs defaultValue="enhanced" className="w-auto">
+                  <TabsList className="h-7">
+                    <TabsTrigger 
+                      value="enhanced" 
+                      className="px-2 py-1 text-xs"
+                      onClick={() => setActiveView("enhanced")}
                     >
-                      <SelectTrigger className="h-7 w-16 text-xs">
-                        <SelectValue placeholder="25" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="25">25</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="text-xs text-gray-500">
-                    Showing {rowsLimit} of {sampleData.length} rows
-                  </div>
+                      Enhanced
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="simple" 
+                      className="px-2 py-1 text-xs"
+                      onClick={() => setActiveView("simple")}
+                    >
+                      Simple
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">Show</span>
+                  <Select 
+                    value={String(rowsLimit)}
+                    onValueChange={(val) => onChangeRowsLimit?.(Number(val))}
+                  >
+                    <SelectTrigger className="h-7 w-16 text-xs border-0">
+                      <SelectValue placeholder="25" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs">rows</span>
+                </div>
+                
+                <div className="text-xs text-gray-500">
+                  Showing {rowsLimit} of {sampleData.length} rows
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div 
-                className="overflow-auto max-h-[300px]" 
+                className="overflow-auto h-[300px]" 
                 ref={previewTableRef}
               >
                 <table className="w-full border-collapse text-sm">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr>
-                      <th className="p-2 border-b font-medium text-left">#</th>
+                      <th className="p-2 border-b font-medium text-left text-slate-600">#</th>
                       {sampleHeaders.map((header) => (
                         <th 
                           key={header} 
                           className={`
-                            p-2 border-b font-medium text-left whitespace-nowrap
+                            p-2 border-b font-medium text-left whitespace-nowrap text-slate-600
                             ${header === hoveredField ? 'bg-blue-100' : ''}
                             ${header === selectedField ? 'bg-blue-200' : ''}
                           `}
@@ -641,12 +654,12 @@ export default function MappingTemplate({
                   <tbody>
                     {previewData.map((row, rowIndex) => (
                       <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                        <td className="p-2 border-b text-slate-500">{rowIndex + 1}</td>
+                        <td className="p-2 border-b text-slate-500 text-sm">{rowIndex + 1}</td>
                         {sampleHeaders.map((header) => (
                           <td 
                             key={`${rowIndex}-${header}`} 
                             className={`
-                              p-2 border-b truncate max-w-[200px]
+                              p-2 border-b truncate max-w-[200px] text-sm
                               ${header === hoveredField ? 'bg-blue-50' : ''}
                               ${header === selectedField ? 'bg-blue-100' : ''}
                             `}
@@ -666,9 +679,9 @@ export default function MappingTemplate({
           </Card>
           
           {/* Live Mapping Preview */}
-          <Card>
-            <CardHeader className="p-3 pb-0">
-              <CardTitle className="text-base">Live Mapping Preview</CardTitle>
+          <Card className="border rounded-md">
+            <CardHeader className="py-2 px-3 bg-slate-50 border-b">
+              <CardTitle className="text-sm font-medium">Live Mapping Preview</CardTitle>
               <p className="text-xs text-gray-500">How the first row will be imported</p>
             </CardHeader>
             <CardContent className="p-0">
@@ -678,9 +691,9 @@ export default function MappingTemplate({
                     <tr>
                       {mappingPreview.length > 0 && (
                         <>
-                          <th className="p-2 border-b font-medium text-left">Target Field</th>
-                          <th className="p-2 border-b font-medium text-left">Sample Value</th>
-                          <th className="p-2 border-b font-medium text-left">Source Column</th>
+                          <th className="p-2 border-b font-medium text-left text-slate-600">Target Field</th>
+                          <th className="p-2 border-b font-medium text-left text-slate-600">Sample Value</th>
+                          <th className="p-2 border-b font-medium text-left text-slate-600">Source Column</th>
                         </>
                       )}
                     </tr>

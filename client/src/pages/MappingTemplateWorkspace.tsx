@@ -30,7 +30,7 @@ interface MappingTemplate {
   createdAt: Date | null;
   updatedAt: Date | null;
   supplierId?: number | null;
-  fileLabel?: string | null;
+  fileLabel?: string;
 }
 
 interface ValidationRule {
@@ -662,7 +662,7 @@ export default function MappingTemplateWorkspace() {
                     name: templateForm.name,
                     sourceType: templateForm.sourceType,
                     supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name,
-                    filePath: templateForm.fileLabel
+                    filePath: templateForm.fileLabel || ""
                   }}
                   onPullSftpSample={
                     templateForm.sourceType === 'sftp' && templateForm.supplierId
