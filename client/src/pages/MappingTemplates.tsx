@@ -1,558 +1,939 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { FileText, Edit, Plus, Code, List, X, Check } from "lucide-react";
-import type { MappingTemplate } from "@shared/schema";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogFooter 
+import { Plus, Edit, Trash, FileUp, Download } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Types
+interface MappingTemplate {
+  id: number;
+  name: string;
+  description: string | null;
+  sourceType: string;
+  mappings: Record<string, string>;
+  transformations: any[];
+  validationRules: any[];
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  supplierId?: number | null;
+  fileLabel?: string | null;
+}
+
+interface Supplier {
+  id: number;
+  name: string;
+  code: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  active: boolean;
+}
+
+interface FieldMapping {
+  sourceField: string;
+  targetField: string;
+}
+
+// Available target fields (internal schema fields)
+const AVAILABLE_TARGET_FIELDS = [
+  { id: "sku", name: "SKU" },
+  { id: "name", name: "Product Name" },
+  { id: "description", name: "Description" },
+  { id: "manufacturerPartNumber", name: "Manufacturer Part Number" },
+  { id: "upc", name: "UPC" },
+  { id: "price", name: "Price" },
+  { id: "cost", name: "Cost" },
+  { id: "weight", name: "Weight" },
+  { id: "dimensions", name: "Dimensions" },
+  { id: "manufacturerName", name: "Manufacturer Name" },
+  { id: "status", name: "Status" },
+  { id: "categoryId", name: "Category ID" },
+  { id: "inventoryQuantity", name: "Inventory Quantity" },
+  { id: "isRemanufactured", name: "Is Remanufactured" },
+  { id: "isCloseout", name: "Is Closeout" },
+  { id: "isOnSale", name: "Is On Sale" },
+  { id: "hasFreeShipping", name: "Has Free Shipping" },
+  { id: "hasRebate", name: "Has Rebate" },
+];
 
 export default function MappingTemplates() {
+  // State for template list
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<MappingTemplate | null>(null);
-  
-  const { data: mappingTemplates = [], isLoading, error } = useQuery({
+  const [activeTab, setActiveTab] = useState("all");
+
+  // State for template form
+  const [templateForm, setTemplateForm] = useState({
+    name: "",
+    description: "",
+    sourceType: "csv",
+    supplierId: "",
+    fileLabel: "",
+    mappings: {} as Record<string, string>
+  });
+
+  // State for field mapping
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([
+    { sourceField: "", targetField: "" }
+  ]);
+
+  // State for file upload
+  const [sampleData, setSampleData] = useState<any[] | null>(null);
+  const [sampleHeaders, setSampleHeaders] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+
+  // Queries
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['/api/mapping-templates'],
-    refetchOnWindowFocus: false
+    select: (data) => data || []
   });
-  
-  const { data: dataSources = [] } = useQuery({
-    queryKey: ['/api/data-sources'],
-    refetchOnWindowFocus: false
+
+  const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
+    queryKey: ['/api/suppliers'],
+    select: (data) => data || []
   });
-  
-  const handleCreateTemplate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+
+  // Functions to handle form state
+  const handleTemplateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setTemplateForm({ ...templateForm, [name]: value });
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setTemplateForm({ ...templateForm, [name]: value });
+  };
+
+  // Add a new field mapping row
+  const addMappingRow = () => {
+    setFieldMappings([...fieldMappings, { sourceField: "", targetField: "" }]);
+  };
+
+  // Update a field mapping
+  const updateFieldMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
+    const newMappings = [...fieldMappings];
+    newMappings[index][field] = value;
+    setFieldMappings(newMappings);
     
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const sourceType = formData.get('sourceType') as string;
-    const mappingsJson = formData.get('mappings') as string;
-    const transformationsJson = formData.get('transformations') as string || "[]";
-    const validationRulesJson = formData.get('validationRules') as string || "[]";
-    
-    let mappings, transformations, validationRules;
-    
+    // Also update the mappings object
+    const mappingsObject: Record<string, string> = {};
+    newMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingsObject[mapping.sourceField] = mapping.targetField;
+      }
+    });
+    setTemplateForm({ ...templateForm, mappings: mappingsObject });
+  };
+
+  // Remove a field mapping row
+  const removeMappingRow = (index: number) => {
+    if (fieldMappings.length > 1) {
+      const newMappings = fieldMappings.filter((_, i) => i !== index);
+      setFieldMappings(newMappings);
+      
+      // Update the mappings object
+      const mappingsObject: Record<string, string> = {};
+      newMappings.forEach(mapping => {
+        if (mapping.sourceField && mapping.targetField) {
+          mappingsObject[mapping.sourceField] = mapping.targetField;
+        }
+      });
+      setTemplateForm({ ...templateForm, mappings: mappingsObject });
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setTemplateForm({
+      name: "",
+      description: "",
+      sourceType: "csv",
+      supplierId: "",
+      fileLabel: "",
+      mappings: {}
+    });
+    setFieldMappings([{ sourceField: "", targetField: "" }]);
+    setSampleData(null);
+    setSampleHeaders([]);
+    setUploadedFileName("");
+  };
+
+  // Handle file upload for sample data
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     try {
-      mappings = JSON.parse(mappingsJson);
-      transformations = JSON.parse(transformationsJson);
-      validationRules = JSON.parse(validationRulesJson);
+      setIsUploading(true);
+      setUploadedFileName(file.name);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/mapping-templates/sample-upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setSampleData(data.records.slice(0, 10)); // Show first 10 records
+        setSampleHeaders(data.headers || []);
+        
+        // Auto-populate source fields if we have headers
+        if (data.headers && data.headers.length) {
+          const initialMappings = data.headers.map((header: string) => ({
+            sourceField: header,
+            targetField: ""
+          }));
+          setFieldMappings(initialMappings);
+        }
+        
+        toast({
+          title: "File Uploaded",
+          description: `Successfully processed ${data.records.length} records from ${file.name}`
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Upload Error",
+          description: data.message || "Failed to process file"
+        });
+      }
     } catch (error) {
+      console.error("Error uploading file:", error);
       toast({
         variant: "destructive",
-        title: "Invalid JSON",
-        description: "Please check your JSON formatting"
+        title: "Upload Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred"
       });
-      return;
+    } finally {
+      setIsUploading(false);
     }
-    
+  };
+
+  // Create a new template
+  const handleCreateTemplate = async () => {
     try {
-      const mappingTemplate = await apiRequest('/api/mapping-templates', 'POST', { 
-        name, 
-        description, 
-        sourceType, 
-        mappings,
-        transformations,
-        validationRules
+      // Validate form
+      if (!templateForm.name) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Template name is required"
+        });
+        return;
+      }
+
+      if (Object.keys(templateForm.mappings).length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "At least one field mapping is required"
+        });
+        return;
+      }
+
+      // Prepare data for submission
+      const templateData = {
+        name: templateForm.name,
+        description: templateForm.description,
+        sourceType: templateForm.sourceType,
+        mappings: templateForm.mappings,
+        transformations: [],
+        validationRules: [],
+        supplierId: templateForm.supplierId ? parseInt(templateForm.supplierId) : null,
+        fileLabel: templateForm.fileLabel || null
+      };
+
+      const response = await apiRequest('/api/mapping-templates', {
+        method: 'POST',
+        data: templateData
       });
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
-      
-      setIsCreateDialogOpen(false);
-      
-      toast({
-        title: "Mapping Template Created",
-        description: `${name} was successfully created`
-      });
+
+      if (response) {
+        toast({
+          title: "Template Created",
+          description: "Mapping template has been created successfully"
+        });
+        setIsCreateDialogOpen(false);
+        resetForm();
+        queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
+      }
     } catch (error) {
+      console.error("Error creating template:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to create mapping template: ${(error as Error).message}`
+        description: "Failed to create template"
       });
     }
   };
-  
-  const handleEditTemplate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
+
+  // Update an existing template
+  const handleUpdateTemplate = async () => {
     if (!selectedTemplate) return;
     
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const mappingsJson = formData.get('mappings') as string;
-    const transformationsJson = formData.get('transformations') as string || "[]";
-    const validationRulesJson = formData.get('validationRules') as string || "[]";
-    
-    let mappings, transformations, validationRules;
-    
     try {
-      mappings = JSON.parse(mappingsJson);
-      transformations = JSON.parse(transformationsJson);
-      validationRules = JSON.parse(validationRulesJson);
+      // Validate form
+      if (!templateForm.name) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Template name is required"
+        });
+        return;
+      }
+
+      if (Object.keys(templateForm.mappings).length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "At least one field mapping is required"
+        });
+        return;
+      }
+
+      // Prepare data for submission
+      const templateData = {
+        name: templateForm.name,
+        description: templateForm.description,
+        sourceType: templateForm.sourceType,
+        mappings: templateForm.mappings,
+        transformations: selectedTemplate.transformations || [],
+        validationRules: selectedTemplate.validationRules || [],
+        supplierId: templateForm.supplierId ? parseInt(templateForm.supplierId) : null,
+        fileLabel: templateForm.fileLabel || null
+      };
+
+      const response = await apiRequest(`/api/mapping-templates/${selectedTemplate.id}`, {
+        method: 'PUT',
+        data: templateData
+      });
+
+      if (response) {
+        toast({
+          title: "Template Updated",
+          description: "Mapping template has been updated successfully"
+        });
+        setIsEditDialogOpen(false);
+        resetForm();
+        queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
+      }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Invalid JSON",
-        description: "Please check your JSON formatting"
-      });
-      return;
-    }
-    
-    try {
-      const mappingTemplate = await apiRequest(`/api/mapping-templates/${selectedTemplate.id}`, 'PUT', { 
-        name, 
-        description, 
-        mappings,
-        transformations,
-        validationRules
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
-      
-      setIsEditDialogOpen(false);
-      setSelectedTemplate(null);
-      
-      toast({
-        title: "Mapping Template Updated",
-        description: `${name} was successfully updated`
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to update mapping template: ${(error as Error).message}`
-      });
-    }
-  };
-  
-  const handleDeleteTemplate = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this mapping template? This action cannot be undone.")) {
-      return;
-    }
-    
-    try {
-      await apiRequest(`/api/mapping-templates/${id}`, 'DELETE');
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
-      
-      toast({
-        title: "Mapping Template Deleted",
-        description: "The mapping template was successfully deleted"
-      });
-    } catch (error) {
+      console.error("Error updating template:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to delete mapping template: ${(error as Error).message}`
+        description: "Failed to update template"
       });
     }
   };
-  
-  const handleEditClick = (template: MappingTemplate) => {
+
+  // Delete a template
+  const handleDeleteTemplate = async () => {
+    if (!selectedTemplate) return;
+    
+    try {
+      const response = await apiRequest(`/api/mapping-templates/${selectedTemplate.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response) {
+        toast({
+          title: "Template Deleted",
+          description: "Mapping template has been deleted successfully"
+        });
+        setIsDeleteDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete template"
+      });
+    }
+  };
+
+  // Edit a template
+  const handleEditTemplate = (template: MappingTemplate) => {
     setSelectedTemplate(template);
+    
+    // Populate form with template data
+    setTemplateForm({
+      name: template.name,
+      description: template.description || "",
+      sourceType: template.sourceType,
+      supplierId: template.supplierId ? template.supplierId.toString() : "",
+      fileLabel: template.fileLabel || "",
+      mappings: template.mappings || {}
+    });
+
+    // Populate field mappings
+    const mappingsArray = Object.entries(template.mappings || {}).map(([sourceField, targetField]) => ({
+      sourceField,
+      targetField: targetField as string
+    }));
+    
+    setFieldMappings(mappingsArray.length > 0 ? mappingsArray : [{ sourceField: "", targetField: "" }]);
+    
     setIsEditDialogOpen(true);
   };
-  
-  const getSourceTypeName = (type: string) => {
-    switch (type) {
-      case "csv": return "CSV File";
-      case "excel": return "Excel File";
-      case "json": return "JSON File";
-      case "xml": return "XML File";
-      case "api": return "API Integration";
-      case "sftp": return "SFTP Connection";
-      case "ftp": return "FTP Connection";
-      case "edi_x12": return "EDI X12";
-      case "edifact": return "EDIFACT";
-      case "manual": return "Manual Upload";
-      default: return type.toUpperCase();
-    }
-  };
-  
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-full">Loading mapping templates...</div>;
-  }
-  
-  if (error) {
-    return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>Failed to load mapping templates: {(error as Error).message}</AlertDescription>
-      </Alert>
-    );
-  }
-  
+
+  // Filter templates based on active tab
+  const filteredTemplates = templates.filter((template: MappingTemplate) => {
+    if (activeTab === 'all') return true;
+    return template.sourceType === activeTab;
+  });
+
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Mapping Templates</h1>
-          <p className="text-gray-500">Define how to map external data sources to your product schema</p>
+          <p className="text-gray-500">Manage field mappings between supplier data and internal schema</p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Template
+          <Plus className="mr-2 h-4 w-4" /> Create New Template
         </Button>
       </div>
-      
-      <div className="space-y-4">
-        {mappingTemplates.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6 text-center text-gray-500">
-              No mapping templates found. Click "Create Template" to create one.
-            </CardContent>
-          </Card>
-        ) : (
-          mappingTemplates.map((template: MappingTemplate) => (
-            <Card key={template.id}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="flex items-center">
-                      <FileText className="h-4 w-4 mr-2" />
-                      {template.name}
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {template.description}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center">
-                    <Badge className="mr-2">
-                      {getSourceTypeName(template.sourceType)}
-                    </Badge>
-                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(template)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Field Mappings</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Source Field</TableHead>
-                          <TableHead>Destination Field</TableHead>
-                          <TableHead className="w-[100px]">Required</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {template.mappings.slice(0, 5).map((mapping: any, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-mono">{mapping.sourceField}</TableCell>
-                            <TableCell>{mapping.destinationField}</TableCell>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="csv">CSV</TabsTrigger>
+          <TabsTrigger value="excel">Excel</TabsTrigger>
+          <TabsTrigger value="json">JSON</TabsTrigger>
+          <TabsTrigger value="xml">XML</TabsTrigger>
+          <TabsTrigger value="api">API</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="space-y-4">
+          {isLoadingTemplates ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900"></div>
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-gray-500">No mapping templates found. Create one to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Source Type</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>File Label</TableHead>
+                        <TableHead>Fields Mapped</TableHead>
+                        <TableHead>Last Updated</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTemplates.map((template: MappingTemplate) => {
+                        const supplier = suppliers.find((s: Supplier) => s.id === template.supplierId);
+                        const mappingsCount = Object.keys(template.mappings || {}).length;
+                        
+                        return (
+                          <TableRow key={template.id}>
+                            <TableCell className="font-medium">{template.name}</TableCell>
+                            <TableCell>{template.sourceType}</TableCell>
+                            <TableCell>{supplier?.name || '-'}</TableCell>
+                            <TableCell>{template.fileLabel || '-'}</TableCell>
+                            <TableCell>{mappingsCount} fields</TableCell>
                             <TableCell>
-                              {mapping.required ? (
-                                <Check className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <X className="h-4 w-4 text-gray-300" />
-                              )}
+                              {template.updatedAt 
+                                ? new Date(template.updatedAt).toLocaleDateString() 
+                                : '-'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditTemplate(template)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" /> Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTemplate(template);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash className="h-4 w-4 mr-1" /> Delete
+                              </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
-                        {template.mappings.length > 5 && (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center text-gray-500">
-                              +{template.mappings.length - 5} more fields
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  
-                  {template.transformations && template.transformations.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Transformations</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {template.transformations.map((transform: any, i: number) => (
-                          <Badge key={i} variant="outline" className="flex items-center">
-                            <Code className="h-3 w-3 mr-1" />
-                            {transform.type}: {transform.sourceField}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {template.validationRules && template.validationRules.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Validation Rules</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {template.validationRules.map((rule: any, i: number) => (
-                          <Badge key={i} variant="outline" className="flex items-center">
-                            <List className="h-3 w-3 mr-1" />
-                            {rule.field}: {rule.type}
-                            {rule.severity && (
-                              <span className={rule.severity === 'error' ? 'text-red-500 ml-1' : 'text-yellow-500 ml-1'}>
-                                ({rule.severity})
-                              </span>
-                            )}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-      
-      {/* Create Mapping Template Dialog */}
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Create Template Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Mapping Template</DialogTitle>
             <DialogDescription>
-              Define how external data should map to your product schema.
+              Define how supplier data fields map to your internal schema fields.
             </DialogDescription>
           </DialogHeader>
-          
-          <form onSubmit={handleCreateTemplate}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" className="col-span-3" required />
+
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Template Name</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="Catalog Feed Template"
+                  value={templateForm.name}
+                  onChange={handleTemplateFormChange}
+                />
               </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Description</Label>
-                <Input id="description" name="description" className="col-span-3" />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="sourceType" className="text-right">Source Type</Label>
-                <Select name="sourceType" required defaultValue="csv">
-                  <SelectTrigger className="col-span-3">
+
+              <div className="space-y-2">
+                <Label htmlFor="sourceType">Source Type</Label>
+                <Select 
+                  value={templateForm.sourceType} 
+                  onValueChange={(value) => handleSelectChange("sourceType", value)}
+                >
+                  <SelectTrigger>
                     <SelectValue placeholder="Select source type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="csv">CSV File</SelectItem>
-                    <SelectItem value="excel">Excel File</SelectItem>
-                    <SelectItem value="json">JSON File</SelectItem>
-                    <SelectItem value="xml">XML File</SelectItem>
-                    <SelectItem value="api">API Integration</SelectItem>
-                    <SelectItem value="sftp">SFTP Connection</SelectItem>
-                    <SelectItem value="ftp">FTP Connection</SelectItem>
-                    <SelectItem value="edi_x12">EDI X12</SelectItem>
-                    <SelectItem value="edifact">EDIFACT</SelectItem>
-                    <SelectItem value="manual">Manual Upload</SelectItem>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="excel">Excel</SelectItem>
+                    <SelectItem value="json">JSON</SelectItem>
+                    <SelectItem value="xml">XML</SelectItem>
+                    <SelectItem value="api">API</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="mappings" className="text-right align-top mt-2">
-                  Field Mappings
-                  <p className="text-xs text-gray-500 font-normal mt-1">Required</p>
-                </Label>
-                <Textarea 
-                  id="mappings" 
-                  name="mappings" 
-                  className="col-span-3 font-mono" 
-                  rows={6}
-                  placeholder={`[
-  { "sourceField": "SKU", "destinationField": "sku", "required": true },
-  { "sourceField": "PRODUCT_NAME", "destinationField": "name", "required": true },
-  { "sourceField": "DESCRIPTION", "destinationField": "description" }
-]`}
-                  required 
+
+              <div className="space-y-2">
+                <Label htmlFor="supplierId">Supplier (Optional)</Label>
+                <Select 
+                  value={templateForm.supplierId} 
+                  onValueChange={(value) => handleSelectChange("supplierId", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any Supplier</SelectItem>
+                    {suppliers.map((supplier: Supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fileLabel">File Label (Optional)</Label>
+                <Input
+                  id="fileLabel"
+                  name="fileLabel"
+                  placeholder="Catalog Feed"
+                  value={templateForm.fileLabel}
+                  onChange={handleTemplateFormChange}
                 />
               </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="transformations" className="text-right align-top mt-2">
-                  Transformations
-                  <p className="text-xs text-gray-500 font-normal mt-1">Optional</p>
-                </Label>
-                <Textarea 
-                  id="transformations" 
-                  name="transformations" 
-                  className="col-span-3 font-mono" 
-                  rows={4}
-                  placeholder={`[
-  { "type": "trim", "sourceField": "PRODUCT_NAME" },
-  { "type": "numberFormat", "sourceField": "PRICE", "parameters": { "decimalPlaces": 2 } }
-]`}
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="validationRules" className="text-right align-top mt-2">
-                  Validation Rules
-                  <p className="text-xs text-gray-500 font-normal mt-1">Optional</p>
-                </Label>
-                <Textarea 
-                  id="validationRules" 
-                  name="validationRules" 
-                  className="col-span-3 font-mono" 
-                  rows={4}
-                  placeholder={`[
-  { "field": "SKU", "type": "required", "errorMessage": "SKU is required", "severity": "error" },
-  { "field": "PRICE", "type": "number", "errorMessage": "Price must be a number", "severity": "error" }
-]`}
+
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  placeholder="Template for mapping catalog data from supplier X"
+                  value={templateForm.description}
+                  onChange={handleTemplateFormChange}
+                  rows={2}
                 />
               </div>
             </div>
-            
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Create Template</Button>
-            </DialogFooter>
-          </form>
+
+            <div className="border rounded-md p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Sample Data (Optional)</h3>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="file-upload"
+                    type="file"
+                    className="hidden"
+                    accept=".csv,.xlsx,.xls,.json,.xml"
+                    onChange={handleFileUpload}
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    disabled={isUploading}
+                  >
+                    <FileUp className="mr-2 h-4 w-4" />
+                    {isUploading ? "Uploading..." : "Upload Sample File"}
+                  </Button>
+                </div>
+              </div>
+
+              {uploadedFileName && (
+                <p className="text-sm text-gray-500 mb-2">
+                  Uploaded: {uploadedFileName}
+                </p>
+              )}
+
+              {sampleData && sampleData.length > 0 && (
+                <div className="border rounded overflow-x-auto max-h-60">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {sampleHeaders.map((header, i) => (
+                          <th
+                            key={i}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {sampleData.map((row, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {sampleHeaders.map((header, cellIndex) => (
+                            <td
+                              key={cellIndex}
+                              className="px-6 py-2 whitespace-nowrap text-sm text-gray-500"
+                            >
+                              {row[header]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="border rounded-md p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Field Mappings</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addMappingRow}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Mapping
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {fieldMappings.map((mapping, index) => (
+                  <div key={index} className="grid grid-cols-5 gap-2 items-center">
+                    <div className="col-span-2">
+                      <Select
+                        value={mapping.sourceField}
+                        onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Source Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sampleHeaders.length > 0 ? (
+                            sampleHeaders.map((header) => (
+                              <SelectItem key={header} value={header}>
+                                {header}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="" disabled>
+                              No source fields available
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-center">
+                      <span className="text-gray-500">→</span>
+                    </div>
+                    <div className="col-span-2">
+                      <Select
+                        value={mapping.targetField}
+                        onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Target Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_TARGET_FIELDS.map((field) => (
+                            <SelectItem key={field.id} value={field.id}>
+                              {field.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMappingRow(index)}
+                        disabled={fieldMappings.length <= 1}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTemplate}>
+              Create Template
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Edit Mapping Template Dialog */}
+
+      {/* Edit Template Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Mapping Template</DialogTitle>
             <DialogDescription>
-              Update mapping configuration.
+              Update how supplier data fields map to your internal schema fields.
             </DialogDescription>
           </DialogHeader>
-          
-          {selectedTemplate && (
-            <form onSubmit={handleEditTemplate}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-name" className="text-right">Name</Label>
-                  <Input 
-                    id="edit-name" 
-                    name="name" 
-                    className="col-span-3" 
-                    defaultValue={selectedTemplate.name}
-                    required 
-                  />
-                </div>
-                
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-description" className="text-right">Description</Label>
-                  <Input 
-                    id="edit-description" 
-                    name="description" 
-                    className="col-span-3" 
-                    defaultValue={selectedTemplate.description || ''}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-sourceType" className="text-right">Source Type</Label>
-                  <Input 
-                    id="edit-sourceType" 
-                    className="col-span-3" 
-                    value={getSourceTypeName(selectedTemplate.sourceType)}
-                    disabled
-                  />
-                </div>
-                
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-mappings" className="text-right align-top mt-2">
-                    Field Mappings
-                  </Label>
-                  <Textarea 
-                    id="edit-mappings" 
-                    name="mappings" 
-                    className="col-span-3 font-mono" 
-                    rows={6}
-                    defaultValue={JSON.stringify(selectedTemplate.mappings, null, 2)}
-                    required 
-                  />
-                </div>
-                
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-transformations" className="text-right align-top mt-2">
-                    Transformations
-                  </Label>
-                  <Textarea 
-                    id="edit-transformations" 
-                    name="transformations" 
-                    className="col-span-3 font-mono" 
-                    rows={4}
-                    defaultValue={JSON.stringify(selectedTemplate.transformations || [], null, 2)}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-validationRules" className="text-right align-top mt-2">
-                    Validation Rules
-                  </Label>
-                  <Textarea 
-                    id="edit-validationRules" 
-                    name="validationRules" 
-                    className="col-span-3 font-mono" 
-                    rows={4}
-                    defaultValue={JSON.stringify(selectedTemplate.validationRules || [], null, 2)}
-                  />
-                </div>
+
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Template Name</Label>
+                <Input
+                  id="edit-name"
+                  name="name"
+                  placeholder="Catalog Feed Template"
+                  value={templateForm.name}
+                  onChange={handleTemplateFormChange}
+                />
               </div>
-              
-              <DialogFooter className="flex justify-between">
-                <Button 
-                  type="button" 
-                  variant="destructive" 
-                  onClick={() => handleDeleteTemplate(selectedTemplate.id)}
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-sourceType">Source Type</Label>
+                <Select 
+                  value={templateForm.sourceType} 
+                  onValueChange={(value) => handleSelectChange("sourceType", value)}
                 >
-                  Delete
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select source type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="excel">Excel</SelectItem>
+                    <SelectItem value="json">JSON</SelectItem>
+                    <SelectItem value="xml">XML</SelectItem>
+                    <SelectItem value="api">API</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplierId">Supplier (Optional)</Label>
+                <Select 
+                  value={templateForm.supplierId} 
+                  onValueChange={(value) => handleSelectChange("supplierId", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any Supplier</SelectItem>
+                    {suppliers.map((supplier: Supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-fileLabel">File Label (Optional)</Label>
+                <Input
+                  id="edit-fileLabel"
+                  name="fileLabel"
+                  placeholder="Catalog Feed"
+                  value={templateForm.fileLabel}
+                  onChange={handleTemplateFormChange}
+                />
+              </div>
+
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  name="description"
+                  placeholder="Template for mapping catalog data from supplier X"
+                  value={templateForm.description}
+                  onChange={handleTemplateFormChange}
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="border rounded-md p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">Field Mappings</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addMappingRow}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Mapping
                 </Button>
-                
-                <div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsEditDialogOpen(false);
-                      setSelectedTemplate(null);
-                    }}
-                    className="mr-2"
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit">Update</Button>
-                </div>
-              </DialogFooter>
-            </form>
-          )}
+              </div>
+
+              <div className="space-y-2">
+                {fieldMappings.map((mapping, index) => (
+                  <div key={index} className="grid grid-cols-5 gap-2 items-center">
+                    <div className="col-span-2">
+                      <Input
+                        placeholder="Source Field"
+                        value={mapping.sourceField}
+                        onChange={(e) => updateFieldMapping(index, 'sourceField', e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      <span className="text-gray-500">→</span>
+                    </div>
+                    <div className="col-span-2">
+                      <Select
+                        value={mapping.targetField}
+                        onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Target Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_TARGET_FIELDS.map((field) => (
+                            <SelectItem key={field.id} value={field.id}>
+                              {field.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMappingRow(index)}
+                        disabled={fieldMappings.length <= 1}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateTemplate}>
+              Update Template
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the mapping template "{selectedTemplate?.name}". 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTemplate}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

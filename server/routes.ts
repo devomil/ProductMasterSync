@@ -1042,6 +1042,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleError(res, error);
     }
   });
+  
+  // File upload for sample data to assist with mapping template creation
+  app.post("/api/mapping-templates/sample-upload", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "No file uploaded"
+        });
+      }
+      
+      const filePath = req.file.path;
+      const fileType = req.file.mimetype;
+      const fileName = req.file.originalname;
+      const extension = path.extname(fileName).toLowerCase();
+      
+      let records = [];
+      let headers = [];
+      
+      // Process file based on type
+      if (extension === ".csv" || fileType.includes("csv")) {
+        // CSV Processing
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const parser = parse(fileContent, {
+          columns: true,
+          skip_empty_lines: true
+        });
+        
+        // Process records
+        let recordCount = 0;
+        const maxRecords = 20; // Limit to 20 records for the sample
+        
+        for await (const record of parser) {
+          if (recordCount === 0) {
+            // First record - get headers
+            headers = Object.keys(record);
+          }
+          
+          if (recordCount < maxRecords) {
+            records.push(record);
+          }
+          
+          recordCount++;
+          if (recordCount >= maxRecords) break;
+        }
+      } 
+      else if (extension === ".xlsx" || extension === ".xls" || fileType.includes("excel") || fileType.includes("spreadsheet")) {
+        // Excel Processing
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (data.length > 0) {
+          // First row is headers
+          headers = data[0];
+          
+          // Process up to 20 rows of data
+          for (let i = 1; i < Math.min(21, data.length); i++) {
+            const row = data[i];
+            const record = {};
+            
+            // Create record using headers as keys
+            for (let j = 0; j < headers.length; j++) {
+              record[headers[j]] = j < row.length ? row[j] : '';
+            }
+            
+            records.push(record);
+          }
+        }
+      }
+      else if (extension === ".json" || fileType.includes("json")) {
+        // JSON Processing
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const data = JSON.parse(fileContent);
+        
+        if (Array.isArray(data) && data.length > 0) {
+          // Use keys from first object as headers
+          headers = Object.keys(data[0]);
+          
+          // Limit to 20 records
+          records = data.slice(0, 20);
+        }
+      }
+      else {
+        return res.status(400).json({
+          success: false,
+          message: "Unsupported file type. Please upload CSV, Excel, or JSON files."
+        });
+      }
+      
+      // Clean up the temporary file
+      fs.unlinkSync(filePath);
+      
+      res.json({
+        success: true,
+        message: `Successfully processed ${records.length} records from ${fileName}`,
+        headers,
+        records,
+        fileType: extension.substring(1) // Remove the dot
+      });
+    } catch (error) {
+      console.error("Error processing sample file:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "An error occurred processing the file"
+      });
+    }
+  });
 
   // Product Fulfillment API
   app.get("/api/products/:id/fulfillment", async (req, res) => {
