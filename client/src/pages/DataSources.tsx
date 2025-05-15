@@ -95,57 +95,7 @@ export default function DataSources() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Use our data source actions hook
-  // Get data source actions
   const dataSourceActions = useDataSourceActions();
-  
-  // Function to handle saving the timestamp when a sample data pull is successful
-  const handleSaveTimestamp = (pathId: string) => {
-    if (!dataSourceActions.currentDataSource) return;
-    
-    try {
-      // Update the remote_paths to record the last pull time
-      const config = dataSourceActions.currentDataSource.config;
-      const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
-      
-      if (Array.isArray(parsedConfig.remote_paths)) {
-        // Find the path by ID
-        const updatedPaths = parsedConfig.remote_paths.map((path: any) => {
-          // Extract the index from the path ID (format "path-X")
-          const pathIdParts = pathId.split('-');
-          const pathIndex = parseInt(pathIdParts[1]);
-          
-          // If index matches or we're checking by path ID
-          if ((pathIndex >= 0 && pathIndex === parsedConfig.remote_paths.indexOf(path)) || 
-              (path.id && path.id === pathId)) {
-            return {
-              ...path,
-              lastPulled: new Date().toISOString(),
-              lastPullStatus: 'success'
-            };
-          }
-          return path;
-        });
-        
-        // Update data source in the database
-        // This could be expanded to actually save to the server
-        toast({
-          title: "Timestamp Updated",
-          description: "Last pull timestamp has been recorded"
-        });
-      }
-    } catch (error) {
-      console.error("Error saving timestamp:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not save the pull timestamp"
-      });
-    }
-    
-    // Close the modals
-    dataSourceActions.setShowSampleDataModal(false);
-    setShowSampleDataModal(false);
-  };
 
   // Create default form state
   const [newDataSource, setNewDataSource] = useState({
