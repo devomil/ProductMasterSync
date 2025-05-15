@@ -46,6 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import EnhancedSampleDataTable from "@/components/mapping/EnhancedSampleDataTable";
 
 // Types
 interface MappingTemplate {
