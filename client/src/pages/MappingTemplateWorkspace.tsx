@@ -602,7 +602,7 @@ export default function MappingTemplateWorkspace() {
                             </SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no_files" disabled>
                             No files found. Check SFTP connection.
                           </SelectItem>
                         )}
