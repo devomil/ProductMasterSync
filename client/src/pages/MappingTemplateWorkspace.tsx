@@ -90,7 +90,7 @@ interface FieldMapping {
 
 export default function MappingTemplateWorkspace() {
   const params = useParams<{ id?: string }>();
-  const [, navigate] = useLocation();
+  const [, setLocation] = useLocation();
   const templateId = params.id ? parseInt(params.id) : null;
   const isEditMode = Boolean(templateId);
   
@@ -457,7 +457,7 @@ export default function MappingTemplateWorkspace() {
       queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
       
       // Redirect back to the templates list
-      navigate('/mapping-templates');
+      setLocation('/mapping-templates');
     } catch (error) {
       console.error("Error saving template:", error);
       toast({
