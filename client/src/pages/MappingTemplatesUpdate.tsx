@@ -745,6 +745,7 @@ export default function MappingTemplatesUpdate() {
                           <TableHead>Source Type</TableHead>
                           <TableHead>Fields</TableHead>
                           <TableHead>Supplier</TableHead>
+                          <TableHead>File Label</TableHead>
                           <TableHead>Last Updated</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -759,6 +760,9 @@ export default function MappingTemplatesUpdate() {
                               <TableCell>{Object.keys(template.mappings).length}</TableCell>
                               <TableCell>
                                 {supplier ? supplier.name : 'Any Supplier'}
+                              </TableCell>
+                              <TableCell>
+                                {template.fileLabel ? template.fileLabel : '-'}
                               </TableCell>
                               <TableCell>
                                 {template.updatedAt 
