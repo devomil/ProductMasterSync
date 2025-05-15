@@ -679,7 +679,7 @@ export default function MappingTemplates() {
                         <SelectValue placeholder="Select a supplier" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any Supplier</SelectItem>
+                        <SelectItem value="none">Any Supplier</SelectItem>
                         {suppliers.map((supplier: Supplier) => (
                           <SelectItem key={supplier.id} value={supplier.id.toString()}>
                             {supplier.name}
@@ -809,7 +809,7 @@ export default function MappingTemplates() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="" disabled>
+                              <SelectItem value="none" disabled>
                                 No source fields available
                               </SelectItem>
                             )}
@@ -990,7 +990,7 @@ export default function MappingTemplates() {
                         <SelectValue placeholder="Select a supplier" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any Supplier</SelectItem>
+                        <SelectItem value="none">Any Supplier</SelectItem>
                         {suppliers.map((supplier: Supplier) => (
                           <SelectItem key={supplier.id} value={supplier.id.toString()}>
                             {supplier.name}
