@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useParams, Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2 } from "lucide-react";
+import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -1154,6 +1154,56 @@ export default function MappingTemplateWorkspace() {
                   </div>
                 </CardContent>
               </Card>
+              
+              {/* Live Mapping Preview */}
+              {previewData.length > 0 && (
+                <Card className="mt-6 border-t-4 border-blue-500">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center">
+                      <ArrowDown className="h-5 w-5 mr-2 text-blue-500" />
+                      Live Mapping Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      This is how your data will appear after applying the current mappings
+                    </p>
+                    
+                    <div className="border rounded-md overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted border-b">
+                            {Object.keys(previewData[0] || {}).map((header) => (
+                              <th key={header} className="px-4 py-2 text-left font-medium">
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewData.slice(0, 5).map((row, rowIndex) => (
+                            <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                              {Object.entries(row).map(([key, value]) => (
+                                <td key={key} className="px-4 py-2 border-t">
+                                  {value === null || value === undefined 
+                                    ? <span className="text-gray-400 italic">null</span> 
+                                    : String(value)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {previewData.length > 5 && (
+                      <div className="mt-2 text-sm text-muted-foreground text-right">
+                        Showing 5 of {previewData.length} rows
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
           
