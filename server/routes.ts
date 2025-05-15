@@ -26,6 +26,9 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 
+// Import the ingestion engine
+import { processSFTPIngestion } from "./utils/ingestion-engine";
+
 // Set up multer for file uploads
 const upload = multer({
   storage: multer.diskStorage({

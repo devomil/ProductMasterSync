@@ -146,19 +146,125 @@ export async function processSFTPIngestion(
     // In a real implementation, you'd use the SFTP client to download the file
     // For this prototype, we'll assume the file has been downloaded to a temp directory
     
-    // Simulate file download - in a real scenario, you'd use an SFTP client
-    // This is placeholder code that would be replaced with actual SFTP download logic
-    const localFilePath = await downloadFileFromSFTP(sftpPath, connection);
+    // Use the real SFTP client to download the file
+    // Using our ftp-ingestion utility that handles authentication and transfer
+    const tempDir = path.join(process.cwd(), 'temp');
+    try {
+      await fs.mkdir(tempDir, { recursive: true });
+    } catch (error) {
+      // Ignore if directory already exists
+    }
+
+    // Generate a temporary file name
+    const tempFileName = `temp_${Date.now()}_${path.basename(sftpPath)}`;
+    const localFilePath = path.join(tempDir, tempFileName);
     
-    if (!localFilePath) {
-      result.message = `Failed to download file from SFTP path: ${sftpPath}`;
-      result.errors.push({ message: 'File download failed' });
+    try {
+      // Get connection credentials from the connection details
+      const credentials = connection.credentials || {};
+      
+      if (!credentials.host || !credentials.username) {
+        result.message = 'Invalid SFTP credentials: missing host or username';
+        result.errors.push({ message: 'Invalid SFTP credentials' });
+        
+        if (importId) {
+          await updateImportStatus(importId, 'error', result);
+        }
+        
+        return result;
+      }
+      
+      // Create an SFTP client
+      const SFTPClient = require('ssh2').Client;
+      const client = new SFTPClient();
+      
+      // Download the file
+      const fileDownloaded = await new Promise<boolean>((resolve) => {
+        // Set a timeout to avoid hanging connections
+        const timeout = setTimeout(() => {
+          client.end();
+          console.error('SFTP connection timed out');
+          resolve(false);
+        }, 30000); // 30 seconds timeout
+        
+        client.on('ready', () => {
+          clearTimeout(timeout);
+          
+          client.sftp((err, sftp) => {
+            if (err) {
+              console.error('Failed to start SFTP session:', err);
+              client.end();
+              resolve(false);
+              return;
+            }
+            
+            sftp.fastGet(sftpPath, localFilePath, {}, (err) => {
+              if (err) {
+                console.error(`Failed to download ${sftpPath}:`, err);
+                client.end();
+                resolve(false);
+                return;
+              }
+              
+              client.end();
+              resolve(true);
+            });
+          });
+        });
+        
+        client.on('error', (err) => {
+          clearTimeout(timeout);
+          console.error('SFTP connection error:', err);
+          resolve(false);
+        });
+        
+        // Apply environment secrets for authentication if needed
+        const sftpPassword = process.env.SFTP_PASSWORD;
+        
+        // Connect to the SFTP server
+        const connectConfig: any = {
+          host: credentials.host,
+          port: credentials.port || 22,
+          username: credentials.username,
+        };
+        
+        // Add authentication method (password or private key)
+        if (credentials.password || sftpPassword) {
+          connectConfig.password = credentials.password || sftpPassword;
+        } else if (credentials.privateKey) {
+          connectConfig.privateKey = credentials.privateKey;
+          if (credentials.passphrase) {
+            connectConfig.passphrase = credentials.passphrase;
+          }
+        }
+        
+        client.connect(connectConfig);
+      });
+      
+      if (!fileDownloaded) {
+        result.message = `Failed to download file from SFTP path: ${sftpPath}`;
+        result.errors.push({ message: 'File download failed' });
+        
+        if (importId) {
+          await updateImportStatus(importId, 'error', result);
+        }
+        
+        return result;
+      }
+      
+      // If we got here, the file was downloaded successfully
+      console.log(`Successfully downloaded file to ${localFilePath}`);
+      return localFilePath;
+    } catch (error) {
+      console.error('Error downloading file from SFTP:', error);
+      result.message = `Error downloading file from SFTP: ${error instanceof Error ? error.message : String(error)}`;
+      result.errors.push({ message: 'SFTP download error', details: error });
       
       if (importId) {
         await updateImportStatus(importId, 'error', result);
       }
       
-      return result;
+      return null;
     }
     
     // Process the file based on type
@@ -543,22 +649,95 @@ async function downloadFileFromSFTP(
 }
 
 /**
- * Delete a file from SFTP (placeholder implementation)
- * In a real application, this would use an SFTP client to delete the file
+ * Delete a file from SFTP
  */
 async function deleteFileFromSFTP(
   remotePath: string,
   connection: any
 ): Promise<boolean> {
-  // This is a placeholder. In a real application, you would:
-  // 1. Establish an SFTP connection using the credentials from the connection
-  // 2. Delete the file from the SFTP server
-  
+  if (!connection || !connection.credentials) {
+    console.error('Invalid connection object for deleting file');
+    return false;
+  }
+
   try {
-    console.log(`Simulating deletion of ${remotePath}`);
+    const credentials = connection.credentials || {};
     
-    // In a real implementation, you would delete the file here
-    return true;
+    if (!credentials.host || !credentials.username) {
+      console.error('Missing SFTP credentials for deleting file');
+      return false;
+    }
+    
+    // Create SFTP client
+    const SFTPClient = require('ssh2').Client;
+    const client = new SFTPClient();
+    
+    // Delete the file
+    const result = await new Promise<boolean>((resolve) => {
+      // Set timeout to avoid hanging
+      const timeout = setTimeout(() => {
+        client.end();
+        console.error('SFTP connection timed out while deleting file');
+        resolve(false);
+      }, 30000); // 30 seconds timeout
+      
+      client.on('ready', () => {
+        clearTimeout(timeout);
+        
+        client.sftp((err, sftp) => {
+          if (err) {
+            console.error('Failed to start SFTP session for deletion:', err);
+            client.end();
+            resolve(false);
+            return;
+          }
+          
+          // Delete the file
+          sftp.unlink(remotePath, (err) => {
+            if (err) {
+              console.error(`Failed to delete ${remotePath}:`, err);
+              client.end();
+              resolve(false);
+              return;
+            }
+            
+            console.log(`Successfully deleted ${remotePath}`);
+            client.end();
+            resolve(true);
+          });
+        });
+      });
+      
+      client.on('error', (err) => {
+        clearTimeout(timeout);
+        console.error('SFTP connection error during file deletion:', err);
+        resolve(false);
+      });
+      
+      // Apply environment secrets for authentication if needed
+      const sftpPassword = process.env.SFTP_PASSWORD;
+      
+      // Connection config
+      const connectConfig: any = {
+        host: credentials.host,
+        port: credentials.port || 22,
+        username: credentials.username,
+      };
+      
+      // Authentication
+      if (credentials.password || sftpPassword) {
+        connectConfig.password = credentials.password || sftpPassword;
+      } else if (credentials.privateKey) {
+        connectConfig.privateKey = credentials.privateKey;
+        if (credentials.passphrase) {
+          connectConfig.passphrase = credentials.passphrase;
+        }
+      }
+      
+      client.connect(connectConfig);
+    });
+    
+    return result;
   } catch (error) {
     console.error('Error deleting file from SFTP:', error);
     return false;
