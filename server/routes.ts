@@ -1079,6 +1079,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get remote paths for an SFTP/FTP data source
+  app.get("/api/data-sources/:id/remote-paths", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      
+      // Check if data source exists
+      const dataSource = await storage.getDataSource(id);
+      
+      if (!dataSource) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Data source not found" 
+        });
+      }
+      
+      // Handle SFTP/FTP data sources
+      if (dataSource.type === 'sftp' || dataSource.type === 'ftp') {
+        // Import the function
+        const { getRemotePaths } = await import('./utils/ftp-ingestion');
+        
+        // Extract credentials from data source config
+        let config = dataSource.config;
+        if (typeof config === 'string') {
+          try {
+            config = JSON.parse(config);
+          } catch (e) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid data source configuration"
+            });
+          }
+        }
+        
+        // Prepare credentials for FTP/SFTP
+        const typedConfig = config as any;
+        const credentials = {
+          host: typedConfig.host,
+          port: typedConfig.port || (dataSource.type === 'sftp' ? 22 : 21),
+          username: typedConfig.username,
+          password: typedConfig.password || process.env.SFTP_PASSWORD,
+          secure: typedConfig.secure || false,
+          remoteDir: typedConfig.path || '/',
+          privateKey: typedConfig.privateKey || undefined,
+          passphrase: typedConfig.passphrase || undefined
+        };
+        
+        // Log the connection attempt for debugging
+        console.log(`Fetching remote paths for ${dataSource.type} data source ${id} at ${credentials.host}`);
+        
+        // Get remote paths from the server
+        const result = await getRemotePaths(credentials);
+        
+        if (result.success) {
+          return res.json({
+            success: true,
+            message: result.message,
+            paths: result.paths
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: result.message
+          });
+        }
+      } else {
+        // For non-FTP/SFTP data sources return an empty array
+        return res.json({
+          success: true,
+          message: `Remote paths not applicable for ${dataSource.type} data source`,
+          paths: []
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching remote paths:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to fetch remote paths"
+      });
+    }
+  });
+  
   // Mapping Templates API
   app.get("/api/mapping-templates", async (req, res) => {
     try {

@@ -4,7 +4,7 @@ import { createWriteStream, promises as fs } from 'fs';
 import path from 'path';
 import { db } from '../db';
 import { connections, imports, importStatusEnum } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { processCSVFile, processExcelFile } from './file-processor';
 
 // Interface for the FTP/SFTP connection credentials
@@ -205,8 +205,12 @@ const getUploadsPath = (): string => {
 const wasFileImported = async (filename: string, supplierId: number): Promise<boolean> => {
   const previousImports = await db.select({ id: imports.id })
     .from(imports)
-    .where(eq(imports.filename, filename))
-    .where(eq(imports.supplierId, supplierId))
+    .where(
+      and(
+        eq(imports.filename, filename),
+        eq(imports.supplierId, supplierId)
+      )
+    )
     .limit(1);
     
   return previousImports.length > 0;
@@ -747,13 +751,19 @@ export const getImportStatus = async (filenames: string[]): Promise<Record<strin
     status: imports.status
   })
   .from(imports)
-  .where(imports.filename, 'in', filenames);
+  .where(inArray(imports.filename, filenames));
   
   // Convert to a record for easy lookup
-  return statuses.reduce((acc, curr) => {
-    acc[curr.filename] = curr.status;
-    return acc;
-  }, {} as Record<string, 'pending' | 'processing' | 'success' | 'error'>);
+  const result: Record<string, 'pending' | 'processing' | 'success' | 'error'> = {};
+  
+  // Safely add statuses to the result object
+  for (const stat of statuses) {
+    if (stat.filename && typeof stat.filename === 'string') {
+      result[stat.filename] = stat.status as 'pending' | 'processing' | 'success' | 'error';
+    }
+  }
+  
+  return result;
 };
 
 /**
