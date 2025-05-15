@@ -93,6 +93,7 @@ export default function MappingTemplateWorkspace() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [showOnlyMapped, setShowOnlyMapped] = useState(false);
+  const [collapseUnmapped, setCollapseUnmapped] = useState(false);
   
   // List of target fields for product mapping
   const targetFields = [
@@ -608,14 +609,24 @@ export default function MappingTemplateWorkspace() {
                         {expandedPreview ? "Collapse Preview" : "Expand Preview"}
                       </Button>
                       
-                      <div className="flex items-center gap-2 ml-4">
-                        <Switch
-                          id="show-mapped"
-                          checked={showOnlyMapped}
-                          onCheckedChange={setShowOnlyMapped}
-                          className="ml-4"
-                        />
-                        <Label htmlFor="show-mapped">Show only mapped fields</Label>
+                      <div className="flex items-center gap-4 ml-4">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="show-mapped"
+                            checked={showOnlyMapped}
+                            onCheckedChange={setShowOnlyMapped}
+                          />
+                          <Label htmlFor="show-mapped">Show only mapped fields</Label>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="collapse-unmapped"
+                            checked={collapseUnmapped}
+                            onCheckedChange={setCollapseUnmapped}
+                          />
+                          <Label htmlFor="collapse-unmapped">Collapse unmapped fields</Label>
+                        </div>
                       </div>
                     </div>
                     
@@ -787,6 +798,36 @@ export default function MappingTemplateWorkspace() {
                                 <li key={field}>{field}</li>
                               ))}
                             </ul>
+                          </div>
+                        )}
+                        
+                        {/* Live Mapping Preview */}
+                        {sampleData.length > 0 && fieldMappings.some(m => m.sourceField && m.targetField) && (
+                          <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-md">
+                            <h4 className="text-sm font-medium text-blue-700 mb-2">Live Mapping Preview</h4>
+                            <p className="text-xs text-blue-600 mb-3">This is how the first row will be imported:</p>
+                            
+                            <div className="bg-white p-3 rounded border border-blue-100">
+                              <div className="grid grid-cols-2 gap-3">
+                                {fieldMappings
+                                  .filter(m => m.sourceField && m.targetField)
+                                  .map((mapping, idx) => {
+                                    const targetField = targetFields.find(f => f.id === mapping.targetField);
+                                    const sourceValue = sampleData[0]?.[mapping.sourceField];
+                                    
+                                    return (
+                                      <div key={idx} className="flex flex-col">
+                                        <span className="text-xs font-medium text-slate-500">{targetField?.name || mapping.targetField}:</span>
+                                        <span className="text-sm font-mono truncate">
+                                          {sourceValue === null || sourceValue === undefined
+                                            ? <span className="italic text-slate-400">null</span>
+                                            : String(sourceValue)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
