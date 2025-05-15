@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -833,7 +834,13 @@ export default function MappingTemplatesUpdate() {
 
       {/* Create Template Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className={`${isFullScreen ? 'fixed inset-0 w-full h-full z-[9999] p-6 rounded-none flex flex-col max-w-none max-h-none' : 'max-w-4xl max-h-[90vh]'} overflow-y-auto`}>
+        <DialogContent 
+          className={cn(
+            "max-w-4xl overflow-y-auto",
+            isFullScreen ? 
+              "fixed inset-0 w-screen h-screen translate-x-0 translate-y-0 rounded-none z-[100]" : 
+              "max-h-[90vh]"
+          )}>
           <div className="flex items-center justify-between">
             <DialogHeader className="flex-1">
               <DialogTitle>Create Mapping Template</DialogTitle>
