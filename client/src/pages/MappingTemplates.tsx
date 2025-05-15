@@ -52,7 +52,7 @@ interface MappingTemplate {
   sourceType: string;
   mappings: Record<string, string>;
   transformations: any[];
-  validationRules: any[];
+  validationRules: ValidationRule[];
   createdAt: Date | null;
   updatedAt: Date | null;
   supplierId?: number | null;
@@ -74,26 +74,35 @@ interface FieldMapping {
   targetField: string;
 }
 
+interface ValidationRule {
+  field: string;
+  type: "required" | "type" | "format" | "range" | "enum" | "custom";
+  value?: any;
+  message?: string;
+  errorLevel: "error" | "warning";
+  defaultValue?: any;
+}
+
 // Available target fields (internal schema fields)
 const AVAILABLE_TARGET_FIELDS = [
-  { id: "sku", name: "SKU" },
-  { id: "name", name: "Product Name" },
-  { id: "description", name: "Description" },
-  { id: "manufacturerPartNumber", name: "Manufacturer Part Number" },
-  { id: "upc", name: "UPC" },
-  { id: "price", name: "Price" },
-  { id: "cost", name: "Cost" },
-  { id: "weight", name: "Weight" },
-  { id: "dimensions", name: "Dimensions" },
-  { id: "manufacturerName", name: "Manufacturer Name" },
-  { id: "status", name: "Status" },
-  { id: "categoryId", name: "Category ID" },
-  { id: "inventoryQuantity", name: "Inventory Quantity" },
-  { id: "isRemanufactured", name: "Is Remanufactured" },
-  { id: "isCloseout", name: "Is Closeout" },
-  { id: "isOnSale", name: "Is On Sale" },
-  { id: "hasFreeShipping", name: "Has Free Shipping" },
-  { id: "hasRebate", name: "Has Rebate" },
+  { id: "sku", name: "SKU", required: true, type: "string", description: "Unique product identifier" },
+  { id: "name", name: "Product Name", required: true, type: "string", description: "Primary product name" },
+  { id: "description", name: "Description", required: false, type: "string", description: "Detailed product description" },
+  { id: "manufacturerPartNumber", name: "Manufacturer Part Number", required: false, type: "string", description: "Manufacturer's part number" },
+  { id: "upc", name: "UPC", required: false, type: "string", description: "Universal Product Code" },
+  { id: "price", name: "Price", required: false, type: "float", description: "Retail price", defaultValue: "0.00" },
+  { id: "cost", name: "Cost", required: false, type: "float", description: "Product cost", defaultValue: "0.00" },
+  { id: "weight", name: "Weight", required: false, type: "float", description: "Product weight", defaultValue: "0.00" },
+  { id: "dimensions", name: "Dimensions", required: false, type: "string", description: "Product dimensions (LxWxH)" },
+  { id: "manufacturerName", name: "Manufacturer Name", required: false, type: "string", description: "Name of manufacturer" },
+  { id: "status", name: "Status", required: false, type: "string", description: "Product status (active, inactive, etc.)", defaultValue: "active" },
+  { id: "categoryId", name: "Category ID", required: false, type: "integer", description: "ID of product category" },
+  { id: "inventoryQuantity", name: "Inventory Quantity", required: false, type: "integer", description: "Current stock quantity", defaultValue: "0" },
+  { id: "isRemanufactured", name: "Is Remanufactured", required: false, type: "boolean", description: "Whether product is remanufactured", defaultValue: "false" },
+  { id: "isCloseout", name: "Is Closeout", required: false, type: "boolean", description: "Whether product is closeout", defaultValue: "false" },
+  { id: "isOnSale", name: "Is On Sale", required: false, type: "boolean", description: "Whether product is on sale", defaultValue: "false" },
+  { id: "hasFreeShipping", name: "Has Free Shipping", required: false, type: "boolean", description: "Whether product has free shipping", defaultValue: "false" },
+  { id: "hasRebate", name: "Has Rebate", required: false, type: "boolean", description: "Whether product has a rebate", defaultValue: "false" },
 ];
 
 export default function MappingTemplates() {
@@ -103,6 +112,7 @@ export default function MappingTemplates() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<MappingTemplate | null>(null);
   const [activeTab, setActiveTab] = useState("all");
+  const [isValidationViewOpen, setIsValidationViewOpen] = useState(false);
 
   // State for template form
   const [templateForm, setTemplateForm] = useState({
@@ -111,7 +121,8 @@ export default function MappingTemplates() {
     sourceType: "csv",
     supplierId: "",
     fileLabel: "",
-    mappings: {} as Record<string, string>
+    mappings: {} as Record<string, string>,
+    validationRules: [] as ValidationRule[]
   });
 
   // State for field mapping
@@ -151,20 +162,82 @@ export default function MappingTemplates() {
     setFieldMappings([...fieldMappings, { sourceField: "", targetField: "" }]);
   };
 
+  // Generate validation rules based on target field properties
+  const generateValidationRules = (targetField: string): ValidationRule[] => {
+    const fieldConfig = AVAILABLE_TARGET_FIELDS.find(field => field.id === targetField);
+    
+    if (!fieldConfig) return [];
+    
+    const rules: ValidationRule[] = [];
+    
+    // Required field validation
+    if (fieldConfig.required) {
+      rules.push({
+        field: targetField,
+        type: "required",
+        message: `${fieldConfig.name} is required`,
+        errorLevel: "error"
+      });
+    }
+    
+    // Type validation
+    rules.push({
+      field: targetField,
+      type: "type",
+      value: fieldConfig.type,
+      message: `${fieldConfig.name} must be a valid ${fieldConfig.type}`,
+      errorLevel: "error"
+    });
+    
+    // Default value for missing fields
+    if (fieldConfig.defaultValue !== undefined) {
+      rules.push({
+        field: targetField,
+        type: "custom",
+        value: "setDefaultIfMissing",
+        defaultValue: fieldConfig.defaultValue,
+        message: `Setting default value for ${fieldConfig.name}`,
+        errorLevel: "warning"
+      });
+    }
+    
+    return rules;
+  };
+
   // Update a field mapping
   const updateFieldMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
     const newMappings = [...fieldMappings];
     newMappings[index][field] = value;
     setFieldMappings(newMappings);
     
-    // Also update the mappings object
+    // If we're changing the target field, generate validation rules
+    let updatedValidationRules = [...templateForm.validationRules];
+    if (field === 'targetField' && value) {
+      // Remove existing rules for this target field
+      updatedValidationRules = updatedValidationRules.filter(
+        rule => rule.field !== value
+      );
+      
+      // Add new rules
+      updatedValidationRules = [
+        ...updatedValidationRules,
+        ...generateValidationRules(value)
+      ];
+    }
+    
+    // Update the mappings object
     const mappingsObject: Record<string, string> = {};
     newMappings.forEach(mapping => {
       if (mapping.sourceField && mapping.targetField) {
         mappingsObject[mapping.sourceField] = mapping.targetField;
       }
     });
-    setTemplateForm({ ...templateForm, mappings: mappingsObject });
+    
+    setTemplateForm({ 
+      ...templateForm, 
+      mappings: mappingsObject,
+      validationRules: updatedValidationRules
+    });
   };
 
   // Remove a field mapping row
@@ -192,7 +265,8 @@ export default function MappingTemplates() {
       sourceType: "csv",
       supplierId: "",
       fileLabel: "",
-      mappings: {}
+      mappings: {},
+      validationRules: []
     });
     setFieldMappings([{ sourceField: "", targetField: "" }]);
     setSampleData(null);
