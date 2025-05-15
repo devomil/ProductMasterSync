@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FullscreenButton, FullscreenActionButton } from "@/components/ui/fullscreen-button";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
@@ -49,7 +50,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import EnhancedSampleDataTable from "@/components/mapping/EnhancedSampleDataTable";
-import MappingFieldInterface from "@/components/mapping/MappingFieldInterface";
 
 // Types
 interface MappingTemplate {
@@ -124,16 +124,8 @@ const AVAILABLE_TARGET_FIELDS = [
 ];
 
 export default function MappingTemplatesUpdate() {
-  // Get URL parameters for creating a template from sample data
-  const [location] = useLocation();
-  const urlParams = new URLSearchParams(window.location.search);
-  const createFromParams = urlParams.get('create') === 'true';
-  const pathFromParams = urlParams.get('path');
-  const labelFromParams = urlParams.get('label');
-  const sourceTypeFromParams = urlParams.get('source');
-  
   // State for template list
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(createFromParams);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [showProcessSftpDialog, setShowProcessSftpDialog] = useState(false);
@@ -142,49 +134,17 @@ export default function MappingTemplatesUpdate() {
   const [isValidationViewOpen, setIsValidationViewOpen] = useState(false);
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
-  const [isFullScreen, setIsFullScreen] = useState(false);
-  
-  // Toggle full screen mode
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen);
-  };
-  
-  // Add ESC key handler for exiting full screen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullScreen]);
-    setIsFullScreen(!isFullScreen);
-  };
-  
-  // Handle ESC key to exit fullscreen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullScreen]);
   
   // Get data source actions hook
   const { handleProcessSftpIngestion, handleTestPull, isProcessingIngestion, setIsProcessingIngestion } = useDataSourceActions();
 
-  // State for template form with values from URL params if available
+  // State for template form
   const [templateForm, setTemplateForm] = useState({
-    name: pathFromParams ? `Template for ${labelFromParams || pathFromParams}` : "",
-    description: pathFromParams ? `Mapping template for ${labelFromParams || pathFromParams}` : "",
-    sourceType: sourceTypeFromParams || "csv",
+    name: "",
+    description: "",
+    sourceType: "csv",
     supplierId: "",
-    fileLabel: labelFromParams || "",
+    fileLabel: "",
     mappings: {} as Record<string, string>,
     validationRules: [] as ValidationRule[]
   });
@@ -778,7 +738,6 @@ export default function MappingTemplatesUpdate() {
                           <TableHead>Source Type</TableHead>
                           <TableHead>Fields</TableHead>
                           <TableHead>Supplier</TableHead>
-                          <TableHead>File Label</TableHead>
                           <TableHead>Last Updated</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -793,9 +752,6 @@ export default function MappingTemplatesUpdate() {
                               <TableCell>{Object.keys(template.mappings).length}</TableCell>
                               <TableCell>
                                 {supplier ? supplier.name : 'Any Supplier'}
-                              </TableCell>
-                              <TableCell>
-                                {template.fileLabel ? template.fileLabel : '-'}
                               </TableCell>
                               <TableCell>
                                 {template.updatedAt 
@@ -848,35 +804,13 @@ export default function MappingTemplatesUpdate() {
 
       {/* Create Template Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent 
-          className={cn(
-            "max-w-4xl overflow-y-auto",
-            isFullScreen ? 
-              "fixed inset-0 w-screen h-screen translate-x-0 translate-y-0 rounded-none z-[100]" : 
-              "max-h-[90vh]"
-          )}>
-          <div className="flex items-center justify-between">
-            <DialogHeader className="flex-1">
-              <DialogTitle>Create Mapping Template</DialogTitle>
-              <DialogDescription>
-                Define how source data fields map to your internal schema fields.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleFullScreen} 
-                className="h-8 w-8 rounded-full p-0"
-                title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
-              >
-                {isFullScreen ? 
-                  <Minimize className="h-4 w-4" /> : 
-                  <Maximize className="h-4 w-4" />
-                }
-              </Button>
-            </div>
-          </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Mapping Template</DialogTitle>
+            <DialogDescription>
+              Define how source data fields map to your internal schema fields.
+            </DialogDescription>
+          </DialogHeader>
 
           <Tabs defaultValue="general">
             <TabsList>
@@ -971,18 +905,6 @@ export default function MappingTemplatesUpdate() {
                   <h3 className="text-lg font-medium">Field Mappings</h3>
                   
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={toggleFullScreen}
-                      title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
-                      className="mr-2"
-                    >
-                      {isFullScreen ? 
-                        <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
-                        <><Maximize className="h-4 w-4 mr-2" /> Fullscreen</>
-                      }
-                    </Button>
-                    
                     {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
                       <Button 
                         variant="outline" 
@@ -1015,19 +937,87 @@ export default function MappingTemplatesUpdate() {
                   </div>
                 )}
                 
-                <MappingFieldInterface
-                  sampleData={sampleData || []}
-                  sampleHeaders={sampleHeaders}
-                  fieldMappings={fieldMappings}
-                  updateFieldMapping={updateFieldMapping}
-                  addMappingRow={addMappingRow}
-                  removeMappingRow={removeMappingRow}
-                  targetFields={AVAILABLE_TARGET_FIELDS}
-                  saveMapping={async () => {
-                    await handleCreateTemplate();
-                    setIsCreateDialogOpen(false);
-                  }}
-                />
+                {sampleData && sampleData.length > 0 && (
+                  <div className="border rounded-md overflow-x-auto mb-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(sampleData[0]).map((header) => (
+                            <TableHead key={header}>{header}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sampleData.map((row, index) => (
+                          <TableRow key={index}>
+                            {Object.values(row).map((value: any, i) => (
+                              <TableCell key={i}>{value}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  {fieldMappings.map((mapping, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Select 
+                        value={mapping.sourceField}
+                        onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Source Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sampleHeaders.length > 0 ? (
+                            sampleHeaders.map((header) => (
+                              <SelectItem key={header} value={header}>
+                                {header}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no_headers" disabled>
+                              Upload a sample file or enter manually
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      
+                      <span>→</span>
+                      
+                      <Select 
+                        value={mapping.targetField}
+                        onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Target Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_TARGET_FIELDS.map((field) => (
+                            <SelectItem key={field.id} value={field.id}>
+                              {field.name}{field.required ? " *" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMappingRow(index)}
+                        disabled={fieldMappings.length <= 1}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  <Button variant="outline" onClick={addMappingRow}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Mapping
+                  </Button>
+                </div>
               </div>
             </TabsContent>
             <TabsContent value="validation" className="pt-4">
@@ -1088,6 +1078,9 @@ export default function MappingTemplatesUpdate() {
               resetForm();
             }}>
               Cancel
+            </Button>
+            <Button onClick={handleCreateTemplate}>
+              Create Template
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1217,19 +1210,71 @@ export default function MappingTemplatesUpdate() {
                   </div>
                 )}
                 
-                <MappingFieldInterface
-                  sampleData={sampleData || []}
-                  sampleHeaders={sampleHeaders}
-                  fieldMappings={fieldMappings}
-                  updateFieldMapping={updateFieldMapping}
-                  addMappingRow={addMappingRow}
-                  removeMappingRow={removeMappingRow}
-                  targetFields={AVAILABLE_TARGET_FIELDS}
-                  saveMapping={async () => {
-                    await handleUpdateTemplate();
-                    setIsEditDialogOpen(false);
-                  }}
-                />
+                {sampleData && sampleData.length > 0 && (
+                  <div className="border rounded-md overflow-x-auto mb-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(sampleData[0]).map((header) => (
+                            <TableHead key={header}>{header}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sampleData.map((row, index) => (
+                          <TableRow key={index}>
+                            {Object.values(row).map((value: any, i) => (
+                              <TableCell key={i}>{value}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  {fieldMappings.map((mapping, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Input
+                        value={mapping.sourceField}
+                        onChange={(e) => updateFieldMapping(index, 'sourceField', e.target.value)}
+                        placeholder="Source Field"
+                      />
+                      
+                      <span>→</span>
+                      
+                      <Select 
+                        value={mapping.targetField}
+                        onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Target Field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_TARGET_FIELDS.map((field) => (
+                            <SelectItem key={field.id} value={field.id}>
+                              {field.name}{field.required ? " *" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMappingRow(index)}
+                        disabled={fieldMappings.length <= 1}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  <Button variant="outline" onClick={addMappingRow}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Mapping
+                  </Button>
+                </div>
               </div>
             </TabsContent>
             <TabsContent value="validation" className="pt-4">
@@ -1287,6 +1332,9 @@ export default function MappingTemplatesUpdate() {
           <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
+            </Button>
+            <Button onClick={handleUpdateTemplate}>
+              Update Template
             </Button>
           </DialogFooter>
         </DialogContent>
