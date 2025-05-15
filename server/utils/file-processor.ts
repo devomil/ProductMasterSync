@@ -22,14 +22,14 @@ interface ProcessingResult {
 /**
  * Get the path to the uploaded file
  */
-const getFilePath = (supplierId: number, filename: string): string => {
+export const getFilePath = (supplierId: number, filename: string): string => {
   return path.join(process.cwd(), 'uploads', `supplier_${supplierId}`, filename);
 };
 
 /**
  * Process a CSV file
  */
-const processCSVFile = async (
+export const processCSVFile = async (
   filePath: string,
   options: {
     hasHeader?: boolean;
@@ -62,7 +62,7 @@ const processCSVFile = async (
 /**
  * Process an Excel file
  */
-const processExcelFile = async (
+export const processExcelFile = async (
   filePath: string,
   options: {
     sheetName?: string;
@@ -100,7 +100,7 @@ const processExcelFile = async (
 /**
  * Process a JSON file
  */
-const processJSONFile = async (
+export const processJSONFile = async (
   filePath: string,
   options: {
     rootProperty?: string;
@@ -135,7 +135,7 @@ const processJSONFile = async (
 /**
  * Apply mapping template to transform raw data
  */
-const applyMappingTemplate = (
+export const applyMappingTemplate = (
   records: any[],
   mappingTemplate: {
     fieldMappings: { source: string; target: string; transform?: string }[];

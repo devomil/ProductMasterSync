@@ -580,6 +580,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       handleError(res, error);
     }
   });
+  
+  // Ingest data from SFTP path using mapping template
+  app.post("/api/ingest/sftp", async (req, res) => {
+    try {
+      const { 
+        sftpPath, 
+        connectionId, 
+        mappingTemplateId, 
+        deleteAfterProcessing = false,
+        skipExistingProducts = false 
+      } = req.body;
+      
+      if (!sftpPath || !connectionId || !mappingTemplateId) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+      }
+      
+      // Import the ingestion engine
+      const { processSFTPIngestion } = await import('./utils/ingestion-engine');
+      
+      // Process the ingestion
+      const result = await processSFTPIngestion(sftpPath, connectionId, mappingTemplateId, {
+        deleteSourceAfterProcessing: deleteAfterProcessing,
+        createImportRecord: true,
+        skipExistingProducts
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Error processing SFTP ingestion:', error);
+      res.status(500).json({ 
+        error: 'Failed to process SFTP ingestion',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   app.post("/api/imports", upload.single("file"), async (req, res) => {
     try {
