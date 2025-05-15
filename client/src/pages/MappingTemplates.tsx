@@ -328,7 +328,8 @@ export default function MappingTemplates() {
     }
     
     try {
-      await handleProcessSftpIngestion(
+      setIsProcessingIngestion(true);
+      const result = await handleProcessSftpIngestion(
         dataSource,
         selectedTemplate.id,
         selectedRemotePath,
@@ -337,12 +338,15 @@ export default function MappingTemplates() {
       
       setShowProcessSftpDialog(false);
       
-      toast({
-        title: "Processing Started",
-        description: "SFTP ingestion process has been started successfully"
-      });
+      // Invalidate imports cache to show the new import
+      queryClient.invalidateQueries({ queryKey: ['/api/imports'] });
+      
+      // The toast is already shown in handleProcessSftpIngestion
     } catch (error) {
       console.error("Error processing SFTP ingestion:", error);
+      // Error toast is already shown in handleProcessSftpIngestion
+    } finally {
+      setIsProcessingIngestion(false);
     }
   };
 
