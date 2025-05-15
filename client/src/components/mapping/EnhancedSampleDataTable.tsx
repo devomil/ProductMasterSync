@@ -57,7 +57,7 @@ const EnhancedSampleDataTable: React.FC<EnhancedSampleDataTableProps> = ({
                     key={`${index}-${i}`} 
                     className="px-4 py-3 border-b whitespace-nowrap overflow-hidden text-ellipsis"
                   >
-                    {String(row[header] || '')}
+                    {row[header] !== undefined && row[header] !== null ? String(row[header]) : ''}
                   </TableCell>
                 ))}
               </TableRow>
