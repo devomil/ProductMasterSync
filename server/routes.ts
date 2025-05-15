@@ -993,24 +993,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // For now, return sample data as a placeholder
-      // In a real implementation, you would connect to the data source and fetch data
-      const sampleData = [
-        { sku: "ABC123", name: "Test Product 1", price: "19.99", inventory: "100" },
-        { sku: "DEF456", name: "Test Product 2", price: "29.99", inventory: "50" },
-        { sku: "GHI789", name: "Test Product 3", price: "39.99", inventory: "75" }
-      ];
-      
-      // Log info for debugging
-      console.log(`Test pull request for data source ${id}, path: ${remotePath}`);
-      
-      res.json({
-        success: true,
-        message: "Sample data retrieved successfully",
-        sample_data: sampleData,
-        remote_path: remotePath,
-        total_records: sampleData.length
-      });
+      // Handle SFTP data sources
+      if (dataSource.type === 'sftp') {
+        // Import the function
+        const { pullSampleFromSFTP } = await import('./utils/ftp-ingestion');
+        
+        // Extract credentials from data source config
+        let config = dataSource.config;
+        if (typeof config === 'string') {
+          try {
+            config = JSON.parse(config);
+          } catch (e) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid data source configuration"
+            });
+          }
+        }
+        
+        // Prepare credentials
+        const credentials = {
+          host: config.host,
+          port: config.port || 22,
+          username: config.username,
+          password: config.password,
+          // Add other credentials as needed
+        };
+        
+        // If no specific remote path provided, use the first one in the config
+        let pathToUse = remotePath;
+        if (!pathToUse && config.remote_paths && config.remote_paths.length > 0) {
+          pathToUse = config.remote_paths[0].path;
+        }
+        
+        if (!pathToUse) {
+          return res.status(400).json({
+            success: false,
+            message: "No remote path specified"
+          });
+        }
+        
+        // Pull sample from SFTP
+        const result = await pullSampleFromSFTP(credentials, pathToUse, {
+          limit: limit,
+          hasHeader: true, // Assume headers by default
+        });
+        
+        // Return the result
+        return res.json({
+          success: result.success,
+          message: result.message,
+          sample_data: result.records || [],
+          headers: result.headers || [],
+          remote_path: pathToUse,
+          total_records: result.records?.length || 0
+        });
+      } 
+      // Handle other data source types (fallback to mock data for now)
+      else {
+        // For other types, return sample data as a placeholder
+        const sampleData = [
+          { sku: "ABC123", name: "Test Product 1", price: "19.99", inventory: "100" },
+          { sku: "DEF456", name: "Test Product 2", price: "29.99", inventory: "50" },
+          { sku: "GHI789", name: "Test Product 3", price: "39.99", inventory: "75" }
+        ];
+        
+        // Log info for debugging
+        console.log(`Test pull request for data source ${id}, path: ${remotePath} (using mock data for type ${dataSource.type})`);
+        
+        return res.json({
+          success: true,
+          message: `Sample data retrieved successfully (mock data for ${dataSource.type})`,
+          sample_data: sampleData,
+          remote_path: remotePath,
+          total_records: sampleData.length
+        });
+      }
     } catch (error) {
       console.error("Error in test-pull:", error);
       res.status(500).json({

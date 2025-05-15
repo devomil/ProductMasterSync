@@ -5,6 +5,7 @@ import path from 'path';
 import { db } from '../db';
 import { connections, imports, importStatusEnum } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { processCSVFile, processExcelFile } from './file-processor';
 
 // Interface for the FTP/SFTP connection credentials
 interface FTPCredentials {
@@ -18,6 +19,151 @@ interface FTPCredentials {
   passphrase?: string;
   filePattern?: string; // For matching specific files, e.g., "*.csv"
 }
+
+/**
+ * Pull a sample from an SFTP file for preview/mapping
+ */
+export const pullSampleFromSFTP = async (
+  credentials: FTPCredentials,
+  specificFilePath: string,
+  options: {
+    limit?: number;
+    hasHeader?: boolean;
+    delimiter?: string;
+    encoding?: string;
+  } = {}
+): Promise<{
+  success: boolean;
+  message: string;
+  records?: any[];
+  headers?: string[];
+  error?: any;
+}> => {
+  const result = {
+    success: false,
+    message: '',
+    records: [] as any[],
+    headers: [] as string[],
+    error: null as any
+  };
+  
+  const limit = options.limit || 50;
+  const tempFilePath = path.join(process.cwd(), 'uploads', 'temp', `sample_${Date.now()}.csv`);
+  
+  // Make sure temp directory exists
+  await ensureLocalDir(path.dirname(tempFilePath));
+  
+  return new Promise((resolve) => {
+    const client = new SFTPClient();
+    
+    // Set a timeout to avoid hanging connections
+    const timeout = setTimeout(() => {
+      client.end();
+      result.message = 'Connection timed out';
+      resolve(result);
+    }, 30000); // 30 seconds timeout
+    
+    client.on('ready', async () => {
+      clearTimeout(timeout);
+      
+      try {
+        // Use SFTP to get the file
+        client.sftp(async (err, sftp) => {
+          if (err) {
+            client.end();
+            result.message = `Failed to start SFTP session: ${err.message}`;
+            result.error = err;
+            resolve(result);
+            return;
+          }
+          
+          // Download the specific file to temp location
+          try {
+            await new Promise<void>((resolveDownload, rejectDownload) => {
+              sftp.fastGet(specificFilePath, tempFilePath, {}, (err) => {
+                if (err) {
+                  rejectDownload(err);
+                  return;
+                }
+                resolveDownload();
+              });
+            });
+            
+            // Process the file based on its type
+            let fileData;
+            if (specificFilePath.endsWith('.csv')) {
+              fileData = await processCSVFile(tempFilePath, {
+                hasHeader: options.hasHeader !== false,
+                delimiter: options.delimiter || ',',
+                encoding: options.encoding || 'utf8'
+              });
+            } else if (specificFilePath.endsWith('.xlsx') || specificFilePath.endsWith('.xls')) {
+              fileData = await processExcelFile(tempFilePath);
+            } else {
+              // Read the file as text for other formats
+              const content = await fs.readFile(tempFilePath, 'utf8');
+              fileData = {
+                records: [{ content }],
+                headers: ['content']
+              };
+            }
+            
+            // Limit the number of records
+            result.records = fileData.records.slice(0, limit);
+            result.headers = fileData.headers;
+            result.success = true;
+            result.message = `Successfully pulled ${result.records.length} records from ${specificFilePath}`;
+            
+            // Clean up temporary file
+            try {
+              await fs.unlink(tempFilePath);
+            } catch (cleanupErr) {
+              console.warn(`Failed to clean up temp file ${tempFilePath}:`, cleanupErr);
+            }
+            
+          } catch (downloadErr) {
+            result.message = `Failed to download file: ${downloadErr instanceof Error ? downloadErr.message : String(downloadErr)}`;
+            result.error = downloadErr;
+          }
+          
+          client.end();
+          resolve(result);
+        });
+      } catch (error) {
+        client.end();
+        result.message = `Error during SFTP operations: ${error instanceof Error ? error.message : String(error)}`;
+        result.error = error;
+        resolve(result);
+      }
+    });
+    
+    client.on('error', (err) => {
+      clearTimeout(timeout);
+      result.message = `SFTP connection error: ${err.message}`;
+      result.error = err;
+      resolve(result);
+    });
+    
+    // Connect to the SFTP server
+    const connectOptions: any = {
+      host: credentials.host,
+      port: credentials.port || 22,
+      username: credentials.username
+    };
+    
+    // Add password or private key authentication
+    if (credentials.password) {
+      connectOptions.password = credentials.password;
+    } else if (credentials.privateKey) {
+      connectOptions.privateKey = credentials.privateKey;
+      if (credentials.passphrase) {
+        connectOptions.passphrase = credentials.passphrase;
+      }
+    }
+    
+    client.connect(connectOptions);
+  });
+};
 
 interface IngestionResult {
   success: boolean;
