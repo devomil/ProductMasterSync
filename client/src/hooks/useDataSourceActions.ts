@@ -23,11 +23,13 @@ export function useDataSourceActions() {
   const [isPullingSampleData, setIsPullingSampleData] = useState(false);
   const [sampleData, setSampleData] = useState<SampleDataResult | null>(null);
   const [showSampleDataModal, setShowSampleDataModal] = useState(false);
+  const [showPathSelector, setShowPathSelector] = useState(false);
   const [rawResponseData, setRawResponseData] = useState("");
   const [selectedFilePath, setSelectedFilePath] = useState<RemotePathItem | null>(null);
   const [dataSourceToDelete, setDataSourceToDelete] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentDataSource, setCurrentDataSource] = useState<DataSource | null>(null);
 
   // Function to handle test connection for an existing data source
   const handleTestConnectionForDataSource = async (dataSource: DataSource) => {
