@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ValidationRule } from "@shared/schema";
+import type { ValidationRule } from "@shared/schema";
 import {
   Table,
   TableBody,
@@ -187,18 +187,19 @@ export default function MappingTemplates() {
       type: "type",
       value: fieldConfig.type,
       message: `${fieldConfig.name} must be a valid ${fieldConfig.type}`,
-      errorLevel: "error"
+      errorLevel: fieldConfig.required ? "error" : "warning",
+      defaultValue: fieldConfig.defaultValue
     });
     
-    // Default value for missing fields
-    if (fieldConfig.defaultValue !== undefined) {
+    // Default value rule for optional fields
+    if (!fieldConfig.required && fieldConfig.defaultValue !== undefined) {
       rules.push({
         field: targetField,
         type: "custom",
         value: "setDefaultIfMissing",
-        defaultValue: fieldConfig.defaultValue,
-        message: `Setting default value for ${fieldConfig.name}`,
-        errorLevel: "warning"
+        message: `Using default value (${fieldConfig.defaultValue}) for ${fieldConfig.name} if not provided`,
+        errorLevel: "warning",
+        defaultValue: fieldConfig.defaultValue
       });
     }
     
@@ -237,6 +238,7 @@ export default function MappingTemplates() {
     setTemplateForm({ 
       ...templateForm, 
       mappings: mappingsObject,
+      validationRules: updatedValidationRules,
       validationRules: updatedValidationRules
     });
   };
