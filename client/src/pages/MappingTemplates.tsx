@@ -629,219 +629,297 @@ export default function MappingTemplates() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Template Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  placeholder="Catalog Feed Template"
-                  value={templateForm.name}
-                  onChange={handleTemplateFormChange}
-                />
-              </div>
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
+              <TabsTrigger value="validation">Validation Rules</TabsTrigger>
+            </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="sourceType">Source Type</Label>
-                <Select 
-                  value={templateForm.sourceType} 
-                  onValueChange={(value) => handleSelectChange("sourceType", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select source type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="csv">CSV</SelectItem>
-                    <SelectItem value="excel">Excel</SelectItem>
-                    <SelectItem value="json">JSON</SelectItem>
-                    <SelectItem value="xml">XML</SelectItem>
-                    <SelectItem value="api">API</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <TabsContent value="general" className="pt-4">
+              <div className="grid gap-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Template Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      placeholder="Catalog Feed Template"
+                      value={templateForm.name}
+                      onChange={handleTemplateFormChange}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="supplierId">Supplier (Optional)</Label>
-                <Select 
-                  value={templateForm.supplierId} 
-                  onValueChange={(value) => handleSelectChange("supplierId", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Any Supplier</SelectItem>
-                    {suppliers.map((supplier: Supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceType">Source Type</Label>
+                    <Select 
+                      value={templateForm.sourceType} 
+                      onValueChange={(value) => handleSelectChange("sourceType", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select source type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="csv">CSV</SelectItem>
+                        <SelectItem value="excel">Excel</SelectItem>
+                        <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="xml">XML</SelectItem>
+                        <SelectItem value="api">API</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="fileLabel">File Label (Optional)</Label>
-                <Input
-                  id="fileLabel"
-                  name="fileLabel"
-                  placeholder="Catalog Feed"
-                  value={templateForm.fileLabel}
-                  onChange={handleTemplateFormChange}
-                />
-              </div>
-
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  placeholder="Template for mapping catalog data from supplier X"
-                  value={templateForm.description}
-                  onChange={handleTemplateFormChange}
-                  rows={2}
-                />
-              </div>
-            </div>
-
-            <div className="border rounded-md p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Sample Data (Optional)</h3>
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="file-upload"
-                    type="file"
-                    className="hidden"
-                    accept=".csv,.xlsx,.xls,.json,.xml"
-                    onChange={handleFileUpload}
-                  />
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('file-upload')?.click()}
-                    disabled={isUploading}
-                  >
-                    <FileUp className="mr-2 h-4 w-4" />
-                    {isUploading ? "Uploading..." : "Upload Sample File"}
-                  </Button>
-                </div>
-              </div>
-
-              {uploadedFileName && (
-                <p className="text-sm text-gray-500 mb-2">
-                  Uploaded: {uploadedFileName}
-                </p>
-              )}
-
-              {sampleData && sampleData.length > 0 && (
-                <div className="border rounded overflow-x-auto max-h-60">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {sampleHeaders.map((header, i) => (
-                          <th
-                            key={i}
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            {header}
-                          </th>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplierId">Supplier (Optional)</Label>
+                    <Select 
+                      value={templateForm.supplierId} 
+                      onValueChange={(value) => handleSelectChange("supplierId", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a supplier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Any Supplier</SelectItem>
+                        {suppliers.map((supplier: Supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                            {supplier.name}
+                          </SelectItem>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {sampleData.map((row, rowIndex) => (
-                        <tr key={rowIndex}>
-                          {sampleHeaders.map((header, cellIndex) => (
-                            <td
-                              key={cellIndex}
-                              className="px-6 py-2 whitespace-nowrap text-sm text-gray-500"
-                            >
-                              {row[header]}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="fileLabel">File Label (Optional)</Label>
+                    <Input
+                      id="fileLabel"
+                      name="fileLabel"
+                      placeholder="Catalog Feed"
+                      value={templateForm.fileLabel}
+                      onChange={handleTemplateFormChange}
+                    />
+                  </div>
+
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      placeholder="Template for mapping catalog data from supplier X"
+                      value={templateForm.description}
+                      onChange={handleTemplateFormChange}
+                      rows={2}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div className="border rounded-md p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Field Mappings</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={addMappingRow}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Add Mapping
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {fieldMappings.map((mapping, index) => (
-                  <div key={index} className="grid grid-cols-5 gap-2 items-center">
-                    <div className="col-span-2">
-                      <Select
-                        value={mapping.sourceField}
-                        onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
+                <div className="border rounded-md p-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium">Sample Data (Optional)</h3>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="file-upload"
+                        type="file"
+                        className="hidden"
+                        accept=".csv,.xlsx,.xls,.json,.xml"
+                        onChange={handleFileUpload}
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        disabled={isUploading}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Source Field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sampleHeaders.length > 0 ? (
-                            sampleHeaders.map((header) => (
-                              <SelectItem key={header} value={header}>
-                                {header}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="" disabled>
-                              No source fields available
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex justify-center">
-                      <span className="text-gray-500">→</span>
-                    </div>
-                    <div className="col-span-2">
-                      <Select
-                        value={mapping.targetField}
-                        onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Target Field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AVAILABLE_TARGET_FIELDS.map((field) => (
-                            <SelectItem key={field.id} value={field.id}>
-                              {field.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMappingRow(index)}
-                        disabled={fieldMappings.length <= 1}
-                      >
-                        <Trash className="h-4 w-4" />
+                        <FileUp className="mr-2 h-4 w-4" />
+                        {isUploading ? "Uploading..." : "Upload Sample File"}
                       </Button>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          <DialogFooter>
+                  {uploadedFileName && (
+                    <p className="text-sm text-gray-500 mb-2">
+                      Uploaded: {uploadedFileName}
+                    </p>
+                  )}
+
+                  {sampleData && sampleData.length > 0 && (
+                    <div className="border rounded overflow-x-auto max-h-60">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {sampleHeaders.map((header, i) => (
+                              <th
+                                key={i}
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {sampleData.map((row, rowIndex) => (
+                            <tr key={rowIndex}>
+                              {sampleHeaders.map((header, cellIndex) => (
+                                <td
+                                  key={cellIndex}
+                                  className="px-6 py-2 whitespace-nowrap text-sm text-gray-500"
+                                >
+                                  {row[header]}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="mapping" className="pt-4">
+              <div className="border rounded-md p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Field Mappings</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={addMappingRow}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Mapping
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  {fieldMappings.map((mapping, index) => (
+                    <div key={index} className="grid grid-cols-5 gap-2 items-center">
+                      <div className="col-span-2">
+                        <Select
+                          value={mapping.sourceField}
+                          onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Source Field" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sampleHeaders.length > 0 ? (
+                              sampleHeaders.map((header) => (
+                                <SelectItem key={header} value={header}>
+                                  {header}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                No source fields available
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-center">
+                        <span className="text-gray-500">→</span>
+                      </div>
+                      <div className="col-span-2">
+                        <Select
+                          value={mapping.targetField}
+                          onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Target Field" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {AVAILABLE_TARGET_FIELDS.map((field) => (
+                              <SelectItem key={field.id} value={field.id}>
+                                {field.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeMappingRow(index)}
+                          disabled={fieldMappings.length <= 1}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="validation" className="pt-4">
+              <div className="border rounded-md p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Validation Rules</h3>
+                  <div className="text-sm text-muted-foreground">
+                    {templateForm.validationRules.length} rules
+                  </div>
+                </div>
+
+                {templateForm.validationRules.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No validation rules defined yet.</p>
+                    <p className="mt-2">Select target fields in the Field Mapping tab to automatically generate validation rules.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      These validation rules will be applied during data import. Rules are automatically generated based on the target fields you've mapped.
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      {templateForm.validationRules.map((rule, index) => {
+                        const field = AVAILABLE_TARGET_FIELDS.find(f => f.id === rule.field);
+                        const fieldName = field ? field.name : rule.field;
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className={`p-3 rounded-md border ${
+                              rule.errorLevel === 'error' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium">
+                                {fieldName}
+                                <span 
+                                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                                    rule.errorLevel === 'error' 
+                                      ? 'bg-red-100 text-red-800' 
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}
+                                >
+                                  {rule.errorLevel}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {rule.type}
+                              </div>
+                            </div>
+                            <div className="mt-1 text-sm">
+                              {rule.message}
+                            </div>
+                            {rule.defaultValue !== undefined && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Default: {rule.defaultValue}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
               Cancel
             </Button>
