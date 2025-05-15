@@ -15,29 +15,9 @@ import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown, Minimize, Maximize, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import MappingManagerWrapper from "@/components/mapping/MappingManagerWrapper";
-import EnhancedMappingInterface from "@/components/mapping/EnhancedMappingInterface";
+import MappingTemplate from "@/components/mapping/MappingTemplate";
 
-// View Toggle Component for Enhanced/Simple view
-interface ViewToggleProps {
-  enhanced: boolean;
-  onToggle: () => void;
-}
-
-const ViewToggle = ({ enhanced, onToggle }: ViewToggleProps) => {
-  return (
-    <div className="flex items-center space-x-2">
-      <Label htmlFor="view-toggle" className="text-sm">
-        {enhanced ? "Enhanced View" : "Simple View"}
-      </Label>
-      <Switch
-        id="view-toggle"
-        checked={enhanced}
-        onCheckedChange={onToggle}
-      />
-    </div>
-  );
-};
+// Mapping template component handles its own view toggle
 
 interface MappingTemplate {
   id: number;
@@ -100,14 +80,13 @@ export default function MappingTemplateWorkspace() {
     transformations: [],
     validationRules: [],
     supplierId: null,
-    fileLabel: null
+    fileLabel: ""
   });
   
   // State for sample data and mapping
   const [sampleData, setSampleData] = useState<any[]>([]);
   const [sampleHeaders, setSampleHeaders] = useState<string[]>([]);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
-  const [displayEnhanced, setDisplayEnhanced] = useState(true);
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
   const [selectedTab, setSelectedTab] = useState("info");
@@ -642,30 +621,6 @@ export default function MappingTemplateWorkspace() {
                       <><Maximize className="h-4 w-4 mr-2" /> Fullscreen Mode</>
                     }
                   </Button>
-                  
-                  <ViewToggle 
-                    enhanced={displayEnhanced}
-                    onToggle={() => setDisplayEnhanced(!displayEnhanced)}
-                  />
-                  
-                  <div className="flex items-center space-x-1">
-                    <Label htmlFor="row-count" className="text-sm">Rows:</Label>
-                    <Select 
-                      value={String(rowCount)}
-                      onValueChange={(val) => setRowCount(Number(val))}
-                    >
-                      <SelectTrigger className="w-[80px] h-8">
-                        <SelectValue placeholder="20" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5</SelectItem>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="20">20</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -695,33 +650,28 @@ export default function MappingTemplateWorkspace() {
                 </div>
               </div>
 
-              {/* Enhanced mapping interface */}
+              {/* Mapping interface */}
               {sampleData.length > 0 ? (
-                displayEnhanced ? (
-                  <EnhancedMappingInterface
-                    sampleData={sampleData}
-                    sampleHeaders={sampleHeaders}
-                    fieldMappings={fieldMappings}
-                    targetFields={targetFields}
-                    onUpdateMappings={setFieldMappings}
-                    onAutoMap={() => {
-                      const autoMappings = autoMapFields(sampleHeaders);
-                      setFieldMappings(autoMappings);
-                    }}
-                    maxPreviewRows={rowCount}
-                    isFullscreen={expandedPreview}
-                  />
-                ) : (
-                  <MappingManagerWrapper
-                    sampleData={sampleData}
-                    sampleHeaders={sampleHeaders}
-                    fieldMappings={fieldMappings}
-                    targetFields={targetFields}
-                    onUpdateMappings={setFieldMappings}
-                    expandedPreview={expandedPreview}
-                    maxPreviewRows={rowCount}
-                  />
-                )
+                <MappingTemplate
+                  sampleData={sampleData}
+                  sampleHeaders={sampleHeaders}
+                  fieldMappings={fieldMappings}
+                  targetFields={targetFields}
+                  onUpdateMappings={setFieldMappings}
+                  templateInfo={{
+                    name: templateForm.name,
+                    sourceType: templateForm.sourceType,
+                    supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name,
+                    filePath: templateForm.fileLabel
+                  }}
+                  onPullSftpSample={
+                    templateForm.sourceType === 'sftp' && templateForm.supplierId
+                      ? () => handlePullSftpSampleData(templateForm.supplierId!)
+                      : undefined
+                  }
+                  rowsLimit={rowCount}
+                  onChangeRowsLimit={setRowCount}
+                />
               ) : (
                 <div className="p-8 text-center">
                   <div className="mb-4 text-muted-foreground">
