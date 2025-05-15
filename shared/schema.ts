@@ -178,6 +178,8 @@ export const dataSources = pgTable("data_sources", {
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   dataSourceId: integer("data_source_id").references(() => dataSources.id).notNull(),
+  remotePath: text("remote_path"), // Path this schedule is associated with (for FTP/SFTP)
+  pathLabel: text("path_label"), // Human-readable label for the path
   frequency: scheduleFrequencyEnum("frequency").notNull(),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
