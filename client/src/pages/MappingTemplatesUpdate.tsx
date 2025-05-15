@@ -134,6 +134,12 @@ export default function MappingTemplatesUpdate() {
   const [isValidationViewOpen, setIsValidationViewOpen] = useState(false);
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  
+  // Fullscreen handler
+  const handleFullScreenToggle = (fullscreenState: boolean) => {
+    setIsFullScreen(fullscreenState);
+  };
   
   // Get data source actions hook
   const { handleProcessSftpIngestion, handleTestPull, isProcessingIngestion, setIsProcessingIngestion } = useDataSourceActions();
@@ -804,12 +810,21 @@ export default function MappingTemplatesUpdate() {
 
       {/* Create Template Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Mapping Template</DialogTitle>
-            <DialogDescription>
-              Define how source data fields map to your internal schema fields.
-            </DialogDescription>
+        <DialogContent 
+          className={cn(
+            "max-w-4xl overflow-y-auto", 
+            isFullScreen 
+              ? "fixed inset-0 w-full h-full z-[100] rounded-none max-h-none" 
+              : "max-h-[90vh]"
+          )}>
+          <DialogHeader className="flex flex-row items-start justify-between">
+            <div>
+              <DialogTitle>Create Mapping Template</DialogTitle>
+              <DialogDescription>
+                Define how source data fields map to your internal schema fields.
+              </DialogDescription>
+            </div>
+            <FullscreenButton onToggle={handleFullScreenToggle} className="mt-1" />
           </DialogHeader>
 
           <Tabs defaultValue="general">
@@ -905,6 +920,7 @@ export default function MappingTemplatesUpdate() {
                   <h3 className="text-lg font-medium">Field Mappings</h3>
                   
                   <div className="flex items-center space-x-2">
+                    <FullscreenActionButton onToggle={handleFullScreenToggle} className="mr-2" />
                     {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
                       <Button 
                         variant="outline" 
@@ -1088,12 +1104,21 @@ export default function MappingTemplatesUpdate() {
 
       {/* Edit Template Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Mapping Template</DialogTitle>
-            <DialogDescription>
-              Update your mapping template settings.
-            </DialogDescription>
+        <DialogContent 
+          className={cn(
+            "max-w-4xl overflow-y-auto", 
+            isFullScreen 
+              ? "fixed inset-0 w-full h-full z-[100] rounded-none max-h-none" 
+              : "max-h-[90vh]"
+          )}>
+          <DialogHeader className="flex flex-row items-start justify-between">
+            <div>
+              <DialogTitle>Edit Mapping Template</DialogTitle>
+              <DialogDescription>
+                Update your mapping template settings.
+              </DialogDescription>
+            </div>
+            <FullscreenButton onToggle={handleFullScreenToggle} className="mt-1" />
           </DialogHeader>
 
           <Tabs defaultValue="general">
@@ -1189,6 +1214,7 @@ export default function MappingTemplatesUpdate() {
                   <h3 className="text-lg font-medium">Field Mappings</h3>
                   
                   <div className="flex items-center space-x-2">
+                    <FullscreenActionButton onToggle={handleFullScreenToggle} className="mr-2" />
                     <Button variant="outline" onClick={() => document.getElementById('edit-file-upload')?.click()}>
                       <FileUp className="h-4 w-4 mr-2" />
                       {isUploading ? "Uploading..." : "Upload Sample File"}
