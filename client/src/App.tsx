@@ -18,6 +18,7 @@ import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
 import AmazonIntegration from "@/pages/AmazonIntegration";
+import SampleDataTest from "@/pages/SampleDataTest";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/validation-rules" component={ValidationRules} />
       <Route path="/audit-logs" component={AuditLogs} />
       <Route path="/amazon-integration" component={AmazonIntegration} />
+      <Route path="/sample-data-test" component={SampleDataTest} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
