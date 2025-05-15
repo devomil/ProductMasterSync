@@ -16,7 +16,6 @@ import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Downl
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import EnhancedMappingInterface from "@/components/mapping/EnhancedMappingInterface";
-import MappingInterfaceWrapper from "@/components/mapping/MappingInterfaceWrapper";
 
 // View Toggle Component for Enhanced/Simple view
 interface ViewToggleProps {
