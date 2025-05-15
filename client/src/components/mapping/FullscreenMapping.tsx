@@ -51,9 +51,10 @@ export default function FullscreenMapping({
         className={cn(
           "max-w-4xl overflow-y-auto", 
           isFullScreen 
-            ? "fixed inset-0 w-full h-full z-[100] rounded-none max-h-none" 
+            ? "fixed inset-0 left-0 right-0 top-0 bottom-0 w-full h-full z-50 rounded-none max-h-none" 
             : "max-h-[90vh]"
         )}
+        style={isFullScreen ? {transform: 'none', margin: 0} : {}}
       >
         <DialogHeader className="flex flex-row items-start justify-between">
           <div>

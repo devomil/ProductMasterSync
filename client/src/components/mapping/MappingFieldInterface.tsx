@@ -124,7 +124,7 @@ export default function MappingFieldInterface({
   return (
     <div className={`
       space-y-6 
-      ${isFullScreen ? 'fixed inset-0 bg-white dark:bg-slate-900 p-6 z-[9999] overflow-auto flex flex-col h-full w-full' : ''}
+      ${isFullScreen ? 'fixed inset-0 left-0 right-0 top-0 bottom-0 bg-white dark:bg-slate-900 p-6 z-[9999] overflow-auto flex flex-col h-full w-full m-0' : ''}
     `}>
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Field Mappings</h3>
