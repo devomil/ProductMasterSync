@@ -75,14 +75,7 @@ interface FieldMapping {
   targetField: string;
 }
 
-interface ValidationRule {
-  field: string;
-  type: "required" | "type" | "format" | "range" | "enum" | "custom";
-  value?: any;
-  message?: string;
-  errorLevel: "error" | "warning";
-  defaultValue?: any;
-}
+// Using ValidationRule interface from shared schema
 
 // Available target fields (internal schema fields)
 const AVAILABLE_TARGET_FIELDS = [
@@ -238,7 +231,6 @@ export default function MappingTemplates() {
     setTemplateForm({ 
       ...templateForm, 
       mappings: mappingsObject,
-      validationRules: updatedValidationRules,
       validationRules: updatedValidationRules
     });
   };
