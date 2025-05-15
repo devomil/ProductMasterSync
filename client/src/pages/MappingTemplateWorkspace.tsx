@@ -413,6 +413,21 @@ export default function MappingTemplateWorkspace() {
     };
   };
   
+  // Check if required fields are mapped
+  const validateMappingRequirements = () => {
+    // Define required fields in the target schema
+    const requiredFields = ['sku', 'product_name'];
+    
+    // Check if the required fields are mapped
+    const mappedFields = Object.values(templateForm.mappings);
+    const missingRequiredFields = requiredFields.filter(field => !mappedFields.includes(field));
+    
+    return {
+      valid: missingRequiredFields.length === 0,
+      missingFields: missingRequiredFields
+    };
+  };
+
   // Save the template
   const saveTemplate = async () => {
     // Validate form
@@ -422,6 +437,18 @@ export default function MappingTemplateWorkspace() {
         title: "Name Required",
         description: "Please provide a name for the template."
       });
+      return;
+    }
+    
+    // Validate required field mappings
+    const mappingValidation = validateMappingRequirements();
+    if (!mappingValidation.valid) {
+      toast({
+        variant: "destructive",
+        title: "Required Fields Missing",
+        description: `The following required fields are not mapped: ${mappingValidation.missingFields.join(', ')}. Please map these fields before saving.`
+      });
+      setActiveTab("mapping");
       return;
     }
     
@@ -540,7 +567,7 @@ export default function MappingTemplateWorkspace() {
   return (
     <div className="container py-4">
       <div className="flex items-center mb-6">
-        <Button variant="outline" onClick={() => navigate('/mapping-templates')} className="mr-2">
+        <Button variant="outline" onClick={() => setLocation('/mapping-templates')} className="mr-2">
           <ChevronLeft className="h-4 w-4 mr-2" /> Back
         </Button>
         <h1 className="text-2xl font-bold">{isEditMode ? 'Edit' : 'Create'} Mapping Template</h1>
