@@ -84,6 +84,54 @@ export function useDataSourceActions() {
   
   // Function to handle pull sample data for an existing data source
   const handlePullSampleDataForDataSource = async (dataSource: DataSource) => {
+    try {
+      // Save current data source for future reference
+      setCurrentDataSource(dataSource);
+      
+      // Extract credentials from data source
+      let credentials = dataSource.config;
+      if (typeof credentials === 'string') {
+        try {
+          credentials = JSON.parse(credentials);
+        } catch (e) {
+          credentials = { data: credentials };
+        }
+      }
+      
+      // For SFTP sources with multiple paths, show the path selector
+      if (dataSource.type === 'sftp' && credentials.remote_paths && credentials.remote_paths.length > 0) {
+        // Convert remote_paths to RemotePathItem[] format
+        const pathsForSelection: RemotePathItem[] = credentials.remote_paths.map((path: any, index: number) => ({
+          id: `path-${index}`,
+          label: path.label || `Path ${index + 1}`,
+          path: path.path,
+          lastPulled: path.lastPulled,
+          lastPullStatus: path.lastPullStatus
+        }));
+        
+        // If there are paths, show the selector
+        if (pathsForSelection.length > 0) {
+          setSelectedFilePath(null);
+          setSampleData(null);
+          setShowPathSelector(true);
+          return;
+        }
+      }
+      
+      // For other types or no paths, proceed with default behavior
+      processPullSampleDataForPath(dataSource);
+    } catch (error) {
+      console.error("Error preparing sample data pull:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
+  };
+  
+  // Function to process the sample data pull for a selected path
+  const processPullSampleDataForPath = async (dataSource: DataSource, selectedPath?: RemotePathItem) => {
     // Declare progressTimeout at the top level of the function so it's accessible in try/catch/finally
     let progressTimeout: NodeJS.Timeout | undefined;
     
@@ -91,6 +139,7 @@ export function useDataSourceActions() {
       setIsPullingSampleData(true);
       setSampleData(null);
       setShowSampleDataModal(false);
+      setShowPathSelector(false);
       
       // Extract credentials from data source
       let credentials = dataSource.config;
@@ -129,13 +178,31 @@ export function useDataSourceActions() {
       
       // Add remote_path specifically for SFTP connections if available
       if (dataSource.type === 'sftp') {
-        // If we have a path from the remote_paths array, use it
-        if (credentials.remote_paths && credentials.remote_paths.length > 0) {
+        // If a specific path was selected, use it
+        if (selectedPath) {
+          requestBody = {
+            ...requestBody,
+            remote_path: selectedPath.path,
+            specific_path: selectedPath.path
+          };
+          
+          // Save the selected path for display
+          setSelectedFilePath(selectedPath);
+        } 
+        // Otherwise use the first path in the config or a default
+        else if (credentials.remote_paths && credentials.remote_paths.length > 0) {
           requestBody = {
             ...requestBody,
             remote_path: credentials.remote_paths[0].path || '/eco8/out/catalog.csv',
             specific_path: credentials.remote_paths[0].path || '/eco8/out/catalog.csv'
           };
+          
+          // Create a RemotePathItem from the first path
+          setSelectedFilePath({
+            id: 'path-0',
+            label: credentials.remote_paths[0].label || 'Path 1',
+            path: credentials.remote_paths[0].path
+          });
         } else {
           // Otherwise use a default path
           requestBody = {
@@ -143,6 +210,12 @@ export function useDataSourceActions() {
             remote_path: '/eco8/out/catalog.csv',
             specific_path: '/eco8/out/catalog.csv'
           };
+          
+          setSelectedFilePath({
+            id: 'default-path',
+            label: 'Default Path',
+            path: '/eco8/out/catalog.csv'
+          });
         }
       }
       
@@ -174,8 +247,9 @@ export function useDataSourceActions() {
           success: result.success || false,
           message: result.message || 'No response message',
           data: result.records || result.data || [],
-          filename: result.filename || 'Unknown',
+          filename: result.filename || (selectedPath ? selectedPath.label : 'Unknown'),
           fileType: result.fileType || 'Unknown',
+          remote_path: result.remote_path || (selectedPath ? selectedPath.path : '/'),
           total_records: result.total_records || 
             (result.records ? result.records.length : 
              (result.data ? result.data.length : 0))
@@ -188,12 +262,7 @@ export function useDataSourceActions() {
             description: `Retrieved ${result.total_records || result.records?.length || 0} records successfully`
           });
           
-          // Set selected file path and show the modal
-          setSelectedFilePath({
-            id: 'sample-data',
-            label: result.filename || 'Sample Data',
-            path: result.remote_path || '/'
-          });
+          // Make sure we're showing the modal
           setShowSampleDataModal(true);
         } else {
           toast({
@@ -314,26 +383,31 @@ export function useDataSourceActions() {
     isPullingSampleData,
     sampleData,
     showSampleDataModal,
+    showPathSelector,
     rawResponseData,
     selectedFilePath,
     dataSourceToDelete,
     showDeleteConfirm,
     isDeleting,
+    currentDataSource,
     
     // Setters
     setIsTestingConnection,
     setIsPullingSampleData,
     setSampleData,
     setShowSampleDataModal,
+    setShowPathSelector,
     setRawResponseData,
     setSelectedFilePath,
     setDataSourceToDelete,
     setShowDeleteConfirm,
     setIsDeleting,
+    setCurrentDataSource,
     
     // Actions
     handleTestConnectionForDataSource,
     handlePullSampleDataForDataSource,
+    processPullSampleDataForPath,
     handleDeleteDataSource,
     handleConfigureScheduler,
     handleConfirmDelete

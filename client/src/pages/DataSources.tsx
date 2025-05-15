@@ -42,6 +42,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Import our new components
 import SampleDataModal from "@/components/data-sources/SampleDataModal";
+import RemotePathSelector from "@/components/data-sources/RemotePathSelector";
 import FilePathList from "@/components/data-sources/FilePathList";
 import { pullSampleDataForFile, retryPullWithBackoff } from "@/components/data-sources/PullSampleDataUtils";
 import { RemotePathItem } from "@/components/data-sources/SampleDataModal";
