@@ -1011,19 +1011,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Prepare credentials
+        // Prepare credentials - using type assertion for config
+        const typedConfig = config as any;
         const credentials = {
-          host: config.host,
-          port: config.port || 22,
-          username: config.username,
-          password: config.password,
+          host: typedConfig.host,
+          port: typedConfig.port || 22,
+          username: typedConfig.username,
+          password: typedConfig.password,
           // Add other credentials as needed
         };
         
         // If no specific remote path provided, use the first one in the config
         let pathToUse = remotePath;
-        if (!pathToUse && config.remote_paths && config.remote_paths.length > 0) {
-          pathToUse = config.remote_paths[0].path;
+        if (!pathToUse && typedConfig.remote_paths && typedConfig.remote_paths.length > 0) {
+          pathToUse = typedConfig.remote_paths[0].path;
         }
         
         if (!pathToUse) {
