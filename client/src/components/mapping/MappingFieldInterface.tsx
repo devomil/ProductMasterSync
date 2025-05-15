@@ -21,6 +21,8 @@ interface MappingFieldInterfaceProps {
   removeMappingRow: (index: number) => void;
   targetFields: { id: string; name: string; required?: boolean }[];
   saveMapping: () => Promise<void>;
+  externalFullScreen?: boolean;
+  onFullScreenChange?: (state: boolean) => void;
 }
 
 export default function MappingFieldInterface({
@@ -31,7 +33,9 @@ export default function MappingFieldInterface({
   addMappingRow,
   removeMappingRow,
   targetFields,
-  saveMapping
+  saveMapping,
+  externalFullScreen,
+  onFullScreenChange
 }: MappingFieldInterfaceProps) {
   const [showAllRows, setShowAllRows] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<'sample' | 'mapping' | 'both'>('both');
@@ -73,19 +77,42 @@ export default function MappingFieldInterface({
   
   // Handle toggling full screen mode
   const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen);
+    const newState = !isFullScreen;
+    setIsFullScreen(newState);
+    
+    // Update external state if provided
+    if (onFullScreenChange) {
+      onFullScreenChange(newState);
+    }
     
     // When entering full-screen, make sure both panels are expanded
-    if (!isFullScreen) {
+    if (newState) {
       setExpandedPanel('both');
     }
   };
+  
+  // Sync with external fullscreen state if provided
+  useEffect(() => {
+    if (externalFullScreen !== undefined && isFullScreen !== externalFullScreen) {
+      setIsFullScreen(externalFullScreen);
+      
+      // When entering full-screen, make sure both panels are expanded
+      if (externalFullScreen) {
+        setExpandedPanel('both');
+      }
+    }
+  }, [externalFullScreen]);
   
   // Add/remove event listener for ESC key to exit full screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullScreen) {
         setIsFullScreen(false);
+        
+        // Update external state if provided
+        if (onFullScreenChange) {
+          onFullScreenChange(false);
+        }
       }
     };
     
