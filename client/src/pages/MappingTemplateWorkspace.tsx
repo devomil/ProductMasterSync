@@ -24,7 +24,7 @@ interface MappingTemplateModel {
   name: string;
   description: string | null;
   sourceType: string;
-  mappings: Record<string, string>;
+  mappings: Record<string, string> | { catalog: Record<string, string>, detail: Record<string, string> };
   transformations: any[];
   validationRules: ValidationRule[];
   createdAt: Date | null;
@@ -296,9 +296,16 @@ export default function MappingTemplateWorkspace() {
       }));
       
       // Generate initial mappings if none exist
-      if (fieldMappings.length <= 1 && (!fieldMappings[0].sourceField || !fieldMappings[0].targetField)) {
-        const autoMappings = autoMapFields(Object.keys(data.sample_data[0]));
-        setFieldMappings(autoMappings);
+      if (activeView === 'catalog') {
+        if (catalogMappings.length <= 1 && (!catalogMappings[0].sourceField || !catalogMappings[0].targetField)) {
+          const autoMappings = autoMapFields(Object.keys(data.sample_data[0]), 'catalog');
+          setCatalogMappings(autoMappings);
+        }
+      } else {
+        if (detailMappings.length <= 1 && (!detailMappings[0].sourceField || !detailMappings[0].targetField)) {
+          const autoMappings = autoMapFields(Object.keys(data.sample_data[0]), 'detail');
+          setDetailMappings(autoMappings);
+        }
       }
       
       // Auto-switch to the mapping tab
@@ -369,12 +376,10 @@ export default function MappingTemplateWorkspace() {
           initialMappings[index].targetField = 'mpn';
         } else if (headerLower.includes('desc')) {
           initialMappings[index].targetField = 'description';
-        } else if (headerLower.includes('img') || headerLower.includes('image')) {
+        } else if (headerLower.includes('img') || headerLower.includes('picture')) {
           initialMappings[index].targetField = 'image_url';
-        } else if (headerLower.includes('weigh')) {
-          initialMappings[index].targetField = 'weight';
-        } else if (headerLower.includes('material')) {
-          initialMappings[index].targetField = 'material';
+        } else if (headerLower.includes('keyword') || headerLower.includes('tag')) {
+          initialMappings[index].targetField = 'keywords';
         }
       }
     });
@@ -383,20 +388,20 @@ export default function MappingTemplateWorkspace() {
   };
   
   // Handle file upload for sample data
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-    
-    setIsUploading(true);
     
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('config_json', JSON.stringify({ 
-      type: templateForm.sourceType || 'csv'
+    formData.append('config', JSON.stringify({
+      format: templateForm.sourceType || 'csv'
     }));
     
+    setIsUploading(true);
+    
     try {
-      const response = await fetch('/api/upload-sample', {
+      const response = await fetch('/api/mapping-templates/upload-sample', {
         method: 'POST',
         body: formData
       });
@@ -407,41 +412,47 @@ export default function MappingTemplateWorkspace() {
       
       const data = await response.json();
       
+      if (!data.sample_data || data.sample_data.length === 0) {
+        throw new Error("No data could be parsed from the file");
+      }
+      
+      // Update state with sample data
       setSampleData(data.sample_data);
       setSampleHeaders(Object.keys(data.sample_data[0]));
       
       // Generate initial mappings if none exist
-      if (fieldMappings.length <= 1 && (!fieldMappings[0].sourceField || !fieldMappings[0].targetField)) {
-        const autoMappings = autoMapFields(Object.keys(data.sample_data[0]));
-        setFieldMappings(autoMappings);
+      if (activeView === 'catalog') {
+        if (catalogMappings.length <= 1 && (!catalogMappings[0].sourceField || !catalogMappings[0].targetField)) {
+          const autoMappings = autoMapFields(Object.keys(data.sample_data[0]), 'catalog');
+          setCatalogMappings(autoMappings);
+        }
+      } else {
+        if (detailMappings.length <= 1 && (!detailMappings[0].sourceField || !detailMappings[0].targetField)) {
+          const autoMappings = autoMapFields(Object.keys(data.sample_data[0]), 'detail');
+          setDetailMappings(autoMappings);
+        }
       }
       
       // Auto-switch to the mapping tab
       setSelectedTab("mapping");
       
       toast({
-        title: "File uploaded",
-        description: `Uploaded ${file.name} and loaded ${data.sample_data.length} rows`,
+        title: "Sample data loaded",
+        description: `Loaded ${data.sample_data.length} rows of data from ${file.name}`,
       });
-      
-      // Reset file input
-      e.target.value = '';
     } catch (error) {
-      console.error("File upload error:", error);
+      console.error("Error uploading file:", error);
       toast({
-        title: "Upload failed",
+        title: "Error",
         description: error instanceof Error ? error.message : "Failed to upload and process file",
         variant: "destructive"
       });
-      
-      // Reset file input
-      e.target.value = '';
     } finally {
       setIsUploading(false);
     }
   };
   
-  // Save mapping template
+  // Handle saving the template
   const handleSaveTemplate = async () => {
     // Validation
     if (!templateForm.name) {
@@ -492,144 +503,183 @@ export default function MappingTemplateWorkspace() {
     
     const validationRules = [...catalogRequiredFields, ...detailRequiredFields];
     
-    const saveData = {
+    // Prepare template data for API
+    const templateData = {
       ...templateForm,
       mappings,
       validationRules,
+      // Always provide these fields for consistency
+      transformations: templateForm.transformations || [],
     };
     
     try {
-      const url = isEdit 
-        ? `/api/mapping-templates/${id}` 
-        : '/api/mapping-templates';
-      
-      const method = isEdit ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(saveData)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Save failed: ${response.statusText}`);
+      if (isEdit) {
+        // Update existing template
+        await apiRequest(`/api/mapping-templates/${id}`, {
+          method: 'PATCH',
+          data: templateData
+        });
+        
+        toast({
+          title: "Success",
+          description: "Mapping template updated successfully",
+        });
+      } else {
+        // Create new template
+        await apiRequest('/api/mapping-templates', {
+          method: 'POST',
+          data: templateData
+        });
+        
+        toast({
+          title: "Success",
+          description: "Mapping template created successfully",
+        });
       }
       
-      const savedTemplate = await response.json();
-      
-      toast({
-        title: "Success",
-        description: isEdit 
-          ? "Mapping template updated successfully" 
-          : "Mapping template created successfully",
-      });
-      
-      // Invalidate queries and redirect
-      queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
-      navigate('/mapping-templates');
+      // Navigate back to template list
+      navigate("/mapping-templates");
     } catch (error) {
-      console.error("Save error:", error);
+      console.error("Error saving template:", error);
       toast({
-        title: "Save failed",
-        description: error instanceof Error ? error.message : "Failed to save mapping template",
+        title: "Error",
+        description: "Failed to save mapping template. Please try again.",
         variant: "destructive"
       });
     }
   };
   
-  // Handle form field changes
-  const handleInputChange = (field: string, value: any) => {
-    setTemplateForm(prev => ({ ...prev, [field]: value }));
-    
-    // Special handling for supplierId changes
-    if (field === 'supplierId' && value && templateForm.sourceType === 'sftp') {
-      fetchRemotePaths(value);
+  // Handle SFTP test pull
+  const handleSftpTestPull = async () => {
+    if (!templateForm.supplierId) {
+      toast({
+        title: "No supplier selected",
+        description: "Please select a supplier first.",
+        variant: "destructive"
+      });
+      return;
     }
     
-    // Special handling for sourceType changes
-    if (field === 'sourceType' && value === 'sftp' && templateForm.supplierId) {
-      fetchRemotePaths(templateForm.supplierId);
+    await handlePullSftpSampleData(templateForm.supplierId);
+  };
+  
+  // Handle supplier selection change
+  const handleSupplierChange = async (supplierId: string) => {
+    const id = parseInt(supplierId);
+    setTemplateForm(prev => ({ ...prev, supplierId: id || null }));
+    
+    // If SFTP source type, fetch remote paths
+    if (templateForm.sourceType === 'sftp' && id) {
+      await fetchRemotePaths(id);
     }
   };
   
   return (
-    <div className="container py-6">
-      <div className="mb-6">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/mapping-templates">
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back to Mapping Templates
-          </Link>
-        </Button>
+    <div className="flex flex-col min-h-screen">
+      {/* Header Bar */}
+      <div className="px-4 py-3 border-b bg-white flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/mapping-templates')}
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" /> Back to Templates
+          </Button>
+          <h1 className="text-xl font-semibold ml-2">
+            {isEdit ? `Edit Template: ${templateForm.name}` : 'Create Mapping Template'}
+          </h1>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSaveTemplate}>
+            <Save className="w-4 h-4 mr-1" /> Save Template
+          </Button>
+        </div>
       </div>
       
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">
-          {isEdit ? "Edit Mapping Template" : "Create Mapping Template"}
-        </h1>
-        
-        <Button onClick={handleSaveTemplate}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Template
-        </Button>
-      </div>
-      
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid grid-cols-2 w-[400px]">
-          <TabsTrigger value="info">Template Info</TabsTrigger>
-          <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
-        </TabsList>
-        
-        {/* Template Info Tab */}
-        <TabsContent value="info">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="name">Template Name</Label>
-                  <Input
-                    id="name"
-                    value={templateForm.name || ""}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder="Enter template name"
+      {/* Main content */}
+      <div className="flex-grow p-4 bg-slate-50">
+        <Tabs 
+          value={selectedTab} 
+          onValueChange={setSelectedTab}
+          className="space-y-4"
+        >
+          <TabsList className="w-full bg-white border">
+            <TabsTrigger value="template-info" className="flex-1">
+              Template Information
+            </TabsTrigger>
+            <TabsTrigger 
+              value="mapping" 
+              className="flex-1"
+              disabled={sampleData.length === 0}
+            >
+              Field Mapping
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="template-info" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Template Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Template Name</Label>
+                    <Input 
+                      id="name" 
+                      value={templateForm.name} 
+                      onChange={(e) => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. Supplier Catalog Import"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceType">Source Type</Label>
+                    <Select 
+                      value={templateForm.sourceType} 
+                      onValueChange={(value) => setTemplateForm(prev => ({ ...prev, sourceType: value }))}
+                    >
+                      <SelectTrigger id="sourceType">
+                        <SelectValue placeholder="Select source type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="csv">CSV</SelectItem>
+                        <SelectItem value="excel">Excel</SelectItem>
+                        <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="xml">XML</SelectItem>
+                        <SelectItem value="sftp">SFTP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea 
+                    id="description" 
+                    value={templateForm.description || ''} 
+                    onChange={(e) => setTemplateForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe the purpose of this mapping template"
+                    rows={3}
                   />
                 </div>
                 
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="source-type">Source Type</Label>
-                  <Select
-                    value={templateForm.sourceType || ""}
-                    onValueChange={(value) => handleInputChange("sourceType", value)}
-                  >
-                    <SelectTrigger id="source-type">
-                      <SelectValue placeholder="Select source type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="csv">CSV</SelectItem>
-                      <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
-                      <SelectItem value="json">JSON</SelectItem>
-                      <SelectItem value="xml">XML</SelectItem>
-                      <SelectItem value="sftp">SFTP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="flex flex-col gap-2">
+                <div className="space-y-2">
                   <Label htmlFor="supplier">Supplier (Optional)</Label>
-                  <Select
-                    value={templateForm.supplierId?.toString() || "none"}
-                    onValueChange={(value) => handleInputChange("supplierId", value && value !== "none" ? parseInt(value) : null)}
+                  <Select 
+                    value={templateForm.supplierId?.toString() || ''} 
+                    onValueChange={handleSupplierChange}
                   >
                     <SelectTrigger id="supplier">
-                      <SelectValue placeholder="Select supplier" />
+                      <SelectValue placeholder="Link to a supplier (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="">None (Generic Template)</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                          {supplier.name}
+                          {supplier.name} ({supplier.code})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -637,168 +687,174 @@ export default function MappingTemplateWorkspace() {
                 </div>
                 
                 {templateForm.sourceType === 'sftp' && templateForm.supplierId && (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="file-path">Remote File Path</Label>
-                    <Select
-                      value={selectedPath}
-                      onValueChange={setSelectedPath}
-                    >
-                      <SelectTrigger id="file-path">
-                        <SelectValue placeholder="Select file path" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {remotePaths.length > 0 ? (
-                          remotePaths.map((path, index) => (
-                            <SelectItem key={index} value={path}>
+                  <div className="space-y-2">
+                    <Label htmlFor="remotePath">Remote File Path</Label>
+                    <div className="flex gap-2">
+                      <Select 
+                        value={selectedPath} 
+                        onValueChange={setSelectedPath}
+                      >
+                        <SelectTrigger id="remotePath" className="flex-grow">
+                          <SelectValue placeholder="Select remote file path" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {remotePaths.map((path) => (
+                            <SelectItem key={path} value={path}>
                               {path}
                             </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no_files" disabled>
-                            No files found. Check SFTP connection.
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => fetchRemotePaths(templateForm.supplierId!)}
+                        disabled={!templateForm.supplierId}
+                      >
+                        <ArrowDown className="w-4 h-4 mr-1" /> Refresh Paths
+                      </Button>
+                    </div>
                   </div>
                 )}
                 
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={templateForm.description || ""}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    placeholder="Enter a description for this template"
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {/* Field Mapping Tab */}
-        <TabsContent value="mapping" className="mt-4">
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setExpandedPreview(!expandedPreview)}
-                  >
-                    {expandedPreview ? 
-                      <><Minimize className="h-4 w-4 mr-2" /> Exit Fullscreen</> : 
-                      <><Maximize className="h-4 w-4 mr-2" /> Fullscreen Mode</>
-                    }
-                  </Button>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handlePullSftpSampleData(templateForm.supplierId!)}
-                      disabled={isUploading}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {isUploading ? "Loading..." : "Pull Sample From SFTP"}
-                    </Button>
-                  ) : (
-                    <Button variant="outline" onClick={() => document.getElementById('file-upload')?.click()} disabled={isUploading}>
-                      <FileUp className="h-4 w-4 mr-2" />
-                      {isUploading ? "Uploading..." : "Upload Sample File"}
-                    </Button>
-                  )}
-                  <input
-                    id="file-upload"
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    accept=".csv,.xlsx,.xls,.json,.xml"
-                    disabled={isUploading}
-                  />
-                </div>
-              </div>
-
-              {/* Mapping interface */}
-              {selectedTab === "mapping" && (
-                <div className="h-[calc(100vh-150px)]">
-                  {sampleData.length > 0 ? (
-                    <MappingWorkspace
-                      sampleData={sampleData}
-                      sampleHeaders={sampleHeaders}
-                      catalogMappings={catalogMappings}
-                      detailMappings={detailMappings}
-                      activeView={activeView}
-                      catalogFields={catalogFields}
-                      detailFields={detailFields}
-                      onUpdateCatalogMappings={setCatalogMappings}
-                      onUpdateDetailMappings={setDetailMappings}
-                      onToggleView={setActiveView}
-                      onAutoMap={() => {
-                        if (activeView === 'catalog') {
-                          const autoMappings = autoMapFields(sampleHeaders, 'catalog');
-                          setCatalogMappings(autoMappings);
-                        } else {
-                          const autoMappings = autoMapFields(sampleHeaders, 'detail');
-                          setDetailMappings(autoMappings);
-                        }
-                      }}
-                      onSave={handleSaveTemplate}
-                      onBack={() => navigate("/mapping-templates")}
-                      templateInfo={{
-                        name: templateForm.name,
-                        supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
-                      }}
-                      onPullSftpSample={
-                        templateForm.sourceType === 'sftp' && templateForm.supplierId
-                          ? () => handlePullSftpSampleData(templateForm.supplierId!)
-                          : undefined
-                      }
-                    />
-                  ) : (
-                    <div className="p-8 text-center h-full flex flex-col items-center justify-center">
-                      <div className="mb-4 text-muted-foreground">
-                        <Upload className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                        <p className="text-lg font-medium">No sample data loaded</p>
-                        <p className="text-sm">
-                          Upload a sample file or pull data from SFTP to map fields
+                <div className="border rounded p-4 mt-6 bg-white">
+                  <h3 className="text-md font-medium mb-3">Sample Data Source</h3>
+                  
+                  <div className="space-y-4">
+                    {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
+                      <div className="flex flex-col space-y-2">
+                        <p className="text-sm text-gray-600">
+                          Pull sample data directly from the supplier's SFTP server.
                         </p>
+                        <Button
+                          onClick={handleSftpTestPull}
+                          disabled={isUploading || !templateForm.supplierId || !selectedPath}
+                          className="w-full"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          {isUploading ? "Loading..." : "Pull Sample Data from SFTP"}
+                        </Button>
                       </div>
-                      <div className="flex gap-4 mt-4">
-                        <label htmlFor="sampleFile" className="cursor-pointer">
-                          <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
-                            <FileUp className="h-4 w-4" />
-                            <span>Upload Sample File</span>
-                          </div>
-                          <input
-                            type="file"
-                            id="sampleFile"
-                            className="hidden"
-                            onChange={handleFileUpload}
-                            accept=".csv,.xls,.xlsx,.json"
-                          />
-                        </label>
-                        {templateForm.sourceType === 'sftp' && templateForm.supplierId && (
-                          <Button 
-                            onClick={() => handlePullSftpSampleData(templateForm.supplierId!)}
-                            disabled={isUploading}
+                    ) : (
+                      <div className="flex flex-col space-y-2">
+                        <p className="text-sm text-gray-600">
+                          Upload a sample file to create your field mappings.
+                        </p>
+                        <div className="flex items-center justify-center w-full">
+                          <label 
+                            htmlFor="file-upload"
+                            className={`flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
-                            <Download className="h-4 w-4 mr-2" />
-                            Pull Sample From SFTP
-                          </Button>
-                        )}
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                              <p className="mb-2 text-sm text-gray-500">
+                                <span className="font-semibold">Click to upload</span> or drag and drop
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {templateForm.sourceType === 'csv' && 'CSV file (.csv)'}
+                                {templateForm.sourceType === 'excel' && 'Excel file (.xlsx, .xls)'}
+                                {templateForm.sourceType === 'json' && 'JSON file (.json)'}
+                                {templateForm.sourceType === 'xml' && 'XML file (.xml)'}
+                              </p>
+                            </div>
+                            <input 
+                              id="file-upload" 
+                              type="file" 
+                              className="hidden"
+                              onChange={handleFileUpload}
+                              disabled={isUploading}
+                              accept={
+                                templateForm.sourceType === 'csv' ? '.csv' :
+                                templateForm.sourceType === 'excel' ? '.xlsx,.xls' :
+                                templateForm.sourceType === 'json' ? '.json' :
+                                templateForm.sourceType === 'xml' ? '.xml' : ''
+                              }
+                            />
+                          </label>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                    
+                    {sampleData.length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Sample Data Loaded</span>
+                          <Badge variant="outline" className="bg-green-50">
+                            {sampleData.length} records
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">
+                            {sampleHeaders.length} columns detected
+                          </span>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedTab("mapping")}
+                          >
+                            Continue to Mapping
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="mapping" className="space-y-4">
+            {sampleData.length > 0 ? (
+              <MappingWorkspace
+                sampleData={sampleData}
+                sampleHeaders={sampleHeaders}
+                catalogMappings={catalogMappings}
+                detailMappings={detailMappings}
+                activeView={activeView}
+                catalogFields={catalogFields}
+                detailFields={detailFields}
+                onUpdateCatalogMappings={setCatalogMappings}
+                onUpdateDetailMappings={setDetailMappings}
+                onToggleView={setActiveView}
+                onAutoMap={() => {
+                  if (activeView === 'catalog') {
+                    const autoMappings = autoMapFields(sampleHeaders, 'catalog');
+                    setCatalogMappings(autoMappings);
+                  } else {
+                    const autoMappings = autoMapFields(sampleHeaders, 'detail');
+                    setDetailMappings(autoMappings);
+                  }
+                }}
+                onSave={handleSaveTemplate}
+                onBack={() => navigate("/mapping-templates")}
+                templateInfo={{
+                  name: templateForm.name,
+                  supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
+                }}
+                onPullSftpSample={
+                  templateForm.sourceType === 'sftp' && templateForm.supplierId
+                    ? () => handleSftpTestPull()
+                    : undefined
+                }
+              />
+            ) : (
+              <Card>
+                <CardContent className="py-12 flex flex-col items-center justify-center">
+                  <div className="text-center space-y-4">
+                    <Wand2 className="w-16 h-16 text-gray-300 mx-auto" />
+                    <h3 className="text-xl font-medium">No Sample Data</h3>
+                    <p className="text-gray-600 max-w-md">
+                      Please upload a sample file or pull sample data from SFTP to start mapping fields.
+                    </p>
+                    <Button onClick={() => setSelectedTab("template-info")}>
+                      Go to Template Info
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
