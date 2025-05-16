@@ -89,7 +89,7 @@ export default function MappingTemplateWorkspace() {
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
-  const [selectedTab, setSelectedTab] = useState("info");
+  const [selectedTab, setSelectedTab] = useState("template-info");
   const [isUploading, setIsUploading] = useState(false);
   const [rowCount, setRowCount] = useState(20);
   const [remotePaths, setRemotePaths] = useState<string[]>([]);
@@ -652,7 +652,7 @@ export default function MappingTemplateWorkspace() {
 
               {/* Mapping interface */}
               {selectedTab === "mapping" && (
-                <div className="h-[calc(100vh-220px)]">
+                <div className="h-[calc(100vh-150px)]">
                   {sampleData.length > 0 ? (
                     <MappingWorkspace
                       sampleData={sampleData}
@@ -677,13 +677,37 @@ export default function MappingTemplateWorkspace() {
                       }
                     />
                   ) : (
-                    <div className="p-8 text-center">
+                    <div className="p-8 text-center h-full flex flex-col items-center justify-center">
                       <div className="mb-4 text-muted-foreground">
                         <Upload className="h-12 w-12 mx-auto mb-2 opacity-30" />
                         <p className="text-lg font-medium">No sample data loaded</p>
                         <p className="text-sm">
                           Upload a sample file or pull data from SFTP to map fields
                         </p>
+                      </div>
+                      <div className="flex gap-4 mt-4">
+                        <label htmlFor="sampleFile" className="cursor-pointer">
+                          <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                            <FileUp className="h-4 w-4" />
+                            <span>Upload Sample File</span>
+                          </div>
+                          <input
+                            type="file"
+                            id="sampleFile"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                            accept=".csv,.xls,.xlsx,.json"
+                          />
+                        </label>
+                        {templateForm.sourceType === 'sftp' && templateForm.supplierId && (
+                          <Button 
+                            onClick={() => handlePullSftpSampleData(templateForm.supplierId!)}
+                            disabled={isUploading}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Pull Sample From SFTP
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}
