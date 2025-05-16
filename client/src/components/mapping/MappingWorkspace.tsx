@@ -115,38 +115,61 @@ export default function MappingWorkspace({
 
   // Function to update a mapping
   const updateMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
-    const updatedMappings = [...fieldMappings];
-    updatedMappings[index][field] = value;
-    onUpdateMappings(updatedMappings);
+    if (activeView === 'catalog') {
+      const updatedMappings = [...catalogMappings];
+      updatedMappings[index][field] = value;
+      onUpdateCatalogMappings(updatedMappings);
+    } else {
+      const updatedMappings = [...detailMappings];
+      updatedMappings[index][field] = value;
+      onUpdateDetailMappings(updatedMappings);
+    }
   };
   
   // Function to add a new mapping
   const addMapping = () => {
-    const updatedMappings = [...fieldMappings, { sourceField: "", targetField: "" }];
-    onUpdateMappings(updatedMappings);
+    if (activeView === 'catalog') {
+      const updatedMappings = [...catalogMappings, { sourceField: "", targetField: "" }];
+      onUpdateCatalogMappings(updatedMappings);
+    } else {
+      const updatedMappings = [...detailMappings, { sourceField: "", targetField: "" }];
+      onUpdateDetailMappings(updatedMappings);
+    }
   };
   
   // Function to remove a mapping
   const removeMapping = (index: number) => {
-    const updatedMappings = [...fieldMappings];
-    updatedMappings.splice(index, 1);
-    onUpdateMappings(updatedMappings);
+    if (activeView === 'catalog') {
+      const updatedMappings = [...catalogMappings];
+      updatedMappings.splice(index, 1);
+      onUpdateCatalogMappings(updatedMappings);
+    } else {
+      const updatedMappings = [...detailMappings];
+      updatedMappings.splice(index, 1);
+      onUpdateDetailMappings(updatedMappings);
+    }
   };
   
   // Handle drag and drop reordering
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
     
-    const items = Array.from(fieldMappings);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    
-    onUpdateMappings(items);
+    if (activeView === 'catalog') {
+      const items = Array.from(catalogMappings);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      onUpdateCatalogMappings(items);
+    } else {
+      const items = Array.from(detailMappings);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      onUpdateDetailMappings(items);
+    }
   };
 
   // Filter mappings based on search and other filters
   const getFilteredMappings = () => {
-    return fieldMappings.filter(mapping => {
+    return currentMappings.filter(mapping => {
       // If showing only mapped fields, filter out unmapped ones
       if (showOnlyMapped && (!mapping.sourceField || !mapping.targetField)) {
         return false;
@@ -160,7 +183,7 @@ export default function MappingWorkspace({
       // Filter by search term
       if (searchTerm) {
         const sourceMatch = mapping.sourceField?.toLowerCase().includes(searchTerm.toLowerCase());
-        const targetField = targetFields.find(tf => tf.id === mapping.targetField);
+        const targetField = currentFields.find(tf => tf.id === mapping.targetField);
         const targetMatch = targetField?.name.toLowerCase().includes(searchTerm.toLowerCase());
         return sourceMatch || targetMatch;
       }
@@ -174,7 +197,7 @@ export default function MappingWorkspace({
     if (sampleData.length === 0) return [];
     
     // Create a lookup from target field ID to source field
-    const mappingLookup = fieldMappings.reduce((acc, mapping) => {
+    const mappingLookup = currentMappings.reduce((acc, mapping) => {
       if (mapping.sourceField && mapping.targetField) {
         acc[mapping.targetField] = mapping.sourceField;
       }
@@ -186,7 +209,7 @@ export default function MappingWorkspace({
     
     // Generate preview data for mapped fields
     return Object.entries(mappingLookup).map(([targetId, sourceField]) => {
-      const targetField = targetFields.find(tf => tf.id === targetId);
+      const targetField = currentFields.find(tf => tf.id === targetId);
       return {
         targetField,
         sourceField,
@@ -267,18 +290,40 @@ export default function MappingWorkspace({
       <div className="flex flex-grow overflow-hidden">
         {/* Left pane - Field mappings */}
         <div className="w-[40%] border-r flex flex-col overflow-hidden">
-          <div className="p-3 border-b bg-white flex justify-between items-center">
-            <h2 className="font-medium text-sm">Field Mappings</h2>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50">
-                {mappedFields.length}/{fieldMappings.length} mapped
-              </Badge>
-              <Badge 
-                variant={mappedRequiredFields.length === requiredFields.length ? "outline" : "destructive"} 
-                className={mappedRequiredFields.length === requiredFields.length ? "bg-green-50" : ""}
-              >
-                {mappedRequiredFields.length}/{requiredFields.length} required
-              </Badge>
+          <div className="p-3 border-b bg-white flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <h2 className="font-medium text-sm">Field Mappings</h2>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-50">
+                  {mappedFields.length}/{currentMappings.length} mapped
+                </Badge>
+                <Badge 
+                  variant={mappedRequiredFields.length === requiredFields.length ? "outline" : "destructive"} 
+                  className={mappedRequiredFields.length === requiredFields.length ? "bg-green-50" : ""}
+                >
+                  {mappedRequiredFields.length}/{requiredFields.length} required
+                </Badge>
+              </div>
+            </div>
+            
+            {/* View Selector Tabs */}
+            <div className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger 
+                  value="catalog" 
+                  className={activeView === 'catalog' ? 'bg-blue-100' : ''}
+                  onClick={() => onToggleView('catalog')}
+                >
+                  Master Catalog
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="detail" 
+                  className={activeView === 'detail' ? 'bg-blue-100' : ''}
+                  onClick={() => onToggleView('detail')}
+                >
+                  Product Detail
+                </TabsTrigger>
+              </TabsList>
             </div>
           </div>
           
@@ -320,7 +365,7 @@ export default function MappingWorkspace({
                       className="space-y-2"
                     >
                       {filteredMappings.map((mapping, index) => {
-                        const targetField = targetFields.find(tf => tf.id === mapping.targetField);
+                        const targetField = currentFields.find(tf => tf.id === mapping.targetField);
                         
                         return (
                           <Draggable
@@ -411,7 +456,7 @@ export default function MappingWorkspace({
                                           <SelectItem value="select_target">
                                             Select target field
                                           </SelectItem>
-                                          {targetFields.map(field => (
+                                          {currentFields.map(field => (
                                             <SelectItem key={field.id} value={field.id}>
                                               {field.name}
                                               {field.required && <span className="text-red-500 ml-1">*</span>}
