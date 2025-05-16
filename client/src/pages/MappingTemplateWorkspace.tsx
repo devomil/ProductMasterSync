@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown, Minimize, Maximize, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import EnhancedMappingTemplate from "@/components/mapping/EnhancedMappingTemplate";
+import MappingWorkspace from "@/components/mapping/MappingWorkspace";
 
 // Mapping template component handles its own view toggle
 
@@ -651,40 +651,44 @@ export default function MappingTemplateWorkspace() {
               </div>
 
               {/* Mapping interface */}
-              {selectedTab === "mapping" && sampleData.length > 0 ? (
-                <EnhancedMappingTemplate
-                  sampleData={sampleData}
-                  sampleHeaders={sampleHeaders}
-                  fieldMappings={fieldMappings}
-                  targetFields={targetFields}
-                  onUpdateMappings={setFieldMappings}
-                  onAutoMap={() => {
-                    const autoMappings = autoMapFields(sampleHeaders);
-                    setFieldMappings(autoMappings);
-                  }}
-                  onSave={handleSaveTemplate}
-                  onBack={() => navigate("/mapping-templates")}
-                  templateInfo={{
-                    name: templateForm.name,
-                    supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
-                  }}
-                  onPullSftpSample={
-                    templateForm.sourceType === 'sftp' && templateForm.supplierId
-                      ? () => handlePullSftpSampleData(templateForm.supplierId!)
-                      : undefined
-                  }
-                />
-              ) : selectedTab === "mapping" ? (
-                <div className="p-8 text-center">
-                  <div className="mb-4 text-muted-foreground">
-                    <Upload className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                    <p className="text-lg font-medium">No sample data loaded</p>
-                    <p className="text-sm">
-                      Upload a sample file or pull data from SFTP to map fields
-                    </p>
-                  </div>
+              {selectedTab === "mapping" && (
+                <div className="h-[calc(100vh-220px)]">
+                  {sampleData.length > 0 ? (
+                    <MappingWorkspace
+                      sampleData={sampleData}
+                      sampleHeaders={sampleHeaders}
+                      fieldMappings={fieldMappings}
+                      targetFields={targetFields}
+                      onUpdateMappings={setFieldMappings}
+                      onAutoMap={() => {
+                        const autoMappings = autoMapFields(sampleHeaders);
+                        setFieldMappings(autoMappings);
+                      }}
+                      onSave={handleSaveTemplate}
+                      onBack={() => navigate("/mapping-templates")}
+                      templateInfo={{
+                        name: templateForm.name,
+                        supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
+                      }}
+                      onPullSftpSample={
+                        templateForm.sourceType === 'sftp' && templateForm.supplierId
+                          ? () => handlePullSftpSampleData(templateForm.supplierId!)
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    <div className="p-8 text-center">
+                      <div className="mb-4 text-muted-foreground">
+                        <Upload className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                        <p className="text-lg font-medium">No sample data loaded</p>
+                        <p className="text-sm">
+                          Upload a sample file or pull data from SFTP to map fields
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : null}
+              )}
             </CardContent>
           </Card>
         </TabsContent>
