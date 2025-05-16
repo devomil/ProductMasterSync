@@ -201,24 +201,59 @@ export default function MappingTemplateEditor() {
       const supplierDataSource = dataSources.find(ds => ds.supplierId === supplierId && ds.type === 'sftp');
       
       if (supplierDataSource) {
-        const response = await fetch(`/api/data-sources/${supplierDataSource.id}/remote-paths`);
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Remote paths:", data);
+        // Try to get configured paths directly from the data source
+        const configuredPaths: string[] = [];
+        
+        // Check if data source has config with remote_paths
+        if (supplierDataSource.config && typeof supplierDataSource.config === 'object') {
+          const config = supplierDataSource.config as any;
           
-          if (data.paths && Array.isArray(data.paths)) {
-            // Extract paths from the response
-            const paths = data.paths.map((item: any) => 
-              typeof item === 'string' ? item : item.path || ''
-            ).filter(Boolean);
+          // Get paths from remote_paths array
+          if (Array.isArray(config.remote_paths)) {
+            config.remote_paths.forEach((pathObj: any) => {
+              if (pathObj.path) configuredPaths.push(pathObj.path);
+            });
+          }
+          
+          // Also check for a single path
+          if (config.path && typeof config.path === 'string') {
+            configuredPaths.push(config.path);
+          }
+        }
+        
+        // If we found configured paths, use them
+        if (configuredPaths.length > 0) {
+          console.log("Using configured paths:", configuredPaths);
+          setRemotePaths(configuredPaths);
+          
+          // Set selected path if we have a fileLabel or use the first path
+          if (templateForm.fileLabel) {
+            setSelectedPath(templateForm.fileLabel);
+          } else if (configuredPaths.length > 0) {
+            setSelectedPath(configuredPaths[0]);
+          }
+        } 
+        // Otherwise try to fetch paths from the server
+        else {
+          const response = await fetch(`/api/data-sources/${supplierDataSource.id}/remote-paths`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Remote paths:", data);
             
-            setRemotePaths(paths);
-            
-            // Set selected path if we have a fileLabel or use the first path
-            if (templateForm.fileLabel) {
-              setSelectedPath(templateForm.fileLabel);
-            } else if (paths.length > 0) {
-              setSelectedPath(paths[0]);
+            if (data.paths && Array.isArray(data.paths)) {
+              // Extract paths from the response
+              const paths = data.paths.map((item: any) => 
+                typeof item === 'string' ? item : item.path || ''
+              ).filter(Boolean);
+              
+              setRemotePaths(paths);
+              
+              // Set selected path if we have a fileLabel or use the first path
+              if (templateForm.fileLabel) {
+                setSelectedPath(templateForm.fileLabel);
+              } else if (paths.length > 0) {
+                setSelectedPath(paths[0]);
+              }
             }
           }
         }
