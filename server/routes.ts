@@ -874,6 +874,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Pull sample data from a data source (SFTP/FTP)
+  app.post("/api/data-sources/:id/pull-sample", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      
+      // Get the data source
+      const dataSource = await storage.getDataSource(id);
+      
+      if (!dataSource) {
+        return res.status(404).json({
+          success: false,
+          message: "Data source not found"
+        });
+      }
+      
+      // Get request parameters
+      const { path: remotePath, limit = 100 } = req.body;
+      
+      if (!remotePath) {
+        return res.status(400).json({
+          success: false,
+          message: "Remote path is required"
+        });
+      }
+      
+      // Handle SFTP data source
+      if (dataSource.type === 'sftp') {
+        const { pullSampleFromSFTP } = await import('./utils/ftp-ingestion');
+        
+        // Extract credentials from data source config
+        let config = dataSource.config;
+        if (typeof config === 'string') {
+          try {
+            config = JSON.parse(config);
+          } catch (e) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid data source configuration"
+            });
+          }
+        }
+        
+        // Prepare credentials for SFTP
+        const typedConfig = config as any;
+        const credentials = {
+          host: typedConfig.host,
+          port: typedConfig.port || 22,
+          username: typedConfig.username,
+          password: typedConfig.password || process.env.SFTP_PASSWORD,
+          secure: typedConfig.secure || false,
+          remoteDir: typedConfig.path || '/',
+          privateKey: typedConfig.privateKey || undefined,
+          passphrase: typedConfig.passphrase || undefined
+        };
+        
+        console.log(`Pulling sample data from ${dataSource.type} path: ${remotePath}`);
+        
+        try {
+          // Pull sample from SFTP
+          const result = await pullSampleFromSFTP(credentials, remotePath, {
+            limit: Number(limit),
+            hasHeader: true
+          });
+          
+          // Return the result
+          return res.json({
+            success: result.success,
+            message: result.message,
+            sample_data: result.records || [],
+            headers: result.headers || [],
+            remote_path: remotePath,
+            total_records: result.records?.length || 0
+          });
+        } catch (pullError) {
+          console.error("Error pulling SFTP sample:", pullError);
+          return res.status(400).json({
+            success: false,
+            message: pullError instanceof Error ? pullError.message : "Failed to pull SFTP sample data",
+            error: pullError
+          });
+        }
+      } 
+      // Add support for other data source types as needed
+      else {
+        return res.status(400).json({
+          success: false,
+          message: `Sample data pull not implemented for ${dataSource.type} data sources`
+        });
+      }
+    } catch (error) {
+      console.error("Error pulling sample data:", error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to pull sample data"
+      });
+    }
+  });
+  
   app.get("/api/data-sources/:id", async (req, res) => {
     try {
       const dataSource = await storage.getDataSource(Number(req.params.id));
