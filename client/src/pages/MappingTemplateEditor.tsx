@@ -178,6 +178,9 @@ export default function MappingTemplateEditor() {
     }
   };
   
+  // State for remote paths
+  const [remotePaths, setRemotePaths] = useState<string[]>([]);
+
   // Fetch remote paths for SFTP sources
   const fetchRemotePaths = async (supplierId: number) => {
     try {
@@ -188,8 +191,22 @@ export default function MappingTemplateEditor() {
         const response = await fetch(`/api/data-sources/${supplierDataSource.id}/remote-paths`);
         if (response.ok) {
           const data = await response.json();
-          if (data.paths && data.paths.length > 0 && templateForm.fileLabel) {
-            setSelectedPath(templateForm.fileLabel);
+          console.log("Remote paths:", data);
+          
+          if (data.paths && Array.isArray(data.paths)) {
+            // Extract paths from the response
+            const paths = data.paths.map((item: any) => 
+              typeof item === 'string' ? item : item.path || ''
+            ).filter(Boolean);
+            
+            setRemotePaths(paths);
+            
+            // Set selected path if we have a fileLabel or use the first path
+            if (templateForm.fileLabel) {
+              setSelectedPath(templateForm.fileLabel);
+            } else if (paths.length > 0) {
+              setSelectedPath(paths[0]);
+            }
           }
         }
       }
@@ -606,38 +623,84 @@ export default function MappingTemplateEditor() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-2">
                       <Label>Remote File Path</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="/path/to/data.csv" 
-                          value={selectedPath}
-                          onChange={(e) => setSelectedPath(e.target.value)}
-                        />
-                        <Button 
-                          onClick={() => {
-                            // Use the first supplier if none selected
-                            const supplierId = templateForm.supplierId 
-                              ? parseInt(templateForm.supplierId) 
-                              : suppliers.length > 0 ? suppliers[0].id : null;
-                              
-                            if (supplierId) {
-                              handlePullSftpSampleData(supplierId);
-                            } else {
-                              toast({
-                                title: "No supplier selected",
-                                description: "Please select a supplier to pull SFTP data",
-                                variant: "destructive"
-                              });
-                            }
-                          }}
-                          disabled={isUploading || !selectedPath}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Pull Sample
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Example: /eco8/out/catalog.csv
-                      </p>
+                      {remotePaths.length > 0 ? (
+                        <div className="space-y-2">
+                          <Select
+                            value={selectedPath}
+                            onValueChange={setSelectedPath}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a remote file" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {remotePaths.map((path) => (
+                                <SelectItem key={path} value={path}>
+                                  {path}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex justify-end">
+                            <Button 
+                              onClick={() => {
+                                const supplierId = templateForm.supplierId 
+                                  ? parseInt(templateForm.supplierId) 
+                                  : suppliers.length > 0 ? suppliers[0].id : null;
+                                  
+                                if (supplierId) {
+                                  handlePullSftpSampleData(supplierId);
+                                } else {
+                                  toast({
+                                    title: "No supplier selected",
+                                    description: "Please select a supplier to pull SFTP data",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              disabled={isUploading || !selectedPath}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Pull Sample
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex gap-2">
+                            <Input 
+                              placeholder="/path/to/data.csv" 
+                              value={selectedPath}
+                              onChange={(e) => setSelectedPath(e.target.value)}
+                            />
+                            <Button 
+                              onClick={() => {
+                                const supplierId = templateForm.supplierId 
+                                  ? parseInt(templateForm.supplierId) 
+                                  : suppliers.length > 0 ? suppliers[0].id : null;
+                                  
+                                if (supplierId) {
+                                  handlePullSftpSampleData(supplierId);
+                                } else {
+                                  toast({
+                                    title: "No supplier selected",
+                                    description: "Please select a supplier to pull SFTP data",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              disabled={isUploading || !selectedPath}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Pull Sample
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {templateForm.supplierId ? 
+                              "No remote paths found. Enter a path manually." : 
+                              "Select a supplier to view available remote paths."}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
