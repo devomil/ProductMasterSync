@@ -600,33 +600,46 @@ export default function MappingTemplateEditor() {
                 </div>
                 
                 {/* SFTP options - always show this section */}
-                {templateForm.supplierId && (
-                  <div className="mt-2 border rounded-md p-4">
-                    <h3 className="font-medium mb-2">SFTP Options</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 gap-2">
-                        <Label>Remote File Path</Label>
-                        <div className="flex gap-2">
-                          <Input 
-                            placeholder="/path/to/data.csv" 
-                            value={selectedPath}
-                            onChange={(e) => setSelectedPath(e.target.value)}
-                          />
-                          <Button 
-                            onClick={() => handlePullSftpSampleData(parseInt(templateForm.supplierId!))}
-                            disabled={isUploading || !selectedPath}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Pull Sample
-                          </Button>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          Example: /eco8/out/catalog.csv
-                        </p>
+                <div className="mt-2 border rounded-md p-4">
+                  <h3 className="font-medium mb-2">SFTP Options</h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-2">
+                      <Label>Remote File Path</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          placeholder="/path/to/data.csv" 
+                          value={selectedPath}
+                          onChange={(e) => setSelectedPath(e.target.value)}
+                        />
+                        <Button 
+                          onClick={() => {
+                            // Use the first supplier if none selected
+                            const supplierId = templateForm.supplierId 
+                              ? parseInt(templateForm.supplierId) 
+                              : suppliers.length > 0 ? suppliers[0].id : null;
+                              
+                            if (supplierId) {
+                              handlePullSftpSampleData(supplierId);
+                            } else {
+                              toast({
+                                title: "No supplier selected",
+                                description: "Please select a supplier to pull SFTP data",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          disabled={isUploading || !selectedPath}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Pull Sample
+                        </Button>
                       </div>
+                      <p className="text-xs text-gray-500">
+                        Example: /eco8/out/catalog.csv
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
                 
                 {/* Sample data status message */}
                 {isUploading && (
