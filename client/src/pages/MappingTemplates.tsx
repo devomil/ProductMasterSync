@@ -733,7 +733,8 @@ export default function MappingTemplates() {
       </Tabs>
 
       {/* Create Template Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      {/* Dialog disabled in favor of full-page editor */}
+      <Dialog open={false} onOpenChange={() => {}}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Mapping Template</DialogTitle>
