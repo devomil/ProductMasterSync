@@ -581,7 +581,8 @@ export default function MappingTemplateEditor() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4">
+                {/* File upload option */}
+                <div className="flex gap-4">
                   <label htmlFor="sampleFile" className="cursor-pointer">
                     <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
                       <Upload className="h-4 w-4" />
@@ -596,17 +597,45 @@ export default function MappingTemplateEditor() {
                       disabled={isUploading}
                     />
                   </label>
-                  
-                  {templateForm.supplierId && templateForm.sourceType === 'sftp' && (
-                    <Button 
-                      onClick={() => handlePullSftpSampleData(parseInt(templateForm.supplierId!))}
-                      disabled={isUploading}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Pull Sample From SFTP
-                    </Button>
-                  )}
                 </div>
+                
+                {/* SFTP options - always show this section */}
+                {templateForm.supplierId && (
+                  <div className="mt-2 border rounded-md p-4">
+                    <h3 className="font-medium mb-2">SFTP Options</h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 gap-2">
+                        <Label>Remote File Path</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="/path/to/data.csv" 
+                            value={selectedPath}
+                            onChange={(e) => setSelectedPath(e.target.value)}
+                          />
+                          <Button 
+                            onClick={() => handlePullSftpSampleData(parseInt(templateForm.supplierId!))}
+                            disabled={isUploading || !selectedPath}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Pull Sample
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Example: /eco8/out/catalog.csv
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Sample data status message */}
+                {isUploading && (
+                  <div className="mt-2">
+                    <p className="text-sm text-blue-600">
+                      Loading sample data...
+                    </p>
+                  </div>
+                )}
                 
                 {sampleData.length > 0 && (
                   <div className="mt-4">
