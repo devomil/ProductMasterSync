@@ -15,11 +15,11 @@ import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown, Minimize, Maximize, Filter } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import MappingTemplate from "@/components/mapping/MappingTemplate";
+import EnhancedMappingTemplate from "@/components/mapping/EnhancedMappingTemplate";
 
 // Mapping template component handles its own view toggle
 
-interface MappingTemplate {
+interface MappingTemplateModel {
   id: number;
   name: string;
   description: string | null;
@@ -72,7 +72,7 @@ export default function MappingTemplateWorkspace() {
   const isEdit = !!id;
   
   // State for form
-  const [templateForm, setTemplateForm] = useState<Partial<MappingTemplate>>({
+  const [templateForm, setTemplateForm] = useState<Partial<MappingTemplateModel>>({
     name: "",
     description: "",
     sourceType: "csv",
@@ -153,7 +153,7 @@ export default function MappingTemplateWorkspace() {
     queryKey: ['/api/mapping-templates', id],
     enabled: !!id,
     staleTime: Infinity,
-    select: (data: any) => data as MappingTemplate
+    select: (data: any) => data as MappingTemplateModel
   });
   
   // Initialize form data when template is loaded
@@ -651,28 +651,30 @@ export default function MappingTemplateWorkspace() {
               </div>
 
               {/* Mapping interface */}
-              {sampleData.length > 0 ? (
-                <MappingTemplate
+              {selectedTab === "mapping" && sampleData.length > 0 ? (
+                <EnhancedMappingTemplate
                   sampleData={sampleData}
                   sampleHeaders={sampleHeaders}
                   fieldMappings={fieldMappings}
                   targetFields={targetFields}
                   onUpdateMappings={setFieldMappings}
+                  onAutoMap={() => {
+                    const autoMappings = autoMapFields(sampleHeaders);
+                    setFieldMappings(autoMappings);
+                  }}
+                  onSave={handleSaveTemplate}
+                  onBack={() => navigate("/mapping-templates")}
                   templateInfo={{
                     name: templateForm.name,
-                    sourceType: templateForm.sourceType,
-                    supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name,
-                    filePath: templateForm.fileLabel || ""
+                    supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
                   }}
                   onPullSftpSample={
                     templateForm.sourceType === 'sftp' && templateForm.supplierId
                       ? () => handlePullSftpSampleData(templateForm.supplierId!)
                       : undefined
                   }
-                  rowsLimit={rowCount}
-                  onChangeRowsLimit={setRowCount}
                 />
-              ) : (
+              ) : selectedTab === "mapping" ? (
                 <div className="p-8 text-center">
                   <div className="mb-4 text-muted-foreground">
                     <Upload className="h-12 w-12 mx-auto mb-2 opacity-30" />
@@ -682,7 +684,7 @@ export default function MappingTemplateWorkspace() {
                     </p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
