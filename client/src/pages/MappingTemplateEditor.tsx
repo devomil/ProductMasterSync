@@ -172,9 +172,22 @@ export default function MappingTemplateEditor() {
   const handleSelectChange = (name: string, value: string) => {
     setTemplateForm({ ...templateForm, [name]: value });
     
-    // If supplier changed and type is SFTP, fetch remote paths
-    if (name === 'supplierId' && templateForm.sourceType === 'sftp' && value) {
-      fetchRemotePaths(parseInt(value));
+    // If supplier changed, reset remote paths and fetch new ones if needed
+    if (name === 'supplierId') {
+      // Clear remote paths when supplier changes
+      setRemotePaths([]);
+      setSelectedPath('');
+      
+      if (value && templateForm.sourceType === 'sftp') {
+        fetchRemotePaths(parseInt(value));
+      }
+    }
+    
+    // If source type changed to SFTP, fetch remote paths for the selected supplier
+    if (name === 'sourceType' && value === 'sftp' && templateForm.supplierId) {
+      setRemotePaths([]);
+      setSelectedPath('');
+      fetchRemotePaths(parseInt(templateForm.supplierId));
     }
   };
   
