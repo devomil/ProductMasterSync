@@ -516,6 +516,7 @@ export default function MappingTemplateEditor() {
                         <SelectItem value="excel">Excel</SelectItem>
                         <SelectItem value="json">JSON</SelectItem>
                         <SelectItem value="xml">XML</SelectItem>
+                        <SelectItem value="sftp">SFTP</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
