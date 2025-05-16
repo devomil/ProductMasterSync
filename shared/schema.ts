@@ -205,12 +205,16 @@ export const schedules = pgTable("schedules", {
 });
 
 // Mapping templates for data normalization
+export const mappingViews = pgEnum('mapping_view', [
+  'catalog', 'detail'
+]);
+
 export const mappingTemplates = pgTable("mapping_templates", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   sourceType: dataSourceTypeEnum("source_type").notNull(),
-  mappings: json("mappings").notNull(), // Array of field mappings
+  mappings: json("mappings").notNull(), // Object with mappings for each view { catalog: {}, detail: {} }
   transformations: json("transformations").default([]), // Array of transformations
   validationRules: json("validation_rules").default([]), // Array of validation rules
   supplierId: integer("supplier_id").references(() => suppliers.id),

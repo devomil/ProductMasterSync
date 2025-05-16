@@ -86,7 +86,9 @@ export default function MappingTemplateWorkspace() {
   // State for sample data and mapping
   const [sampleData, setSampleData] = useState<any[]>([]);
   const [sampleHeaders, setSampleHeaders] = useState<string[]>([]);
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
+  const [catalogMappings, setCatalogMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
+  const [detailMappings, setDetailMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
+  const [activeView, setActiveView] = useState<'catalog' | 'detail'>('catalog');
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
   const [selectedTab, setSelectedTab] = useState("template-info");
@@ -95,46 +97,52 @@ export default function MappingTemplateWorkspace() {
   const [remotePaths, setRemotePaths] = useState<string[]>([]);
   const [selectedPath, setSelectedPath] = useState<string>("");
   
-  // List of all possible target fields for the mapping
-  const targetFields = [
-    { id: "sku", name: "SKU", required: true, description: "Unique product identifier" },
-    { id: "product_name", name: "Product Name", required: true, description: "Full product name/title" },
-    { id: "description", name: "Description", description: "Detailed product description" },
-    { id: "manufacturer", name: "Manufacturer", description: "Product manufacturer/brand name" },
-    { id: "mpn", name: "Manufacturer Part Number", description: "Manufacturer's part number" },
-    { id: "category", name: "Category", description: "Product category" },
-    { id: "subcategory", name: "Subcategory", description: "Product subcategory" },
-    { id: "price", name: "Price", description: "Retail price" },
-    { id: "cost", name: "Cost", description: "Wholesale cost" },
-    { id: "upc", name: "UPC", description: "Universal Product Code" },
-    { id: "ean", name: "EAN", description: "European Article Number" },
-    { id: "isbn", name: "ISBN", description: "International Standard Book Number" },
-    { id: "weight", name: "Weight", description: "Product weight" },
-    { id: "weight_unit", name: "Weight Unit", description: "Unit of weight (lb, kg, etc)" },
-    { id: "length", name: "Length", description: "Product length" },
-    { id: "width", name: "Width", description: "Product width" },
-    { id: "height", name: "Height", description: "Product height" },
-    { id: "dimension_unit", name: "Dimension Unit", description: "Unit of dimensions (in, cm, etc)" },
-    { id: "color", name: "Color", description: "Product color" },
-    { id: "size", name: "Size", description: "Product size" },
-    { id: "material", name: "Material", description: "Product material" },
-    { id: "condition", name: "Condition", description: "Product condition (new, used, etc)" },
-    { id: "status", name: "Status", description: "Product status (active, discontinued, etc)" },
-    { id: "stock_quantity", name: "Stock Quantity", description: "Available inventory quantity" },
-    { id: "min_order_quantity", name: "Min Order Quantity", description: "Minimum order quantity" },
-    { id: "lead_time", name: "Lead Time", description: "Production or shipping lead time" },
-    { id: "is_taxable", name: "Is Taxable", description: "Whether product is taxable" },
-    { id: "tax_code", name: "Tax Code", description: "Tax classification code" },
-    { id: "image_url", name: "Image URL", description: "Primary product image URL" },
-    { id: "additional_image_urls", name: "Additional Image URLs", description: "Additional product image URLs (comma separated)" },
-    { id: "warranty", name: "Warranty", description: "Product warranty information" },
-    { id: "country_of_origin", name: "Country of Origin", description: "Country where product was manufactured" },
-    { id: "keywords", name: "Keywords", description: "Search keywords/tags" },
-    { id: "related_products", name: "Related Products", description: "Related product SKUs (comma separated)" },
-    { id: "custom_field_1", name: "Custom Field 1", description: "Custom field for additional data" },
-    { id: "custom_field_2", name: "Custom Field 2", description: "Custom field for additional data" },
-    { id: "custom_field_3", name: "Custom Field 3", description: "Custom field for additional data" },
+  // Define target fields for both catalog and detail views
+  const catalogFields = [
+    { id: "sku", name: "SKU", required: true, description: "Unique product identifier", view: "catalog" },
+    { id: "product_name", name: "Product Name", required: true, description: "Full product name/title", view: "catalog" },
+    { id: "category", name: "Category", description: "Product category", view: "catalog" },
+    { id: "subcategory", name: "Subcategory", description: "Product subcategory", view: "catalog" },
+    { id: "price", name: "Price", description: "Retail price", view: "catalog" },
+    { id: "cost", name: "Cost", description: "Wholesale cost", view: "catalog" },
+    { id: "manufacturer", name: "Manufacturer", description: "Product manufacturer/brand name", view: "catalog" },
+    { id: "status", name: "Status", description: "Product status (active, discontinued, etc)", view: "catalog" },
+    { id: "stock_quantity", name: "Stock Quantity", description: "Available inventory quantity", view: "catalog" },
+    { id: "upc", name: "UPC", description: "Universal Product Code", view: "catalog" },
   ];
+  
+  const detailFields = [
+    { id: "mpn", name: "Manufacturer Part Number", description: "Manufacturer's part number", view: "detail" },
+    { id: "description", name: "Description", description: "Detailed product description", view: "detail" },
+    { id: "ean", name: "EAN", description: "European Article Number", view: "detail" },
+    { id: "isbn", name: "ISBN", description: "International Standard Book Number", view: "detail" },
+    { id: "weight", name: "Weight", description: "Product weight", view: "detail" },
+    { id: "weight_unit", name: "Weight Unit", description: "Unit of weight (lb, kg, etc)", view: "detail" },
+    { id: "length", name: "Length", description: "Product length", view: "detail" },
+    { id: "width", name: "Width", description: "Product width", view: "detail" },
+    { id: "height", name: "Height", description: "Product height", view: "detail" },
+    { id: "dimension_unit", name: "Dimension Unit", description: "Unit of dimensions (in, cm, etc)", view: "detail" },
+    { id: "color", name: "Color", description: "Product color", view: "detail" },
+    { id: "size", name: "Size", description: "Product size", view: "detail" },
+    { id: "material", name: "Material", description: "Product material", view: "detail" },
+    { id: "condition", name: "Condition", description: "Product condition (new, used, etc)", view: "detail" },
+    { id: "min_order_quantity", name: "Min Order Quantity", description: "Minimum order quantity", view: "detail" },
+    { id: "lead_time", name: "Lead Time", description: "Production or shipping lead time", view: "detail" },
+    { id: "is_taxable", name: "Is Taxable", description: "Whether product is taxable", view: "detail" },
+    { id: "tax_code", name: "Tax Code", description: "Tax classification code", view: "detail" },
+    { id: "image_url", name: "Image URL", description: "Primary product image URL", view: "detail" },
+    { id: "additional_image_urls", name: "Additional Image URLs", description: "Additional product image URLs (comma separated)", view: "detail" },
+    { id: "warranty", name: "Warranty", description: "Product warranty information", view: "detail" },
+    { id: "country_of_origin", name: "Country of Origin", description: "Country where product was manufactured", view: "detail" },
+    { id: "keywords", name: "Keywords", description: "Search keywords/tags", view: "detail" },
+    { id: "related_products", name: "Related Products", description: "Related product SKUs (comma separated)", view: "detail" },
+    { id: "custom_field_1", name: "Custom Field 1", description: "Custom field for additional data", view: "detail" },
+    { id: "custom_field_2", name: "Custom Field 2", description: "Custom field for additional data", view: "detail" },
+    { id: "custom_field_3", name: "Custom Field 3", description: "Custom field for additional data", view: "detail" },
+  ];
+  
+  // Combine for legacy code compatibility
+  const targetFields = [...catalogFields, ...detailFields];
   
   // Fetch suppliers for the dropdown
   const { data: suppliers = [] } = useQuery({ 
