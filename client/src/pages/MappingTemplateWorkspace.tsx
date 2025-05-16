@@ -174,15 +174,40 @@ export default function MappingTemplateWorkspace() {
         updatedAt: templateData.updatedAt ? new Date(templateData.updatedAt) : null,
       });
       
-      // Convert mappings to field mappings array
-      const mappingsArray = Object.entries(templateData.mappings).map(
-        ([targetField, sourceField]) => ({
-          sourceField: sourceField as string,
-          targetField
-        })
-      );
-      
-      setFieldMappings(mappingsArray.length > 0 ? mappingsArray : [{ sourceField: "", targetField: "" }]);
+      // Check if mappings is in new format (object with catalog/detail keys)
+      // or old format (flat object of mappings)
+      if (templateData.mappings && typeof templateData.mappings === 'object') {
+        if ('catalog' in templateData.mappings && 'detail' in templateData.mappings) {
+          // New format with separate catalog and detail mappings
+          const catalogMappingsArray = Object.entries(templateData.mappings.catalog || {}).map(
+            ([targetField, sourceField]) => ({
+              sourceField: sourceField as string,
+              targetField
+            })
+          );
+          
+          const detailMappingsArray = Object.entries(templateData.mappings.detail || {}).map(
+            ([targetField, sourceField]) => ({
+              sourceField: sourceField as string,
+              targetField
+            })
+          );
+          
+          setCatalogMappings(catalogMappingsArray.length > 0 ? catalogMappingsArray : [{ sourceField: "", targetField: "" }]);
+          setDetailMappings(detailMappingsArray.length > 0 ? detailMappingsArray : [{ sourceField: "", targetField: "" }]);
+        } else {
+          // Old format - treat all as catalog mappings and leave detail empty
+          const mappingsArray = Object.entries(templateData.mappings).map(
+            ([targetField, sourceField]) => ({
+              sourceField: sourceField as string,
+              targetField
+            })
+          );
+          
+          setCatalogMappings(mappingsArray.length > 0 ? mappingsArray : [{ sourceField: "", targetField: "" }]);
+          setDetailMappings([{ sourceField: "", targetField: "" }]);
+        }
+      }
       
       // If supplier is set and source type is SFTP, get remote paths
       if (templateData.supplierId && templateData.sourceType === 'sftp') {
@@ -296,8 +321,9 @@ export default function MappingTemplateWorkspace() {
   };
   
   // Auto-map fields by matching source field names to target field names
-  const autoMapFields = (headers: string[]) => {
-    const targetFieldMap = new Map(targetFields.map(field => [field.id.toLowerCase(), field.id]));
+  const autoMapFields = (headers: string[], view: 'catalog' | 'detail' = 'catalog') => {
+    const fields = view === 'catalog' ? catalogFields : detailFields;
+    const targetFieldMap = new Map(fields.map(field => [field.id.toLowerCase(), field.id]));
     
     // Create initial mappings with all headers
     const initialMappings = headers.map(header => ({ 
@@ -324,17 +350,32 @@ export default function MappingTemplateWorkspace() {
         }
       }
       
-      // Special cases
-      if (headerLower.includes('title') || headerLower.includes('name')) {
-        initialMappings[index].targetField = 'product_name';
-      } else if (headerLower.includes('brand')) {
-        initialMappings[index].targetField = 'manufacturer';
-      } else if (headerLower.includes('partno') || headerLower.includes('partnumber')) {
-        initialMappings[index].targetField = 'mpn';
-      } else if (headerLower.includes('qty') || headerLower.includes('quantity') || headerLower.includes('stock')) {
-        initialMappings[index].targetField = 'stock_quantity';
-      } else if (headerLower.includes('barcode')) {
-        initialMappings[index].targetField = 'upc';
+      // Special cases for catalog fields
+      if (view === 'catalog') {
+        if (headerLower.includes('title') || headerLower.includes('name')) {
+          initialMappings[index].targetField = 'product_name';
+        } else if (headerLower.includes('brand')) {
+          initialMappings[index].targetField = 'manufacturer';
+        } else if (headerLower.includes('qty') || headerLower.includes('quantity') || headerLower.includes('stock')) {
+          initialMappings[index].targetField = 'stock_quantity';
+        } else if (headerLower.includes('barcode')) {
+          initialMappings[index].targetField = 'upc';
+        }
+      }
+      
+      // Special cases for detail fields
+      if (view === 'detail') {
+        if (headerLower.includes('partno') || headerLower.includes('partnumber')) {
+          initialMappings[index].targetField = 'mpn';
+        } else if (headerLower.includes('desc')) {
+          initialMappings[index].targetField = 'description';
+        } else if (headerLower.includes('img') || headerLower.includes('image')) {
+          initialMappings[index].targetField = 'image_url';
+        } else if (headerLower.includes('weigh')) {
+          initialMappings[index].targetField = 'weight';
+        } else if (headerLower.includes('material')) {
+          initialMappings[index].targetField = 'material';
+        }
       }
     });
     
@@ -412,21 +453,44 @@ export default function MappingTemplateWorkspace() {
       return;
     }
     
-    // Convert field mappings to mappings record
-    const mappings: Record<string, string> = {};
-    fieldMappings.forEach(mapping => {
+    // Convert catalog mappings to record
+    const catalogMappingsRecord: Record<string, string> = {};
+    catalogMappings.forEach(mapping => {
       if (mapping.sourceField && mapping.targetField) {
-        mappings[mapping.targetField] = mapping.sourceField;
+        catalogMappingsRecord[mapping.targetField] = mapping.sourceField;
       }
     });
     
+    // Convert detail mappings to record
+    const detailMappingsRecord: Record<string, string> = {};
+    detailMappings.forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        detailMappingsRecord[mapping.targetField] = mapping.sourceField;
+      }
+    });
+    
+    // Create combined mappings object with both views
+    const mappings = {
+      catalog: catalogMappingsRecord,
+      detail: detailMappingsRecord
+    };
+    
     // Create validation rules for required fields
-    const validationRules = targetFields
-      .filter(field => field.required && Object.keys(mappings).includes(field.id))
+    const catalogRequiredFields = catalogFields
+      .filter(field => field.required && Object.keys(catalogMappingsRecord).includes(field.id))
       .map(field => ({ 
         field: field.id, 
         rule: "required" 
       }));
+      
+    const detailRequiredFields = detailFields
+      .filter(field => field.required && Object.keys(detailMappingsRecord).includes(field.id))
+      .map(field => ({ 
+        field: field.id, 
+        rule: "required" 
+      }));
+    
+    const validationRules = [...catalogRequiredFields, ...detailRequiredFields];
     
     const saveData = {
       ...templateForm,

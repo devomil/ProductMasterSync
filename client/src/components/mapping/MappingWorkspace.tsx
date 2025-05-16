@@ -29,9 +29,14 @@ interface TargetField {
 interface MappingWorkspaceProps {
   sampleData: any[];
   sampleHeaders: string[];
-  fieldMappings: FieldMapping[];
-  targetFields: TargetField[];
-  onUpdateMappings: (mappings: FieldMapping[]) => void;
+  catalogMappings: FieldMapping[];
+  detailMappings: FieldMapping[];
+  activeView: 'catalog' | 'detail';
+  catalogFields: TargetField[];
+  detailFields: TargetField[];
+  onUpdateCatalogMappings: (mappings: FieldMapping[]) => void;
+  onUpdateDetailMappings: (mappings: FieldMapping[]) => void;
+  onToggleView: (view: 'catalog' | 'detail') => void;
   onAutoMap: () => void;
   onSave: () => void;
   onBack: () => void;
@@ -45,9 +50,14 @@ interface MappingWorkspaceProps {
 export default function MappingWorkspace({
   sampleData,
   sampleHeaders,
-  fieldMappings,
-  targetFields,
-  onUpdateMappings,
+  catalogMappings,
+  detailMappings,
+  activeView,
+  catalogFields,
+  detailFields,
+  onUpdateCatalogMappings,
+  onUpdateDetailMappings,
+  onToggleView,
   onAutoMap,
   onSave,
   onBack,
@@ -66,14 +76,18 @@ export default function MappingWorkspace({
   // Reference for the data preview table for scrolling
   const previewTableRef = useRef<HTMLDivElement>(null);
   
+  // Get current mappings and fields based on active view
+  const currentMappings = activeView === 'catalog' ? catalogMappings : detailMappings;
+  const currentFields = activeView === 'catalog' ? catalogFields : detailFields;
+  
   // Stats
-  const mappedFields = fieldMappings.filter(m => m.sourceField && m.targetField);
-  const requiredFields = targetFields.filter(f => f.required);
+  const mappedFields = currentMappings.filter(m => m.sourceField && m.targetField);
+  const requiredFields = currentFields.filter(f => f.required);
   const mappedRequiredFields = requiredFields.filter(rf => 
-    fieldMappings.some(m => m.targetField === rf.id && m.sourceField)
+    currentMappings.some(m => m.targetField === rf.id && m.sourceField)
   );
   const unmappedRequiredFields = requiredFields.filter(rf => 
-    !fieldMappings.some(m => m.targetField === rf.id && m.sourceField)
+    !currentMappings.some(m => m.targetField === rf.id && m.sourceField)
   );
   
   // Jump to field in sample data preview
