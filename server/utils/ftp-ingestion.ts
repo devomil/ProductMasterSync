@@ -810,6 +810,8 @@ export const getRemotePaths = async (
             return;
           }
           
+          console.log('SFTP connection established successfully');
+          
           // List directories recursively up to 2 levels deep
           const explorePath = async (currentPath: string, depth: number = 0) => {
             if (depth > 2) return; // Limit recursion depth
@@ -822,15 +824,35 @@ export const getRemotePaths = async (
                 });
               });
               
-              // Add the current path
-              result.paths.push(currentPath);
+              // Find files that might be catalogs or inventories
+              const files = list.filter(item => 
+                // Regular files (not directories)
+                !item.longname.startsWith('d') && 
+                // Common data file extensions
+                (
+                  item.filename.endsWith('.csv') || 
+                  item.filename.endsWith('.xlsx') || 
+                  item.filename.endsWith('.xls') || 
+                  item.filename.endsWith('.json') || 
+                  item.filename.endsWith('.xml') ||
+                  item.filename.endsWith('.txt')
+                )
+              );
               
-              // Process directories only for recursive listing
-              const directories = list.filter(item => item.longname.startsWith('d'));
+              // Add file paths to the results
+              for (const file of files) {
+                const filePath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${file.filename}`;
+                result.paths.push(filePath);
+              }
               
-              for (const dir of directories) {
-                const newPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${dir.filename}`;
-                await explorePath(newPath, depth + 1);
+              // Process directories only if we haven't reached max depth
+              if (depth < 2) {
+                const directories = list.filter(item => item.longname.startsWith('d'));
+                
+                for (const dir of directories) {
+                  const newPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${dir.filename}`;
+                  await explorePath(newPath, depth + 1);
+                }
               }
             } catch (pathErr) {
               console.error(`Error exploring path ${currentPath}:`, pathErr);
@@ -867,16 +889,23 @@ export const getRemotePaths = async (
         host: credentials.host,
         port: credentials.port || 22,
         username: credentials.username,
+        readyTimeout: 20000, // 20 seconds timeout
+        debug: true, // Enable debug logging
       };
       
       if (credentials.password) {
-        connectOptions.password = credentials.password;
+        connectOptions.password = credentials.password || process.env.SFTP_PASSWORD;
       } else if (credentials.privateKey) {
         connectOptions.privateKey = credentials.privateKey;
         if (credentials.passphrase) {
           connectOptions.passphrase = credentials.passphrase;
         }
+      } else if (process.env.SFTP_PASSWORD) {
+        // Use environment variable if available and no password provided
+        connectOptions.password = process.env.SFTP_PASSWORD;
       }
+      
+      console.log(`Connecting to SFTP server ${credentials.host}:${connectOptions.port} as ${credentials.username}`);
       
       conn.connect(connectOptions);
     });
