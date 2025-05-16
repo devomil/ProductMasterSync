@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronDown, Save, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
@@ -164,330 +164,294 @@ export default function EnhancedMappingTemplate({
   const mappingPreview = generateMappingPreview();
   
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b py-4 px-6 flex justify-between items-center">
-        <div className="flex items-center">
-          <Button variant="outline" size="sm" onClick={onBack} className="mr-4">
-            <ChevronLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-          <h1 className="text-xl font-semibold">Create Mapping Template</h1>
-        </div>
-        
-        <Button onClick={onSave} className="bg-blue-500 hover:bg-blue-600">
-          Save Template
+    <div className="flex flex-col w-full">
+      {/* Header area */}
+      <div className="flex justify-between items-center border-b p-4">
+        <Button variant="outline" onClick={onBack} className="flex items-center gap-1">
+          <ChevronLeft className="h-4 w-4" /> Back
         </Button>
+        <h1 className="text-xl font-semibold">Create Mapping Template</h1>
+        <Button onClick={onSave} className="bg-blue.500">Save Template</Button>
       </div>
       
-      {/* Controls */}
-      <div className="border-b py-3 px-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Checkbox 
-              id="hide-sidebar" 
-              checked={hideSidebar} 
-              onCheckedChange={(checked) => setHideSidebar(checked as boolean)} 
-            />
-            <Label htmlFor="hide-sidebar">Hide Sidebar</Label>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Checkbox 
-              id="collapse-unmapped" 
-              checked={collapseUnmapped} 
-              onCheckedChange={(checked) => setCollapseUnmapped(checked as boolean)} 
-            />
-            <Label htmlFor="collapse-unmapped">Collapse Unmapped Fields</Label>
-          </div>
-          
-          {onPullSftpSample && (
-            <Button variant="outline" size="sm">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              Pull Sample From SFTP
-            </Button>
-          )}
+      {/* Control area */}
+      <div className="flex gap-4 p-4 border-b">
+        <div className="flex items-center gap-2">
+          <Checkbox id="hide-sidebar" checked={hideSidebar} onCheckedChange={(checked) => setHideSidebar(checked as boolean)} />
+          <Label htmlFor="hide-sidebar" className="text-sm">Hide Sidebar</Label>
         </div>
+        
+        <div className="flex items-center gap-2">
+          <Checkbox id="collapse-unmapped" checked={collapseUnmapped} onCheckedChange={(checked) => setCollapseUnmapped(checked as boolean)} />
+          <Label htmlFor="collapse-unmapped" className="text-sm">Collapse Unmapped Fields</Label>
+        </div>
+        
+        {onPullSftpSample && (
+          <Button variant="outline" onClick={onPullSftpSample} className="ml-auto flex items-center">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="8 17 12 21 16 17"></polyline>
+              <line x1="12" y1="12" x2="12" y2="21"></line>
+              <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"></path>
+            </svg>
+            Pull Sample From SFTP
+          </Button>
+        )}
       </div>
       
       {/* Main content */}
-      <div className="flex flex-grow overflow-hidden">
-        {/* Left panel - Mapping Fields */}
-        {!hideSidebar && (
-          <div className="w-[450px] border-r flex flex-col">
-            <div className="flex border-b p-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className={showAllFields ? "bg-white" : "bg-gray-100"}
-                onClick={() => setShowAllFields(false)}
-              >
-                Collapse Mapped
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={!showAllFields ? "bg-white" : "bg-gray-100"}
-                onClick={() => setShowAllFields(true)}
-              >
-                Show All
-              </Button>
-              
-              <Select defaultValue="">
-                <SelectTrigger className="ml-2 h-9 w-[120px]">
-                  <div className="flex items-center">
-                    Jump to <ChevronDown className="h-4 w-4 ml-1" />
+      <div className="grid grid-cols-2 gap-4 p-4">
+        {/* Left column - Field mapping */}
+        <div className="border rounded-md">
+          <div className="flex border-b p-2">
+            <Button variant="outline" size="sm" className={showAllFields ? "" : "bg-gray-100"} onClick={() => setShowAllFields(false)}>
+              Collapse Mapped
+            </Button>
+            <Button variant="outline" size="sm" className={!showAllFields ? "" : "bg-gray-100"} onClick={() => setShowAllFields(true)}>
+              Show All
+            </Button>
+            
+            <Select>
+              <SelectTrigger className="ml-auto w-28 h-9">
+                <div className="flex items-center">
+                  Jump to <ChevronDown className="ml-1 h-4 w-4" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="required">Required Fields</SelectItem>
+                <SelectItem value="unmapped">Unmapped Fields</SelectItem>
+                <SelectItem value="identification">Identification Fields</SelectItem>
+                <SelectItem value="pricing">Pricing Fields</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="p-2 border-b">
+            <Input 
+              placeholder="Source Fields" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 p-2 border-b bg-gray-50 text-sm font-medium">
+            <div>Source Fields</div>
+            <div className="flex items-center justify-between">
+              <span>Target Field</span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+            </div>
+          </div>
+          
+          <div className="p-2 overflow-auto max-h-[400px]">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="mappings">
+                {(provided) => (
+                  <div 
+                    {...provided.droppableProps} 
+                    ref={provided.innerRef}
+                    className="space-y-2"
+                  >
+                    {filteredMappings.map((mapping, index) => (
+                      <Draggable 
+                        key={`mapping-${index}`} 
+                        draggableId={`mapping-${index}`} 
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`
+                              flex items-center p-2 border rounded
+                              ${mapping.sourceField === hoveredField ? 'border-blue-400' : ''}
+                              ${mapping.sourceField === selectedField ? 'border-blue-600 bg-blue-50' : ''}
+                              ${snapshot.isDragging ? 'shadow-md' : ''}
+                            `}
+                            onClick={() => {
+                              setSelectedField(mapping.sourceField);
+                              scrollToField(mapping.sourceField);
+                            }}
+                            onMouseEnter={() => setHoveredField(mapping.sourceField)}
+                            onMouseLeave={() => setHoveredField(null)}
+                          >
+                            <div className="grid grid-cols-2 gap-2 w-full">
+                              <Select
+                                value={mapping.sourceField || "select_field"}
+                                onValueChange={(val) => updateMapping(
+                                  index, 
+                                  'sourceField', 
+                                  val === "select_field" ? "" : val
+                                )}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Source" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="select_field">Select source field</SelectItem>
+                                  {sampleHeaders.map(header => (
+                                    <SelectItem key={header} value={header}>
+                                      {header}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              <Select
+                                value={mapping.targetField || "select_target"}
+                                onValueChange={(val) => updateMapping(
+                                  index, 
+                                  'targetField', 
+                                  val === "select_target" ? "" : val
+                                )}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Target" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="select_target">Select target field</SelectItem>
+                                  {targetFields.map(field => (
+                                    <SelectItem key={field.id} value={field.id}>
+                                      {field.name}{field.required ? ' *' : ''}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
                   </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Fields</SelectItem>
-                  <SelectItem value="required">Required Fields</SelectItem>
-                  <SelectItem value="unmapped">Unmapped Fields</SelectItem>
-                  <SelectItem value="identification">Identification Fields</SelectItem>
-                  <SelectItem value="pricing">Pricing Fields</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="p-2 border-b">
-              <Input
-                placeholder="Source Fields"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 px-8 py-2 border-b bg-gray-50 text-xs font-medium text-gray-600">
-              <div>Source Fields</div>
-              <div className="flex items-center justify-between">
-                <span>Target Field</span>
-                <ArrowUp className="h-3 w-3" />
+                )}
+              </Droppable>
+            </DragDropContext>
+          </div>
+        </div>
+        
+        {/* Right column - Preview */}
+        <div className="space-y-4">
+          {/* Sample Data Preview */}
+          <div className="border rounded-md">
+            <div className="flex justify-between items-center p-3 border-b bg-gray-50">
+              <h3 className="font-medium">Sample Data Preview</h3>
+              
+              <div className="flex items-center gap-4">
+                <Tabs defaultValue="enhanced" className="h-8">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="enhanced" className="text-xs px-3 py-1">
+                      Enhanced
+                    </TabsTrigger>
+                    <TabsTrigger value="simple" className="text-xs px-3 py-1">
+                      Simple
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                
+                <div className="flex items-center">
+                  <span className="text-sm">Show</span>
+                  <Select
+                    value={rowsToShow.toString()}
+                    onValueChange={(val) => setRowsToShow(Number(val))}
+                  >
+                    <SelectTrigger className="mx-2 w-16 h-8 border-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm">rows</span>
+                </div>
               </div>
             </div>
             
-            <div className="flex-grow overflow-auto p-2">
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="mappings">
-                  {(provided) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="space-y-2"
-                    >
-                      {filteredMappings.map((mapping, index) => (
-                        <Draggable
-                          key={`mapping-${index}`}
-                          draggableId={`mapping-${index}`}
-                          index={index}
+            <div className="overflow-auto max-h-[300px]" ref={previewTableRef}>
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 z-10 bg-white">
+                  <tr>
+                    {sampleHeaders.map(header => (
+                      <th 
+                        key={header}
+                        className={`
+                          border p-2 font-medium text-left
+                          ${header === hoveredField ? 'bg-blue-100' : ''}
+                          ${header === selectedField ? 'bg-blue-200' : ''}
+                        `}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayData.map((row, rowIndex) => (
+                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {sampleHeaders.map(header => (
+                        <td 
+                          key={`${rowIndex}-${header}`}
+                          className={`
+                            border p-2 text-sm
+                            ${header === hoveredField ? 'bg-blue-50' : ''}
+                            ${header === selectedField ? 'bg-blue-100' : ''}
+                          `}
                         >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`
-                                flex items-center gap-1 p-2 rounded border 
-                                ${mapping.sourceField === hoveredField ? 'border-blue-300' : 'border-gray-200'}
-                                ${mapping.sourceField === selectedField ? 'border-blue-500 bg-blue-50' : 'bg-white'}
-                              `}
-                              onMouseEnter={() => setHoveredField(mapping.sourceField)}
-                              onMouseLeave={() => setHoveredField(null)}
-                              onClick={() => {
-                                setSelectedField(mapping.sourceField);
-                                scrollToField(mapping.sourceField);
-                              }}
-                            >
-                              <div className="cursor-grab px-1 text-gray-400 flex flex-col">
-                                <ArrowUp className="h-3 w-3" />
-                                <ArrowDown className="h-3 w-3" />
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-2 flex-grow">
-                                <Select 
-                                  value={mapping.sourceField || "select_field"}
-                                  onValueChange={(value) => 
-                                    updateMapping(index, "sourceField", value === "select_field" ? "" : value)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Source" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="select_field">Select field</SelectItem>
-                                    {sampleHeaders.map(header => (
-                                      <SelectItem key={header} value={header}>
-                                        {header}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                
-                                <Select 
-                                  value={mapping.targetField || "select_target"}
-                                  onValueChange={(value) => 
-                                    updateMapping(index, "targetField", value === "select_target" ? "" : value)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Target" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="select_target">Select target</SelectItem>
-                                    {targetFields.map(field => (
-                                      <SelectItem key={field.id} value={field.id}>
-                                        {field.name}{field.required ? ' *' : ''}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
+                          {row[header] !== undefined && row[header] !== null 
+                            ? String(row[header]) 
+                            : <span className="text-gray-400 italic">null</span>
+                          }
+                        </td>
                       ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
-        
-        {/* Right panel - Preview */}
-        <div className="flex-grow flex flex-col p-4 overflow-hidden">
-          <div className="flex flex-col space-y-4">
-            {/* Sample Data Preview */}
-            <Card>
-              <CardHeader className="p-4 pb-0 bg-white flex flex-row justify-between items-center">
-                <CardTitle className="text-base">Sample Data Preview</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Tabs defaultValue={enhancedView ? "enhanced" : "simple"}>
-                    <TabsList>
-                      <TabsTrigger 
-                        value="enhanced"
-                        onClick={() => setEnhancedView(true)}
-                      >
-                        Enhanced
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="simple"
-                        onClick={() => setEnhancedView(false)}
-                      >
-                        Simple
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  
-                  <div className="flex items-center">
-                    <span className="text-sm mr-2">Show</span>
-                    <Select 
-                      value={String(rowsToShow)}
-                      onValueChange={(value) => setRowsToShow(Number(value))}
-                    >
-                      <SelectTrigger className="w-[70px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="25">25</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <span className="text-sm ml-2">rows</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div 
-                  className="overflow-auto max-h-[300px]"
-                  ref={previewTableRef}
-                >
-                  <table className="w-full border-collapse">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
-                      <tr>
-                        {sampleHeaders.map(header => (
-                          <th 
-                            key={header}
-                            className={`
-                              p-2 border text-left font-medium text-gray-600 whitespace-nowrap
-                              ${header === hoveredField ? 'bg-blue-100' : ''}
-                              ${header === selectedField ? 'bg-blue-200' : ''}
-                            `}
-                          >
-                            {header}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayData.map((row, rowIndex) => (
-                        <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          {sampleHeaders.map(header => (
-                            <td 
-                              key={`${rowIndex}-${header}`}
-                              className={`
-                                p-2 border text-gray-800 text-sm
-                                ${header === hoveredField ? 'bg-blue-50' : ''}
-                                ${header === selectedField ? 'bg-blue-100' : ''}
-                              `}
-                            >
-                              {row[header] !== undefined && row[header] !== null 
-                                ? String(row[header]) 
-                                : <span className="text-gray-400 italic">null</span>
-                              }
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+          
+          {/* Live Mapping Preview */}
+          <div className="border rounded-md">
+            <div className="p-3 border-b bg-gray-50">
+              <h3 className="font-medium">Live Mapping Preview</h3>
+              <p className="text-xs text-gray-500">How the first row will be imported</p>
+            </div>
             
-            {/* Live Mapping Preview */}
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-base">Live Mapping Preview</CardTitle>
-                <p className="text-sm text-gray-500">How the first row will be imported</p>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full border-collapse">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-2 border text-left font-medium text-gray-600">Mfg. Part #</th>
-                      <th className="p-2 border text-left font-medium text-gray-600">UPC</th>
-                      <th className="p-2 border text-left font-medium text-gray-600">Your Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      {mappingPreview.length > 0 ? (
-                        <>
-                          <td className="p-2 border">
-                            {mappingPreview.find(m => m.targetName.includes('Part'))?.value || '—'}
-                          </td>
-                          <td className="p-2 border">
-                            {mappingPreview.find(m => m.targetName.includes('UPC'))?.value || '—'}
-                          </td>
-                          <td className="p-2 border">
-                            {mappingPreview.find(m => m.targetName.includes('Cost'))?.value || '—'}
-                          </td>
-                        </>
-                      ) : (
-                        <td colSpan={3} className="p-4 text-center text-gray-500">
-                          Map fields to see a preview of how data will be imported
+            <div>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="border p-2 font-medium text-left">Mfg. Part #</th>
+                    <th className="border p-2 font-medium text-left">UPC</th>
+                    <th className="border p-2 font-medium text-left">Your Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {mappingPreview.length > 0 ? (
+                      <>
+                        <td className="border p-2">
+                          {mappingPreview.find(m => m.targetName.includes('Part'))?.value || '—'}
                         </td>
-                      )}
-                    </tr>
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+                        <td className="border p-2">
+                          {mappingPreview.find(m => m.targetName.includes('UPC'))?.value || '—'}
+                        </td>
+                        <td className="border p-2">
+                          {mappingPreview.find(m => m.targetName.includes('Cost'))?.value || '—'}
+                        </td>
+                      </>
+                    ) : (
+                      <td colSpan={3} className="p-4 text-center text-gray-500">
+                        Map fields to see preview
+                      </td>
+                    )}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
