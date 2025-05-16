@@ -729,12 +729,22 @@ export default function MappingTemplateWorkspace() {
                     <MappingWorkspace
                       sampleData={sampleData}
                       sampleHeaders={sampleHeaders}
-                      fieldMappings={fieldMappings}
-                      targetFields={targetFields}
-                      onUpdateMappings={setFieldMappings}
+                      catalogMappings={catalogMappings}
+                      detailMappings={detailMappings}
+                      activeView={activeView}
+                      catalogFields={catalogFields}
+                      detailFields={detailFields}
+                      onUpdateCatalogMappings={setCatalogMappings}
+                      onUpdateDetailMappings={setDetailMappings}
+                      onToggleView={setActiveView}
                       onAutoMap={() => {
-                        const autoMappings = autoMapFields(sampleHeaders);
-                        setFieldMappings(autoMappings);
+                        if (activeView === 'catalog') {
+                          const autoMappings = autoMapFields(sampleHeaders, 'catalog');
+                          setCatalogMappings(autoMappings);
+                        } else {
+                          const autoMappings = autoMapFields(sampleHeaders, 'detail');
+                          setDetailMappings(autoMappings);
+                        }
                       }}
                       onSave={handleSaveTemplate}
                       onBack={() => navigate("/mapping-templates")}
