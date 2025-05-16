@@ -77,18 +77,18 @@ export default function MappingWorkspace({
   const previewTableRef = useRef<HTMLDivElement>(null);
   
   // Get current mappings and fields based on active view
-  const currentMappings = activeView === 'catalog' ? catalogMappings : detailMappings;
-  const currentFields = activeView === 'catalog' ? catalogFields : detailFields;
+  const currentMappings = activeView === 'catalog' ? catalogMappings || [] : detailMappings || [];
+  const currentFields = activeView === 'catalog' ? catalogFields || [] : detailFields || [];
   
   // Stats
-  const mappedFields = currentMappings.filter(m => m.sourceField && m.targetField);
-  const requiredFields = currentFields.filter(f => f.required);
-  const mappedRequiredFields = requiredFields.filter(rf => 
-    currentMappings.some(m => m.targetField === rf.id && m.sourceField)
-  );
-  const unmappedRequiredFields = requiredFields.filter(rf => 
-    !currentMappings.some(m => m.targetField === rf.id && m.sourceField)
-  );
+  const mappedFields = currentMappings?.filter(m => m?.sourceField && m?.targetField) || [];
+  const requiredFields = currentFields?.filter(f => f?.required) || [];
+  const mappedRequiredFields = requiredFields?.filter(rf => 
+    currentMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
+  ) || [];
+  const unmappedRequiredFields = requiredFields?.filter(rf => 
+    !currentMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
+  ) || [];
   
   // Jump to field in sample data preview
   const scrollToField = (fieldName: string) => {
@@ -169,7 +169,9 @@ export default function MappingWorkspace({
 
   // Filter mappings based on search and other filters
   const getFilteredMappings = () => {
-    return currentMappings.filter(mapping => {
+    return (currentMappings || []).filter(mapping => {
+      if (!mapping) return false;
+      
       // If showing only mapped fields, filter out unmapped ones
       if (showOnlyMapped && (!mapping.sourceField || !mapping.targetField)) {
         return false;
@@ -183,8 +185,8 @@ export default function MappingWorkspace({
       // Filter by search term
       if (searchTerm) {
         const sourceMatch = mapping.sourceField?.toLowerCase().includes(searchTerm.toLowerCase());
-        const targetField = currentFields.find(tf => tf.id === mapping.targetField);
-        const targetMatch = targetField?.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const targetField = (currentFields || []).find(tf => tf?.id === mapping.targetField);
+        const targetMatch = targetField?.name?.toLowerCase().includes(searchTerm.toLowerCase());
         return sourceMatch || targetMatch;
       }
       
@@ -194,22 +196,22 @@ export default function MappingWorkspace({
 
   // Generate live mapping preview
   const generateMappingPreview = () => {
-    if (sampleData.length === 0) return [];
+    if (!sampleData || sampleData.length === 0) return [];
     
     // Create a lookup from target field ID to source field
-    const mappingLookup = currentMappings.reduce((acc, mapping) => {
-      if (mapping.sourceField && mapping.targetField) {
+    const mappingLookup = (currentMappings || []).reduce((acc, mapping) => {
+      if (mapping?.sourceField && mapping?.targetField) {
         acc[mapping.targetField] = mapping.sourceField;
       }
       return acc;
     }, {} as Record<string, string>);
     
     // Get the first row of data for preview
-    const firstRow = sampleData[0];
+    const firstRow = sampleData[0] || {};
     
     // Generate preview data for mapped fields
     return Object.entries(mappingLookup).map(([targetId, sourceField]) => {
-      const targetField = currentFields.find(tf => tf.id === targetId);
+      const targetField = (currentFields || []).find(tf => tf?.id === targetId);
       return {
         targetField,
         sourceField,
@@ -220,7 +222,7 @@ export default function MappingWorkspace({
   
   // Get filtered mappings and preview data
   const filteredMappings = getFilteredMappings();
-  const displayData = sampleData.slice(0, rowsToShow);
+  const displayData = sampleData?.slice(0, rowsToShow) || [];
   const mappingPreview = generateMappingPreview();
   
   return (
@@ -613,11 +615,16 @@ export default function MappingWorkspace({
                           setSelectedField(header);
                           
                           // Find if this field is already mapped
-                          const existingMapping = fieldMappings.find(m => m.sourceField === header);
+                          const existingMapping = currentMappings?.find(m => m?.sourceField === header);
                           if (!existingMapping) {
                             // Add a new mapping for this field
-                            const newMappings = [...fieldMappings, { sourceField: header, targetField: "" }];
-                            onUpdateMappings(newMappings);
+                            if (activeView === 'catalog') {
+                              const newMappings = [...(catalogMappings || []), { sourceField: header, targetField: "" }];
+                              onUpdateCatalogMappings(newMappings);
+                            } else {
+                              const newMappings = [...(detailMappings || []), { sourceField: header, targetField: "" }];
+                              onUpdateDetailMappings(newMappings);
+                            }
                           }
                         }}
                       >
