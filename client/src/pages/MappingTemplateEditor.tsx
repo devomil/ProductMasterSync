@@ -610,13 +610,37 @@ export default function MappingTemplateEditor() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="fileLabel">File Path/Label (Optional)</Label>
-                    <Input
-                      id="fileLabel"
-                      name="fileLabel"
-                      value={templateForm.fileLabel}
-                      onChange={handleTemplateFormChange}
-                      placeholder="Enter file path or label"
-                    />
+                    
+                    {/* When SFTP is selected and we have remote paths, show dropdown */}
+                    {templateForm.sourceType === 'sftp' && remotePaths.length > 0 ? (
+                      <Select
+                        value={templateForm.fileLabel || ''}
+                        onValueChange={(value) => {
+                          setTemplateForm(prev => ({ ...prev, fileLabel: value }));
+                          setSelectedPath(value); // Keep both in sync
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a remote file" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {remotePaths.map((path) => (
+                            <SelectItem key={path} value={path}>
+                              {path}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      // Regular input for other source types
+                      <Input
+                        id="fileLabel"
+                        name="fileLabel"
+                        value={templateForm.fileLabel}
+                        onChange={handleTemplateFormChange}
+                        placeholder="Enter file path or label"
+                      />
+                    )}
                   </div>
                 </div>
                 
