@@ -760,7 +760,7 @@ export default function MappingTemplatesUpdate() {
                       <p className="text-muted-foreground">No mapping templates found.</p>
                       <Button
                         variant="outline"
-                        onClick={() => setIsCreateDialogOpen(true)}
+                        onClick={() => navigate('/mapping-templates/new')}
                         className="mt-4"
                       >
                         <Plus className="mr-2 h-4 w-4" /> Create Template
@@ -839,7 +839,8 @@ export default function MappingTemplatesUpdate() {
       </Tabs>
 
       {/* Create Template Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      {/* Modal dialog replaced with full-page editor */}
+      <Dialog open={false} onOpenChange={() => {}}>
         <DialogContent 
           className={cn(
             "max-w-4xl overflow-y-auto", 
