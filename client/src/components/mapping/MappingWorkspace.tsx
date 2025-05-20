@@ -68,22 +68,32 @@ interface MappingWorkspaceProps {
 }
 
 export default function MappingWorkspace({
-  sampleData,
-  sampleHeaders,
-  catalogMappings,
-  detailMappings,
-  activeView,
-  catalogFields,
-  detailFields,
-  onUpdateCatalogMappings,
-  onUpdateDetailMappings,
-  onToggleView,
-  onAutoMap,
-  onSave,
-  onBack,
-  templateInfo,
+  sampleData = [],
+  sampleHeaders = [],
+  catalogMappings = [],
+  detailMappings = [],
+  activeView = 'catalog',
+  catalogFields = [],
+  detailFields = [],
+  onUpdateCatalogMappings = () => {},
+  onUpdateDetailMappings = () => {},
+  onToggleView = () => {},
+  onAutoMap = () => {},
+  onSave = () => {},
+  onBack = () => {},
+  templateInfo = {},
   onPullSftpSample
 }: MappingWorkspaceProps) {
+
+  // Set component-level defaults
+  const localToggleView = (view: 'catalog' | 'detail') => {
+    // Use parent handler if available, otherwise handle locally
+    if (typeof onToggleView === 'function') {
+      onToggleView(view);
+    } else {
+      console.log(`Local view toggle to: ${view}`);
+    }
+  };
   // UI state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedField, setSelectedField] = useState<string | null>(null);
@@ -340,13 +350,7 @@ export default function MappingWorkspace({
                     ? 'bg-blue-100 text-blue-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
-                onClick={() => {
-                  if (typeof onToggleView === 'function') {
-                    onToggleView('catalog');
-                  } else {
-                    console.log('Toggle view function not available');
-                  }
-                }}
+                onClick={() => localToggleView('catalog')}
               >
                 <Database className="w-4 h-4 mr-2" />
                 Master Catalog
@@ -357,13 +361,7 @@ export default function MappingWorkspace({
                     ? 'bg-purple-100 text-purple-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
-                onClick={() => {
-                  if (typeof onToggleView === 'function') {
-                    onToggleView('detail');
-                  } else {
-                    console.log('Toggle view function not available');
-                  }
-                }}
+                onClick={() => localToggleView('detail')}
               >
                 <Monitor className="w-4 h-4 mr-2" />
                 Product Detail Page
@@ -462,26 +460,14 @@ export default function MappingWorkspace({
                 <TabsTrigger 
                   value="catalog" 
                   className={activeView === 'catalog' ? 'bg-blue-100' : ''}
-                  onClick={() => {
-                    if (typeof onToggleView === 'function') {
-                      onToggleView('catalog');
-                    } else {
-                      console.log('Toggle view function not available');
-                    }
-                  }}
+                  onClick={() => localToggleView('catalog')}
                 >
                   Master Catalog
                 </TabsTrigger>
                 <TabsTrigger 
                   value="detail" 
                   className={activeView === 'detail' ? 'bg-blue-100' : ''}
-                  onClick={() => {
-                    if (typeof onToggleView === 'function') {
-                      onToggleView('detail');
-                    } else {
-                      console.log('Toggle view function not available');
-                    }
-                  }}
+                  onClick={() => localToggleView('detail')}
                 >
                   Product Detail
                 </TabsTrigger>
