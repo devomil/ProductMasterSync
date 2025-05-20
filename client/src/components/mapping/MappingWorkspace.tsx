@@ -702,75 +702,299 @@ export default function MappingWorkspace({
             </div>
           </div>
           
-          {/* Sample data table */}
-          <div 
-            className="flex-grow overflow-auto px-3 py-2"
-            ref={previewTableRef}
-          >
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-slate-50 sticky top-0 z-10">
-                <tr>
-                  <th className="p-2 border font-medium text-left text-xs text-gray-500">
-                    #
-                  </th>
-                  {sampleHeaders.map(header => (
-                    <th 
-                      key={header} 
-                      className={`
-                        p-2 border font-medium text-left text-xs text-gray-500 whitespace-nowrap
-                        ${header === hoveredField ? 'bg-blue-100' : ''} 
-                        ${header === selectedField ? 'bg-blue-200' : ''}
-                      `}
-                    >
-                      {header}
+          {/* Conditional right panel: Sample data table or Product Detail Page preview */}
+          {activeView === 'catalog' ? (
+            // Sample data table for Catalog View
+            <div 
+              className="flex-grow overflow-auto px-3 py-2"
+              ref={previewTableRef}
+            >
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-slate-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="p-2 border font-medium text-left text-xs text-gray-500">
+                      #
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {displayData.map((row, rowIndex) => (
-                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="p-2 border text-gray-500 text-xs">
-                      {rowIndex + 1}
-                    </td>
                     {sampleHeaders.map(header => (
-                      <td 
-                        key={`${rowIndex}-${header}`} 
+                      <th 
+                        key={header} 
                         className={`
-                          p-2 border text-sm truncate max-w-[200px]
-                          ${header === hoveredField ? 'bg-blue-50' : ''} 
-                          ${header === selectedField ? 'bg-blue-100' : ''}
+                          p-2 border font-medium text-left text-xs text-gray-500 whitespace-nowrap
+                          ${header === hoveredField ? 'bg-blue-100' : ''} 
+                          ${header === selectedField ? 'bg-blue-200' : ''}
                         `}
-                        onMouseEnter={() => setHoveredField(header)}
-                        onMouseLeave={() => setHoveredField(null)}
-                        onClick={() => {
-                          setSelectedField(header);
-                          
-                          // Find if this field is already mapped
-                          const existingMapping = currentMappings?.find(m => m?.sourceField === header);
-                          if (!existingMapping) {
-                            // Add a new mapping for this field
-                            if (activeView === 'catalog') {
-                              const newMappings = [...(catalogMappings || []), { sourceField: header, targetField: "" }];
-                              onUpdateCatalogMappings(newMappings);
-                            } else {
-                              const newMappings = [...(detailMappings || []), { sourceField: header, targetField: "" }];
-                              onUpdateDetailMappings(newMappings);
-                            }
-                          }
-                        }}
                       >
-                        {row[header] !== undefined && row[header] !== null 
-                          ? String(row[header])
-                          : <span className="text-gray-400 italic">null</span>
-                        }
-                      </td>
+                        {header}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {displayData.map((row, rowIndex) => (
+                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="p-2 border text-gray-500 text-xs">
+                        {rowIndex + 1}
+                      </td>
+                      {sampleHeaders.map(header => (
+                        <td 
+                          key={`${rowIndex}-${header}`} 
+                          className={`
+                            p-2 border text-sm truncate max-w-[200px]
+                            ${header === hoveredField ? 'bg-blue-50' : ''} 
+                            ${header === selectedField ? 'bg-blue-100' : ''}
+                          `}
+                          onMouseEnter={() => setHoveredField(header)}
+                          onMouseLeave={() => setHoveredField(null)}
+                          onClick={() => {
+                            setSelectedField(header);
+                            
+                            // Find if this field is already mapped
+                            const existingMapping = currentMappings?.find(m => m?.sourceField === header);
+                            if (!existingMapping) {
+                              // Add a new mapping for this field
+                              if (activeView === 'catalog') {
+                                const newMappings = [...(catalogMappings || []), { sourceField: header, targetField: "" }];
+                                onUpdateCatalogMappings(newMappings);
+                              } else {
+                                const newMappings = [...(detailMappings || []), { sourceField: header, targetField: "" }];
+                                onUpdateDetailMappings(newMappings);
+                              }
+                            }
+                          }}
+                        >
+                          {row[header] !== undefined && row[header] !== null 
+                            ? String(row[header])
+                            : <span className="text-gray-400 italic">null</span>
+                          }
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            // Product Detail Page Preview
+            <div className="flex-grow overflow-auto p-4">
+              <div className="max-w-5xl mx-auto bg-white border rounded-lg shadow-sm">
+                <div className="border-b bg-gray-50 px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Monitor className="text-purple-500 w-5 h-5 mr-2" />
+                    <h3 className="font-medium">Product Detail Page Preview</h3>
+                  </div>
+                  <Badge className="bg-purple-100 text-purple-800">
+                    {detailMappings.filter(m => m.sourceField && m.targetField).length} Fields Mapped
+                  </Badge>
+                </div>
+                
+                {/* Product content preview */}
+                <div className="p-4">
+                  {sampleData.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Product image preview */}
+                      <div className="col-span-1">
+                        {(() => {
+                          // Find primary image mapping
+                          const imageMapping = detailMappings.find(m => m.targetField === 'image_url');
+                          const imageValue = imageMapping?.sourceField && sampleData[0] ? 
+                            sampleData[0][imageMapping.sourceField] : null;
+                          
+                          return (
+                            <Card className="overflow-hidden">
+                              <div className="relative pb-[100%] bg-gray-100 border-b flex items-center justify-center">
+                                {imageValue ? (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Image className="w-16 h-16 text-gray-300" />
+                                  </div>
+                                ) : (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                    <Image className="w-12 h-12 mb-2" />
+                                    <span className="text-sm">Primary Image</span>
+                                    <span className="text-xs mt-1">(No field mapped)</span>
+                                  </div>
+                                )}
+                              </div>
+                              <CardFooter className="py-2 justify-center">
+                                <div className="text-sm text-gray-500">
+                                  {imageValue ? 'Image preview available' : 'Map an image field to see preview'}
+                                </div>
+                              </CardFooter>
+                            </Card>
+                          );
+                        })()}
+                      </div>
+                      
+                      {/* Product details area */}
+                      <div className="col-span-1 md:col-span-2">
+                        {/* Product name/title */}
+                        {(() => {
+                          const nameMapping = detailMappings.find(m => 
+                            m.targetField === 'product_name' || m.targetField === 'name'
+                          );
+                          const nameValue = nameMapping?.sourceField && sampleData[0] ? 
+                            sampleData[0][nameMapping.sourceField] : null;
+                          
+                          return nameValue ? (
+                            <h2 className="text-2xl font-bold mb-3">{nameValue}</h2>
+                          ) : (
+                            <div className="h-8 bg-gray-100 rounded-md w-3/4 mb-3 flex items-center justify-center text-gray-400 text-sm">
+                              Product Name (Not mapped)
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Product description */}
+                        {(() => {
+                          const descMapping = detailMappings.find(m => m.targetField === 'description');
+                          const descValue = descMapping?.sourceField && sampleData[0] ? 
+                            sampleData[0][descMapping.sourceField] : null;
+                          
+                          return descValue ? (
+                            <p className="text-gray-700 mb-4">{descValue}</p>
+                          ) : (
+                            <div className="h-20 bg-gray-100 rounded-md mb-4 flex items-center justify-center text-gray-400 text-sm">
+                              Product Description (Not mapped)
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Tabs for different sections */}
+                        <Tabs defaultValue="specifications" className="w-full">
+                          <TabsList className="grid w-full grid-cols-3 mb-4">
+                            <TabsTrigger value="specifications" className="text-sm">Specifications</TabsTrigger>
+                            <TabsTrigger value="supplier" className="text-sm">Supplier Info</TabsTrigger>
+                            <TabsTrigger value="gallery" className="text-sm">Gallery</TabsTrigger>
+                          </TabsList>
+                          
+                          {/* Specifications Tab */}
+                          <TabsContent value="specifications">
+                            {(() => {
+                              // Get specification fields
+                              const specFields = detailFields
+                                .filter(f => (f as any).section === 'specifications')
+                                .map(field => {
+                                  const mapping = detailMappings.find(m => m.targetField === field.id);
+                                  const value = mapping?.sourceField && sampleData[0] ? 
+                                    sampleData[0][mapping.sourceField] : null;
+                                  return { ...field, value, isMapped: !!mapping?.sourceField };
+                                });
+                              
+                              const mappedSpecFields = specFields.filter(f => f.isMapped);
+                              
+                              return mappedSpecFields.length > 0 ? (
+                                <Table>
+                                  <TableBody>
+                                    {mappedSpecFields.map(field => (
+                                      <TableRow key={field.id}>
+                                        <TableCell className="font-medium w-1/3">{field.name}</TableCell>
+                                        <TableCell>{field.value || '-'}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              ) : (
+                                <div className="text-center p-8 bg-gray-50 rounded-md">
+                                  <Database className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                                  <p className="text-gray-500">No specification fields mapped yet.</p>
+                                  <p className="text-sm text-gray-400 mt-1">
+                                    Map fields like weight, dimensions, technical details, etc.
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </TabsContent>
+                          
+                          {/* Supplier Info Tab */}
+                          <TabsContent value="supplier">
+                            {(() => {
+                              // Get supplier-related fields
+                              const supplierFields = detailFields
+                                .filter(f => (f as any).section === 'supplier')
+                                .map(field => {
+                                  const mapping = detailMappings.find(m => m.targetField === field.id);
+                                  const value = mapping?.sourceField && sampleData[0] ? 
+                                    sampleData[0][mapping.sourceField] : null;
+                                  return { ...field, value, isMapped: !!mapping?.sourceField };
+                                });
+                              
+                              const mappedSupplierFields = supplierFields.filter(f => f.isMapped);
+                              
+                              return mappedSupplierFields.length > 0 ? (
+                                <div className="grid gap-4">
+                                  {mappedSupplierFields.map(field => (
+                                    <div key={field.id} className="flex justify-between border-b pb-2">
+                                      <span className="font-medium">{field.name}:</span>
+                                      <span>{field.value || '-'}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center p-8 bg-gray-50 rounded-md">
+                                  <Truck className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                                  <p className="text-gray-500">No supplier information mapped yet.</p>
+                                  <p className="text-sm text-gray-400 mt-1">
+                                    Map fields like shipping costs, lead times, availability, etc.
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </TabsContent>
+                          
+                          {/* Gallery Tab */}
+                          <TabsContent value="gallery">
+                            {(() => {
+                              // Get gallery fields
+                              const galleryFields = detailFields
+                                .filter(f => (f as any).section === 'gallery')
+                                .map(field => {
+                                  const mapping = detailMappings.find(m => m.targetField === field.id);
+                                  const value = mapping?.sourceField && sampleData[0] ? 
+                                    sampleData[0][mapping.sourceField] : null;
+                                  return { ...field, value, isMapped: !!mapping?.sourceField };
+                                });
+                              
+                              const mappedGalleryFields = galleryFields.filter(f => f.isMapped);
+                              
+                              return mappedGalleryFields.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                  {mappedGalleryFields.map(field => (
+                                    <div key={field.id} className="border rounded-md overflow-hidden">
+                                      <div className="bg-gray-50 p-2 text-sm font-medium border-b">
+                                        {field.name}
+                                      </div>
+                                      <div className="h-24 flex items-center justify-center bg-gray-100 p-2">
+                                        <Image className="w-8 h-8 text-gray-300" />
+                                      </div>
+                                      <div className="p-2 text-xs text-gray-500 truncate">
+                                        {field.value || 'No sample value available'}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center p-8 bg-gray-50 rounded-md">
+                                  <Image className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                                  <p className="text-gray-500">No gallery fields mapped yet.</p>
+                                  <p className="text-sm text-gray-400 mt-1">
+                                    Map fields like image URLs, video links, 360° views, etc.
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center p-8 text-gray-500">
+                      <p>No sample data available for preview.</p>
+                      <p className="text-sm mt-2">Upload sample data or pull from SFTP to see a preview.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Live mapping preview */}
           {mappingPreview.length > 0 && (
