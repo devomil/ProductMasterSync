@@ -873,7 +873,7 @@ export default function MappingTemplateWorkspace() {
                   }
                 }}
                 onSave={handleSaveTemplate}
-                onBack={() => navigate("/mapping-templates")}
+                onBack={() => setSelectedTab("template-info")}
                 templateInfo={{
                   name: templateForm.name,
                   supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
