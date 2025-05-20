@@ -85,28 +85,27 @@ export default function MappingWorkspace({
   onPullSftpSample
 }: MappingWorkspaceProps) {
 
-  // Use internal view state instead of relying only on the parent state
+  // Use internal view state exclusively - don't rely on parent for view state
   const [internalView, setInternalView] = useState<'catalog' | 'detail'>(activeView);
   
-  // Sync internal view with parent view when parent view changes
-  useEffect(() => {
-    setInternalView(activeView);
-  }, [activeView]);
+  // Don't sync with parent's activeView to prevent navigation issues
   
-  // Local toggle function to handle view changes
+  // Safely inform parent of view changes without relying on parent state change
   const localToggleView = (view: 'catalog' | 'detail') => {
     // Update internal state immediately
     setInternalView(view);
+    console.log(`Changing to ${view} view`);
     
-    // Use parent handler if available
+    // Safely notify parent of change if function exists
     if (typeof onToggleView === 'function') {
       try {
-        onToggleView(view);
+        // Wrap in setTimeout to prevent React state update cycle issues
+        setTimeout(() => {
+          onToggleView(view);
+        }, 0);
       } catch (err) {
         console.error("Error toggling view:", err);
       }
-    } else {
-      console.log(`Local view toggle to: ${view}`);
     }
   };
   // UI state

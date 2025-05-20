@@ -90,10 +90,18 @@ export default function MappingTemplateWorkspace() {
   const [detailMappings, setDetailMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
   const [activeView, setActiveView] = useState<'catalog' | 'detail'>('catalog');
   
-  // Custom view toggle function with logging
+  // Enhanced view toggle function with error prevention
   const handleViewToggle = (view: 'catalog' | 'detail') => {
-    console.log(`Toggling view to: ${view}`);
-    setActiveView(view);
+    try {
+      console.log(`Safely toggling view to: ${view}`);
+      // Use this approach to prevent state update errors
+      setTimeout(() => {
+        setActiveView(view);
+      }, 0);
+    } catch (err) {
+      console.error("Error changing view:", err);
+      // Don't let errors propagate and cause navigation issues
+    }
   };
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
