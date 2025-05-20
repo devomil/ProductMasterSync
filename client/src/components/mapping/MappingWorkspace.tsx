@@ -4,13 +4,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info as InfoIcon, AlertTriangle as AlertTriangleIcon, ChevronLeft, ChevronDown, ArrowUpDown, ChevronRight, Plus } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Info as InfoIcon, 
+  AlertTriangle as AlertTriangleIcon, 
+  ChevronLeft, 
+  ChevronDown, 
+  ArrowUpDown, 
+  ChevronRight, 
+  Plus, 
+  Database,
+  View,
+  Layers,
+  LayoutGrid,
+  Monitor,
+  Image,
+  FileText,
+  Truck,
+  Tag
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface FieldMapping {
@@ -89,6 +109,28 @@ export default function MappingWorkspace({
   const unmappedRequiredFields = requiredFields?.filter(rf => 
     !currentMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
   ) || [];
+  
+  // Group detail fields by section for organized preview
+  const detailFieldsBySection = detailFields.reduce((acc, field: any) => {
+    const section = field.section || 'other';
+    if (!acc[section]) {
+      acc[section] = [];
+    }
+    acc[section].push(field);
+    return acc;
+  }, {} as Record<string, any[]>);
+  
+  // Get section names and icons for display
+  const sectionIcons: Record<string, React.ReactNode> = {
+    'overview': <FileText className="w-4 h-4" />,
+    'specifications': <Database className="w-4 h-4" />,
+    'gallery': <Image className="w-4 h-4" />,
+    'supplier': <Truck className="w-4 h-4" />,
+    'related': <Layers className="w-4 h-4" />,
+    'seo': <Tag className="w-4 h-4" />,
+    'custom': <Plus className="w-4 h-4" />,
+    'other': <InfoIcon className="w-4 h-4" />
+  };
   
   // Jump to field in sample data preview
   const scrollToField = (fieldName: string) => {

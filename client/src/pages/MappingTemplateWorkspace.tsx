@@ -112,33 +112,68 @@ export default function MappingTemplateWorkspace() {
   ];
   
   const detailFields = [
-    { id: "mpn", name: "Manufacturer Part Number", description: "Manufacturer's part number", view: "detail" },
-    { id: "description", name: "Description", description: "Detailed product description", view: "detail" },
-    { id: "ean", name: "EAN", description: "European Article Number", view: "detail" },
-    { id: "isbn", name: "ISBN", description: "International Standard Book Number", view: "detail" },
-    { id: "weight", name: "Weight", description: "Product weight", view: "detail" },
-    { id: "weight_unit", name: "Weight Unit", description: "Unit of weight (lb, kg, etc)", view: "detail" },
-    { id: "length", name: "Length", description: "Product length", view: "detail" },
-    { id: "width", name: "Width", description: "Product width", view: "detail" },
-    { id: "height", name: "Height", description: "Product height", view: "detail" },
-    { id: "dimension_unit", name: "Dimension Unit", description: "Unit of dimensions (in, cm, etc)", view: "detail" },
-    { id: "color", name: "Color", description: "Product color", view: "detail" },
-    { id: "size", name: "Size", description: "Product size", view: "detail" },
-    { id: "material", name: "Material", description: "Product material", view: "detail" },
-    { id: "condition", name: "Condition", description: "Product condition (new, used, etc)", view: "detail" },
-    { id: "min_order_quantity", name: "Min Order Quantity", description: "Minimum order quantity", view: "detail" },
-    { id: "lead_time", name: "Lead Time", description: "Production or shipping lead time", view: "detail" },
-    { id: "is_taxable", name: "Is Taxable", description: "Whether product is taxable", view: "detail" },
-    { id: "tax_code", name: "Tax Code", description: "Tax classification code", view: "detail" },
-    { id: "image_url", name: "Image URL", description: "Primary product image URL", view: "detail" },
-    { id: "additional_image_urls", name: "Additional Image URLs", description: "Additional product image URLs (comma separated)", view: "detail" },
-    { id: "warranty", name: "Warranty", description: "Product warranty information", view: "detail" },
-    { id: "country_of_origin", name: "Country of Origin", description: "Country where product was manufactured", view: "detail" },
-    { id: "keywords", name: "Keywords", description: "Search keywords/tags", view: "detail" },
-    { id: "related_products", name: "Related Products", description: "Related product SKUs (comma separated)", view: "detail" },
-    { id: "custom_field_1", name: "Custom Field 1", description: "Custom field for additional data", view: "detail" },
-    { id: "custom_field_2", name: "Custom Field 2", description: "Custom field for additional data", view: "detail" },
-    { id: "custom_field_3", name: "Custom Field 3", description: "Custom field for additional data", view: "detail" },
+    // Basic Product Specification Section
+    { id: "mpn", name: "Manufacturer Part Number", description: "Manufacturer's part number", view: "detail", section: "specifications" },
+    { id: "description", name: "Description", description: "Detailed product description", view: "detail", section: "overview" },
+    { id: "short_description", name: "Short Description", description: "Short summary for product listings", view: "detail", section: "overview" },
+    { id: "features", name: "Features", description: "Bulleted list of product features", view: "detail", section: "overview" },
+    { id: "ean", name: "EAN", description: "European Article Number", view: "detail", section: "specifications" },
+    { id: "isbn", name: "ISBN", description: "International Standard Book Number", view: "detail", section: "specifications" },
+    
+    // Physical Attributes
+    { id: "weight", name: "Weight", description: "Product weight", view: "detail", section: "specifications" },
+    { id: "weight_unit", name: "Weight Unit", description: "Unit of weight (lb, kg, etc)", view: "detail", section: "specifications" },
+    { id: "length", name: "Length", description: "Product length", view: "detail", section: "specifications" },
+    { id: "width", name: "Width", description: "Product width", view: "detail", section: "specifications" },
+    { id: "height", name: "Height", description: "Product height", view: "detail", section: "specifications" },
+    { id: "dimension_unit", name: "Dimension Unit", description: "Unit of dimensions (in, cm, etc)", view: "detail", section: "specifications" },
+    { id: "color", name: "Color", description: "Product color", view: "detail", section: "specifications" },
+    { id: "size", name: "Size", description: "Product size", view: "detail", section: "specifications" },
+    { id: "material", name: "Material", description: "Product material", view: "detail", section: "specifications" },
+    { id: "condition", name: "Condition", description: "Product condition (new, used, etc)", view: "detail", section: "specifications" },
+    
+    // Supplier Info for PDP
+    { id: "min_order_quantity", name: "Min Order Quantity", description: "Minimum order quantity", view: "detail", section: "supplier" },
+    { id: "lead_time", name: "Lead Time", description: "Production or shipping lead time", view: "detail", section: "supplier" },
+    { id: "shipping_weight", name: "Shipping Weight", description: "Weight for shipping calculations", view: "detail", section: "supplier" },
+    { id: "shipping_dimensions", name: "Shipping Dimensions", description: "Dimensions for shipping calculations", view: "detail", section: "supplier" },
+    { id: "shipping_cost", name: "Shipping Cost", description: "Base shipping cost from supplier", view: "detail", section: "supplier" },
+    { id: "dropship_eligible", name: "Dropship Eligible", description: "Whether product is eligible for dropshipping", view: "detail", section: "supplier" },
+    { id: "supplier_notes", name: "Supplier Notes", description: "Special notes from supplier about product", view: "detail", section: "supplier" },
+    { id: "supplier_stock_levels", name: "Supplier Stock", description: "Current stock levels at supplier", view: "detail", section: "supplier" },
+    { id: "supplier_warehouse_locations", name: "Warehouse Locations", description: "Warehouses where product is stocked", view: "detail", section: "supplier" },
+    
+    // Tax and Financial
+    { id: "is_taxable", name: "Is Taxable", description: "Whether product is taxable", view: "detail", section: "specifications" },
+    { id: "tax_code", name: "Tax Code", description: "Tax classification code", view: "detail", section: "specifications" },
+    { id: "msrp", name: "MSRP", description: "Manufacturer's suggested retail price", view: "detail", section: "specifications" },
+    { id: "map_price", name: "MAP Price", description: "Minimum advertised price", view: "detail", section: "specifications" },
+    
+    // Media Gallery
+    { id: "image_url", name: "Primary Image URL", description: "Primary product image URL", view: "detail", section: "gallery" },
+    { id: "additional_image_urls", name: "Additional Image URLs", description: "Additional product image URLs (comma separated)", view: "detail", section: "gallery" },
+    { id: "video_url", name: "Video URL", description: "Product video URL", view: "detail", section: "gallery" },
+    { id: "manual_url", name: "Manual URL", description: "Product manual/documentation URL", view: "detail", section: "gallery" },
+    { id: "360_view_url", name: "360° View URL", description: "360-degree product view URL", view: "detail", section: "gallery" },
+    { id: "thumbnail_url", name: "Thumbnail URL", description: "Small thumbnail image URL", view: "detail", section: "gallery" },
+    
+    // Additional Info
+    { id: "warranty", name: "Warranty", description: "Product warranty information", view: "detail", section: "specifications" },
+    { id: "country_of_origin", name: "Country of Origin", description: "Country where product was manufactured", view: "detail", section: "specifications" },
+    { id: "keywords", name: "Keywords", description: "Search keywords/tags", view: "detail", section: "seo" },
+    { id: "related_products", name: "Related Products", description: "Related product SKUs (comma separated)", view: "detail", section: "related" },
+    { id: "upsell_products", name: "Upsell Products", description: "Upsell product SKUs (comma separated)", view: "detail", section: "related" },
+    { id: "cross_sell_products", name: "Cross-sell Products", description: "Cross-sell product SKUs (comma separated)", view: "detail", section: "related" },
+    
+    // Technical Specifications
+    { id: "technical_specs", name: "Technical Specifications", description: "Detailed technical specifications (JSON format)", view: "detail", section: "specifications" },
+    { id: "compatibility", name: "Compatibility", description: "Compatible products or systems", view: "detail", section: "specifications" },
+    { id: "certifications", name: "Certifications", description: "Product certifications (e.g., UL, CE)", view: "detail", section: "specifications" },
+    
+    // Custom Fields
+    { id: "custom_field_1", name: "Custom Field 1", description: "Custom field for additional data", view: "detail", section: "custom" },
+    { id: "custom_field_2", name: "Custom Field 2", description: "Custom field for additional data", view: "detail", section: "custom" },
+    { id: "custom_field_3", name: "Custom Field 3", description: "Custom field for additional data", view: "detail", section: "custom" },
   ];
   
   // Combine for legacy code compatibility
