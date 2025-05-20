@@ -85,11 +85,26 @@ export default function MappingWorkspace({
   onPullSftpSample
 }: MappingWorkspaceProps) {
 
-  // Set component-level defaults
+  // Use internal view state instead of relying only on the parent state
+  const [internalView, setInternalView] = useState<'catalog' | 'detail'>(activeView);
+  
+  // Sync internal view with parent view when parent view changes
+  useEffect(() => {
+    setInternalView(activeView);
+  }, [activeView]);
+  
+  // Local toggle function to handle view changes
   const localToggleView = (view: 'catalog' | 'detail') => {
-    // Use parent handler if available, otherwise handle locally
+    // Update internal state immediately
+    setInternalView(view);
+    
+    // Use parent handler if available
     if (typeof onToggleView === 'function') {
-      onToggleView(view);
+      try {
+        onToggleView(view);
+      } catch (err) {
+        console.error("Error toggling view:", err);
+      }
     } else {
       console.log(`Local view toggle to: ${view}`);
     }
@@ -106,9 +121,9 @@ export default function MappingWorkspace({
   // Reference for the data preview table for scrolling
   const previewTableRef = useRef<HTMLDivElement>(null);
   
-  // Get current mappings and fields based on active view
-  const currentMappings = activeView === 'catalog' ? catalogMappings || [] : detailMappings || [];
-  const currentFields = activeView === 'catalog' ? catalogFields || [] : detailFields || [];
+  // Get current mappings and fields based on internal view
+  const currentMappings = internalView === 'catalog' ? catalogMappings || [] : detailMappings || [];
+  const currentFields = internalView === 'catalog' ? catalogFields || [] : detailFields || [];
   
   // Debug logging for data and mappings
   useEffect(() => {
@@ -355,7 +370,7 @@ export default function MappingWorkspace({
             <div className="bg-white rounded-lg border shadow-sm flex items-center">
               <button
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
-                  activeView === 'catalog' 
+                  internalView === 'catalog' 
                     ? 'bg-blue-100 text-blue-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -366,7 +381,7 @@ export default function MappingWorkspace({
               </button>
               <button
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
-                  activeView === 'detail' 
+                  internalView === 'detail' 
                     ? 'bg-purple-100 text-purple-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
@@ -468,14 +483,14 @@ export default function MappingWorkspace({
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger 
                   value="catalog" 
-                  className={activeView === 'catalog' ? 'bg-blue-100' : ''}
+                  className={internalView === 'catalog' ? 'bg-blue-100' : ''}
                   onClick={() => localToggleView('catalog')}
                 >
                   Master Catalog
                 </TabsTrigger>
                 <TabsTrigger 
                   value="detail" 
-                  className={activeView === 'detail' ? 'bg-blue-100' : ''}
+                  className={internalView === 'detail' ? 'bg-blue-100' : ''}
                   onClick={() => localToggleView('detail')}
                 >
                   Product Detail
