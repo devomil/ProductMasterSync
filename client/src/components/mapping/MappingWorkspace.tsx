@@ -257,9 +257,41 @@ export default function MappingWorkspace({
       return {
         targetField,
         sourceField,
-        sampleValue: firstRow[sourceField]
+        sampleValue: firstRow[sourceField],
+        section: (targetField as any)?.section || 'other'
       };
     });
+  };
+  
+  // Generate a formatted PDP preview
+  const generatePdpPreview = () => {
+    if (activeView !== 'detail' || !sampleData || sampleData.length === 0) return null;
+    
+    // Create a mapping lookup from field ID to sample value
+    const mappingLookup = {} as Record<string, any>;
+    
+    // Fill in mapped values from first row of sample data
+    const firstRow = sampleData[0] || {};
+    (detailMappings || []).forEach(mapping => {
+      if (mapping.sourceField && mapping.targetField) {
+        mappingLookup[mapping.targetField] = firstRow[mapping.sourceField];
+      }
+    });
+    
+    // Return sections and values for the PDP preview
+    return Object.entries(detailFieldsBySection).map(([section, fields]) => {
+      const fieldsWithValues = fields.map(field => ({
+        ...field,
+        value: mappingLookup[field.id] || null,
+        isMapped: !!mappingLookup[field.id]
+      }));
+      
+      return {
+        section,
+        fields: fieldsWithValues,
+        mappedCount: fieldsWithValues.filter(f => f.isMapped).length
+      };
+    }).filter(section => section.mappedCount > 0);
   };
   
   // Get filtered mappings and preview data
@@ -297,37 +329,95 @@ export default function MappingWorkspace({
       </div>
       
       {/* Control bar */}
-      <div className="flex items-center gap-4 p-3 bg-slate-50 border-b">
-        <div className="flex items-center gap-2">
-          <Switch 
-            id="show-mapped" 
-            checked={showOnlyMapped}
-            onCheckedChange={setShowOnlyMapped}
-          />
-          <Label htmlFor="show-mapped" className="text-sm font-medium">
-            Show only mapped fields
-          </Label>
+      <div className="flex flex-col gap-2 bg-slate-50 border-b">
+        <div className="flex items-center gap-4 p-3">
+          {/* View toggle - Master Catalog vs PDP */}
+          <div className="flex-shrink-0">
+            <div className="bg-white rounded-lg border shadow-sm flex items-center">
+              <button
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
+                  activeView === 'catalog' 
+                    ? 'bg-blue-100 text-blue-800' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+                onClick={() => onToggleView('catalog')}
+              >
+                <Database className="w-4 h-4 mr-2" />
+                Master Catalog
+              </button>
+              <button
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
+                  activeView === 'detail' 
+                    ? 'bg-purple-100 text-purple-800' 
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+                onClick={() => onToggleView('detail')}
+              >
+                <Monitor className="w-4 h-4 mr-2" />
+                Product Detail Page
+              </button>
+            </div>
+          </div>
+          
+          <Separator orientation="vertical" className="h-8" />
+          
+          <div className="flex items-center gap-2">
+            <Switch 
+              id="show-mapped" 
+              checked={showOnlyMapped}
+              onCheckedChange={setShowOnlyMapped}
+            />
+            <Label htmlFor="show-mapped" className="text-sm font-medium">
+              Show only mapped fields
+            </Label>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Switch 
+              id="collapse-unmapped" 
+              checked={collapseUnmapped}
+              onCheckedChange={setCollapseUnmapped}
+            />
+            <Label htmlFor="collapse-unmapped" className="text-sm font-medium">
+              Collapse unmapped fields
+            </Label>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onAutoMap}
+            className="ml-auto"
+          >
+            Auto-Map Fields
+          </Button>
         </div>
         
-        <div className="flex items-center gap-2">
-          <Switch 
-            id="collapse-unmapped" 
-            checked={collapseUnmapped}
-            onCheckedChange={setCollapseUnmapped}
-          />
-          <Label htmlFor="collapse-unmapped" className="text-sm font-medium">
-            Collapse unmapped fields
-          </Label>
+        {/* View information */}
+        <div className="px-3 pb-3 flex items-center">
+          <div className="flex-1">
+            {activeView === 'catalog' ? (
+              <p className="text-sm text-gray-500">
+                <span className="font-medium">Master Catalog View:</span> Map fields to the master catalog database fields.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">
+                <span className="font-medium">Product Detail Page View:</span> Map fields that will appear on the PDP for customers.
+              </p>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">Progress:</span>
+            <div className="w-40 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className={`h-full ${progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`} 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <span className="text-sm text-gray-600">{progress}%</span>
+          </div>
         </div>
-        
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onAutoMap}
-          className="ml-auto"
-        >
-          Auto-Map Fields
-        </Button>
       </div>
       
       {/* Main workspace */}
