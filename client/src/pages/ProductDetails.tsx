@@ -55,6 +55,11 @@ interface ProductSupplier {
   cost: string;
   stock: number;
   shippingTime: string;
+  shippingOptions?: {
+    method: string;
+    cost: string;
+    estimatedDays: string;
+  }[];
   locations: {
     warehouse: string;
     quantity: number;
@@ -150,6 +155,11 @@ export default function ProductDetails() {
             cost: "345.99",
             stock: 78,
             shippingTime: "2-3 business days",
+            shippingOptions: [
+              { method: "Standard Ground", cost: "12.99", estimatedDays: "3-5 days" },
+              { method: "Expedited", cost: "24.99", estimatedDays: "2 days" },
+              { method: "Next Day Air", cost: "39.99", estimatedDays: "1 day" }
+            ],
             locations: [
               { warehouse: "East Coast", quantity: 32 },
               { warehouse: "Midwest", quantity: 46 }
@@ -200,6 +210,12 @@ export default function ProductDetails() {
             cost: "349.99",
             stock: 105,
             shippingTime: "1-2 business days",
+            shippingOptions: [
+              { method: "Standard Ground", cost: "10.99", estimatedDays: "3-4 days" },
+              { method: "2-Day Express", cost: "19.99", estimatedDays: "2 days" },
+              { method: "Priority Overnight", cost: "34.99", estimatedDays: "1 day" },
+              { method: "Free Economy", cost: "0.00", estimatedDays: "5-7 days" }
+            ],
             locations: [
               { warehouse: "West Coast", quantity: 65 },
               { warehouse: "South", quantity: 40 }
@@ -495,6 +511,13 @@ export default function ProductDetails() {
                             <div className={`text-sm ${supplier.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {supplier.stock > 0 ? `${supplier.stock} in stock` : 'Out of stock'}
                             </div>
+                            {supplier.shippingOptions && supplier.shippingOptions.length > 0 && (
+                              <div className="text-sm text-blue-600">
+                                {supplier.shippingOptions.some(option => option.cost === "0.00") 
+                                  ? "Free shipping available" 
+                                  : `Ships from $${Math.min(...supplier.shippingOptions.map(option => parseFloat(option.cost))).toFixed(2)}`}
+                              </div>
+                            )}
                           </div>
                         </div>
                         
@@ -715,6 +738,39 @@ export default function ProductDetails() {
                 <p className="text-lg">{selectedSupplier?.shippingTime}</p>
               </div>
             </div>
+            
+            {/* Shipping Options */}
+            {selectedSupplier?.shippingOptions && selectedSupplier.shippingOptions.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Shipping Options</h4>
+                <div className="border rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {selectedSupplier.shippingOptions.map((option, index) => (
+                        <tr key={index} className={option.cost === "0.00" ? "bg-green-50" : ""}>
+                          <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{option.method}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                            {option.cost === "0.00" ? (
+                              <span className="text-green-600 font-medium">FREE</span>
+                            ) : (
+                              `$${option.cost}`
+                            )}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{option.estimatedDays}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             
             <div>
               <h4 className="text-sm font-medium text-gray-500 mb-2">Warehouse Inventory</h4>
