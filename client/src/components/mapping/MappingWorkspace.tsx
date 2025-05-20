@@ -948,10 +948,10 @@ export default function MappingWorkspace({
                           <TabsContent value="gallery">
                             {(() => {
                               // Get gallery fields
-                              const galleryFields = detailFields
-                                .filter(f => (f as any).section === 'gallery')
+                              const galleryFields = (detailFields || [])
+                                .filter(f => (f as any)?.section === 'gallery')
                                 .map(field => {
-                                  const mapping = detailMappings.find(m => m.targetField === field.id);
+                                  const mapping = (detailMappings || []).find(m => m?.targetField === field.id);
                                   const value = mapping?.sourceField && sampleData[0] ? 
                                     sampleData[0][mapping.sourceField] : null;
                                   return { ...field, value, isMapped: !!mapping?.sourceField };
