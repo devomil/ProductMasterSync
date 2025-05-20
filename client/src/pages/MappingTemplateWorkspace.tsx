@@ -318,13 +318,20 @@ export default function MappingTemplateWorkspace() {
       
       const data = await response.json();
       
+      console.log("SFTP pull response:", data);
+      
       if (!data.sample_data || data.sample_data.length === 0) {
         throw new Error("No data found in the selected file");
       }
       
       // Update state with sample data
+      console.log("Setting sample data:", data.sample_data);
       setSampleData(data.sample_data);
       setSampleHeaders(Object.keys(data.sample_data[0]));
+      
+      // Ensure we immediately switch to the mapping tab when data is loaded
+      setSelectedTab("mapping");
+      
       setTemplateForm(prev => ({
         ...prev,
         fileLabel: selectedPath
