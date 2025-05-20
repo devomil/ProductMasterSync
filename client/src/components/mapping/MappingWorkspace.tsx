@@ -340,7 +340,13 @@ export default function MappingWorkspace({
                     ? 'bg-blue-100 text-blue-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
-                onClick={() => onToggleView('catalog')}
+                onClick={() => {
+                  if (typeof onToggleView === 'function') {
+                    onToggleView('catalog');
+                  } else {
+                    console.log('Toggle view function not available');
+                  }
+                }}
               >
                 <Database className="w-4 h-4 mr-2" />
                 Master Catalog
@@ -351,7 +357,13 @@ export default function MappingWorkspace({
                     ? 'bg-purple-100 text-purple-800' 
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
-                onClick={() => onToggleView('detail')}
+                onClick={() => {
+                  if (typeof onToggleView === 'function') {
+                    onToggleView('detail');
+                  } else {
+                    console.log('Toggle view function not available');
+                  }
+                }}
               >
                 <Monitor className="w-4 h-4 mr-2" />
                 Product Detail Page
