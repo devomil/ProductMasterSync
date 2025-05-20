@@ -793,13 +793,13 @@ export default function MappingWorkspace({
                 
                 {/* Product content preview */}
                 <div className="p-4">
-                  {sampleData.length > 0 ? (
+                  {(sampleData || []).length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {/* Product image preview */}
                       <div className="col-span-1">
                         {(() => {
                           // Find primary image mapping
-                          const imageMapping = detailMappings.find(m => m.targetField === 'image_url');
+                          const imageMapping = (detailMappings || []).find(m => m?.targetField === 'image_url');
                           const imageValue = imageMapping?.sourceField && sampleData[0] ? 
                             sampleData[0][imageMapping.sourceField] : null;
                           
