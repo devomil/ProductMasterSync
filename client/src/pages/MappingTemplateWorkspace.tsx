@@ -39,6 +39,24 @@ interface ValidationRule {
   params?: any;
 }
 
+// Define catalog field and detail field interfaces to match what we're using
+interface CatalogField {
+  id: string;
+  name: string;
+  description: string;
+  required?: boolean;
+  type?: string;
+}
+
+interface DetailField {
+  id: string;
+  name: string;
+  description: string;
+  view: string;
+  section: string;
+  required?: boolean;
+}
+
 interface Supplier {
   id: number;
   name: string;
@@ -544,14 +562,14 @@ export default function MappingTemplateWorkspace() {
     
     // Create validation rules for required fields
     const catalogRequiredFields = catalogFields
-      .filter(field => field.required && Object.keys(catalogMappingsRecord).includes(field.id))
+      .filter(field => (field.required || false) && Object.keys(catalogMappingsRecord).includes(field.id))
       .map(field => ({ 
         field: field.id, 
         rule: "required" 
       }));
       
     const detailRequiredFields = detailFields
-      .filter(field => field.required && Object.keys(detailMappingsRecord).includes(field.id))
+      .filter(field => (field.required || false) && Object.keys(detailMappingsRecord).includes(field.id))
       .map(field => ({ 
         field: field.id, 
         rule: "required" 
@@ -571,10 +589,7 @@ export default function MappingTemplateWorkspace() {
     try {
       if (isEdit) {
         // Update existing template
-        await apiRequest(`/api/mapping-templates/${id}`, {
-          method: 'PATCH',
-          data: templateData
-        });
+        await apiRequest(`/api/mapping-templates/${id}`, 'PATCH', templateData);
         
         toast({
           title: "Success",
@@ -582,10 +597,7 @@ export default function MappingTemplateWorkspace() {
         });
       } else {
         // Create new template
-        await apiRequest('/api/mapping-templates', {
-          method: 'POST',
-          data: templateData
-        });
+        await apiRequest('/api/mapping-templates', 'POST', templateData);
         
         toast({
           title: "Success",
