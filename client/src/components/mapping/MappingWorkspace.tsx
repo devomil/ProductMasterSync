@@ -242,6 +242,8 @@ export default function MappingWorkspace({
     }
   };
 
+  // Using internal view state for better reliability
+  
   // Filter mappings based on search and other filters
   const getFilteredMappings = () => {
     return (currentMappings || []).filter(mapping => {
