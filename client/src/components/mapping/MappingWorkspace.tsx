@@ -111,7 +111,7 @@ export default function MappingWorkspace({
   ) || [];
   
   // Group detail fields by section for organized preview
-  const detailFieldsBySection = detailFields.reduce((acc, field: any) => {
+  const detailFieldsBySection = (detailFields || []).reduce((acc, field: any) => {
     const section = field.section || 'other';
     if (!acc[section]) {
       acc[section] = [];
@@ -410,12 +410,16 @@ export default function MappingWorkspace({
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-600">Progress:</span>
             <div className="w-40 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className={`h-full ${progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`} 
-                style={{ width: `${progress}%` }}
-              ></div>
+              {requiredFields.length > 0 && (
+                <div 
+                  className={`h-full ${mappedRequiredFields.length === requiredFields.length ? 'bg-green-500' : 'bg-blue-500'}`} 
+                  style={{ width: `${requiredFields.length > 0 ? Math.round((mappedRequiredFields.length / requiredFields.length) * 100) : 0}%` }}
+                ></div>
+              )}
             </div>
-            <span className="text-sm text-gray-600">{progress}%</span>
+            <span className="text-sm text-gray-600">
+              {requiredFields.length > 0 ? Math.round((mappedRequiredFields.length / requiredFields.length) * 100) : 0}%
+            </span>
           </div>
         </div>
       </div>
