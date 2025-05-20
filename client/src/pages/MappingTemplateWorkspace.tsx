@@ -89,6 +89,12 @@ export default function MappingTemplateWorkspace() {
   const [catalogMappings, setCatalogMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
   const [detailMappings, setDetailMappings] = useState<FieldMapping[]>([{ sourceField: "", targetField: "" }]);
   const [activeView, setActiveView] = useState<'catalog' | 'detail'>('catalog');
+  
+  // Custom view toggle function with logging
+  const handleViewToggle = (view: 'catalog' | 'detail') => {
+    console.log(`Toggling view to: ${view}`);
+    setActiveView(view);
+  };
   const [expandedPreview, setExpandedPreview] = useState(false);
   const [collapseUnmapped, setCollapseUnmapped] = useState(false);
   const [selectedTab, setSelectedTab] = useState("template-info");
@@ -856,7 +862,7 @@ export default function MappingTemplateWorkspace() {
                 detailFields={detailFields}
                 onUpdateCatalogMappings={setCatalogMappings}
                 onUpdateDetailMappings={setDetailMappings}
-                onToggleView={setActiveView}
+                onToggleView={handleViewToggle}
                 onAutoMap={() => {
                   if (activeView === 'catalog') {
                     const autoMappings = autoMapFields(sampleHeaders, 'catalog');

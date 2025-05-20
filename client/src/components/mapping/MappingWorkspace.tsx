@@ -110,6 +110,15 @@ export default function MappingWorkspace({
   const currentMappings = activeView === 'catalog' ? catalogMappings || [] : detailMappings || [];
   const currentFields = activeView === 'catalog' ? catalogFields || [] : detailFields || [];
   
+  // Debug logging for data and mappings
+  useEffect(() => {
+    console.log('MappingWorkspace received sample data:', sampleData);
+    console.log('MappingWorkspace received sample headers:', sampleHeaders);
+    console.log('Current view:', activeView);
+    console.log('Current fields:', currentFields);
+    console.log('Current mappings:', currentMappings);
+  }, [sampleData, sampleHeaders, activeView, currentFields, currentMappings]);
+  
   // Stats
   const mappedFields = currentMappings?.filter(m => m?.sourceField && m?.targetField) || [];
   const requiredFields = currentFields?.filter(f => f?.required) || [];
