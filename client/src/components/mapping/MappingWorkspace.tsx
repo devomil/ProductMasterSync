@@ -787,7 +787,7 @@ export default function MappingWorkspace({
                     <h3 className="font-medium">Product Detail Page Preview</h3>
                   </div>
                   <Badge className="bg-purple-100 text-purple-800">
-                    {detailMappings.filter(m => m.sourceField && m.targetField).length} Fields Mapped
+                    {(detailMappings || []).filter(m => m?.sourceField && m?.targetField).length} Fields Mapped
                   </Badge>
                 </div>
                 
@@ -832,8 +832,8 @@ export default function MappingWorkspace({
                       <div className="col-span-1 md:col-span-2">
                         {/* Product name/title */}
                         {(() => {
-                          const nameMapping = detailMappings.find(m => 
-                            m.targetField === 'product_name' || m.targetField === 'name'
+                          const nameMapping = (detailMappings || []).find(m => 
+                            m?.targetField === 'product_name' || m?.targetField === 'name'
                           );
                           const nameValue = nameMapping?.sourceField && sampleData[0] ? 
                             sampleData[0][nameMapping.sourceField] : null;
@@ -849,7 +849,7 @@ export default function MappingWorkspace({
                         
                         {/* Product description */}
                         {(() => {
-                          const descMapping = detailMappings.find(m => m.targetField === 'description');
+                          const descMapping = (detailMappings || []).find(m => m?.targetField === 'description');
                           const descValue = descMapping?.sourceField && sampleData[0] ? 
                             sampleData[0][descMapping.sourceField] : null;
                           
@@ -874,10 +874,10 @@ export default function MappingWorkspace({
                           <TabsContent value="specifications">
                             {(() => {
                               // Get specification fields
-                              const specFields = detailFields
-                                .filter(f => (f as any).section === 'specifications')
+                              const specFields = (detailFields || [])
+                                .filter(f => (f as any)?.section === 'specifications')
                                 .map(field => {
-                                  const mapping = detailMappings.find(m => m.targetField === field.id);
+                                  const mapping = (detailMappings || []).find(m => m?.targetField === field.id);
                                   const value = mapping?.sourceField && sampleData[0] ? 
                                     sampleData[0][mapping.sourceField] : null;
                                   return { ...field, value, isMapped: !!mapping?.sourceField };
@@ -912,10 +912,10 @@ export default function MappingWorkspace({
                           <TabsContent value="supplier">
                             {(() => {
                               // Get supplier-related fields
-                              const supplierFields = detailFields
-                                .filter(f => (f as any).section === 'supplier')
+                              const supplierFields = (detailFields || [])
+                                .filter(f => (f as any)?.section === 'supplier')
                                 .map(field => {
-                                  const mapping = detailMappings.find(m => m.targetField === field.id);
+                                  const mapping = (detailMappings || []).find(m => m?.targetField === field.id);
                                   const value = mapping?.sourceField && sampleData[0] ? 
                                     sampleData[0][mapping.sourceField] : null;
                                   return { ...field, value, isMapped: !!mapping?.sourceField };
