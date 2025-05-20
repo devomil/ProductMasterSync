@@ -462,14 +462,26 @@ export default function MappingWorkspace({
                 <TabsTrigger 
                   value="catalog" 
                   className={activeView === 'catalog' ? 'bg-blue-100' : ''}
-                  onClick={() => onToggleView('catalog')}
+                  onClick={() => {
+                    if (typeof onToggleView === 'function') {
+                      onToggleView('catalog');
+                    } else {
+                      console.log('Toggle view function not available');
+                    }
+                  }}
                 >
                   Master Catalog
                 </TabsTrigger>
                 <TabsTrigger 
                   value="detail" 
                   className={activeView === 'detail' ? 'bg-blue-100' : ''}
-                  onClick={() => onToggleView('detail')}
+                  onClick={() => {
+                    if (typeof onToggleView === 'function') {
+                      onToggleView('detail');
+                    } else {
+                      console.log('Toggle view function not available');
+                    }
+                  }}
                 >
                   Product Detail
                 </TabsTrigger>
