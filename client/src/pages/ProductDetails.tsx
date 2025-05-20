@@ -59,6 +59,20 @@ interface ProductSupplier {
     warehouse: string;
     quantity: number;
   }[];
+  specifications?: Record<string, string>;
+  documents?: {
+    id: string;
+    name: string;
+    type: string;
+    url: string;
+  }[];
+  images?: {
+    id: string;
+    url: string;
+    alt: string;
+    isPrimary: boolean;
+  }[];
+  notes?: string;
 }
 
 interface Product {
@@ -139,7 +153,46 @@ export default function ProductDetails() {
             locations: [
               { warehouse: "East Coast", quantity: 32 },
               { warehouse: "Midwest", quantity: 46 }
-            ]
+            ],
+            specifications: {
+              "Resolution": "4K Ultra HD (3840 x 2160)",
+              "Night Vision": "Up to 100ft",
+              "Storage": "1TB Expandable",
+              "Power": "AC Adapter with Battery Backup",
+              "Weather Resistance": "IP67 Rated",
+              "Warranty": "3 Years Limited",
+              "Installation": "Professional installation available",
+              "Package Contents": "4 Cameras, 1 Hub, Power Adapters, Mounting Kit"
+            },
+            documents: [
+              {
+                id: "doc1",
+                name: "Installation Guide",
+                type: "pdf",
+                url: "https://example.com/installation-guide.pdf"
+              },
+              {
+                id: "doc2",
+                name: "User Manual",
+                type: "pdf",
+                url: "https://example.com/user-manual.pdf"
+              }
+            ],
+            images: [
+              {
+                id: "img1",
+                url: "https://images.unsplash.com/photo-1610641818989-c2051b5e2cfd?q=80&w=2070&auto=format&fit=crop",
+                alt: "Camera System - Front View",
+                isPrimary: true
+              },
+              {
+                id: "img2",
+                url: "https://images.unsplash.com/photo-1557862921-37829c790f19?q=80&w=2071&auto=format&fit=crop",
+                alt: "Camera System - Package Contents",
+                isPrimary: false
+              }
+            ],
+            notes: "CWR is an authorized retailer. Products include full manufacturer warranty."
           },
           {
             supplierId: 2,
@@ -150,7 +203,46 @@ export default function ProductDetails() {
             locations: [
               { warehouse: "West Coast", quantity: 65 },
               { warehouse: "South", quantity: 40 }
-            ]
+            ],
+            specifications: {
+              "Resolution": "4K Ultra HD (3840 x 2160)",
+              "Night Vision": "Up to 120ft",
+              "Storage": "2TB Expandable",
+              "Power": "AC Adapter with Battery Backup",
+              "Weather Resistance": "IP68 Rated",
+              "Wireless Range": "Up to 400ft",
+              "Cloud Storage": "Optional subscription available",
+              "Smart Home Integration": "Works with Alexa, Google Home, HomeKit"
+            },
+            documents: [
+              {
+                id: "doc3",
+                name: "Technical Specifications",
+                type: "pdf",
+                url: "https://example.com/tech-specs.pdf"
+              },
+              {
+                id: "doc4",
+                name: "Smart Home Integration Guide",
+                type: "pdf",
+                url: "https://example.com/smart-home-guide.pdf"
+              }
+            ],
+            images: [
+              {
+                id: "img3",
+                url: "https://images.unsplash.com/photo-1595750213943-d4dbc91d19b3?q=80&w=2000&auto=format&fit=crop",
+                alt: "Camera System - Smart App View",
+                isPrimary: true
+              },
+              {
+                id: "img4",
+                url: "https://images.unsplash.com/photo-1550345332-09e3ac987658?q=80&w=1887&auto=format&fit=crop",
+                alt: "Camera System - Installation Example",
+                isPrimary: false
+              }
+            ],
+            notes: "D&H offers premium edition with extended warranty and free cloud storage for 3 months."
           }
         ],
         specifications: {
@@ -232,19 +324,41 @@ export default function ProductDetails() {
           <Card className="overflow-hidden">
             <div className="relative pb-[100%]">
               <img 
-                src={product.imageUrl || "/placeholder-product.jpg"} 
-                alt={product.name} 
+                src={
+                  selectedSupplier?.images?.find(img => img.isPrimary)?.url || 
+                  product.imageUrl || 
+                  "/placeholder-product.jpg"
+                } 
+                alt={
+                  selectedSupplier?.images?.find(img => img.isPrimary)?.alt || 
+                  product.name
+                }
                 className="absolute inset-0 w-full h-full object-cover"
               />
             </div>
             <CardFooter className="py-2 justify-center">
               <Button variant="link" asChild>
-                <a href={product.imageUrl || "#"} target="_blank" rel="noopener noreferrer">
+                <a 
+                  href={
+                    selectedSupplier?.images?.find(img => img.isPrimary)?.url || 
+                    product.imageUrl || 
+                    "#"
+                  } 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
                   <ExternalLink className="w-4 h-4 mr-1" /> View Hi-Res Image
                 </a>
               </Button>
             </CardFooter>
           </Card>
+          
+          {selectedSupplier?.notes && (
+            <div className="mt-4 border rounded-md p-3 bg-blue-50 text-sm">
+              <p className="font-medium text-blue-800">Supplier Notes:</p>
+              <p className="mt-1 text-gray-700">{selectedSupplier.notes}</p>
+            </div>
+          )}
         </div>
         
         {/* Product details and tabs area */}
@@ -415,14 +529,20 @@ export default function ProductDetails() {
             {/* Specifications Tab */}
             <TabsContent value="specifications">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle>Technical Specifications</CardTitle>
+                  {selectedSupplier && (
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                      {selectedSupplier.supplierName} Specifications
+                    </Badge>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  {product.specifications ? (
+                  {/* If a supplier is selected and has specs, show those; otherwise, show the general product specs */}
+                  {(selectedSupplier?.specifications || product.specifications) ? (
                     <Table>
                       <TableBody>
-                        {Object.entries(product.specifications).map(([key, value]) => (
+                        {Object.entries(selectedSupplier?.specifications || product.specifications || {}).map(([key, value]) => (
                           <TableRow key={key}>
                             <TableCell className="font-medium w-1/3">{key}</TableCell>
                             <TableCell>{value}</TableCell>
@@ -435,50 +555,135 @@ export default function ProductDetails() {
                   )}
                 </CardContent>
               </Card>
+              
+              {/* Documents section - only show if a supplier is selected and has documents */}
+              {selectedSupplier?.documents && selectedSupplier.documents.length > 0 && (
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle>Documentation</CardTitle>
+                    <CardDescription>
+                      Product manuals and resources provided by {selectedSupplier.supplierName}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-2">
+                      {selectedSupplier.documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between border rounded-md p-3">
+                          <div className="flex items-center">
+                            <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                              {doc.type === 'pdf' ? 
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-700">
+                                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                </svg> : 
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-700">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <path d="M14 2v6h6"/>
+                                  <path d="M16 13H8"/>
+                                  <path d="M16 17H8"/>
+                                  <path d="M10 9H8"/>
+                                </svg>
+                              }
+                            </div>
+                            <div>
+                              <p className="font-medium">{doc.name}</p>
+                              <p className="text-xs text-gray-500 uppercase">{doc.type}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4 mr-1" /> Download
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
             
             {/* Gallery Tab */}
             <TabsContent value="gallery">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle>Product Gallery</CardTitle>
+                  {selectedSupplier && selectedSupplier.images && selectedSupplier.images.length > 0 && (
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                      {selectedSupplier.supplierName} Images
+                    </Badge>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Main product image */}
-                    {product.imageUrl && (
-                      <a 
-                        href={product.imageUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="block aspect-square overflow-hidden rounded-md"
-                      >
-                        <img 
-                          src={product.imageUrl} 
-                          alt={`${product.name} - Main`} 
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                      </a>
+                    {/* If a supplier is selected and has images, show those instead of general product images */}
+                    {selectedSupplier?.images ? (
+                      // Supplier-specific images
+                      selectedSupplier.images.map((image) => (
+                        <a 
+                          key={image.id}
+                          href={image.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="block aspect-square overflow-hidden rounded-md"
+                        >
+                          <img 
+                            src={image.url} 
+                            alt={image.alt} 
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="p-2 bg-white bg-opacity-90 absolute bottom-0 left-0 right-0">
+                            <p className="text-sm text-gray-700">{image.alt}</p>
+                          </div>
+                        </a>
+                      ))
+                    ) : (
+                      // General product images
+                      <>
+                        {/* Main product image */}
+                        {product.imageUrl && (
+                          <a 
+                            href={product.imageUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="block aspect-square overflow-hidden rounded-md relative"
+                          >
+                            <img 
+                              src={product.imageUrl} 
+                              alt={`${product.name} - Main`} 
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="p-2 bg-white bg-opacity-90 absolute bottom-0 left-0 right-0">
+                              <p className="text-sm text-gray-700">{product.name} - Main View</p>
+                            </div>
+                          </a>
+                        )}
+                        
+                        {/* Additional images */}
+                        {product.additionalImageUrls?.map((imageUrl, index) => (
+                          <a 
+                            key={index}
+                            href={imageUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="block aspect-square overflow-hidden rounded-md relative"
+                          >
+                            <img 
+                              src={imageUrl} 
+                              alt={`${product.name} - Image ${index + 2}`} 
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="p-2 bg-white bg-opacity-90 absolute bottom-0 left-0 right-0">
+                              <p className="text-sm text-gray-700">{product.name} - Additional View {index + 1}</p>
+                            </div>
+                          </a>
+                        ))}
+                      </>
                     )}
                     
-                    {/* Additional images */}
-                    {product.additionalImageUrls?.map((imageUrl, index) => (
-                      <a 
-                        key={index}
-                        href={imageUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="block aspect-square overflow-hidden rounded-md"
-                      >
-                        <img 
-                          src={imageUrl} 
-                          alt={`${product.name} - Image ${index + 2}`} 
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                      </a>
-                    ))}
-                    
-                    {(!product.imageUrl && (!product.additionalImageUrls || product.additionalImageUrls.length === 0)) && (
+                    {/* No images message */}
+                    {(!selectedSupplier?.images || selectedSupplier.images.length === 0) && 
+                     (!product.imageUrl && (!product.additionalImageUrls || product.additionalImageUrls.length === 0)) && (
                       <p className="text-gray-600 col-span-2">No gallery images available for this product.</p>
                     )}
                   </div>
