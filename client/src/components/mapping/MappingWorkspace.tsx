@@ -233,7 +233,7 @@ export default function MappingWorkspace({
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
     
-    if (activeView === 'catalog') {
+    if (internalView === 'catalog') {
       const items = Array.from(catalogMappings);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);

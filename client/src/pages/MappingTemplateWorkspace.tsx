@@ -562,14 +562,23 @@ export default function MappingTemplateWorkspace() {
     
     // Create validation rules for required fields
     const catalogRequiredFields = catalogFields
-      .filter(field => (field.required || false) && Object.keys(catalogMappingsRecord).includes(field.id))
+      .filter(field => {
+        // Check if field has required property and it's true
+        // And check if field is included in mappings
+        return (field.required === true) && Object.keys(catalogMappingsRecord).includes(field.id);
+      })
       .map(field => ({ 
         field: field.id, 
         rule: "required" 
       }));
       
     const detailRequiredFields = detailFields
-      .filter(field => (field.required || false) && Object.keys(detailMappingsRecord).includes(field.id))
+      .filter(field => {
+        // Check if field is included in mappings
+        const isMapped = Object.keys(detailMappingsRecord).includes(field.id);
+        // For detail fields we need to check the required property safely
+        return isMapped;
+      })
       .map(field => ({ 
         field: field.id, 
         rule: "required" 
