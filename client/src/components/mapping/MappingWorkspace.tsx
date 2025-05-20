@@ -190,7 +190,7 @@ export default function MappingWorkspace({
 
   // Function to update a mapping
   const updateMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
-    if (activeView === 'catalog') {
+    if (internalView === 'catalog') {
       const updatedMappings = [...catalogMappings];
       updatedMappings[index][field] = value;
       onUpdateCatalogMappings(updatedMappings);
@@ -203,18 +203,22 @@ export default function MappingWorkspace({
   
   // Function to add a new mapping
   const addMapping = () => {
-    if (activeView === 'catalog') {
-      const updatedMappings = [...catalogMappings, { sourceField: "", targetField: "" }];
-      onUpdateCatalogMappings(updatedMappings);
+    if (internalView === 'catalog') {
+      const updatedMappings = [...(catalogMappings || []), { sourceField: "", targetField: "" }];
+      if (typeof onUpdateCatalogMappings === 'function') {
+        onUpdateCatalogMappings(updatedMappings);
+      }
     } else {
-      const updatedMappings = [...detailMappings, { sourceField: "", targetField: "" }];
-      onUpdateDetailMappings(updatedMappings);
+      const updatedMappings = [...(detailMappings || []), { sourceField: "", targetField: "" }];
+      if (typeof onUpdateDetailMappings === 'function') {
+        onUpdateDetailMappings(updatedMappings);
+      }
     }
   };
   
   // Function to remove a mapping
   const removeMapping = (index: number) => {
-    if (activeView === 'catalog') {
+    if (internalView === 'catalog') {
       const updatedMappings = [...catalogMappings];
       updatedMappings.splice(index, 1);
       onUpdateCatalogMappings(updatedMappings);
