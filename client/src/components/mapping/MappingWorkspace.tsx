@@ -205,38 +205,36 @@ export default function MappingWorkspace({
   
   // Function to add a new mapping
   const addMapping = () => {
-    console.log("Adding new mapping with view:", internalView);
+    console.log("Add mapping triggered");
+    console.log("Adding new", internalView, "mapping");
     
     try {
       if (internalView === 'catalog') {
-        // Create a safe copy of the current mappings with fallback to empty array
         const currentMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
-        // Add the new empty mapping
         const updatedMappings = [...currentMappings, { sourceField: "", targetField: "" }];
         console.log("New catalog mappings:", updatedMappings.length);
-        
-        // Safely call the update function
-        if (typeof onUpdateCatalogMappings === 'function') {
-          onUpdateCatalogMappings(updatedMappings);
-        } else {
-          console.error("onUpdateCatalogMappings is not a function");
-        }
+        onUpdateCatalogMappings(updatedMappings);
+        toast({
+          title: "Success",
+          description: "New field mapping added",
+        });
       } else {
-        // Create a safe copy of the current mappings with fallback to empty array
         const currentMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
-        // Add the new empty mapping
         const updatedMappings = [...currentMappings, { sourceField: "", targetField: "" }];
         console.log("New detail mappings:", updatedMappings.length);
-        
-        // Safely call the update function
-        if (typeof onUpdateDetailMappings === 'function') {
-          onUpdateDetailMappings(updatedMappings);
-        } else {
-          console.error("onUpdateDetailMappings is not a function");
-        }
+        onUpdateDetailMappings(updatedMappings);
+        toast({
+          title: "Success", 
+          description: "New field mapping added",
+        });
       }
     } catch (error) {
       console.error("Error adding mapping:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add field mapping",
+        variant: "destructive"
+      });
     }
   };
   
