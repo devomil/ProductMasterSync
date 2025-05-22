@@ -16,6 +16,7 @@ import DataSources from "@/pages/DataSources";
 import MappingTemplates from "./pages/MappingTemplates";
 import MappingTemplateEditor from "./pages/MappingTemplateEditor";
 import MappingTemplateWorkspace from "./pages/MappingTemplateWorkspace";
+import SimpleMappingDemo from "./pages/SimpleMappingDemo";
 import Connections from "@/pages/Connections";
 import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/mapping-templates" component={MappingTemplates} />
       <Route path="/mapping-templates/new" component={MappingTemplateWorkspace} />
       <Route path="/mapping-templates/:id" component={MappingTemplateWorkspace} />
+      <Route path="/mapping-demo" component={SimpleMappingDemo} />
       <Route path="/connections" component={Connections} />
       <Route path="/api-configuration" component={ApiConfiguration} />
       <Route path="/approvals" component={Approvals} />
