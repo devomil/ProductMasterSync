@@ -894,6 +894,7 @@ export default function MappingTemplateWorkspace() {
                 catalogMappings={catalogMappings}
                 detailMappings={detailMappings}
                 activeView={activeView}
+                key={`mapping-${forceUpdate}-${catalogMappings.length}-${detailMappings.length}`}
                 catalogFields={[
                   { id: "sku", name: "SKU", required: true, description: "Unique product identifier", type: "string" },
                   { id: "product_name", name: "Product Name", required: true, description: "Full product name/title", type: "string" },
@@ -913,10 +914,18 @@ export default function MappingTemplateWorkspace() {
                 ]}
                 onUpdateCatalogMappings={(mappings) => {
                   console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings", mappings);
-                  setCatalogMappings([...mappings]); // Create new array to trigger re-render
-                  setForceUpdate(prev => prev + 1); // Force component re-render
+                  console.log("🔥 PARENT: Current catalog mappings before update:", catalogMappings.length);
                   
-                  console.log("🔥 PARENT: Catalog mappings updated successfully");
+                  const newMappings = [...mappings];
+                  setCatalogMappings(newMappings);
+                  setForceUpdate(prev => prev + 1);
+                  
+                  console.log("🔥 PARENT: Catalog mappings state updated - new length should be:", newMappings.length);
+                  
+                  // Verify the update worked
+                  setTimeout(() => {
+                    console.log("🔥 PARENT: Verification - catalogMappings.length is now:", catalogMappings.length);
+                  }, 50);
                 }}
                 onUpdateDetailMappings={(mappings) => {
                   console.log("🔥 PARENT: onUpdateDetailMappings called with:", mappings.length, "mappings", mappings);

@@ -751,12 +751,43 @@ export default function MappingWorkspace({
             
             {/* Mapping list */}
             <div className="p-3 space-y-2">
+              {/* DEBUG: Force show mapping interface for testing */}
+              <div className="bg-yellow-100 p-2 text-sm">
+                DEBUG: activeMappings.length = {activeMappings.length}, 
+                catalogMappings.length = {catalogMappings.length}, 
+                detailMappings.length = {detailMappings.length}
+              </div>
+              
               {/* Show actual mappings that were created */}
-              {activeMappings.length > 0 && (
+              {(activeMappings.length > 0 || true) && (
                 <div className="space-y-3">
                   <div className="text-sm font-medium text-gray-700 mb-3">
                     Field Mappings ({activeMappings.length})
                   </div>
+                  {/* Always show at least one test mapping for debugging */}
+                  {activeMappings.length === 0 && (
+                    <div className="border rounded-lg p-4 bg-yellow-50 shadow-sm">
+                      <div className="text-sm text-yellow-800 mb-2">DEBUG: Test mapping (no real mappings found)</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-gray-500 mb-1 block">Source Field</Label>
+                          <Select>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select source field" />
+                            </SelectTrigger>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500 mb-1 block">Target Field</Label>
+                          <Select>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select target field" />
+                            </SelectTrigger>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {activeMappings.map((mapping, index) => {
                     const targetField = activeFields.find(tf => tf.id === mapping.targetField);
                     return (
