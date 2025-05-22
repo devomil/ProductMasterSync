@@ -125,6 +125,7 @@ export default function MappingTemplateWorkspace() {
   const [selectedPath, setSelectedPath] = useState<string>("");
   
   // Define target fields for both catalog and detail views
+  console.log("🔧 Defining catalogFields...");
   const catalogFields = [
     { id: "sku", name: "SKU", required: true, description: "Unique product identifier", type: "string" },
     { id: "product_name", name: "Product Name", required: true, description: "Full product name/title", type: "string" },
@@ -898,19 +899,12 @@ export default function MappingTemplateWorkspace() {
                 catalogFields={catalogFields}
                 detailFields={detailFields}
                 onUpdateCatalogMappings={(mappings) => {
-                  console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings", mappings);
-                  console.log("🔥 PARENT: Current catalog mappings before update:", catalogMappings.length);
+                  console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings");
+                  console.log("🔥 PARENT: About to pass catalogFields with length:", catalogFields.length);
+                  console.log("🔥 PARENT: About to pass detailFields with length:", detailFields.length);
                   
-                  const newMappings = [...mappings];
-                  setCatalogMappings(newMappings);
+                  setCatalogMappings([...mappings]);
                   setForceUpdate(prev => prev + 1);
-                  
-                  console.log("🔥 PARENT: Catalog mappings state updated - new length should be:", newMappings.length);
-                  
-                  // Verify the update worked
-                  setTimeout(() => {
-                    console.log("🔥 PARENT: Verification - catalogMappings.length is now:", catalogMappings.length);
-                  }, 50);
                 }}
                 onUpdateDetailMappings={(mappings) => {
                   console.log("🔥 PARENT: onUpdateDetailMappings called with:", mappings.length, "mappings", mappings);
