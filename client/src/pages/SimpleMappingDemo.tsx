@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { ChevronLeft, Zap, Plus, X, Download, Upload, Save, Eye } from "lucide-react";
+import { ChevronLeft, Zap, Plus, X, Download, Upload, Save, Eye, RefreshCw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface FieldMapping {
@@ -141,58 +142,89 @@ export default function SimpleMappingDemo() {
     setCurrentMappings(currentMappings.filter(m => m.id !== id));
   };
 
+  const [availableDataSources, setAvailableDataSources] = useState<any[]>([]);
+  const [selectedDataSource, setSelectedDataSource] = useState<any>(null);
+  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string>("");
+
+  const loadDataSources = async () => {
+    try {
+      const response = await fetch("/api/data-sources");
+      if (response.ok) {
+        const dataSources = await response.json();
+        setAvailableDataSources(dataSources);
+        if (dataSources.length > 0) {
+          setSelectedDataSource(dataSources[0]);
+          loadAvailableFiles(dataSources[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load data sources:", error);
+    }
+  };
+
+  const loadAvailableFiles = async (dataSourceId: number) => {
+    try {
+      const response = await apiRequest("GET", `/api/data-sources/${dataSourceId}/files`);
+      if (response.ok) {
+        const result = await response.json();
+        setAvailableFiles(result.files || []);
+        if (result.files && result.files.length > 0) {
+          setSelectedFile(result.files.find(f => f.includes('catalog')) || result.files[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load files:", error);
+      // Set common file paths if API fails
+      setAvailableFiles(["/eco8/out/catalog.csv", "/eco8/out/inventory.csv", "/eco8/out/products.csv"]);
+      setSelectedFile("/eco8/out/catalog.csv");
+    }
+  };
+
   const loadSampleData = async () => {
     setIsLoading(true);
     try {
-      // Pull real data from CWR SFTP
-      const response = await apiRequest("POST", "/api/test-pull/1", {
+      if (!selectedDataSource || !selectedFile) {
+        throw new Error("Please select a data source and file");
+      }
+
+      // Use the data source test-pull endpoint with selected file
+      const response = await apiRequest("POST", `/api/test-pull/${selectedDataSource.id}`, {
         limit: 10,
-        path: "/eco8/out/catalog.csv"
+        path: selectedFile
       });
       
       if (response.ok) {
         const result = await response.json();
         if (result.sample_data && result.sample_data.length > 0) {
           setSampleData(result.sample_data);
-          // Update headers from real data
-          const realHeaders = Object.keys(result.sample_data[0]);
           toast({
-            title: "Real SFTP Data Loaded",
-            description: `Loaded ${result.sample_data.length} real records from CWR SFTP server.`
+            title: "Data Loaded Successfully",
+            description: `Loaded ${result.sample_data.length} records from ${selectedFile}.`
           });
         } else {
           throw new Error("No sample data returned");
         }
       } else {
-        throw new Error("SFTP connection failed");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Connection failed");
       }
     } catch (error) {
-      console.error("SFTP load error:", error);
-      // Fallback to mock data if SFTP fails
-      const mockSampleData = [
-        {
-          "CWR Part Number": "ABC123",
-          "Title": "Premium Widget Pro",
-          "UPC Code": "123456789012",
-          "Your Cost": "$45.99",
-          "List Price": "$89.99",
-          "Manufacturer Name": "ACME Corp",
-          "Category Name": "Electronics",
-          "Description": "High-quality premium widget with advanced features",
-          "Weight": "2.5 lbs",
-          "Dimensions": "10x8x4 inches"
-        }
-      ];
-      setSampleData(mockSampleData);
+      console.error("Data load error:", error);
       toast({
-        title: "Using Sample Data",
-        description: "Using fallback data - SFTP connection unavailable.",
-        variant: "default"
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Unable to load data from selected source.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Load data sources on component mount
+  React.useEffect(() => {
+    loadDataSources();
+  }, []);
 
   const saveTemplate = async () => {
     if (!templateName.trim()) {
@@ -325,10 +357,54 @@ export default function SimpleMappingDemo() {
               </TabsContent>
 
               <TabsContent value="data" className="space-y-4 mt-4">
+                {/* Data Source Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-2">
+                    <Label>Data Source</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 p-2 border rounded bg-gray-50">
+                        <span className="text-sm font-medium">
+                          {selectedDataSource ? selectedDataSource.name : "No data source selected"}
+                        </span>
+                        <div className="text-xs text-gray-500">
+                          {selectedDataSource ? `Type: ${selectedDataSource.type.toUpperCase()}` : ""}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={loadDataSources}>
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>File Path</Label>
+                    <div className="flex gap-2">
+                      {availableFiles.length > 0 ? (
+                        availableFiles.map(file => (
+                          <Button
+                            key={file}
+                            variant={selectedFile === file ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedFile(file)}
+                          >
+                            {file.split('/').pop()}
+                          </Button>
+                        ))
+                      ) : (
+                        <div className="text-sm text-gray-500 p-2">No files available</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-2 mb-4">
-                  <Button onClick={loadSampleData} disabled={isLoading}>
+                  <Button 
+                    onClick={loadSampleData} 
+                    disabled={isLoading || !selectedDataSource || !selectedFile}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
                     <Download className="w-4 h-4 mr-2" />
-                    {isLoading ? "Loading..." : "Load CWR Sample Data"}
+                    {isLoading ? "Loading..." : "Load Data from Source"}
                   </Button>
                   <Button variant="outline" disabled>
                     <Upload className="w-4 h-4 mr-2" />
