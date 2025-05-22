@@ -28,6 +28,10 @@ interface SimpleMappingInterfaceProps {
 export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: SimpleMappingInterfaceProps) {
   const { toast } = useToast();
   
+  // Debug logging
+  console.log("🔍 SimpleMappingInterface received headers:", sampleHeaders?.length || 0);
+  console.log("🔍 Headers validation:", sampleHeaders?.map(h => ({ header: h, valid: !!(h && h.trim()) })));
+  
   // Hardcoded target fields for reliability
   const targetFields: Field[] = [
     { id: "sku", name: "SKU", required: true, description: "Unique product identifier" },
@@ -81,6 +85,12 @@ export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: Simp
     console.log("🚀 Auto-mapping with headers:", sampleHeaders);
     console.log("🚀 Auto-mapping with targets:", targetFields);
     
+    const validHeaders = sampleHeaders.filter(h => h && h.trim() !== '');
+    const validTargets = targetFields.filter(t => t.id && t.id.trim() !== '');
+    
+    console.log("🚀 Valid headers:", validHeaders.length);
+    console.log("🚀 Valid targets:", validTargets.length);
+    
     const newMappings: FieldMapping[] = [];
     
     // Auto-mapping logic
@@ -95,15 +105,15 @@ export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: Simp
     ];
 
     mappingRules.forEach(rule => {
-      const matchingHeader = sampleHeaders.find(header => 
+      const matchingHeader = validHeaders.find(header => 
         rule.sources.some(source => 
           header.toLowerCase().includes(source.toLowerCase())
         )
       );
       
-      if (matchingHeader) {
+      if (matchingHeader && validTargets.find(t => t.id === rule.target)) {
         newMappings.push({
-          id: `auto_${rule.target}_${Date.now()}`,
+          id: `auto_${rule.target}_${Date.now()}_${Math.random()}`,
           sourceField: matchingHeader,
           targetField: rule.target
         });
@@ -178,40 +188,16 @@ export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: Simp
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">Source Field</label>
-                    <Select 
-                      value={mapping.sourceField} 
-                      onValueChange={(value) => updateMapping(mapping.id, 'sourceField', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select source field" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sampleHeaders.filter(header => header && header.trim() !== '').map(header => (
-                          <SelectItem key={header} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="p-2 border rounded bg-blue-50">
+                      <span className="text-sm font-medium">{mapping.sourceField || 'Not selected'}</span>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <label className="text-xs text-gray-500 mb-1 block">Target Field</label>
-                      <Select 
-                        value={mapping.targetField} 
-                        onValueChange={(value) => updateMapping(mapping.id, 'targetField', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select target field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {targetFields.filter(field => field.id && field.id.trim() !== '').map(field => (
-                            <SelectItem key={field.id} value={field.id}>
-                              {field.name} {field.required && <span className="text-red-500">*</span>}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="p-2 border rounded bg-green-50">
+                        <span className="text-sm font-medium">{targetFields.find(f => f.id === mapping.targetField)?.name || mapping.targetField || 'Not selected'}</span>
+                      </div>
                     </div>
                     <div className="pt-6">
                       <Button 
