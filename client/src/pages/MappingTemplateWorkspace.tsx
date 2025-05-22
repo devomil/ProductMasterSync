@@ -16,6 +16,7 @@ import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Downl
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import MappingWorkspace from "@/components/mapping/MappingWorkspace";
+import { SimpleMappingInterface } from "@/components/mapping/SimpleMappingInterface";
 
 // Mapping template component handles its own view toggle
 
