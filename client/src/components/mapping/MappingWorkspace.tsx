@@ -307,6 +307,7 @@ export default function MappingWorkspace({
   // Filter mappings based on search and other filters
   const getFilteredMappings = () => {
     console.log("getFilteredMappings called - activeMappings:", activeMappings);
+    console.log("showOnlyMapped:", showOnlyMapped, "collapseUnmapped:", collapseUnmapped);
     
     if (!activeMappings || activeMappings.length === 0) {
       console.log("No active mappings to filter");
@@ -319,8 +320,23 @@ export default function MappingWorkspace({
         return false;
       }
       
-      // Always show mappings that have either source or target field for editing
-      // Don't filter out empty mappings as users need to see them to fill them in
+      // Handle "Show only mapped fields" toggle
+      if (showOnlyMapped) {
+        const isMapped = mapping.sourceField && mapping.targetField;
+        if (!isMapped) {
+          console.log("Filtering out unmapped field due to showOnlyMapped");
+          return false;
+        }
+      }
+      
+      // Handle "Collapse unmapped fields" toggle
+      if (collapseUnmapped) {
+        const isMapped = mapping.sourceField && mapping.targetField;
+        if (!isMapped) {
+          console.log("Filtering out unmapped field due to collapseUnmapped");
+          return false;
+        }
+      }
       
       // Filter by search term only if we have one
       if (searchTerm && searchTerm.trim()) {
@@ -332,7 +348,7 @@ export default function MappingWorkspace({
         return result;
       }
       
-      // If no search term, show all mappings
+      // If no search term and no special filters, show all mappings
       return true;
     });
     
@@ -684,8 +700,34 @@ export default function MappingWorkspace({
               </div>
             </div>
             
+            {/* Add Field Mapping Button */}
+            <div className="p-3 border-b bg-gray-50">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log("Add Field Mapping clicked");
+                  addMapping();
+                }}
+                className="w-full text-sm"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Field Mapping
+              </Button>
+            </div>
+            
             {/* Mapping list */}
             <div className="p-3 space-y-2">
+              {/* Show message when no mappings exist */}
+              {(!activeMappings || activeMappings.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-sm">No field mappings yet</div>
+                  <div className="text-xs mt-1">Click "Add Field Mapping" or "Auto-Map Fields" to get started</div>
+                </div>
+              )}
+              
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="mappings">
                   {(provided) => (
