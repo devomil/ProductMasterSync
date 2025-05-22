@@ -1148,7 +1148,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           remoteDir: credentials.remoteDir
         });
         
+        // First test basic connectivity
         try {
+          const { testSFTPConnection } = await import('./utils/ftp-ingestion');
+          const connectionTest = await testSFTPConnection(credentials);
+          
+          if (!connectionTest.success) {
+            console.error("SFTP connection test failed:", connectionTest.message);
+            return res.status(400).json({
+              success: false,
+              message: "SFTP connection failed: " + connectionTest.message,
+              error_details: connectionTest
+            });
+          }
+          
           // Pull sample from SFTP
           const result = await pullSampleFromSFTP(credentials, pathToUse, {
             limit: limit,
@@ -1161,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("SFTP pull failed:", result.message);
             return res.status(400).json({
               success: false,
-              message: result.message || "SFTP connection failed",
+              message: result.message || "SFTP data pull failed",
               error_details: result
             });
           }
