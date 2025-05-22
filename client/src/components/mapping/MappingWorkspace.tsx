@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -88,6 +89,34 @@ export default function MappingWorkspace({
   // Use internal view state exclusively - don't rely on parent for view state
   const [internalView, setInternalView] = useState<'catalog' | 'detail'>(activeView);
   
+  // Define field definitions directly here to ensure they're available for mapping
+  const masterCatalogFields = [
+    { id: 'sku', name: 'SKU', type: 'string', required: true },
+    { id: 'product_name', name: 'Product Name', type: 'string', required: true },
+    { id: 'description', name: 'Description', type: 'text', required: false },
+    { id: 'category', name: 'Category', type: 'string', required: false },
+    { id: 'brand', name: 'Brand', type: 'string', required: false },
+    { id: 'price', name: 'Price', type: 'decimal', required: false },
+    { id: 'cost', name: 'Cost', type: 'decimal', required: false },
+    { id: 'weight', name: 'Weight', type: 'decimal', required: false },
+    { id: 'upc', name: 'UPC Code', type: 'string', required: false }
+  ];
+
+  const productDetailFields = [
+    { id: 'images', name: 'Images', type: 'array', required: false },
+    { id: 'specifications', name: 'Specifications', type: 'json', required: false },
+    { id: 'features', name: 'Features', type: 'array', required: false },
+    { id: 'accessories', name: 'Accessories', type: 'array', required: false },
+    { id: 'dimensions', name: 'Dimensions', type: 'string', required: false },
+    { id: 'warranty', name: 'Warranty', type: 'string', required: false },
+    { id: 'manuals', name: 'Manuals', type: 'array', required: false },
+    { id: 'certifications', name: 'Certifications', type: 'array', required: false }
+  ];
+
+  // Use the hardcoded fields instead of props
+  const activeFields = internalView === 'catalog' ? masterCatalogFields : productDetailFields;
+  const activeMappings = internalView === 'catalog' ? catalogMappings : detailMappings;
+  
   // Don't sync with parent's activeView to prevent navigation issues
   
   // Safely inform parent of view changes without relying on parent state change
@@ -120,9 +149,7 @@ export default function MappingWorkspace({
   // Reference for the data preview table for scrolling
   const previewTableRef = useRef<HTMLDivElement>(null);
   
-  // Get current mappings and fields based on internal view
-  const currentMappings = internalView === 'catalog' ? catalogMappings || [] : detailMappings || [];
-  const currentFields = internalView === 'catalog' ? catalogFields || [] : detailFields || [];
+  const { toast } = useToast();
   
   // Debug logging for data and mappings
   useEffect(() => {
