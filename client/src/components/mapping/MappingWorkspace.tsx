@@ -131,7 +131,9 @@ export default function MappingWorkspace({
     console.log('Current view:', activeView);
     console.log('Current fields:', currentFields);
     console.log('Current mappings:', currentMappings);
-  }, [sampleData, sampleHeaders, activeView, currentFields, currentMappings]);
+    console.log('DEBUG: catalogFields prop received:', catalogFields);
+    console.log('DEBUG: detailFields prop received:', detailFields);
+  }, [sampleData, sampleHeaders, activeView, currentFields, currentMappings, catalogFields, detailFields]);
   
   // Stats
   const mappedFields = currentMappings?.filter(m => m?.sourceField && m?.targetField) || [];
