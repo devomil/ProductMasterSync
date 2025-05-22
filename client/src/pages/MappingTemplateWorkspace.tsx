@@ -896,9 +896,9 @@ export default function MappingTemplateWorkspace() {
                 onToggleView={handleViewToggle}
                 onSave={handleSaveTemplate}
                 onBack={() => navigate('/mapping-templates')}
-                templateInfo={{ 
+                templateInfo={{
                   name: templateForm.name,
-                  supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name 
+                  supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name
                 }}
                 onAutoMap={() => {
                   if (!sampleHeaders || sampleHeaders.length === 0) {
@@ -994,12 +994,6 @@ export default function MappingTemplateWorkspace() {
                       variant: "destructive"
                     });
                   }
-                }}
-                onSave={handleSaveTemplate}
-                onBack={() => setSelectedTab("template-info")}
-                templateInfo={{
-                  name: templateForm.name,
-                  supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name
                 }}
                 onPullSftpSample={
                   templateForm.sourceType === 'sftp' && templateForm.supplierId
