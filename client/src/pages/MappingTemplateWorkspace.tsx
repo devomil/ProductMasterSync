@@ -898,8 +898,8 @@ export default function MappingTemplateWorkspace() {
                 catalogMappings={catalogMappings}
                 detailMappings={detailMappings}
                 activeView={activeView}
-                catalogFields={catalogFields}
-                detailFields={detailFields}
+                catalogFields={catalogFields || []}
+                detailFields={detailFields || []}
                 onUpdateCatalogMappings={setCatalogMappings}
                 onUpdateDetailMappings={setDetailMappings}
                 onToggleView={handleViewToggle}
