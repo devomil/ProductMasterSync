@@ -796,17 +796,34 @@ export default function MappingWorkspace({
                   try {
                     if (internalView === 'catalog') {
                       console.log("Adding new catalog mapping");
+                      console.log("Current catalog mappings:", catalogMappings);
                       const activeMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
                       const newMappings = [...activeMappings, { sourceField: "", targetField: "" }];
+                      console.log("New mappings array:", newMappings);
                       onUpdateCatalogMappings(newMappings);
+                      toast({
+                        title: "Success",
+                        description: "New field mapping row added",
+                      });
                     } else {
                       console.log("Adding new detail mapping");
+                      console.log("Current detail mappings:", detailMappings);
                       const activeMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
                       const newMappings = [...activeMappings, { sourceField: "", targetField: "" }];
+                      console.log("New mappings array:", newMappings);
                       onUpdateDetailMappings(newMappings);
+                      toast({
+                        title: "Success", 
+                        description: "New field mapping row added",
+                      });
                     }
                   } catch (error) {
                     console.error("Error adding mapping:", error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to add new mapping row",
+                      variant: "destructive"
+                    });
                   }
                 }}
               >
