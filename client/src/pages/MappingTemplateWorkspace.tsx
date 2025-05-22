@@ -911,12 +911,22 @@ export default function MappingTemplateWorkspace() {
                   { id: "image_url", name: "Primary Image URL", description: "Primary product image URL", type: "string" },
                 ]}
                 onUpdateCatalogMappings={(mappings) => {
-                  console.log("onUpdateCatalogMappings called with:", mappings.length, "mappings");
-                  setCatalogMappings([...mappings]);
+                  console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings", mappings);
+                  setCatalogMappings(mappings);
+                  
+                  // Force re-render to ensure UI updates immediately
+                  setTimeout(() => {
+                    console.log("🔥 PARENT: Catalog mappings after update:", catalogMappings.length);
+                  }, 100);
                 }}
                 onUpdateDetailMappings={(mappings) => {
-                  console.log("onUpdateDetailMappings called with:", mappings.length, "mappings");
-                  setDetailMappings([...mappings]);
+                  console.log("🔥 PARENT: onUpdateDetailMappings called with:", mappings.length, "mappings", mappings);
+                  setDetailMappings(mappings);
+                  
+                  // Force re-render to ensure UI updates immediately  
+                  setTimeout(() => {
+                    console.log("🔥 PARENT: Detail mappings after update:", detailMappings.length);
+                  }, 100);
                 }}
                 onToggleView={handleViewToggle}
                 onSave={handleSaveTemplate}
