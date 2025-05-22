@@ -562,12 +562,22 @@ export default function MappingWorkspace({
                 
                 // Update the mappings
                 console.log("Auto-map about to call update functions with:", newMappings);
+                console.log("Current internal view:", internalView);
+                
                 if (internalView === 'catalog') {
                   console.log("Calling onUpdateCatalogMappings with", newMappings.length, "mappings");
                   onUpdateCatalogMappings(newMappings);
+                  // Force re-render by updating component state
+                  setTimeout(() => {
+                    console.log("After catalog update, checking activeMappings:", catalogMappings.length);
+                  }, 100);
                 } else {
                   console.log("Calling onUpdateDetailMappings with", newMappings.length, "mappings");
                   onUpdateDetailMappings(newMappings);
+                  // Force re-render by updating component state
+                  setTimeout(() => {
+                    console.log("After detail update, checking activeMappings:", detailMappings.length);
+                  }, 100);
                 }
                 
                 toast({
@@ -734,6 +744,11 @@ export default function MappingWorkspace({
             
             {/* Mapping list */}
             <div className="p-3 space-y-2">
+              {/* Debug info */}
+              <div className="text-xs text-gray-400 p-2 border-b">
+                Debug: {activeMappings.length} mappings, View: {internalView}
+              </div>
+              
               {/* Show message when no mappings exist */}
               {(!activeMappings || activeMappings.length === 0) && (
                 <div className="text-center py-8 text-gray-500">
