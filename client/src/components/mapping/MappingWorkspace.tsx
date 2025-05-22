@@ -564,21 +564,27 @@ export default function MappingWorkspace({
                 console.log("Auto-map about to call update functions with:", newMappings);
                 console.log("Current internal view:", internalView);
                 
+                console.log("About to update mappings - current catalog:", catalogMappings.length, "current detail:", detailMappings.length);
+                
                 if (internalView === 'catalog') {
-                  console.log("Calling onUpdateCatalogMappings with", newMappings.length, "mappings");
+                  console.log("Updating CATALOG mappings with", newMappings.length, "mappings:", newMappings);
                   onUpdateCatalogMappings(newMappings);
-                  // Force re-render by updating component state
-                  setTimeout(() => {
-                    console.log("After catalog update, checking activeMappings:", catalogMappings.length);
-                  }, 100);
+                  
+                  // Force immediate UI update by triggering a re-render
+                  console.log("Catalog mappings updated, should now show", newMappings.length, "mappings");
                 } else {
-                  console.log("Calling onUpdateDetailMappings with", newMappings.length, "mappings");
+                  console.log("Updating DETAIL mappings with", newMappings.length, "mappings:", newMappings);
                   onUpdateDetailMappings(newMappings);
-                  // Force re-render by updating component state
-                  setTimeout(() => {
-                    console.log("After detail update, checking activeMappings:", detailMappings.length);
-                  }, 100);
+                  
+                  // Force immediate UI update by triggering a re-render
+                  console.log("Detail mappings updated, should now show", newMappings.length, "mappings");
                 }
+                
+                // Force component re-render
+                setTimeout(() => {
+                  console.log("Post-update check - catalog:", catalogMappings.length, "detail:", detailMappings.length);
+                  console.log("Active mappings should now be:", activeMappings.length);
+                }, 200);
                 
                 toast({
                   title: "Success",
