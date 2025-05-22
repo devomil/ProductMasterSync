@@ -85,6 +85,7 @@ interface FieldMapping {
 }
 
 export default function MappingTemplateWorkspace() {
+  console.log("✅ New MappingTemplateWorkspace loaded with SimpleMappingInterface");
   console.log("MappingTemplateWorkspace component starting to render...");
   
   const [_, navigate] = useLocation();

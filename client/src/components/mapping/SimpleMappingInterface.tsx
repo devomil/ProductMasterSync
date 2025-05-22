@@ -186,7 +186,7 @@ export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: Simp
                         <SelectValue placeholder="Select source field" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sampleHeaders.map(header => (
+                        {sampleHeaders.filter(header => header && header.trim() !== '').map(header => (
                           <SelectItem key={header} value={header}>
                             {header}
                           </SelectItem>
@@ -205,7 +205,7 @@ export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: Simp
                           <SelectValue placeholder="Select target field" />
                         </SelectTrigger>
                         <SelectContent>
-                          {targetFields.map(field => (
+                          {targetFields.filter(field => field.id && field.id.trim() !== '').map(field => (
                             <SelectItem key={field.id} value={field.id}>
                               {field.name} {field.required && <span className="text-red-500">*</span>}
                             </SelectItem>
