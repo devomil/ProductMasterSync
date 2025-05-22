@@ -515,12 +515,15 @@ export default function MappingWorkspace({
           </div>
           
           <Button 
-            variant="outline" 
+            variant="default" 
             size="sm" 
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log("Auto map triggered");
+              console.log("🔥 AUTO-MAP BUTTON CLICKED! 🔥");
+              console.log("Sample headers:", sampleHeaders?.length || 0);
+              console.log("Active fields:", activeFields?.length || 0);
+              console.log("Current view:", internalView);
               
               // Make sure we have sample headers before attempting auto-map
               if (!sampleHeaders || sampleHeaders.length === 0) {
@@ -599,9 +602,9 @@ export default function MappingWorkspace({
                 });
               }
             }}
-            className="ml-auto"
+            className="ml-auto bg-blue-600 hover:bg-blue-700 text-white"
           >
-            Auto-Map Fields
+            🚀 Auto-Map Fields
           </Button>
         </div>
         
