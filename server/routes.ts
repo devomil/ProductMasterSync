@@ -1135,11 +1135,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
+        console.log(`Attempting SFTP connection to ${credentials.host} with path: ${pathToUse}`);
+        
         // Pull sample from SFTP
         const result = await pullSampleFromSFTP(credentials, pathToUse, {
           limit: limit,
           hasHeader: true, // Assume headers by default
         });
+        
+        console.log("SFTP pull result:", result);
         
         // Return the result
         return res.json({

@@ -175,8 +175,8 @@ export default function SimpleMappingDemo() {
       }
     } catch (error) {
       console.error("Failed to load files:", error);
-      // Set common file paths if API fails
-      setAvailableFiles(["/eco8/out/catalog.csv", "/eco8/out/inventory.csv", "/eco8/out/products.csv"]);
+      // Set actual available file paths if API fails
+      setAvailableFiles(["/eco8/out/catalog.csv", "/eco8/out/inventory.csv"]);
       setSelectedFile("/eco8/out/catalog.csv");
     }
   };
