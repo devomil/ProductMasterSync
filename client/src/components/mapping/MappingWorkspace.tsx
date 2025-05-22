@@ -744,10 +744,78 @@ export default function MappingWorkspace({
             
             {/* Mapping list */}
             <div className="p-3 space-y-2">
-              {/* Debug info */}
-              <div className="text-xs text-gray-400 p-2 border-b">
-                Debug: {activeMappings.length} mappings, View: {internalView}
-              </div>
+              {/* Show actual mappings that were created */}
+              {activeMappings.length > 0 && (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-gray-700 mb-3">
+                    Field Mappings ({activeMappings.length})
+                  </div>
+                  {activeMappings.map((mapping, index) => {
+                    const targetField = activeFields.find(tf => tf.id === mapping.targetField);
+                    return (
+                      <div key={index} className="border rounded-lg p-4 bg-white shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs text-gray-500 mb-1 block">
+                              Source Field
+                            </Label>
+                            <Select
+                              value={mapping.sourceField || ""}
+                              onValueChange={(val) => updateMapping(index, 'sourceField', val)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select source field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {sampleHeaders.map(header => (
+                                  <SelectItem key={header} value={header}>
+                                    {header}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-xs text-gray-500 mb-1 block">
+                              Target Field
+                            </Label>
+                            <Select
+                              value={mapping.targetField || ""}
+                              onValueChange={(val) => updateMapping(index, 'targetField', val)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select target field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {activeFields.map(field => (
+                                  <SelectItem key={field.id} value={field.id}>
+                                    {field.name} {field.required && <span className="text-red-500">*</span>}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center mt-3">
+                          <div className="text-xs text-gray-500">
+                            {targetField?.description}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeMapping(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               
               {/* Show message when no mappings exist */}
               {(!activeMappings || activeMappings.length === 0) && (
