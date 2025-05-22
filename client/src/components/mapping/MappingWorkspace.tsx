@@ -534,7 +534,7 @@ export default function MappingWorkspace({
               
               // Implement auto-mapping logic directly here
               try {
-                const newMappings = [];
+                const newMappings: FieldMapping[] = [];
                 
                 // Auto-map based on field name similarity
                 activeFields.forEach(targetField => {
@@ -572,7 +572,7 @@ export default function MappingWorkspace({
                 
                 toast({
                   title: "Success",
-                  description: `Auto-mapped ${smartMappings.length} fields successfully`,
+                  description: `Auto-mapped ${newMappings.length} fields successfully`,
                 });
               } catch (error) {
                 console.error("Error in auto-mapping:", error);
