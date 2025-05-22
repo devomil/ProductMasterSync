@@ -158,7 +158,7 @@ export default function SimpleMappingDemo() {
         fileLabel: null
       };
 
-      await apiRequest("/api/mapping-templates", "POST", templateData);
+      await apiRequest("POST", "/api/mapping-templates", templateData);
 
       toast({
         title: "Template Saved Successfully",
