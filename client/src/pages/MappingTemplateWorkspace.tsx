@@ -893,12 +893,17 @@ export default function MappingTemplateWorkspace() {
                 onUpdateDetailMappings={setDetailMappings}
                 onToggleView={handleViewToggle}
                 onAutoMap={() => {
+                  console.log("Auto-map triggered in parent with activeView:", activeView);
+                  console.log("Sample headers available:", sampleHeaders.length);
+                  
                   if (activeView === 'catalog') {
                     const autoMappings = autoMapFields(sampleHeaders, 'catalog');
-                    setCatalogMappings(autoMappings);
+                    console.log("Setting catalog mappings:", autoMappings.length);
+                    setCatalogMappings([...autoMappings]);
                   } else {
                     const autoMappings = autoMapFields(sampleHeaders, 'detail');
-                    setDetailMappings(autoMappings);
+                    console.log("Setting detail mappings:", autoMappings.length);
+                    setDetailMappings([...autoMappings]);
                   }
                 }}
                 onSave={handleSaveTemplate}
