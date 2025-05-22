@@ -489,21 +489,52 @@ export default function MappingWorkspace({
                 return;
               }
               
-              if (typeof onAutoMap === 'function') {
-                try {
-                  onAutoMap();
-                  toast({
-                    title: "Success",
-                    description: "Fields auto-mapped successfully",
+              // Implement auto-mapping logic directly here
+              try {
+                const newMappings = [];
+                
+                // Auto-map based on field name similarity
+                activeFields.forEach(targetField => {
+                  const bestMatch = sampleHeaders.find(header => {
+                    const headerLower = header.toLowerCase();
+                    const fieldLower = targetField.name.toLowerCase();
+                    
+                    // Check for exact matches or close matches
+                    return headerLower.includes(fieldLower) || 
+                           fieldLower.includes(headerLower) ||
+                           (targetField.id === 'sku' && (headerLower.includes('part') || headerLower.includes('sku'))) ||
+                           (targetField.id === 'product_name' && (headerLower.includes('title') || headerLower.includes('name'))) ||
+                           (targetField.id === 'upc' && headerLower.includes('upc')) ||
+                           (targetField.id === 'price' && headerLower.includes('price')) ||
+                           (targetField.id === 'cost' && headerLower.includes('cost'));
                   });
-                } catch (error) {
-                  console.error("Error in auto-mapping:", error);
-                  toast({
-                    title: "Error",
-                    description: "Failed to auto-map fields. Please try again.",
-                    variant: "destructive"
-                  });
+                  
+                  if (bestMatch) {
+                    newMappings.push({
+                      sourceField: bestMatch,
+                      targetField: targetField.id
+                    });
+                  }
+                });
+                
+                // Update the mappings
+                if (internalView === 'catalog') {
+                  onUpdateCatalogMappings(newMappings);
+                } else {
+                  onUpdateDetailMappings(newMappings);
                 }
+                
+                toast({
+                  title: "Success",
+                  description: `Auto-mapped ${newMappings.length} fields successfully`,
+                });
+              } catch (error) {
+                console.error("Error in auto-mapping:", error);
+                toast({
+                  title: "Error", 
+                  description: "Failed to auto-map fields. Please try again.",
+                  variant: "destructive"
+                });
               }
             }}
             className="ml-auto"
