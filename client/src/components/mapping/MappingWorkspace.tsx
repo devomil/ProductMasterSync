@@ -155,21 +155,21 @@ export default function MappingWorkspace({
   useEffect(() => {
     console.log('MappingWorkspace received sample data:', sampleData);
     console.log('MappingWorkspace received sample headers:', sampleHeaders);
-    console.log('Current view:', activeView);
-    console.log('Current fields:', currentFields);
-    console.log('Current mappings:', currentMappings);
+    console.log('Current view:', internalView);
+    console.log('Current fields:', activeFields);
+    console.log('Current mappings:', activeMappings);
     console.log('DEBUG: catalogFields prop received:', catalogFields);
     console.log('DEBUG: detailFields prop received:', detailFields);
-  }, [sampleData, sampleHeaders, activeView, currentFields, currentMappings, catalogFields, detailFields]);
+  }, [sampleData, sampleHeaders, activeView, activeFields, activeMappings, catalogFields, detailFields]);
   
   // Stats
-  const mappedFields = currentMappings?.filter(m => m?.sourceField && m?.targetField) || [];
-  const requiredFields = currentFields?.filter(f => f?.required) || [];
+  const mappedFields = activeMappings?.filter(m => m?.sourceField && m?.targetField) || [];
+  const requiredFields = activeFields?.filter(f => f?.required) || [];
   const mappedRequiredFields = requiredFields?.filter(rf => 
-    currentMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
+    activeMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
   ) || [];
   const unmappedRequiredFields = requiredFields?.filter(rf => 
-    !currentMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
+    !activeMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
   ) || [];
   
   // Group detail fields by section for organized preview
@@ -237,8 +237,8 @@ export default function MappingWorkspace({
     
     try {
       if (internalView === 'catalog') {
-        const currentMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
-        const updatedMappings = [...currentMappings, { sourceField: "", targetField: "" }];
+        const activeMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
+        const updatedMappings = [...activeMappings, { sourceField: "", targetField: "" }];
         console.log("New catalog mappings:", updatedMappings.length);
         onUpdateCatalogMappings(updatedMappings);
         toast({
@@ -246,8 +246,8 @@ export default function MappingWorkspace({
           description: "New field mapping added",
         });
       } else {
-        const currentMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
-        const updatedMappings = [...currentMappings, { sourceField: "", targetField: "" }];
+        const activeMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
+        const updatedMappings = [...activeMappings, { sourceField: "", targetField: "" }];
         console.log("New detail mappings:", updatedMappings.length);
         onUpdateDetailMappings(updatedMappings);
         toast({
@@ -299,7 +299,7 @@ export default function MappingWorkspace({
   
   // Filter mappings based on search and other filters
   const getFilteredMappings = () => {
-    return (currentMappings || []).filter(mapping => {
+    return (activeMappings || []).filter(mapping => {
       if (!mapping) return false;
       
       // If showing only mapped fields, filter out unmapped ones
@@ -315,7 +315,7 @@ export default function MappingWorkspace({
       // Filter by search term
       if (searchTerm) {
         const sourceMatch = mapping.sourceField?.toLowerCase().includes(searchTerm.toLowerCase());
-        const targetField = (currentFields || []).find(tf => tf?.id === mapping.targetField);
+        const targetField = (activeFields || []).find(tf => tf?.id === mapping.targetField);
         const targetMatch = targetField?.name?.toLowerCase().includes(searchTerm.toLowerCase());
         return sourceMatch || targetMatch;
       }
@@ -329,7 +329,7 @@ export default function MappingWorkspace({
     if (!sampleData || sampleData.length === 0) return [];
     
     // Create a lookup from target field ID to source field
-    const mappingLookup = (currentMappings || []).reduce((acc, mapping) => {
+    const mappingLookup = (activeMappings || []).reduce((acc, mapping) => {
       if (mapping?.sourceField && mapping?.targetField) {
         acc[mapping.targetField] = mapping.sourceField;
       }
@@ -341,7 +341,7 @@ export default function MappingWorkspace({
     
     // Generate preview data for mapped fields
     return Object.entries(mappingLookup).map(([targetId, sourceField]) => {
-      const targetField = (currentFields || []).find(tf => tf?.id === targetId);
+      const targetField = (activeFields || []).find(tf => tf?.id === targetId);
       return {
         targetField,
         sourceField,
@@ -552,7 +552,7 @@ export default function MappingWorkspace({
               <h2 className="font-medium text-sm">Field Mappings</h2>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-blue-50">
-                  {mappedFields.length}/{currentMappings.length} mapped
+                  {mappedFields.length}/{activeMappings.length} mapped
                 </Badge>
                 <Badge 
                   variant={mappedRequiredFields.length === requiredFields.length ? "outline" : "destructive"} 
@@ -622,7 +622,7 @@ export default function MappingWorkspace({
                       className="space-y-2"
                     >
                       {filteredMappings.map((mapping, index) => {
-                        const targetField = currentFields.find(tf => tf.id === mapping.targetField);
+                        const targetField = activeFields.find(tf => tf.id === mapping.targetField);
                         
                         return (
                           <Draggable
@@ -713,7 +713,7 @@ export default function MappingWorkspace({
                                           <SelectItem value="select_target">
                                             Select target field
                                           </SelectItem>
-                                          {currentFields.map(field => (
+                                          {activeFields.map(field => (
                                             <SelectItem key={field.id} value={field.id}>
                                               {field.name}
                                               {field.required && <span className="text-red-500 ml-1">*</span>}
@@ -765,13 +765,13 @@ export default function MappingWorkspace({
                   try {
                     if (internalView === 'catalog') {
                       console.log("Adding new catalog mapping");
-                      const currentMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
-                      const newMappings = [...currentMappings, { sourceField: "", targetField: "" }];
+                      const activeMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
+                      const newMappings = [...activeMappings, { sourceField: "", targetField: "" }];
                       onUpdateCatalogMappings(newMappings);
                     } else {
                       console.log("Adding new detail mapping");
-                      const currentMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
-                      const newMappings = [...currentMappings, { sourceField: "", targetField: "" }];
+                      const activeMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
+                      const newMappings = [...activeMappings, { sourceField: "", targetField: "" }];
                       onUpdateDetailMappings(newMappings);
                     }
                   } catch (error) {
@@ -893,7 +893,7 @@ export default function MappingWorkspace({
                             setSelectedField(header);
                             
                             // Find if this field is already mapped
-                            const existingMapping = currentMappings?.find(m => m?.sourceField === header);
+                            const existingMapping = activeMappings?.find(m => m?.sourceField === header);
                             if (!existingMapping) {
                               // Add a new mapping for this field
                               if (activeView === 'catalog') {
