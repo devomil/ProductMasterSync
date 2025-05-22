@@ -1226,7 +1226,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error in test-pull:", error);
-      res.status(500).json({
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to pull test data"
       });
