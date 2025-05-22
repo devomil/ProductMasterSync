@@ -97,13 +97,13 @@ export default function SimpleMappingDemo() {
     
     if (mappingTarget === "catalog") {
       autoMappings = [
-        { id: "1", sourceField: "CWR Part Number", targetField: "sku" },
-        { id: "2", sourceField: "Title", targetField: "product_name" },
-        { id: "3", sourceField: "UPC Code", targetField: "upc" },
-        { id: "4", sourceField: "Your Cost", targetField: "cost" },
-        { id: "5", sourceField: "List Price", targetField: "price" },
-        { id: "6", sourceField: "Manufacturer Name", targetField: "manufacturer" },
-        { id: "7", sourceField: "Category Name", targetField: "category" }
+        { id: "1", sourceField: "Part Number", targetField: "sku" },
+        { id: "2", sourceField: "Description", targetField: "product_name" },
+        { id: "3", sourceField: "UPC", targetField: "upc" },
+        { id: "4", sourceField: "Cost", targetField: "cost" },
+        { id: "5", sourceField: "MSRP", targetField: "price" },
+        { id: "6", sourceField: "Manufacturer", targetField: "manufacturer" },
+        { id: "7", sourceField: "Category", targetField: "category" }
       ];
     } else {
       // Product detail mappings
@@ -111,8 +111,8 @@ export default function SimpleMappingDemo() {
         { id: "pd1", sourceField: "Description", targetField: "detailed_description" },
         { id: "pd2", sourceField: "Weight", targetField: "specifications" },
         { id: "pd3", sourceField: "Dimensions", targetField: "technical_specs" },
-        { id: "pd4", sourceField: "Manufacturer Name", targetField: "brand_details" },
-        { id: "pd5", sourceField: "CWR Part Number", targetField: "part_number" }
+        { id: "pd4", sourceField: "Brand", targetField: "brand_details" },
+        { id: "pd5", sourceField: "Part Number", targetField: "part_number" }
       ];
     }
     
@@ -209,7 +209,7 @@ export default function SimpleMappingDemo() {
         const errorData = await response.json();
         
         // If SFTP connection fails, provide realistic sample data for demo purposes
-        if (errorData.message && errorData.message.includes("Unexpected token")) {
+        if (errorData.message && (errorData.message.includes("Unexpected token") || errorData.message.includes("<!DOCTYPE"))) {
           console.log("SFTP connection issue detected, using realistic sample data for mapping demo");
           const realisticSampleData = [
             {
