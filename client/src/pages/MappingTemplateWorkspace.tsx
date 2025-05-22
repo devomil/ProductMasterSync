@@ -892,6 +892,12 @@ export default function MappingTemplateWorkspace() {
                 onUpdateCatalogMappings={setCatalogMappings}
                 onUpdateDetailMappings={setDetailMappings}
                 onToggleView={handleViewToggle}
+                onSave={handleSaveTemplate}
+                onBack={() => navigate('/mapping-templates')}
+                templateInfo={{ 
+                  name: templateForm.name,
+                  supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name 
+                }}
                 onAutoMap={() => {
                   if (!sampleHeaders || sampleHeaders.length === 0) {
                     toast({
