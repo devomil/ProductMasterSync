@@ -425,7 +425,12 @@ export default function MappingWorkspace({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={onAutoMap}
+            onClick={() => {
+              console.log("Auto map triggered");
+              if (typeof onAutoMap === 'function') {
+                onAutoMap();
+              }
+            }}
             className="ml-auto"
           >
             Auto-Map Fields
@@ -676,7 +681,10 @@ export default function MappingWorkspace({
               <Button 
                 variant="outline" 
                 className="w-full mt-2 text-sm"
-                onClick={addMapping}
+                onClick={() => {
+                  console.log("Add mapping triggered");
+                  addMapping();
+                }}
               >
                 <Plus className="h-4 w-4 mr-1" /> Add Field Mapping
               </Button>
