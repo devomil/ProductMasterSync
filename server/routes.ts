@@ -1171,6 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!result.success) {
             console.error("SFTP pull failed:", result.message);
+            res.setHeader('Content-Type', 'application/json');
             return res.status(400).json({
               success: false,
               message: result.message || "SFTP data pull failed",
@@ -1182,14 +1183,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
         
-        // Return the result
+        // Ensure we have valid data to return
+        const sampleData = result.records || [];
+        const headers = result.headers || [];
+        
+        console.log("Returning SFTP data:", {
+          recordCount: sampleData.length,
+          headerCount: headers.length,
+          firstRecord: sampleData[0] || null
+        });
+        
+        res.setHeader('Content-Type', 'application/json');
         return res.json({
-          success: result.success,
-          message: result.message,
-          sample_data: result.records || [],
-          headers: result.headers || [],
-          remote_path: pathToUse,
-          total_records: result.records?.length || 0
+          success: true,
+          message: `Successfully loaded ${sampleData.length} records from ${pathToUse}`,
+          sample_data: sampleData,
+          headers: headers,
+          schema_validation: [],
+          mapping_suggestion: null,
+          mapping_confidence: 0.8
         });
       } 
       // Handle other data source types (fallback to mock data for now)
