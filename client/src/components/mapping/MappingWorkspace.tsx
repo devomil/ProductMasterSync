@@ -113,8 +113,10 @@ export default function MappingWorkspace({
     { id: 'certifications', name: 'Certifications', type: 'array', required: false }
   ];
 
-  // Use the hardcoded fields instead of props
-  const activeFields = internalView === 'catalog' ? masterCatalogFields : productDetailFields;
+  // Use the proper field props from parent component
+  const activeFields = internalView === 'catalog' ? 
+    (catalogFields.length > 0 ? catalogFields : masterCatalogFields) : 
+    (detailFields.length > 0 ? detailFields : productDetailFields);
   const activeMappings = internalView === 'catalog' ? catalogMappings : detailMappings;
   
   // Don't sync with parent's activeView to prevent navigation issues
