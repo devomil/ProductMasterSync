@@ -131,17 +131,19 @@ export default function MappingTemplateWorkspace() {
   
   // Define target fields for both catalog and detail views
   const catalogFields = [
-    { id: "sku", name: "SKU", required: true, description: "Unique product identifier", view: "catalog" },
-    { id: "product_name", name: "Product Name", required: true, description: "Full product name/title", view: "catalog" },
-    { id: "category", name: "Category", description: "Product category", view: "catalog" },
-    { id: "subcategory", name: "Subcategory", description: "Product subcategory", view: "catalog" },
-    { id: "price", name: "Price", description: "Retail price", view: "catalog" },
-    { id: "cost", name: "Cost", description: "Wholesale cost", view: "catalog" },
-    { id: "manufacturer", name: "Manufacturer", description: "Product manufacturer/brand name", view: "catalog" },
-    { id: "status", name: "Status", description: "Product status (active, discontinued, etc)", view: "catalog" },
-    { id: "stock_quantity", name: "Stock Quantity", description: "Available inventory quantity", view: "catalog" },
-    { id: "upc", name: "UPC", description: "Universal Product Code", view: "catalog" },
+    { id: "sku", name: "SKU", required: true, description: "Unique product identifier", type: "string" },
+    { id: "product_name", name: "Product Name", required: true, description: "Full product name/title", type: "string" },
+    { id: "category", name: "Category", description: "Product category", type: "string" },
+    { id: "subcategory", name: "Subcategory", description: "Product subcategory", type: "string" },
+    { id: "price", name: "Price", description: "Retail price", type: "number" },
+    { id: "cost", name: "Cost", description: "Wholesale cost", type: "number" },
+    { id: "manufacturer", name: "Manufacturer", description: "Product manufacturer/brand name", type: "string" },
+    { id: "status", name: "Status", description: "Product status (active, discontinued, etc)", type: "string" },
+    { id: "stock_quantity", name: "Stock Quantity", description: "Available inventory quantity", type: "number" },
+    { id: "upc", name: "UPC", description: "Universal Product Code", type: "string" },
   ];
+  
+  console.log("DEBUG: catalogFields defined with length:", catalogFields.length);
   
   const detailFields = [
     // Basic Product Specification Section
@@ -997,7 +999,7 @@ export default function MappingTemplateWorkspace() {
                 onBack={() => setSelectedTab("template-info")}
                 templateInfo={{
                   name: templateForm.name,
-                  supplierName: suppliers.find(s => s.id === templateForm.supplierId)?.name
+                  supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name
                 }}
                 onPullSftpSample={
                   templateForm.sourceType === 'sftp' && templateForm.supplierId
