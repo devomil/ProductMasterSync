@@ -447,10 +447,36 @@ export default function MappingWorkspace({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log("Auto map triggered");
+              
+              // Make sure we have sample headers before attempting auto-map
+              if (!sampleHeaders || sampleHeaders.length === 0) {
+                toast({
+                  title: "No Data",
+                  description: "Please load sample data first before auto-mapping fields.",
+                  variant: "destructive"
+                });
+                return;
+              }
+              
               if (typeof onAutoMap === 'function') {
-                onAutoMap();
+                try {
+                  onAutoMap();
+                  toast({
+                    title: "Success",
+                    description: "Fields auto-mapped successfully",
+                  });
+                } catch (error) {
+                  console.error("Error in auto-mapping:", error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to auto-map fields. Please try again.",
+                    variant: "destructive"
+                  });
+                }
               }
             }}
             className="ml-auto"
@@ -703,9 +729,27 @@ export default function MappingWorkspace({
               <Button 
                 variant="outline" 
                 className="w-full mt-2 text-sm"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log("Add mapping triggered");
-                  addMapping();
+                  
+                  // Create a new blank mapping and add it to the array
+                  try {
+                    if (internalView === 'catalog') {
+                      console.log("Adding new catalog mapping");
+                      const currentMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
+                      const newMappings = [...currentMappings, { sourceField: "", targetField: "" }];
+                      onUpdateCatalogMappings(newMappings);
+                    } else {
+                      console.log("Adding new detail mapping");
+                      const currentMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
+                      const newMappings = [...currentMappings, { sourceField: "", targetField: "" }];
+                      onUpdateDetailMappings(newMappings);
+                    }
+                  } catch (error) {
+                    console.error("Error adding mapping:", error);
+                  }
                 }}
               >
                 <Plus className="h-4 w-4 mr-1" /> Add Field Mapping
