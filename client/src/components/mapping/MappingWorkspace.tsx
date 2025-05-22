@@ -582,32 +582,34 @@ export default function MappingWorkspace({
               </div>
             </div>
             
-            {/* View Selector Tabs */}
+            {/* View Selector Buttons */}
             <div className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger 
-                  value="catalog" 
-                  className={internalView === 'catalog' ? 'bg-blue-100' : ''}
+              <div className="grid w-full grid-cols-2 border border-gray-200 rounded-lg overflow-hidden">
+                <Button 
+                  variant={internalView === 'catalog' ? 'default' : 'ghost'}
+                  className={`rounded-none border-0 ${internalView === 'catalog' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    console.log('Master Catalog clicked');
                     localToggleView('catalog');
                   }}
                 >
                   Master Catalog
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="detail" 
-                  className={internalView === 'detail' ? 'bg-blue-100' : ''}
+                </Button>
+                <Button 
+                  variant={internalView === 'detail' ? 'default' : 'ghost'}
+                  className={`rounded-none border-0 border-l ${internalView === 'detail' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    console.log('Product Detail clicked');
                     localToggleView('detail');
                   }}
                 >
                   Product Detail
-                </TabsTrigger>
-              </TabsList>
+                </Button>
+              </div>
             </div>
           </div>
           
