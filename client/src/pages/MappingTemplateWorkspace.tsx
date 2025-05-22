@@ -109,6 +109,7 @@ export default function MappingTemplateWorkspace() {
   const [catalogMappings, setCatalogMappings] = useState<FieldMapping[]>([]);
   const [detailMappings, setDetailMappings] = useState<FieldMapping[]>([]);
   const [activeView, setActiveView] = useState<'catalog' | 'detail'>('catalog');
+  const [forceUpdate, setForceUpdate] = useState(0); // Force re-render trigger
   
   // Fixed view toggle function that properly maintains state
   const handleViewToggle = (view: 'catalog' | 'detail') => {
@@ -912,21 +913,17 @@ export default function MappingTemplateWorkspace() {
                 ]}
                 onUpdateCatalogMappings={(mappings) => {
                   console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings", mappings);
-                  setCatalogMappings(mappings);
+                  setCatalogMappings([...mappings]); // Create new array to trigger re-render
+                  setForceUpdate(prev => prev + 1); // Force component re-render
                   
-                  // Force re-render to ensure UI updates immediately
-                  setTimeout(() => {
-                    console.log("🔥 PARENT: Catalog mappings after update:", catalogMappings.length);
-                  }, 100);
+                  console.log("🔥 PARENT: Catalog mappings updated successfully");
                 }}
                 onUpdateDetailMappings={(mappings) => {
                   console.log("🔥 PARENT: onUpdateDetailMappings called with:", mappings.length, "mappings", mappings);
-                  setDetailMappings(mappings);
+                  setDetailMappings([...mappings]); // Create new array to trigger re-render
+                  setForceUpdate(prev => prev + 1); // Force component re-render
                   
-                  // Force re-render to ensure UI updates immediately  
-                  setTimeout(() => {
-                    console.log("🔥 PARENT: Detail mappings after update:", detailMappings.length);
-                  }, 100);
+                  console.log("🔥 PARENT: Detail mappings updated successfully");
                 }}
                 onToggleView={handleViewToggle}
                 onSave={handleSaveTemplate}
