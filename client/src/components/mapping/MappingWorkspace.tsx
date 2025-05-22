@@ -588,14 +588,22 @@ export default function MappingWorkspace({
                 <TabsTrigger 
                   value="catalog" 
                   className={internalView === 'catalog' ? 'bg-blue-100' : ''}
-                  onClick={() => localToggleView('catalog')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    localToggleView('catalog');
+                  }}
                 >
                   Master Catalog
                 </TabsTrigger>
                 <TabsTrigger 
                   value="detail" 
                   className={internalView === 'detail' ? 'bg-blue-100' : ''}
-                  onClick={() => localToggleView('detail')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    localToggleView('detail');
+                  }}
                 >
                   Product Detail
                 </TabsTrigger>
