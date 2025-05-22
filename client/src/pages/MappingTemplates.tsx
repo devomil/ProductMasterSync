@@ -552,17 +552,22 @@ export default function MappingTemplates() {
     if (!selectedTemplate) return;
     
     try {
-      const response = await apiRequest(`/api/mapping-templates/${selectedTemplate.id}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/mapping-templates/${selectedTemplate.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (response) {
+      if (response.ok) {
         toast({
           title: "Template Deleted",
           description: "Mapping template has been deleted successfully"
         });
         setIsDeleteDialogOpen(false);
         queryClient.invalidateQueries({ queryKey: ['/api/mapping-templates'] });
+      } else {
+        throw new Error(`Failed to delete template: ${response.status}`);
       }
     } catch (error) {
       console.error("Error deleting template:", error);
