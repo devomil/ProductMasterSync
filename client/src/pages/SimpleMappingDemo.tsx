@@ -443,29 +443,35 @@ export default function SimpleMappingDemo() {
                       <h4 className="font-medium">Sample Data Preview</h4>
                       <Badge variant="secondary">{sampleData.length} records</Badge>
                     </div>
-                    <div className="border rounded-lg p-4 bg-gray-50 max-h-60 overflow-auto">
-                      <div className="text-xs font-mono">
-                        <div className="grid grid-cols-4 gap-2 mb-2 font-semibold">
-                          <div>SKU</div>
-                          <div>Title</div>
-                          <div>Price</div>
-                          <div>Category</div>
-                        </div>
-                        {sampleData.slice(0, 3).map((row, idx) => (
-                          <div key={idx} className="grid grid-cols-4 gap-2 py-1 border-t">
-                            <div className="truncate">{row["CWR Part Number"]}</div>
-                            <div className="truncate">{row["Title"]}</div>
-                            <div className="truncate">{row["List Price"]}</div>
-                            <div className="truncate">{row["Category Name"]}</div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {Object.keys(sampleData[0]).map((key) => (
+                              <th key={key} className="text-left p-3 font-medium border-b">
+                                {key}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sampleData.map((row, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                              {Object.values(row).map((value, cellIdx) => (
+                                <td key={cellIdx} className="p-3 border-b">
+                                  {String(value)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed">
                     <div className="text-sm">No sample data loaded</div>
-                    <div className="text-xs mt-1">Click "Load CWR Sample Data" to get started</div>
+                    <div className="text-xs mt-1">Click "Load Data from Source" to get started</div>
                   </div>
                 )}
               </TabsContent>
