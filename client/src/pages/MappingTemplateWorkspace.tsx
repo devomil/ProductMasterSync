@@ -895,23 +895,8 @@ export default function MappingTemplateWorkspace() {
                 detailMappings={detailMappings}
                 activeView={activeView}
                 key={`mapping-${forceUpdate}-${catalogMappings.length}-${detailMappings.length}`}
-                catalogFields={[
-                  { id: "sku", name: "SKU", required: true, description: "Unique product identifier", type: "string" },
-                  { id: "product_name", name: "Product Name", required: true, description: "Full product name/title", type: "string" },
-                  { id: "category", name: "Category", description: "Product category", type: "string" },
-                  { id: "price", name: "Price", description: "Retail price", type: "number" },
-                  { id: "cost", name: "Cost", description: "Wholesale cost", type: "number" },
-                  { id: "manufacturer", name: "Manufacturer", description: "Product manufacturer/brand name", type: "string" },
-                  { id: "status", name: "Status", description: "Product status", type: "string" },
-                  { id: "upc", name: "UPC", description: "Universal Product Code", type: "string" },
-                ]}
-                detailFields={[
-                  { id: "mpn", name: "Manufacturer Part Number", description: "Manufacturer's part number", type: "string" },
-                  { id: "description", name: "Description", description: "Detailed product description", type: "string" },
-                  { id: "weight", name: "Weight", description: "Product weight", type: "string" },
-                  { id: "color", name: "Color", description: "Product color", type: "string" },
-                  { id: "image_url", name: "Primary Image URL", description: "Primary product image URL", type: "string" },
-                ]}
+                catalogFields={catalogFields}
+                detailFields={detailFields}
                 onUpdateCatalogMappings={(mappings) => {
                   console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings", mappings);
                   console.log("🔥 PARENT: Current catalog mappings before update:", catalogMappings.length);
