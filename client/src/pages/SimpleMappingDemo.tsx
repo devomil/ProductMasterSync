@@ -91,35 +91,82 @@ export default function SimpleMappingDemo() {
   };
 
   const autoMapFields = () => {
+    if (sampleData.length === 0) {
+      toast({
+        title: "No Data Available",
+        description: "Please load sample data first before auto-mapping fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const sourceFields = Object.keys(sampleData[0]);
     const currentTargetFields = getCurrentTargetFields();
     
     let autoMappings: FieldMapping[] = [];
     
     if (mappingTarget === "catalog") {
-      autoMappings = [
-        { id: "1", sourceField: "Part Number", targetField: "sku" },
-        { id: "2", sourceField: "Description", targetField: "product_name" },
-        { id: "3", sourceField: "UPC", targetField: "upc" },
-        { id: "4", sourceField: "Cost", targetField: "cost" },
-        { id: "5", sourceField: "MSRP", targetField: "price" },
-        { id: "6", sourceField: "Manufacturer", targetField: "manufacturer" },
-        { id: "7", sourceField: "Category", targetField: "category" }
+      // Smart mapping based on actual source field names
+      const mappingRules = [
+        { source: ["CWR Part Number", "Part Number", "SKU", "PartNumber"], target: "sku" },
+        { source: ["Title", "Description", "Product Name", "Name"], target: "product_name" },
+        { source: ["UPC Code", "UPC", "Barcode"], target: "upc" },
+        { source: ["Your Cost", "Cost", "Wholesale Price"], target: "cost" },
+        { source: ["List Price", "MSRP", "Price", "Retail Price"], target: "price" },
+        { source: ["Manufacturer Name", "Manufacturer", "Brand", "Vendor"], target: "manufacturer" },
+        { source: ["Category Name", "Category", "Product Category"], target: "category" }
       ];
+
+      mappingRules.forEach((rule, idx) => {
+        const sourceField = sourceFields.find(field => 
+          rule.source.some(variant => 
+            field.toLowerCase().includes(variant.toLowerCase()) || 
+            variant.toLowerCase().includes(field.toLowerCase())
+          )
+        );
+        
+        if (sourceField && currentTargetFields.find(tf => tf.value === rule.target)) {
+          autoMappings.push({
+            id: String(idx + 1),
+            sourceField,
+            targetField: rule.target
+          });
+        }
+      });
     } else {
-      // Product detail mappings
-      autoMappings = [
-        { id: "pd1", sourceField: "Description", targetField: "detailed_description" },
-        { id: "pd2", sourceField: "Weight", targetField: "specifications" },
-        { id: "pd3", sourceField: "Dimensions", targetField: "technical_specs" },
-        { id: "pd4", sourceField: "Brand", targetField: "brand_details" },
-        { id: "pd5", sourceField: "Part Number", targetField: "part_number" }
+      // Product detail mappings for PDP
+      const detailMappingRules = [
+        { source: ["Description", "Title", "Product Description"], target: "detailed_description" },
+        { source: ["Weight", "Product Weight", "Shipping Weight"], target: "specifications" },
+        { source: ["Dimensions", "Size", "Product Dimensions"], target: "technical_specs" },
+        { source: ["Manufacturer Name", "Brand", "Vendor"], target: "brand_details" },
+        { source: ["CWR Part Number", "Part Number", "SKU"], target: "part_number" },
+        { source: ["Features", "Product Features"], target: "features" },
+        { source: ["Warranty", "Warranty Info"], target: "warranty_info" }
       ];
+
+      detailMappingRules.forEach((rule, idx) => {
+        const sourceField = sourceFields.find(field => 
+          rule.source.some(variant => 
+            field.toLowerCase().includes(variant.toLowerCase()) || 
+            variant.toLowerCase().includes(field.toLowerCase())
+          )
+        );
+        
+        if (sourceField && currentTargetFields.find(tf => tf.value === rule.target)) {
+          autoMappings.push({
+            id: `pd${idx + 1}`,
+            sourceField,
+            targetField: rule.target
+          });
+        }
+      });
     }
     
     setCurrentMappings(autoMappings);
     toast({
-      title: "Auto-Mapping Complete",
-      description: `Created ${autoMappings.length} ${mappingTarget === "catalog" ? "catalog" : "product detail"} field mappings!`
+      title: "Smart Auto-Mapping Complete",
+      description: `Created ${autoMappings.length} intelligent mappings based on your actual data fields for ${mappingTarget === "catalog" ? "Master Catalog" : "Product Detail"} view!`
     });
   };
 
@@ -183,59 +230,75 @@ export default function SimpleMappingDemo() {
 
   const loadSampleData = async () => {
     setIsLoading(true);
-    
-    // Load realistic sample data directly for demo purposes
-    const realisticSampleData = [
-      {
-        "Part Number": "CWR-123456",
-        "Description": "Premium Automotive Widget Pro 2024",
-        "UPC": "123456789012",
-        "Cost": "45.99",
-        "MSRP": "89.99",
-        "Manufacturer": "ACME Corporation",
-        "Category": "Automotive Parts",
-        "Weight": "2.5",
-        "Dimensions": "10x8x4",
-        "Stock Qty": "150",
-        "Brand": "ACME Pro Series"
-      },
-      {
-        "Part Number": "CWR-789012",
-        "Description": "Standard Widget Assembly Kit",
-        "UPC": "234567890123",
-        "Cost": "25.99",
-        "MSRP": "49.99",
-        "Manufacturer": "Widget Solutions Inc",
-        "Category": "Hardware Tools",
-        "Weight": "1.8",
-        "Dimensions": "8x6x3",
-        "Stock Qty": "75",
-        "Brand": "ProTech"
-      },
-      {
-        "Part Number": "CWR-345678",
-        "Description": "Heavy Duty Industrial Connector",
-        "UPC": "345678901234",
-        "Cost": "125.50",
-        "MSRP": "199.99",
-        "Manufacturer": "Industrial Dynamics",
-        "Category": "Industrial Equipment",
-        "Weight": "5.2",
-        "Dimensions": "12x10x6",
-        "Stock Qty": "25",
-        "Brand": "IndustrialMax"
+    try {
+      if (!selectedDataSource || !selectedFile) {
+        throw new Error("Please select a data source and file");
       }
-    ];
-    
-    // Simulate loading delay
-    setTimeout(() => {
-      setSampleData(realisticSampleData);
-      toast({
-        title: "Sample Data Loaded",
-        description: `Loaded ${realisticSampleData.length} sample records for mapping demonstration.`
+
+      console.log(`Attempting to pull real data from ${selectedDataSource.name} at path: ${selectedFile}`);
+      
+      // Use the data source test-pull endpoint with selected file
+      const response = await apiRequest("POST", `/api/test-pull/${selectedDataSource.id}`, {
+        limit: 10,
+        path: selectedFile
       });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Real data pull result:", result);
+        
+        if (result.sample_data && result.sample_data.length > 0) {
+          setSampleData(result.sample_data);
+          toast({
+            title: "Real Data Loaded Successfully",
+            description: `Loaded ${result.sample_data.length} real records from ${selectedFile}. Ready for mapping!`
+          });
+        } else {
+          throw new Error("No sample data returned from source");
+        }
+      } else {
+        const errorData = await response.json();
+        console.error("SFTP connection failed:", errorData);
+        
+        // Fallback to demo data only if real connection fails
+        const fallbackData = [
+          {
+            "CWR Part Number": "CWR-123456",
+            "Title": "Premium Automotive Widget Pro 2024",
+            "UPC Code": "123456789012",
+            "Your Cost": "45.99",
+            "List Price": "89.99",
+            "Manufacturer Name": "ACME Corporation",
+            "Category Name": "Automotive Parts"
+          },
+          {
+            "CWR Part Number": "CWR-789012", 
+            "Title": "Standard Widget Assembly Kit",
+            "UPC Code": "234567890123",
+            "Your Cost": "25.99",
+            "List Price": "49.99",
+            "Manufacturer Name": "Widget Solutions Inc",
+            "Category Name": "Hardware Tools"
+          }
+        ];
+        
+        setSampleData(fallbackData);
+        toast({
+          title: "Using Demo Data",
+          description: "SFTP connection failed, using demo data. Check your connection settings.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Data load error:", error);
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Unable to load data from selected source.",
+        variant: "destructive"
+      });
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   // Load data sources on component mount
