@@ -1076,10 +1076,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Test pull data from a data source
-  app.post("/api/data-sources/:id/test-pull", async (req, res) => {
+  app.post("/api/test-pull/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const { remotePath, limit = 50 } = req.body;
+      const { path: remotePath, limit = 50 } = req.body;
       
       // Check if data source exists
       const dataSource = await storage.getDataSource(id);
@@ -1115,8 +1115,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           host: typedConfig.host,
           port: typedConfig.port || 22,
           username: typedConfig.username,
-          password: typedConfig.password,
-          // Add other credentials as needed
+          password: typedConfig.password || process.env.SFTP_PASSWORD,
+          secure: typedConfig.secure !== false,
+          remoteDir: typedConfig.path || '/',
+          privateKey: typedConfig.privateKey || undefined,
+          passphrase: typedConfig.passphrase || undefined
         };
         
         // If no specific remote path provided, use the first one in the config
