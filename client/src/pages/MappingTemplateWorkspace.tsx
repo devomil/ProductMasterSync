@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown, Minimize, Maximize, Filter } from "lucide-react";
+import { ChevronLeft, Save, ArrowLeftRight, PanelLeftOpen, PanelRightOpen, Download, Upload, FileUp, Plus, Trash, Wand2, ArrowDown, Minimize, Maximize, Filter, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import MappingWorkspace from "@/components/mapping/MappingWorkspace";
@@ -891,17 +891,104 @@ export default function MappingTemplateWorkspace() {
           
           <TabsContent value="mapping" className="space-y-4">
             {sampleData.length > 0 ? (
-              <SimpleMappingInterface
-                sampleHeaders={sampleHeaders}
-                onMappingsChange={(mappings) => {
-                  console.log("✅ SimpleMappingInterface - mappings updated:", mappings.length);
-                  setCatalogMappings(mappings.map(m => ({
-                    sourceField: m.sourceField,
-                    targetField: m.targetField,
-                    confidence: 0.9
-                  })));
-                }}
-              />
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      console.log("🚀 Creating auto-mappings");
+                      const autoMappings = [
+                        { sourceField: "CWR Part Number", targetField: "sku" },
+                        { sourceField: "Title", targetField: "product_name" },
+                        { sourceField: "UPC Code", targetField: "upc" },
+                        { sourceField: "Your Cost", targetField: "cost" },
+                        { sourceField: "List Price", targetField: "price" },
+                        { sourceField: "Manufacturer Name", targetField: "manufacturer" },
+                        { sourceField: "Category Name", targetField: "category" }
+                      ];
+                      
+                      setCatalogMappings(autoMappings.map(m => ({
+                        sourceField: m.sourceField,
+                        targetField: m.targetField,
+                        confidence: 0.9
+                      })));
+                      
+                      toast({
+                        title: "Auto-Mapping Complete",
+                        description: `Created ${autoMappings.length} field mappings.`
+                      });
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    Auto-Map Fields
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      const newMapping = {
+                        sourceField: "",
+                        targetField: "",
+                        confidence: 0.5
+                      };
+                      setCatalogMappings([...catalogMappings, newMapping]);
+                      toast({
+                        title: "Mapping Added",
+                        description: "New field mapping added."
+                      });
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Field Mapping
+                  </Button>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-gray-700">
+                    Field Mappings ({catalogMappings.length})
+                  </div>
+                  
+                  {catalogMappings.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed">
+                      <div className="text-sm">No field mappings yet</div>
+                      <div className="text-xs mt-1">Click "Auto-Map Fields" to get started</div>
+                    </div>
+                  ) : (
+                    catalogMappings.map((mapping, index) => (
+                      <Card key={index} className="border border-gray-200">
+                        <CardContent className="p-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs text-gray-500 mb-1 block">Source Field</label>
+                              <div className="p-2 border rounded bg-blue-50">
+                                <span className="text-sm font-medium">{mapping.sourceField || 'Not mapped'}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500 mb-1 block">Target Field</label>
+                              <div className="p-2 border rounded bg-green-50">
+                                <span className="text-sm font-medium">{mapping.targetField || 'Not mapped'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+                
+                {/* Required fields warning */}
+                {catalogMappings.length > 0 && (
+                  <Card className="border-orange-200 bg-orange-50">
+                    <CardContent className="p-4">
+                      <div className="text-sm text-orange-800 font-medium">Mapping Summary</div>
+                      <div className="text-sm text-orange-700 mt-1">
+                        {catalogMappings.filter(m => m.sourceField && m.targetField).length} of {catalogMappings.length} mappings complete
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             ) : (
               <Card>
                 <CardContent className="py-12 flex flex-col items-center justify-center">
