@@ -567,20 +567,18 @@ export default function MappingWorkspace({
                 console.log("Auto-map about to call update functions with:", newMappings);
                 console.log("Current internal view:", internalView);
                 
-                console.log("About to update mappings - current catalog:", catalogMappings.length, "current detail:", detailMappings.length);
+                console.log("🚀 CALLING PARENT CALLBACKS:");
+                console.log("Current view:", internalView);
+                console.log("New mappings to send:", newMappings);
+                console.log("Current catalog mappings:", catalogMappings.length);
+                console.log("Current detail mappings:", detailMappings.length);
                 
                 if (internalView === 'catalog') {
-                  console.log("Updating CATALOG mappings with", newMappings.length, "mappings:", newMappings);
+                  console.log("🚀 Calling onUpdateCatalogMappings with", newMappings.length, "mappings");
                   onUpdateCatalogMappings(newMappings);
-                  
-                  // Force immediate UI update by triggering a re-render
-                  console.log("Catalog mappings updated, should now show", newMappings.length, "mappings");
                 } else {
-                  console.log("Updating DETAIL mappings with", newMappings.length, "mappings:", newMappings);
+                  console.log("🚀 Calling onUpdateDetailMappings with", newMappings.length, "mappings");
                   onUpdateDetailMappings(newMappings);
-                  
-                  // Force immediate UI update by triggering a re-render
-                  console.log("Detail mappings updated, should now show", newMappings.length, "mappings");
                 }
                 
                 // Force component re-render
