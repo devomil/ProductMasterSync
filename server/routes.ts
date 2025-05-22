@@ -1149,20 +1149,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         try {
-          // Pull sample from SFTP directly
-          const result = await pullSampleFromSFTP(credentials, pathToUse, {
-            limit: limit,
-            hasHeader: true, // Assume headers by default
+          console.log("Starting SFTP data pull with credentials:", {
+            host: credentials.host,
+            port: credentials.port,
+            username: credentials.username,
+            path: pathToUse
           });
           
-          console.log("SFTP pull result:", result);
+          // Pull sample from SFTP directly
+          const result = await pullSampleFromSFTP(credentials, pathToUse, {
+            limit: Math.min(limit, 100), // Cap at 100 records for mapping
+            hasHeader: true,
+          });
+          
+          console.log("SFTP pull result:", {
+            success: result.success,
+            message: result.message,
+            recordCount: result.records?.length || 0,
+            hasHeaders: result.headers?.length || 0
+          });
           
           if (!result.success) {
             console.error("SFTP pull failed:", result.message);
             return res.status(400).json({
               success: false,
               message: result.message || "SFTP data pull failed",
-              error_details: result
+              error_details: {
+                host: credentials.host,
+                path: pathToUse,
+                error: result.error?.message || result.message
+              }
             });
           }
         
