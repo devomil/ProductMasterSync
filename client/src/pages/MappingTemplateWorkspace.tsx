@@ -890,45 +890,16 @@ export default function MappingTemplateWorkspace() {
           
           <TabsContent value="mapping" className="space-y-4">
             {sampleData.length > 0 ? (
-              <MappingWorkspace
-                sampleData={sampleData}
+              <SimpleMappingInterface
                 sampleHeaders={sampleHeaders}
-                catalogMappings={catalogMappings}
-                detailMappings={detailMappings}
-                activeView={activeView}
-                key={`mapping-${forceUpdate}-${catalogMappings.length}-${detailMappings.length}`}
-                catalogFields={catalogFields}
-                detailFields={detailFields}
-                onUpdateCatalogMappings={(mappings) => {
-                  console.log("🔥 PARENT: onUpdateCatalogMappings called with:", mappings.length, "mappings");
-                  console.log("🔥 PARENT: About to pass catalogFields with length:", catalogFields.length);
-                  console.log("🔥 PARENT: About to pass detailFields with length:", detailFields.length);
-                  
-                  setCatalogMappings([...mappings]);
-                  setForceUpdate(prev => prev + 1);
+                onMappingsChange={(mappings) => {
+                  console.log("✅ SimpleMappingInterface - mappings updated:", mappings.length);
+                  setCatalogMappings(mappings.map(m => ({
+                    sourceField: m.sourceField,
+                    targetField: m.targetField,
+                    confidence: 0.9
+                  })));
                 }}
-                onUpdateDetailMappings={(mappings) => {
-                  console.log("🔥 PARENT: onUpdateDetailMappings called with:", mappings.length, "mappings", mappings);
-                  setDetailMappings([...mappings]); // Create new array to trigger re-render
-                  setForceUpdate(prev => prev + 1); // Force component re-render
-                  
-                  console.log("🔥 PARENT: Detail mappings updated successfully");
-                }}
-                onToggleView={handleViewToggle}
-                onSave={handleSaveTemplate}
-                onBack={() => navigate('/mapping-templates')}
-                templateInfo={{
-                  name: templateForm.name,
-                  supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name
-                }}
-                onAutoMap={() => {
-                  console.log("Parent auto-map triggered - delegating to child component");
-                }}
-                onPullSftpSample={
-                  templateForm.sourceType === 'sftp' && templateForm.supplierId
-                    ? () => handleSftpTestPull()
-                    : undefined
-                }
               />
             ) : (
               <Card>
