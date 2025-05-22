@@ -25,6 +25,8 @@ export default function SimpleMappingDemo() {
   const [isLoading, setIsLoading] = useState(false);
   const [sampleData, setSampleData] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("mapping");
+  const [mappingTarget, setMappingTarget] = useState("catalog"); // "catalog" or "product_detail"
+  const [productDetailMappings, setProductDetailMappings] = useState<FieldMapping[]>([]);
 
   // Sample headers from CWR data
   const sampleHeaders = [
@@ -40,7 +42,7 @@ export default function SimpleMappingDemo() {
     "Dimensions"
   ];
 
-  const targetFields = [
+  const catalogFields = [
     { id: "sku", name: "SKU", required: true },
     { id: "product_name", name: "Product Name", required: true },
     { id: "upc", name: "UPC", required: false },
@@ -53,31 +55,81 @@ export default function SimpleMappingDemo() {
     { id: "dimensions", name: "Dimensions", required: false }
   ];
 
+  const productDetailFields = [
+    { id: "detailed_description", name: "Detailed Description", required: false },
+    { id: "specifications", name: "Specifications", required: false },
+    { id: "features", name: "Features", required: false },
+    { id: "warranty_info", name: "Warranty Information", required: false },
+    { id: "installation_guide", name: "Installation Guide", required: false },
+    { id: "compatibility", name: "Compatibility", required: false },
+    { id: "material", name: "Material", required: false },
+    { id: "color", name: "Color", required: false },
+    { id: "brand_details", name: "Brand Details", required: false },
+    { id: "model_number", name: "Model Number", required: false },
+    { id: "part_number", name: "Part Number", required: false },
+    { id: "technical_specs", name: "Technical Specifications", required: false },
+    { id: "safety_warnings", name: "Safety Warnings", required: false },
+    { id: "certifications", name: "Certifications", required: false },
+    { id: "country_of_origin", name: "Country of Origin", required: false }
+  ];
+
+  const getCurrentTargetFields = () => {
+    return mappingTarget === "catalog" ? catalogFields : productDetailFields;
+  };
+
+  const getCurrentMappings = () => {
+    return mappingTarget === "catalog" ? mappings : productDetailMappings;
+  };
+
+  const setCurrentMappings = (newMappings: FieldMapping[]) => {
+    if (mappingTarget === "catalog") {
+      setMappings(newMappings);
+    } else {
+      setProductDetailMappings(newMappings);
+    }
+  };
+
   const autoMapFields = () => {
-    const autoMappings: FieldMapping[] = [
-      { id: "1", sourceField: "CWR Part Number", targetField: "sku" },
-      { id: "2", sourceField: "Title", targetField: "product_name" },
-      { id: "3", sourceField: "UPC Code", targetField: "upc" },
-      { id: "4", sourceField: "Your Cost", targetField: "cost" },
-      { id: "5", sourceField: "List Price", targetField: "price" },
-      { id: "6", sourceField: "Manufacturer Name", targetField: "manufacturer" },
-      { id: "7", sourceField: "Category Name", targetField: "category" }
-    ];
+    const currentTargetFields = getCurrentTargetFields();
     
-    setMappings(autoMappings);
+    let autoMappings: FieldMapping[] = [];
+    
+    if (mappingTarget === "catalog") {
+      autoMappings = [
+        { id: "1", sourceField: "CWR Part Number", targetField: "sku" },
+        { id: "2", sourceField: "Title", targetField: "product_name" },
+        { id: "3", sourceField: "UPC Code", targetField: "upc" },
+        { id: "4", sourceField: "Your Cost", targetField: "cost" },
+        { id: "5", sourceField: "List Price", targetField: "price" },
+        { id: "6", sourceField: "Manufacturer Name", targetField: "manufacturer" },
+        { id: "7", sourceField: "Category Name", targetField: "category" }
+      ];
+    } else {
+      // Product detail mappings
+      autoMappings = [
+        { id: "pd1", sourceField: "Description", targetField: "detailed_description" },
+        { id: "pd2", sourceField: "Weight", targetField: "specifications" },
+        { id: "pd3", sourceField: "Dimensions", targetField: "technical_specs" },
+        { id: "pd4", sourceField: "Manufacturer Name", targetField: "brand_details" },
+        { id: "pd5", sourceField: "CWR Part Number", targetField: "part_number" }
+      ];
+    }
+    
+    setCurrentMappings(autoMappings);
     toast({
       title: "Auto-Mapping Complete",
-      description: `Created ${autoMappings.length} field mappings successfully!`
+      description: `Created ${autoMappings.length} ${mappingTarget === "catalog" ? "catalog" : "product detail"} field mappings!`
     });
   };
 
   const addMapping = () => {
+    const currentMappings = getCurrentMappings();
     const newMapping: FieldMapping = {
       id: Date.now().toString(),
       sourceField: "",
       targetField: ""
     };
-    setMappings([...mappings, newMapping]);
+    setCurrentMappings([...currentMappings, newMapping]);
     toast({
       title: "Mapping Added",
       description: "New field mapping added. Configure the fields."
@@ -85,13 +137,38 @@ export default function SimpleMappingDemo() {
   };
 
   const removeMapping = (id: string) => {
-    setMappings(mappings.filter(m => m.id !== id));
+    const currentMappings = getCurrentMappings();
+    setCurrentMappings(currentMappings.filter(m => m.id !== id));
   };
 
-  const loadSampleData = () => {
+  const loadSampleData = async () => {
     setIsLoading(true);
-    // Simulate loading CWR sample data
-    setTimeout(() => {
+    try {
+      // Pull real data from CWR SFTP
+      const response = await apiRequest("POST", "/api/test-pull/1", {
+        limit: 10,
+        path: "/eco8/out/catalog.csv"
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.sample_data && result.sample_data.length > 0) {
+          setSampleData(result.sample_data);
+          // Update headers from real data
+          const realHeaders = Object.keys(result.sample_data[0]);
+          toast({
+            title: "Real SFTP Data Loaded",
+            description: `Loaded ${result.sample_data.length} real records from CWR SFTP server.`
+          });
+        } else {
+          throw new Error("No sample data returned");
+        }
+      } else {
+        throw new Error("SFTP connection failed");
+      }
+    } catch (error) {
+      console.error("SFTP load error:", error);
+      // Fallback to mock data if SFTP fails
       const mockSampleData = [
         {
           "CWR Part Number": "ABC123",
@@ -104,27 +181,17 @@ export default function SimpleMappingDemo() {
           "Description": "High-quality premium widget with advanced features",
           "Weight": "2.5 lbs",
           "Dimensions": "10x8x4 inches"
-        },
-        {
-          "CWR Part Number": "DEF456",
-          "Title": "Standard Widget",
-          "UPC Code": "234567890123",
-          "Your Cost": "$25.99",
-          "List Price": "$49.99",
-          "Manufacturer Name": "Widget Co",
-          "Category Name": "Tools",
-          "Description": "Reliable standard widget for everyday use",
-          "Weight": "1.8 lbs",
-          "Dimensions": "8x6x3 inches"
         }
       ];
       setSampleData(mockSampleData);
-      setIsLoading(false);
       toast({
-        title: "Sample Data Loaded",
-        description: `Loaded ${mockSampleData.length} sample records from CWR supplier.`
+        title: "Using Sample Data",
+        description: "Using fallback data - SFTP connection unavailable.",
+        variant: "default"
       });
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const saveTemplate = async () => {
@@ -303,6 +370,26 @@ export default function SimpleMappingDemo() {
               </TabsContent>
 
               <TabsContent value="mapping" className="space-y-4 mt-4">
+                {/* Mapping Target Selector */}
+                <div className="flex gap-2 mb-4">
+                  <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                    <Button
+                      variant={mappingTarget === "catalog" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setMappingTarget("catalog")}
+                    >
+                      Master Catalog View
+                    </Button>
+                    <Button
+                      variant={mappingTarget === "product_detail" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setMappingTarget("product_detail")}
+                    >
+                      Product Detail View
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex gap-2 mb-4">
                   <Button onClick={autoMapFields} className="bg-blue-600 hover:bg-blue-700">
                     <Zap className="w-4 h-4 mr-2" />
@@ -333,16 +420,16 @@ export default function SimpleMappingDemo() {
                 {/* Mappings */}
                 <div className="space-y-3">
                   <div className="text-sm font-medium text-gray-700">
-                    Field Mappings ({mappings.length})
+                    {mappingTarget === "catalog" ? "Master Catalog" : "Product Detail"} Field Mappings ({getCurrentMappings().length})
                   </div>
                   
-                  {mappings.length === 0 ? (
+                  {getCurrentMappings().length === 0 ? (
                     <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed">
                       <div className="text-sm">No field mappings yet</div>
                       <div className="text-xs mt-1">Click "Auto-Map Fields" to create mappings automatically</div>
                     </div>
                   ) : (
-                    mappings.map((mapping) => (
+                    getCurrentMappings().map((mapping) => (
                       <Card key={mapping.id} className="border border-gray-200">
                         <CardContent className="p-4">
                           <div className="grid grid-cols-3 gap-4 items-center">
@@ -357,10 +444,12 @@ export default function SimpleMappingDemo() {
                             </div>
                             <div className="flex gap-2">
                               <div className="flex-1">
-                                <label className="text-xs text-gray-500 mb-1 block">Target Field</label>
+                                <label className="text-xs text-gray-500 mb-1 block">
+                                  {mappingTarget === "catalog" ? "Catalog" : "Product Detail"} Target Field
+                                </label>
                                 <div className="p-2 border rounded bg-green-50">
                                   <span className="text-sm font-medium">
-                                    {targetFields.find(f => f.id === mapping.targetField)?.name || 'Not selected'}
+                                    {getCurrentTargetFields().find(f => f.id === mapping.targetField)?.name || 'Not selected'}
                                   </span>
                                 </div>
                               </div>
@@ -383,15 +472,18 @@ export default function SimpleMappingDemo() {
                 </div>
 
                 {/* Summary */}
-                {mappings.length > 0 && (
+                {(mappings.length > 0 || productDetailMappings.length > 0) && (
                   <Card className="border-green-200 bg-green-50">
                     <CardContent className="p-4">
                       <div className="text-sm text-green-800 font-medium">Mapping Summary</div>
                       <div className="text-sm text-green-700 mt-1">
-                        ✅ {mappings.filter(m => m.sourceField && m.targetField).length} of {mappings.length} mappings complete
+                        ✅ Catalog: {mappings.filter(m => m.sourceField && m.targetField).length} mappings
                       </div>
                       <div className="text-sm text-green-700">
-                        ✅ Required fields: {targetFields.filter(f => f.required && mappings.some(m => m.targetField === f.id)).length} of {targetFields.filter(f => f.required).length} mapped
+                        ✅ Product Detail: {productDetailMappings.filter(m => m.sourceField && m.targetField).length} mappings
+                      </div>
+                      <div className="text-sm text-green-700">
+                        ✅ Total: {mappings.length + productDetailMappings.length} field mappings configured
                       </div>
                     </CardContent>
                   </Card>
