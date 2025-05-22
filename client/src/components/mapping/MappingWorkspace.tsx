@@ -287,29 +287,38 @@ export default function MappingWorkspace({
   
   // Filter mappings based on search and other filters
   const getFilteredMappings = () => {
-    return (activeMappings || []).filter(mapping => {
-      if (!mapping) return false;
-      
-      // If showing only mapped fields, filter out unmapped ones
-      if (showOnlyMapped && (!mapping.sourceField || !mapping.targetField)) {
+    console.log("getFilteredMappings called - activeMappings:", activeMappings);
+    
+    if (!activeMappings || activeMappings.length === 0) {
+      console.log("No active mappings to filter");
+      return [];
+    }
+    
+    const filtered = activeMappings.filter(mapping => {
+      if (!mapping) {
+        console.log("Filtering out null/undefined mapping");
         return false;
       }
       
-      // If collapsing unmapped fields and this is unmapped, filter it out
-      if (collapseUnmapped && (!mapping.sourceField || !mapping.targetField)) {
-        return false;
-      }
+      // Always show mappings that have either source or target field for editing
+      // Don't filter out empty mappings as users need to see them to fill them in
       
-      // Filter by search term
-      if (searchTerm) {
+      // Filter by search term only if we have one
+      if (searchTerm && searchTerm.trim()) {
         const sourceMatch = mapping.sourceField?.toLowerCase().includes(searchTerm.toLowerCase());
         const targetField = (activeFields || []).find(tf => tf?.id === mapping.targetField);
         const targetMatch = targetField?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-        return sourceMatch || targetMatch;
+        const result = sourceMatch || targetMatch;
+        console.log(`Search filter for "${searchTerm}": sourceMatch=${sourceMatch}, targetMatch=${targetMatch}, result=${result}`);
+        return result;
       }
       
+      // If no search term, show all mappings
       return true;
     });
+    
+    console.log("Filtered mappings result:", filtered);
+    return filtered;
   };
 
   // Generate live mapping preview
