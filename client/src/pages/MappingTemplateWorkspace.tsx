@@ -144,6 +144,7 @@ export default function MappingTemplateWorkspace() {
   ];
   
   console.log("DEBUG: catalogFields defined with length:", catalogFields.length);
+  console.log("DEBUG: catalogFields content:", catalogFields);
   
   const detailFields = [
     // Basic Product Specification Section
