@@ -561,15 +561,18 @@ export default function MappingWorkspace({
                 });
                 
                 // Update the mappings
+                console.log("Auto-map about to call update functions with:", newMappings);
                 if (internalView === 'catalog') {
+                  console.log("Calling onUpdateCatalogMappings with", newMappings.length, "mappings");
                   onUpdateCatalogMappings(newMappings);
                 } else {
+                  console.log("Calling onUpdateDetailMappings with", newMappings.length, "mappings");
                   onUpdateDetailMappings(newMappings);
                 }
                 
                 toast({
                   title: "Success",
-                  description: `Auto-mapped ${newMappings.length} fields successfully`,
+                  description: `Auto-mapped ${smartMappings.length} fields successfully`,
                 });
               } catch (error) {
                 console.error("Error in auto-mapping:", error);

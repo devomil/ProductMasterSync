@@ -910,8 +910,14 @@ export default function MappingTemplateWorkspace() {
                   { id: "color", name: "Color", description: "Product color", type: "string" },
                   { id: "image_url", name: "Primary Image URL", description: "Primary product image URL", type: "string" },
                 ]}
-                onUpdateCatalogMappings={setCatalogMappings}
-                onUpdateDetailMappings={setDetailMappings}
+                onUpdateCatalogMappings={(mappings) => {
+                  console.log("onUpdateCatalogMappings called with:", mappings.length, "mappings");
+                  setCatalogMappings([...mappings]);
+                }}
+                onUpdateDetailMappings={(mappings) => {
+                  console.log("onUpdateDetailMappings called with:", mappings.length, "mappings");
+                  setDetailMappings([...mappings]);
+                }}
                 onToggleView={handleViewToggle}
                 onSave={handleSaveTemplate}
                 onBack={() => navigate('/mapping-templates')}
@@ -920,99 +926,7 @@ export default function MappingTemplateWorkspace() {
                   supplierName: suppliers?.find(s => s.id === templateForm.supplierId)?.name
                 }}
                 onAutoMap={() => {
-                  if (!sampleHeaders || sampleHeaders.length === 0) {
-                    toast({
-                      title: "No Data",
-                      description: "Please load sample data first before auto-mapping fields.",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  
-                  try {
-                    console.log("Auto-map triggered in parent with activeView:", activeView);
-                    console.log("Sample headers available:", sampleHeaders.length);
-                    
-                    // Force using the current active view for mapping
-                    if (activeView === 'catalog') {
-                      // Create new mappings based on headers
-                      const newMappings = sampleHeaders.map(header => ({
-                        sourceField: header,
-                        targetField: ""
-                      }));
-                      
-                      // Apply intelligent mapping where possible
-                      newMappings.forEach((mapping, index) => {
-                        const headerLower = mapping.sourceField.toLowerCase();
-                        
-                        // Simple auto-mapping logic
-                        if (headerLower.includes('sku') || headerLower.includes('part')) {
-                          mapping.targetField = 'sku';
-                        } else if (headerLower.includes('name') || headerLower.includes('title')) {
-                          mapping.targetField = 'product_name';
-                        } else if (headerLower.includes('desc')) {
-                          mapping.targetField = 'description';
-                        } else if (headerLower.includes('upc') || headerLower.includes('barcode')) {
-                          mapping.targetField = 'upc';
-                        } else if (headerLower.includes('price') && !headerLower.includes('map')) {
-                          mapping.targetField = 'price';
-                        } else if (headerLower.includes('cost')) {
-                          mapping.targetField = 'cost';
-                        } else if (headerLower.includes('brand') || headerLower.includes('manufacturer')) {
-                          mapping.targetField = 'brand';
-                        } else if (headerLower.includes('category')) {
-                          mapping.targetField = 'category';
-                        }
-                      });
-                      
-                      console.log("Setting catalog mappings:", newMappings.length);
-                      setCatalogMappings(newMappings);
-                      
-                    } else {
-                      // Create new mappings based on headers
-                      const newMappings = sampleHeaders.map(header => ({
-                        sourceField: header,
-                        targetField: ""
-                      }));
-                      
-                      // Apply intelligent mapping where possible
-                      newMappings.forEach((mapping, index) => {
-                        const headerLower = mapping.sourceField.toLowerCase();
-                        
-                        // Simple auto-mapping logic for detail view
-                        if (headerLower.includes('title')) {
-                          mapping.targetField = 'product_title';
-                        } else if (headerLower.includes('desc') && headerLower.includes('full')) {
-                          mapping.targetField = 'full_description';
-                        } else if (headerLower.includes('image') || headerLower.includes('img')) {
-                          mapping.targetField = 'main_image';
-                        } else if (headerLower.includes('weight')) {
-                          mapping.targetField = 'weight';
-                        } else if (headerLower.includes('height')) {
-                          mapping.targetField = 'height';
-                        } else if (headerLower.includes('width')) {
-                          mapping.targetField = 'width';
-                        } else if (headerLower.includes('origin')) {
-                          mapping.targetField = 'country_of_origin';
-                        }
-                      });
-                      
-                      console.log("Setting detail mappings:", newMappings.length);
-                      setDetailMappings(newMappings);
-                    }
-                    
-                    toast({
-                      title: "Success",
-                      description: "Fields auto-mapped successfully",
-                    });
-                  } catch (error) {
-                    console.error("Error in auto-mapping:", error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to auto-map fields. Please try again.",
-                      variant: "destructive"
-                    });
-                  }
+                  console.log("Parent auto-map triggered - delegating to child component");
                 }}
                 onPullSftpSample={
                   templateForm.sourceType === 'sftp' && templateForm.supplierId
