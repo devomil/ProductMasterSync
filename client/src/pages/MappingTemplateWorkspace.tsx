@@ -145,6 +145,12 @@ export default function MappingTemplateWorkspace() {
   
   console.log("DEBUG: catalogFields defined with length:", catalogFields.length);
   
+  // Debug logging right before passing to component
+  useEffect(() => {
+    console.log("DEBUG: About to pass catalogFields:", catalogFields);
+    console.log("DEBUG: About to pass detailFields:", detailFields);
+  }, [catalogFields, detailFields]);
+  
   const detailFields = [
     // Basic Product Specification Section
     { id: "mpn", name: "Manufacturer Part Number", description: "Manufacturer's part number", view: "detail", section: "specifications" },
