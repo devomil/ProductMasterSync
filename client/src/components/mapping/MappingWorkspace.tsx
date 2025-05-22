@@ -119,23 +119,11 @@ export default function MappingWorkspace({
   
   // Don't sync with parent's activeView to prevent navigation issues
   
-  // Safely inform parent of view changes without relying on parent state change
+  // Fix view switching to prevent navigation issues
   const localToggleView = (view: 'catalog' | 'detail') => {
-    // Update internal state immediately
+    console.log(`Switching to ${view} view`);
+    // Only update internal state, don't notify parent to prevent navigation bugs
     setInternalView(view);
-    console.log(`Changing to ${view} view`);
-    
-    // Safely notify parent of change if function exists
-    if (typeof onToggleView === 'function') {
-      try {
-        // Wrap in setTimeout to prevent React state update cycle issues
-        setTimeout(() => {
-          onToggleView(view);
-        }, 0);
-      } catch (err) {
-        console.error("Error toggling view:", err);
-      }
-    }
   };
   // UI state
   const [searchTerm, setSearchTerm] = useState("");
@@ -617,6 +605,22 @@ export default function MappingWorkspace({
           
           {/* Mappings area */}
           <div className="overflow-auto flex-grow">
+            {/* Current Mappings Summary */}
+            {activeMappings && activeMappings.length > 0 && (
+              <div className="p-3 bg-green-50 border-b border-green-200">
+                <h4 className="font-medium text-green-800 mb-2">✓ Current Mappings ({activeMappings.length})</h4>
+                <div className="space-y-1 text-sm">
+                  {activeMappings.map((mapping, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white rounded px-2 py-1 border border-green-200">
+                      <span className="text-blue-600 font-medium">{mapping.sourceField}</span>
+                      <span className="text-gray-400">→</span>
+                      <span className="text-green-700">{activeFields.find(f => f.id === mapping.targetField)?.name || mapping.targetField}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Search and filter */}
             <div className="p-3 border-b">
               <div className="relative">
