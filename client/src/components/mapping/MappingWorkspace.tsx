@@ -241,25 +241,36 @@ export default function MappingWorkspace({
   const addMapping = () => {
     console.log("Add mapping triggered");
     console.log("Adding new", internalView, "mapping");
+    console.log("Current catalogMappings:", catalogMappings);
+    console.log("Current detailMappings:", detailMappings);
     
     try {
       if (internalView === 'catalog') {
         const activeMappings = Array.isArray(catalogMappings) ? [...catalogMappings] : [];
         const updatedMappings = [...activeMappings, { sourceField: "", targetField: "" }];
-        console.log("New catalog mappings:", updatedMappings.length);
+        console.log("New catalog mappings array:", updatedMappings);
+        console.log("Calling onUpdateCatalogMappings with:", updatedMappings);
         onUpdateCatalogMappings(updatedMappings);
+        
+        // Force a re-render by updating state
+        setTimeout(() => {
+          console.log("After update - catalogMappings should be:", updatedMappings.length);
+        }, 100);
+        
         toast({
           title: "Success",
-          description: "New field mapping added",
+          description: `Added new mapping (${updatedMappings.length} total)`,
         });
       } else {
         const activeMappings = Array.isArray(detailMappings) ? [...detailMappings] : [];
         const updatedMappings = [...activeMappings, { sourceField: "", targetField: "" }];
-        console.log("New detail mappings:", updatedMappings.length);
+        console.log("New detail mappings array:", updatedMappings);
+        console.log("Calling onUpdateDetailMappings with:", updatedMappings);
         onUpdateDetailMappings(updatedMappings);
+        
         toast({
           title: "Success", 
-          description: "New field mapping added",
+          description: `Added new mapping (${updatedMappings.length} total)`,
         });
       }
     } catch (error) {
