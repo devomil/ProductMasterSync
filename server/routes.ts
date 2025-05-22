@@ -949,10 +949,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } catch (pullError) {
           console.error("Error pulling SFTP sample:", pullError);
-          return res.status(400).json({
+          return res.status(500).json({
             success: false,
             message: pullError instanceof Error ? pullError.message : "Failed to pull SFTP sample data",
-            error: pullError
+            error_details: {
+              error: pullError instanceof Error ? pullError.message : String(pullError),
+              path: pathToUse,
+              host: credentials.host
+            }
           });
         }
       } 
@@ -1135,15 +1139,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        console.log(`Attempting SFTP connection to ${credentials.host} with path: ${pathToUse}`);
-        
-        // Pull sample from SFTP
-        const result = await pullSampleFromSFTP(credentials, pathToUse, {
-          limit: limit,
-          hasHeader: true, // Assume headers by default
+        console.log(`Attempting SFTP connection to ${credentials.host}:${credentials.port} with path: ${pathToUse}`);
+        console.log("SFTP credentials:", { 
+          host: credentials.host, 
+          port: credentials.port, 
+          username: credentials.username,
+          hasPassword: !!credentials.password,
+          remoteDir: credentials.remoteDir
         });
         
-        console.log("SFTP pull result:", result);
+        try {
+          // Pull sample from SFTP
+          const result = await pullSampleFromSFTP(credentials, pathToUse, {
+            limit: limit,
+            hasHeader: true, // Assume headers by default
+          });
+          
+          console.log("SFTP pull result:", result);
+          
+          if (!result.success) {
+            console.error("SFTP pull failed:", result.message);
+            return res.status(400).json({
+              success: false,
+              message: result.message || "SFTP connection failed",
+              error_details: result
+            });
+          }
         
         // Return the result
         return res.json({

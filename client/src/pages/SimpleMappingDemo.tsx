@@ -378,21 +378,29 @@ export default function SimpleMappingDemo() {
                   
                   <div className="space-y-2">
                     <Label>File Path</Label>
-                    <div className="flex gap-2">
-                      {availableFiles.length > 0 ? (
-                        availableFiles.map(file => (
-                          <Button
-                            key={file}
-                            variant={selectedFile === file ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSelectedFile(file)}
-                          >
-                            {file.split('/').pop()}
-                          </Button>
-                        ))
-                      ) : (
-                        <div className="text-sm text-gray-500 p-2">No files available</div>
-                      )}
+                    <div className="space-y-2">
+                      <Input
+                        value={selectedFile}
+                        onChange={(e) => setSelectedFile(e.target.value)}
+                        placeholder="Enter full path (e.g., /eco8/out/catalog.csv)"
+                        className="w-full"
+                      />
+                      <div className="flex gap-2 flex-wrap">
+                        {availableFiles.length > 0 ? (
+                          availableFiles.map(file => (
+                            <Button
+                              key={file}
+                              variant={selectedFile === file ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedFile(file)}
+                            >
+                              {file.split('/').pop()}
+                            </Button>
+                          ))
+                        ) : (
+                          <div className="text-sm text-gray-500 p-2">Common paths shown below</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
