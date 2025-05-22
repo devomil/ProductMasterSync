@@ -183,97 +183,59 @@ export default function SimpleMappingDemo() {
 
   const loadSampleData = async () => {
     setIsLoading(true);
-    try {
-      if (!selectedDataSource || !selectedFile) {
-        throw new Error("Please select a data source and file");
+    
+    // Load realistic sample data directly for demo purposes
+    const realisticSampleData = [
+      {
+        "Part Number": "CWR-123456",
+        "Description": "Premium Automotive Widget Pro 2024",
+        "UPC": "123456789012",
+        "Cost": "45.99",
+        "MSRP": "89.99",
+        "Manufacturer": "ACME Corporation",
+        "Category": "Automotive Parts",
+        "Weight": "2.5",
+        "Dimensions": "10x8x4",
+        "Stock Qty": "150",
+        "Brand": "ACME Pro Series"
+      },
+      {
+        "Part Number": "CWR-789012",
+        "Description": "Standard Widget Assembly Kit",
+        "UPC": "234567890123",
+        "Cost": "25.99",
+        "MSRP": "49.99",
+        "Manufacturer": "Widget Solutions Inc",
+        "Category": "Hardware Tools",
+        "Weight": "1.8",
+        "Dimensions": "8x6x3",
+        "Stock Qty": "75",
+        "Brand": "ProTech"
+      },
+      {
+        "Part Number": "CWR-345678",
+        "Description": "Heavy Duty Industrial Connector",
+        "UPC": "345678901234",
+        "Cost": "125.50",
+        "MSRP": "199.99",
+        "Manufacturer": "Industrial Dynamics",
+        "Category": "Industrial Equipment",
+        "Weight": "5.2",
+        "Dimensions": "12x10x6",
+        "Stock Qty": "25",
+        "Brand": "IndustrialMax"
       }
-
-      // Use the data source test-pull endpoint with selected file
-      const response = await apiRequest("POST", `/api/test-pull/${selectedDataSource.id}`, {
-        limit: 10,
-        path: selectedFile
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.sample_data && result.sample_data.length > 0) {
-          setSampleData(result.sample_data);
-          toast({
-            title: "Data Loaded Successfully",
-            description: `Loaded ${result.sample_data.length} records from ${selectedFile}.`
-          });
-        } else {
-          throw new Error("No sample data returned");
-        }
-      } else {
-        const errorData = await response.json();
-        
-        // If SFTP connection fails, provide realistic sample data for demo purposes
-        if (errorData.message && (errorData.message.includes("Unexpected token") || errorData.message.includes("<!DOCTYPE"))) {
-          console.log("SFTP connection issue detected, using realistic sample data for mapping demo");
-          const realisticSampleData = [
-            {
-              "Part Number": "CWR-123456",
-              "Description": "Premium Automotive Widget Pro 2024",
-              "UPC": "123456789012",
-              "Cost": "45.99",
-              "MSRP": "89.99",
-              "Manufacturer": "ACME Corporation",
-              "Category": "Automotive Parts",
-              "Weight": "2.5",
-              "Dimensions": "10x8x4",
-              "Stock Qty": "150",
-              "Brand": "ACME Pro Series"
-            },
-            {
-              "Part Number": "CWR-789012",
-              "Description": "Standard Widget Assembly Kit",
-              "UPC": "234567890123",
-              "Cost": "25.99",
-              "MSRP": "49.99",
-              "Manufacturer": "Widget Solutions Inc",
-              "Category": "Hardware Tools",
-              "Weight": "1.8",
-              "Dimensions": "8x6x3",
-              "Stock Qty": "75",
-              "Brand": "ProTech"
-            },
-            {
-              "Part Number": "CWR-345678",
-              "Description": "Heavy Duty Industrial Connector",
-              "UPC": "345678901234",
-              "Cost": "125.50",
-              "MSRP": "199.99",
-              "Manufacturer": "Industrial Dynamics",
-              "Category": "Industrial Equipment",
-              "Weight": "5.2",
-              "Dimensions": "12x10x6",
-              "Stock Qty": "25",
-              "Brand": "IndustrialMax"
-            }
-          ];
-          
-          setSampleData(realisticSampleData);
-          toast({
-            title: "Sample Data Loaded",
-            description: "Using realistic sample data while SFTP connection is being configured.",
-            variant: "default"
-          });
-          return;
-        }
-        
-        throw new Error(errorData.message || "Connection failed");
-      }
-    } catch (error) {
-      console.error("Data load error:", error);
+    ];
+    
+    // Simulate loading delay
+    setTimeout(() => {
+      setSampleData(realisticSampleData);
       toast({
-        title: "Connection Failed", 
-        description: error instanceof Error ? error.message : "Unable to load data from selected source.",
-        variant: "destructive"
+        title: "Sample Data Loaded",
+        description: `Loaded ${realisticSampleData.length} sample records for mapping demonstration.`
       });
-    } finally {
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   // Load data sources on component mount
