@@ -1016,26 +1016,75 @@ export default function MappingTemplateWorkspace() {
           
           <TabsContent value="mapping" className="space-y-4">
             {sampleData.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* View Toggle */}
+                <div className="flex gap-2">
+                  <Button 
+                    variant={mappingView === 'catalog' ? 'default' : 'outline'}
+                    onClick={() => setMappingView('catalog')}
+                    className="flex-1"
+                  >
+                    Master Catalog View
+                  </Button>
+                  <Button 
+                    variant={mappingView === 'detail' ? 'default' : 'outline'}
+                    onClick={() => setMappingView('detail')}
+                    className="flex-1"
+                  >
+                    Product Detail View
+                  </Button>
+                </div>
+
+                {/* Action Buttons */}
                 <div className="flex gap-2">
                   <Button 
                     onClick={() => {
-                      console.log("🚀 Creating auto-mappings with real sample headers:", sampleHeaders);
+                      const headers = Object.keys(sampleData[0]);
+                      console.log("🤖 Starting auto-mapping with headers:", headers);
                       
-                      const currentFields = activeView === 'catalog' ? catalogFields : detailFields;
-                      const autoMappings = autoMapFields(sampleHeaders, activeView);
+                      const targetFields = mappingView === 'catalog' ? catalogFields : detailFields;
+                      const newMappings = [];
                       
-                      if (activeView === 'catalog') {
-                        setCatalogMappings(autoMappings);
-                      } else {
-                        setDetailMappings(autoMappings);
+                      // Smart mapping logic
+                      for (const field of targetFields) {
+                        const bestMatch = headers.find(header => {
+                          const headerLower = header.toLowerCase();
+                          const fieldLower = field.id.toLowerCase();
+                          
+                          // Direct matches
+                          if (headerLower === fieldLower) return true;
+                          if (headerLower.includes(fieldLower)) return true;
+                          if (fieldLower.includes(headerLower)) return true;
+                          
+                          // Special mapping rules
+                          if (field.id === 'sku' && (headerLower.includes('sku') || headerLower.includes('part'))) return true;
+                          if (field.id === 'product_name' && (headerLower.includes('name') || headerLower.includes('title') || headerLower.includes('description'))) return true;
+                          if (field.id === 'price' && headerLower.includes('price')) return true;
+                          if (field.id === 'cost' && headerLower.includes('cost')) return true;
+                          if (field.id === 'manufacturer' && (headerLower.includes('mfg') || headerLower.includes('brand') || headerLower.includes('manufacturer'))) return true;
+                          
+                          return false;
+                        });
+                        
+                        if (bestMatch) {
+                          newMappings.push({
+                            sourceField: bestMatch,
+                            targetField: field.id,
+                            confidence: 0.8
+                          });
+                        }
                       }
                       
-                      const mappedCount = autoMappings.filter(m => m.targetField).length;
+                      console.log("🎯 Auto-mapped fields:", newMappings);
+                      if (mappingView === 'catalog') {
+                        setCatalogMappings(newMappings);
+                      } else {
+                        setDetailMappings(newMappings);
+                      }
                       
                       toast({
-                        title: "Smart Auto-Mapping Complete",
-                        description: `Created ${mappedCount} intelligent mappings based on your actual CWR data fields for ${activeView === 'catalog' ? 'Master Catalog' : 'Product Detail'} view!`
+                        title: "Auto-mapping Complete",
+                        description: `Successfully mapped ${newMappings.length} fields automatically.`
                       });
                     }}
                     className="bg-blue-600 hover:bg-blue-700"
@@ -1052,7 +1101,11 @@ export default function MappingTemplateWorkspace() {
                         targetField: "",
                         confidence: 0.5
                       };
-                      setCatalogMappings([...catalogMappings, newMapping]);
+                      if (mappingView === 'catalog') {
+                        setCatalogMappings([...catalogMappings, newMapping]);
+                      } else {
+                        setDetailMappings([...detailMappings, newMapping]);
+                      }
                       toast({
                         title: "Mapping Added",
                         description: "New field mapping added."
@@ -1062,33 +1115,54 @@ export default function MappingTemplateWorkspace() {
                     <Plus className="w-4 h-4 mr-2" />
                     Add Field Mapping
                   </Button>
+                  
+                  <Button variant="outline" size="sm">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview Mapping
+                  </Button>
                 </div>
-                
+
+                {/* Available Source Fields */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Available Source Fields:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(sampleData[0]).map(header => (
+                      <span key={header} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                        {header}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Field Mappings */}
                 <div className="space-y-3">
                   <div className="text-sm font-medium text-gray-700">
-                    Field Mappings ({catalogMappings.length})
+                    {mappingView === 'catalog' ? 'Master Catalog' : 'Product Detail'} Field Mappings ({mappingView === 'catalog' ? catalogMappings.length : detailMappings.length})
                   </div>
                   
-                  {catalogMappings.length === 0 ? (
+                  {(mappingView === 'catalog' ? catalogMappings : detailMappings).length === 0 ? (
                     <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed">
                       <div className="text-sm">No field mappings yet</div>
-                      <div className="text-xs mt-1">Click "Auto-Map Fields" to get started</div>
+                      <div className="text-xs mt-1">Click "Auto-Map Fields" to create mappings automatically</div>
                     </div>
                   ) : (
-                    catalogMappings.filter(mapping => mapping && typeof mapping === 'object').map((mapping, index) => (
+                    (mappingView === 'catalog' ? catalogMappings : detailMappings).filter(mapping => mapping && typeof mapping === 'object').map((mapping, index) => (
                       <Card key={index} className="border border-gray-200">
                         <CardContent className="p-4">
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                               <label className="text-xs text-gray-500 mb-1 block">Source Field</label>
                               <div className="p-2 border rounded bg-blue-50">
-                                <span className="text-sm font-medium">{mapping?.sourceField || 'Not mapped'}</span>
+                                <span className="text-sm font-medium">{mapping?.sourceField || 'Not selected'}</span>
                               </div>
+                            </div>
+                            <div className="text-center">
+                              <span className="text-gray-400">→</span>
                             </div>
                             <div>
                               <label className="text-xs text-gray-500 mb-1 block">Target Field</label>
                               <div className="p-2 border rounded bg-green-50">
-                                <span className="text-sm font-medium">{mapping?.targetField || 'Not mapped'}</span>
+                                <span className="text-sm font-medium">{mapping?.targetField || 'Not selected'}</span>
                               </div>
                             </div>
                           </div>
@@ -1097,14 +1171,20 @@ export default function MappingTemplateWorkspace() {
                     ))
                   )}
                 </div>
-                
-                {/* Required fields warning */}
-                {catalogMappings.length > 0 && (
-                  <Card className="border-orange-200 bg-orange-50">
+
+                {/* Summary */}
+                {(catalogMappings.length > 0 || detailMappings.length > 0) && (
+                  <Card className="border-green-200 bg-green-50">
                     <CardContent className="p-4">
-                      <div className="text-sm text-orange-800 font-medium">Mapping Summary</div>
-                      <div className="text-sm text-orange-700 mt-1">
-                        {catalogMappings.filter(m => m && m.sourceField && m.targetField).length} of {catalogMappings.length} mappings complete
+                      <div className="text-sm text-green-800 font-medium">Mapping Summary</div>
+                      <div className="text-sm text-green-700 mt-1">
+                        ✅ Catalog: {catalogMappings.filter(m => m && m.sourceField && m.targetField).length} mappings
+                      </div>
+                      <div className="text-sm text-green-700">
+                        ✅ Product Detail: {detailMappings.filter(m => m && m.sourceField && m.targetField).length} mappings
+                      </div>
+                      <div className="text-sm text-green-700">
+                        ✅ Total: {catalogMappings.length + detailMappings.length} field mappings configured
                       </div>
                     </CardContent>
                   </Card>
@@ -1117,10 +1197,10 @@ export default function MappingTemplateWorkspace() {
                     <Wand2 className="w-16 h-16 text-gray-300 mx-auto" />
                     <h3 className="text-xl font-medium">No Sample Data</h3>
                     <p className="text-gray-600 max-w-md">
-                      Please upload a sample file or pull sample data from SFTP to start mapping fields.
+                      Please load sample data from the Sample Data tab to start mapping fields.
                     </p>
-                    <Button onClick={() => setSelectedTab("template-info")}>
-                      Go to Template Info
+                    <Button onClick={() => setSelectedTab("sample-data")}>
+                      Go to Sample Data
                     </Button>
                   </div>
                 </CardContent>
