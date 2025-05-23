@@ -307,16 +307,80 @@ export default function MappingTemplateWorkspace() {
         const headerLower = header.toLowerCase();
         const fieldLower = field.id.toLowerCase();
         
+        // Exact matches
         if (headerLower === fieldLower) return true;
         if (headerLower.includes(fieldLower)) return true;
         if (fieldLower.includes(headerLower)) return true;
         
-        if (field.id === 'sku' && (headerLower.includes('sku') || headerLower.includes('part'))) return true;
+        // Smart field mapping for CWR data
+        if (field.id === 'sku' && (headerLower.includes('sku') || headerLower.includes('part number'))) return true;
         if (field.id === 'product_name' && (headerLower.includes('name') || headerLower.includes('title'))) return true;
         if (field.id === 'price' && headerLower.includes('price')) return true;
         if (field.id === 'cost' && headerLower.includes('cost')) return true;
         if (field.id === 'brand' && (headerLower.includes('mfg') || headerLower.includes('brand') || headerLower.includes('manufacturer'))) return true;
         if (field.id === 'primary_image' && (headerLower.includes('image') || headerLower.includes('photo') || headerLower.includes('picture'))) return true;
+        if (field.id === 'upc' && headerLower.includes('upc')) return true;
+        if (field.id === 'category' && headerLower.includes('category')) return true;
+        if (field.id === 'description' && headerLower.includes('description')) return true;
+        if (field.id === 'weight' && headerLower.includes('weight')) return true;
+        
+        // Product Detail specific mappings
+        if (field.id === 'manufacturer_part_number' && headerLower.includes('manufacturer part number')) return true;
+        if (field.id === 'full_description' && headerLower.includes('full description')) return true;
+        if (field.id === 'uppercase_title' && headerLower.includes('uppercase title')) return true;
+        if (field.id === 'shipping_weight' && headerLower.includes('shipping weight')) return true;
+        if (field.id === 'box_height' && headerLower.includes('box height')) return true;
+        if (field.id === 'box_length' && headerLower.includes('box length')) return true;
+        if (field.id === 'box_width' && headerLower.includes('box width')) return true;
+        if (field.id === 'list_price' && headerLower.includes('list price')) return true;
+        if (field.id === 'map_price' && headerLower.includes('m.a.p')) return true;
+        if (field.id === 'mrp_price' && headerLower.includes('m.r.p')) return true;
+        if (field.id === 'quantity_available_combined' && headerLower.includes('quantity available to ship (combined)')) return true;
+        if (field.id === 'quantity_available_nj' && headerLower.includes('quantity available to ship (nj)')) return true;
+        if (field.id === 'quantity_available_fl' && headerLower.includes('quantity available to ship (fl)')) return true;
+        if (field.id === 'next_shipment_date_combined' && headerLower.includes('next shipment date (combined)')) return true;
+        if (field.id === 'next_shipment_date_nj' && headerLower.includes('next shipment date (nj)')) return true;
+        if (field.id === 'next_shipment_date_fl' && headerLower.includes('next shipment date (fl)')) return true;
+        if (field.id === 'non_stock' && headerLower.includes('non-stock')) return true;
+        if (field.id === 'drop_ships_direct' && headerLower.includes('drop ships direct')) return true;
+        if (field.id === 'hazardous_materials' && headerLower.includes('hazardous materials')) return true;
+        if (field.id === 'truck_freight' && headerLower.includes('truck freight')) return true;
+        if (field.id === 'exportable' && headerLower.includes('exportable')) return true;
+        if (field.id === 'first_class_mail' && headerLower.includes('first class mail')) return true;
+        if (field.id === 'oversized' && headerLower.includes('oversized')) return true;
+        if (field.id === 'remanufactured' && headerLower.includes('remanufactured')) return true;
+        if (field.id === 'closeout' && headerLower.includes('closeout')) return true;
+        if (field.id === 'sale' && headerLower.includes('sale') && !headerLower.includes('wholesale')) return true;
+        if (field.id === 'rebate' && headerLower.includes('rebate')) return true;
+        if (field.id === 'free_shipping' && headerLower.includes('free shipping')) return true;
+        if (field.id === 'returnable' && headerLower.includes('returnable')) return true;
+        if (field.id === 'image_300x300' && headerLower.includes('image (300x300)')) return true;
+        if (field.id === 'image_1000x1000' && headerLower.includes('image (1000x1000)')) return true;
+        if (field.id === 'image_additional' && headerLower.includes('image additional')) return true;
+        if (field.id === 'quick_guide_pdf' && headerLower.includes('quick guide')) return true;
+        if (field.id === 'owners_manual_pdf' && headerLower.includes('owners manual')) return true;
+        if (field.id === 'brochure_pdf' && headerLower.includes('brochure')) return true;
+        if (field.id === 'installation_guide_pdf' && headerLower.includes('installation guide')) return true;
+        if (field.id === 'video_urls' && headerLower.includes('video urls')) return true;
+        if (field.id === 'prop_65' && headerLower.includes('prop 65') && !headerLower.includes('description')) return true;
+        if (field.id === 'prop_65_description' && headerLower.includes('prop 65 description')) return true;
+        if (field.id === 'harmonization_code' && headerLower.includes('harmonization code')) return true;
+        if (field.id === 'country_of_origin' && headerLower.includes('country of origin')) return true;
+        if (field.id === 'fcc_id' && headerLower.includes('fcc id')) return true;
+        if (field.id === 'google_merchant_category' && headerLower.includes('google merchant category')) return true;
+        if (field.id === 'sale_start_date' && headerLower.includes('sale start date')) return true;
+        if (field.id === 'sale_end_date' && headerLower.includes('sale end date')) return true;
+        if (field.id === 'original_price' && headerLower.includes('original price')) return true;
+        if (field.id === 'rebate_description' && headerLower.includes('rebate description') && !headerLower.includes('link')) return true;
+        if (field.id === 'rebate_start_date' && headerLower.includes('rebate start date')) return true;
+        if (field.id === 'rebate_end_date' && headerLower.includes('rebate end date')) return true;
+        if (field.id === 'free_shipping_end_date' && headerLower.includes('free shipping end date')) return true;
+        if (field.id === 'case_qty_nj' && headerLower.includes('case qty (nj)')) return true;
+        if (field.id === 'case_qty_fl' && headerLower.includes('case qty (fl)')) return true;
+        if (field.id === 'third_party_marketplaces' && headerLower.includes('3rd party marketplaces')) return true;
+        if (field.id === 'accessories_by_sku' && headerLower.includes('accessories by sku')) return true;
+        if (field.id === 'accessories_by_mfg' && headerLower.includes('accessories by mfg')) return true;
+        if (field.id === 'quick_specs' && headerLower.includes('quick specs')) return true;
         
         return false;
       });
