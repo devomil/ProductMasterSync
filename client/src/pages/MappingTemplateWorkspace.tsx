@@ -824,30 +824,16 @@ export default function MappingTemplateWorkspace() {
                 {templateForm.sourceType === 'sftp' && templateForm.supplierId && (
                   <div className="space-y-2">
                     <Label htmlFor="remotePath">Remote File Path</Label>
-                    <div className="flex gap-2">
-                      <Select 
-                        value={selectedPath} 
-                        onValueChange={setSelectedPath}
-                      >
-                        <SelectTrigger id="remotePath" className="flex-grow">
-                          <SelectValue placeholder="Select remote file path" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {remotePaths.map((path) => (
-                            <SelectItem key={path} value={path}>
-                              {path}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => fetchRemotePaths(templateForm.supplierId!)}
-                        disabled={!templateForm.supplierId}
-                      >
-                        <ArrowDown className="w-4 h-4 mr-1" /> Refresh Paths
-                      </Button>
-                    </div>
+                    <Input 
+                      id="remotePath"
+                      value={selectedPath}
+                      onChange={(e) => setSelectedPath(e.target.value)}
+                      placeholder="/eco8/out/catalog.csv"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Enter the full path to your file on the SFTP server
+                    </p>
                   </div>
                 )}
                 
