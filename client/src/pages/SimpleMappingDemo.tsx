@@ -528,11 +528,11 @@ export default function SimpleMappingDemo() {
                       <Badge variant="secondary">{sampleData.length} records</Badge>
                     </div>
                     <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-xs">
                         <thead className="bg-gray-50">
                           <tr>
-                            {Object.keys(sampleData[0]).map((key) => (
-                              <th key={key} className="text-left p-3 font-medium border-b">
+                            {Object.keys(sampleData[0]).slice(0, 12).map((key) => (
+                              <th key={key} className="text-left px-2 py-1 font-medium border-b text-xs">
                                 {key}
                               </th>
                             ))}
@@ -541,15 +541,20 @@ export default function SimpleMappingDemo() {
                         <tbody>
                           {sampleData.map((row, idx) => (
                             <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                              {Object.values(row).map((value, cellIdx) => (
-                                <td key={cellIdx} className="p-3 border-b">
-                                  {String(value)}
+                              {Object.values(row).slice(0, 12).map((value, cellIdx) => (
+                                <td key={cellIdx} className="px-2 py-1 border-b text-xs">
+                                  <div className="truncate max-w-20">
+                                    {String(value)}
+                                  </div>
                                 </td>
                               ))}
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      <div className="p-2 bg-gray-50 text-xs text-gray-600">
+                        Showing first 12 of {Object.keys(sampleData[0]).length} total fields
+                      </div>
                     </div>
                   </div>
                 ) : (
