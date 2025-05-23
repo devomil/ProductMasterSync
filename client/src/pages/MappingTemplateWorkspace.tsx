@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, Zap, Plus, X, Download, Upload, Save, Eye, RefreshCw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 
 interface FieldMapping {
@@ -201,6 +202,14 @@ export default function MappingTemplateWorkspace() {
       setMappings(mappings.filter(m => m.id !== id));
     } else {
       setProductDetailMappings(productDetailMappings.filter(m => m.id !== id));
+    }
+  };
+
+  const updateMapping = (id: string, field: 'sourceField' | 'targetField', value: string) => {
+    if (mappingTarget === "catalog") {
+      setMappings(mappings.map(m => m.id === id ? { ...m, [field]: value } : m));
+    } else {
+      setProductDetailMappings(productDetailMappings.map(m => m.id === id ? { ...m, [field]: value } : m));
     }
   };
 
@@ -592,9 +601,21 @@ export default function MappingTemplateWorkspace() {
                               <div className="grid grid-cols-3 gap-4 items-center">
                                 <div>
                                   <label className="text-xs text-gray-500 mb-1 block">Source Field</label>
-                                  <div className="p-2 border rounded bg-blue-50">
-                                    <span className="text-sm font-medium">{mapping.sourceField || 'Not selected'}</span>
-                                  </div>
+                                  <Select
+                                    value={mapping.sourceField}
+                                    onValueChange={(value) => updateMapping(mapping.id, 'sourceField', value)}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select source field" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {sampleHeaders.map(header => (
+                                        <SelectItem key={header} value={header}>
+                                          {header}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                                 <div className="text-center">
                                   <span className="text-gray-400">→</span>
@@ -604,11 +625,21 @@ export default function MappingTemplateWorkspace() {
                                     <label className="text-xs text-gray-500 mb-1 block">
                                       {mappingTarget === "catalog" ? "Catalog" : "Product Detail"} Target Field
                                     </label>
-                                    <div className="p-2 border rounded bg-green-50">
-                                      <span className="text-sm font-medium">
-                                        {getCurrentTargetFields().find(f => f.id === mapping.targetField)?.name || 'Not selected'}
-                                      </span>
-                                    </div>
+                                    <Select
+                                      value={mapping.targetField}
+                                      onValueChange={(value) => updateMapping(mapping.id, 'targetField', value)}
+                                    >
+                                      <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select target field" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {getCurrentTargetFields().map(field => (
+                                          <SelectItem key={field.id} value={field.id}>
+                                            {field.name} {field.required && <span className="text-red-500">*</span>}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                   <div className="pt-6">
                                     <Button 
