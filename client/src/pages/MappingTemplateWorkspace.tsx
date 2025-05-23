@@ -720,7 +720,10 @@ export default function MappingTemplateWorkspace() {
         >
           <TabsList className="w-full bg-white border">
             <TabsTrigger value="template-info" className="flex-1">
-              Template Information
+              Template Info
+            </TabsTrigger>
+            <TabsTrigger value="sample-data" className="flex-1">
+              Sample Data
             </TabsTrigger>
             <TabsTrigger 
               value="mapping" 
@@ -911,6 +914,97 @@ export default function MappingTemplateWorkspace() {
                     )}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="sample-data" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sample Data</CardTitle>
+                <p className="text-sm text-gray-600">Load sample data from your source to preview fields and create mappings</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {templateForm.sourceType === 'sftp' && templateForm.supplierId ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        onClick={handleSftpTestPull}
+                        disabled={isUploading}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isUploading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 mr-2" />
+                            Load Data from Source
+                          </>
+                        )}
+                      </Button>
+                      {sampleData.length > 0 && (
+                        <Badge variant="secondary" className="bg-green-50 text-green-700">
+                          {sampleData.length} records loaded
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {sampleData.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">Sample Data Preview</h4>
+                          <Badge variant="secondary">{sampleData.length} records</Badge>
+                        </div>
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                {Object.keys(sampleData[0]).slice(0, 12).map((key) => (
+                                  <th key={key} className="text-left px-2 py-1 font-medium border-b text-xs">
+                                    {key}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sampleData.map((row, idx) => (
+                                <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                  {Object.values(row).slice(0, 12).map((value, cellIdx) => (
+                                    <td key={cellIdx} className="px-2 py-1 border-b text-xs">
+                                      <div className="truncate max-w-20">
+                                        {String(value)}
+                                      </div>
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <div className="p-2 bg-gray-50 text-xs text-gray-600">
+                            Showing first 12 of {Object.keys(sampleData[0]).length} total fields
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-end">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedTab("mapping")}
+                          >
+                            Continue to Field Mapping →
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed">
+                    <div className="text-sm">Please configure supplier and source type in Template Info first</div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
