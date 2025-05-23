@@ -58,16 +58,86 @@ export default function MappingTemplateWorkspace() {
   ];
 
   const productDetailFields = [
+    // Core Product Information
     { id: "detailed_description", name: "Detailed Description", required: false },
+    { id: "full_description", name: "Full Description", required: false },
+    { id: "uppercase_title", name: "Uppercase Title", required: false },
     { id: "specifications", name: "Specifications", required: false },
     { id: "features", name: "Features", required: false },
-    { id: "warranty", name: "Warranty", required: false },
+    { id: "quick_specs", name: "Quick Specs", required: false },
+    
+    // Physical Properties
     { id: "dimensions", name: "Dimensions", required: false },
     { id: "weight_detailed", name: "Weight (Detailed)", required: false },
+    { id: "shipping_weight", name: "Shipping Weight", required: false },
+    { id: "box_height", name: "Box Height", required: false },
+    { id: "box_length", name: "Box Length", required: false },
+    { id: "box_width", name: "Box Width", required: false },
+    
+    // Pricing & Availability
+    { id: "list_price", name: "List Price", required: false },
+    { id: "map_price", name: "MAP Price", required: false },
+    { id: "mrp_price", name: "MRP Price", required: false },
+    { id: "quantity_available", name: "Quantity Available", required: false },
+    { id: "next_shipment_date", name: "Next Shipment Date", required: false },
+    
+    // Product Flags & Classifications
+    { id: "non_stock", name: "Non-Stock", required: false },
+    { id: "drop_ships_direct", name: "Drop Ships Direct", required: false },
+    { id: "hazardous_materials", name: "Hazardous Materials", required: false },
+    { id: "truck_freight", name: "Truck Freight", required: false },
+    { id: "exportable", name: "Exportable", required: false },
+    { id: "first_class_mail", name: "First Class Mail", required: false },
+    { id: "oversized", name: "Oversized", required: false },
+    { id: "remanufactured", name: "Remanufactured", required: false },
+    { id: "closeout", name: "Closeout", required: false },
+    { id: "sale", name: "Sale", required: false },
+    { id: "rebate", name: "Rebate", required: false },
+    { id: "free_shipping", name: "Free Shipping", required: false },
+    { id: "returnable", name: "Returnable", required: false },
+    
+    // Media & Documentation
+    { id: "image_300x300", name: "Image (300x300)", required: false },
+    { id: "image_1000x1000", name: "Image (1000x1000)", required: false },
+    { id: "image_additional", name: "Additional Images", required: false },
+    { id: "quick_guide_pdf", name: "Quick Guide PDF", required: false },
+    { id: "owners_manual_pdf", name: "Owners Manual PDF", required: false },
+    { id: "brochure_pdf", name: "Brochure PDF", required: false },
+    { id: "installation_guide_pdf", name: "Installation Guide PDF", required: false },
+    { id: "video_urls", name: "Video URLs", required: false },
+    
+    // Compliance & Legal
+    { id: "prop_65", name: "Prop 65", required: false },
+    { id: "prop_65_description", name: "Prop 65 Description", required: false },
+    { id: "harmonization_code", name: "Harmonization Code", required: false },
+    { id: "country_of_origin", name: "Country of Origin", required: false },
+    { id: "fcc_id", name: "FCC ID", required: false },
+    
+    // Sales & Marketing
+    { id: "google_merchant_category", name: "Google Merchant Category", required: false },
+    { id: "sale_start_date", name: "Sale Start Date", required: false },
+    { id: "sale_end_date", name: "Sale End Date", required: false },
+    { id: "original_price", name: "Original Price (Sale/Closeout)", required: false },
+    { id: "rebate_description", name: "Rebate Description", required: false },
+    { id: "rebate_start_date", name: "Rebate Start Date", required: false },
+    { id: "rebate_end_date", name: "Rebate End Date", required: false },
+    { id: "free_shipping_end_date", name: "Free Shipping End Date", required: false },
+    
+    // Inventory & Fulfillment
+    { id: "case_qty_nj", name: "Case Qty (NJ)", required: false },
+    { id: "case_qty_fl", name: "Case Qty (FL)", required: false },
+    { id: "third_party_marketplaces", name: "3rd Party Marketplaces", required: false },
+    
+    // Accessories & Related
+    { id: "accessories_by_sku", name: "Accessories by SKU", required: false },
+    { id: "accessories_by_mfg", name: "Accessories by MFG#", required: false },
+    
+    // Additional Properties
     { id: "material", name: "Material", required: false },
     { id: "color", name: "Color", required: false },
     { id: "package_contents", name: "Package Contents", required: false },
-    { id: "installation_notes", name: "Installation Notes", required: false }
+    { id: "installation_notes", name: "Installation Notes", required: false },
+    { id: "warranty", name: "Warranty", required: false }
   ];
 
   const getCurrentMappings = () => {
