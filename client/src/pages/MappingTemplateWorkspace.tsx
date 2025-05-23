@@ -752,22 +752,41 @@ export default function MappingTemplateWorkspace() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="sourceType">Source Type</Label>
-                    <Select 
-                      value={templateForm.sourceType} 
-                      onValueChange={(value) => setTemplateForm(prev => ({ ...prev, sourceType: value }))}
-                    >
-                      <SelectTrigger id="sourceType">
-                        <SelectValue placeholder="Select source type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="csv">CSV</SelectItem>
-                        <SelectItem value="excel">Excel</SelectItem>
-                        <SelectItem value="json">JSON</SelectItem>
-                        <SelectItem value="xml">XML</SelectItem>
-                        <SelectItem value="sftp">SFTP</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Source Type</Label>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        variant={templateForm.sourceType === 'csv' ? 'default' : 'outline'}
+                        onClick={() => setTemplateForm(prev => ({ ...prev, sourceType: 'csv' }))}
+                        className="flex-1"
+                      >
+                        CSV
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant={templateForm.sourceType === 'excel' ? 'default' : 'outline'}
+                        onClick={() => setTemplateForm(prev => ({ ...prev, sourceType: 'excel' }))}
+                        className="flex-1"
+                      >
+                        EXCEL
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant={templateForm.sourceType === 'sftp' ? 'default' : 'outline'}
+                        onClick={() => setTemplateForm(prev => ({ ...prev, sourceType: 'sftp' }))}
+                        className="flex-1"
+                      >
+                        SFTP
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant={templateForm.sourceType === 'api' ? 'default' : 'outline'}
+                        onClick={() => setTemplateForm(prev => ({ ...prev, sourceType: 'api' }))}
+                        className="flex-1"
+                      >
+                        API
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 
