@@ -62,6 +62,7 @@ export default function MappingTemplateWorkspace() {
     { id: "detailed_description", name: "Detailed Description", required: false },
     { id: "full_description", name: "Full Description", required: false },
     { id: "uppercase_title", name: "Uppercase Title", required: false },
+    { id: "manufacturer_part_number", name: "Manufacturer Part Number", required: false },
     { id: "specifications", name: "Specifications", required: false },
     { id: "features", name: "Features", required: false },
     { id: "quick_specs", name: "Quick Specs", required: false },
@@ -78,8 +79,12 @@ export default function MappingTemplateWorkspace() {
     { id: "list_price", name: "List Price", required: false },
     { id: "map_price", name: "MAP Price", required: false },
     { id: "mrp_price", name: "MRP Price", required: false },
-    { id: "quantity_available", name: "Quantity Available", required: false },
-    { id: "next_shipment_date", name: "Next Shipment Date", required: false },
+    { id: "quantity_available_combined", name: "Quantity Available (Combined)", required: false },
+    { id: "quantity_available_nj", name: "Quantity Available (NJ)", required: false },
+    { id: "quantity_available_fl", name: "Quantity Available (FL)", required: false },
+    { id: "next_shipment_date_combined", name: "Next Shipment Date (Combined)", required: false },
+    { id: "next_shipment_date_nj", name: "Next Shipment Date (NJ)", required: false },
+    { id: "next_shipment_date_fl", name: "Next Shipment Date (FL)", required: false },
     
     // Product Flags & Classifications
     { id: "non_stock", name: "Non-Stock", required: false },
