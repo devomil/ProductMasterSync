@@ -53,6 +53,7 @@ export default function MappingTemplateWorkspace() {
     { id: "category", name: "Category", required: false },
     { id: "status", name: "Status", required: false },
     { id: "description", name: "Description", required: false },
+    { id: "primary_image", name: "Primary Image", required: false },
     { id: "weight", name: "Weight", required: false }
   ];
 
@@ -240,6 +241,7 @@ export default function MappingTemplateWorkspace() {
         if (field.id === 'price' && headerLower.includes('price')) return true;
         if (field.id === 'cost' && headerLower.includes('cost')) return true;
         if (field.id === 'brand' && (headerLower.includes('mfg') || headerLower.includes('brand') || headerLower.includes('manufacturer'))) return true;
+        if (field.id === 'primary_image' && (headerLower.includes('image') || headerLower.includes('photo') || headerLower.includes('picture'))) return true;
         
         return false;
       });
