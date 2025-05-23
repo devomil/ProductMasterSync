@@ -49,7 +49,7 @@ export default function MappingTemplateWorkspace() {
     { id: "upc", name: "UPC", required: false },
     { id: "cost", name: "Cost", required: false },
     { id: "price", name: "Price", required: false },
-    { id: "manufacturer", name: "Manufacturer", required: false },
+    { id: "brand", name: "Brand", required: false },
     { id: "category", name: "Category", required: false },
     { id: "status", name: "Status", required: false },
     { id: "description", name: "Description", required: false },
@@ -239,7 +239,7 @@ export default function MappingTemplateWorkspace() {
         if (field.id === 'product_name' && (headerLower.includes('name') || headerLower.includes('title'))) return true;
         if (field.id === 'price' && headerLower.includes('price')) return true;
         if (field.id === 'cost' && headerLower.includes('cost')) return true;
-        if (field.id === 'manufacturer' && (headerLower.includes('mfg') || headerLower.includes('brand'))) return true;
+        if (field.id === 'brand' && (headerLower.includes('mfg') || headerLower.includes('brand') || headerLower.includes('manufacturer'))) return true;
         
         return false;
       });
