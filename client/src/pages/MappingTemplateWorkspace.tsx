@@ -441,12 +441,26 @@ export default function MappingTemplateWorkspace() {
         }
       }
       
-      // Special cases for catalog fields
+      // Special cases for CWR catalog fields
       if (view === 'catalog') {
-        if (headerLower.includes('title') || headerLower.includes('name')) {
+        if (header === 'CWR Part Number') {
+          initialMappings[index].targetField = 'sku';
+        } else if (header === 'Title' || header === 'Uppercase Title') {
           initialMappings[index].targetField = 'product_name';
-        } else if (headerLower.includes('brand')) {
+        } else if (header === 'Manufacturer Name') {
           initialMappings[index].targetField = 'manufacturer';
+        } else if (header === 'Category Name') {
+          initialMappings[index].targetField = 'category';
+        } else if (header === 'Your Cost') {
+          initialMappings[index].targetField = 'cost';
+        } else if (header === 'List Price') {
+          initialMappings[index].targetField = 'price';
+        } else if (header === 'UPC Code') {
+          initialMappings[index].targetField = 'upc';
+        } else if (header === 'Full Description') {
+          initialMappings[index].targetField = 'description';
+        } else if (header === 'Quantity Available to Ship (Combined)') {
+          initialMappings[index].targetField = 'stock_quantity';
         } else if (headerLower.includes('qty') || headerLower.includes('quantity') || headerLower.includes('stock')) {
           initialMappings[index].targetField = 'stock_quantity';
         } else if (headerLower.includes('barcode')) {
@@ -454,16 +468,28 @@ export default function MappingTemplateWorkspace() {
         }
       }
       
-      // Special cases for detail fields
+      // Special cases for CWR detail fields
       if (view === 'detail') {
-        if (headerLower.includes('partno') || headerLower.includes('partnumber')) {
+        if (header === 'Manufacturer Part Number') {
           initialMappings[index].targetField = 'mpn';
-        } else if (headerLower.includes('desc')) {
+        } else if (header === 'Full Description') {
           initialMappings[index].targetField = 'description';
-        } else if (headerLower.includes('img') || headerLower.includes('picture')) {
+        } else if (header === 'Image (300x300) Url' || header === 'Image (1000x1000) Url') {
           initialMappings[index].targetField = 'image_url';
-        } else if (headerLower.includes('keyword') || headerLower.includes('tag')) {
-          initialMappings[index].targetField = 'keywords';
+        } else if (header === 'Shipping Weight') {
+          initialMappings[index].targetField = 'weight';
+        } else if (header === 'Box Height' || header === 'Box Length' || header === 'Box Width') {
+          initialMappings[index].targetField = 'dimensions';
+        } else if (header === 'Harmonization Code') {
+          initialMappings[index].targetField = 'harmonization_code';
+        } else if (header === 'Country Of Origin') {
+          initialMappings[index].targetField = 'country_of_origin';
+        } else if (header === 'Quick Guide Literature (pdf) Url' || header === 'Owners Manual (pdf) Url') {
+          initialMappings[index].targetField = 'manual_url';
+        } else if (header === 'Prop 65 Description') {
+          initialMappings[index].targetField = 'prop65_warning';
+        } else if (header === 'Google Merchant Category') {
+          initialMappings[index].targetField = 'google_category';
         }
       }
     });
@@ -895,26 +921,22 @@ export default function MappingTemplateWorkspace() {
                 <div className="flex gap-2">
                   <Button 
                     onClick={() => {
-                      console.log("🚀 Creating auto-mappings");
-                      const autoMappings = [
-                        { sourceField: "CWR Part Number", targetField: "sku" },
-                        { sourceField: "Title", targetField: "product_name" },
-                        { sourceField: "UPC Code", targetField: "upc" },
-                        { sourceField: "Your Cost", targetField: "cost" },
-                        { sourceField: "List Price", targetField: "price" },
-                        { sourceField: "Manufacturer Name", targetField: "manufacturer" },
-                        { sourceField: "Category Name", targetField: "category" }
-                      ];
+                      console.log("🚀 Creating auto-mappings with real sample headers:", sampleHeaders);
                       
-                      setCatalogMappings(autoMappings.map(m => ({
-                        sourceField: m.sourceField,
-                        targetField: m.targetField,
-                        confidence: 0.9
-                      })));
+                      const currentFields = activeView === 'catalog' ? catalogFields : detailFields;
+                      const autoMappings = autoMapFields(sampleHeaders, activeView);
+                      
+                      if (activeView === 'catalog') {
+                        setCatalogMappings(autoMappings);
+                      } else {
+                        setDetailMappings(autoMappings);
+                      }
+                      
+                      const mappedCount = autoMappings.filter(m => m.targetField).length;
                       
                       toast({
-                        title: "Auto-Mapping Complete",
-                        description: `Created ${autoMappings.length} field mappings.`
+                        title: "Smart Auto-Mapping Complete",
+                        description: `Created ${mappedCount} intelligent mappings based on your actual CWR data fields for ${activeView === 'catalog' ? 'Master Catalog' : 'Product Detail'} view!`
                       });
                     }}
                     className="bg-blue-600 hover:bg-blue-700"
