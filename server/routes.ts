@@ -1203,9 +1203,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mapping_suggestion: null,
           mapping_confidence: 0.8
         });
-      } 
-      // Handle other data source types (fallback to mock data for now)
-      else {
+        
+      } catch (error) {
+        console.error("SFTP error:", error);
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(500).json({
+          success: false,
+          message: error instanceof Error ? error.message : "SFTP connection failed"
+        });
+      }
+      
+      } else {
+        // Handle other data source types
         // For other types, return sample data as a placeholder
         const sampleData = [
           { sku: "ABC123", name: "Test Product 1", price: "19.99", inventory: "100" },
