@@ -789,7 +789,7 @@ export default function MappingTemplateWorkspace() {
                       <SelectValue placeholder="Link to a supplier (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None (Generic Template)</SelectItem>
+                      <SelectItem value="none">None (Generic Template)</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id.toString()}>
                           {supplier.name} ({supplier.code})
