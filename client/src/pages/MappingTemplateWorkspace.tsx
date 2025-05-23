@@ -1075,20 +1075,20 @@ export default function MappingTemplateWorkspace() {
                       <div className="text-xs mt-1">Click "Auto-Map Fields" to get started</div>
                     </div>
                   ) : (
-                    catalogMappings.map((mapping, index) => (
+                    catalogMappings.filter(mapping => mapping && typeof mapping === 'object').map((mapping, index) => (
                       <Card key={index} className="border border-gray-200">
                         <CardContent className="p-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className="text-xs text-gray-500 mb-1 block">Source Field</label>
                               <div className="p-2 border rounded bg-blue-50">
-                                <span className="text-sm font-medium">{mapping.sourceField || 'Not mapped'}</span>
+                                <span className="text-sm font-medium">{mapping?.sourceField || 'Not mapped'}</span>
                               </div>
                             </div>
                             <div>
                               <label className="text-xs text-gray-500 mb-1 block">Target Field</label>
                               <div className="p-2 border rounded bg-green-50">
-                                <span className="text-sm font-medium">{mapping.targetField || 'Not mapped'}</span>
+                                <span className="text-sm font-medium">{mapping?.targetField || 'Not mapped'}</span>
                               </div>
                             </div>
                           </div>
@@ -1104,7 +1104,7 @@ export default function MappingTemplateWorkspace() {
                     <CardContent className="p-4">
                       <div className="text-sm text-orange-800 font-medium">Mapping Summary</div>
                       <div className="text-sm text-orange-700 mt-1">
-                        {catalogMappings.filter(m => m.sourceField && m.targetField).length} of {catalogMappings.length} mappings complete
+                        {catalogMappings.filter(m => m && m.sourceField && m.targetField).length} of {catalogMappings.length} mappings complete
                       </div>
                     </CardContent>
                   </Card>
