@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { ChevronLeft, Zap, Plus, X, Download, Upload, Save, Eye, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
+import { LoadingAnimation, ButtonSpinner, SuccessAnimation } from "@/components/ui/loading-animations";
 
 interface FieldMapping {
   id: string;
@@ -39,6 +40,8 @@ export default function MappingTemplateWorkspace() {
   const [selectedDataSource, setSelectedDataSource] = useState<DataSource | null>(null);
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState("");
+  const [loadingState, setLoadingState] = useState<'idle' | 'data-loading' | 'auto-mapping' | 'saving'>('idle');
+  const [showSuccess, setShowSuccess] = useState<string | null>(null);
 
   // Get sample headers from loaded data
   const sampleHeaders = sampleData.length > 0 ? Object.keys(sampleData[0]) : [];
@@ -187,7 +190,7 @@ export default function MappingTemplateWorkspace() {
   };
 
   const loadSampleData = async () => {
-    setIsLoading(true);
+    setLoadingState('data-loading');
     try {
       if (!selectedDataSource || !selectedFile) {
         throw new Error("Please select a data source and file");
@@ -206,42 +209,15 @@ export default function MappingTemplateWorkspace() {
         
         if (result.sample_data && result.sample_data.length > 0) {
           setSampleData(result.sample_data);
-          toast({
-            title: "Real Data Loaded Successfully",
-            description: `Loaded ${result.sample_data.length} real records from ${selectedFile}. Ready for mapping!`
-          });
+          setShowSuccess(`Successfully loaded ${result.sample_data.length} authentic records from ${selectedFile}!`);
+          setTimeout(() => setShowSuccess(null), 3000);
         } else {
           throw new Error("No sample data returned from source");
         }
       } else {
         const errorData = await response.json();
         console.error("SFTP connection failed:", errorData);
-        
-        const realCWRData = [
-          {
-            "sku": "10020",
-            "mfgn": "2228", 
-            "qty": "66",
-            "price": "5.33",
-            "map": "",
-            "mrp": ""
-          },
-          {
-            "sku": "10025",
-            "mfgn": "3340",
-            "qty": "45",
-            "price": "12.75",
-            "map": "",
-            "mrp": ""
-          }
-        ];
-        
-        setSampleData(realCWRData);
-        toast({
-          title: "Sample Data Structure Loaded",
-          description: "Using sample data structure for mapping demonstration.",
-          variant: "default"
-        });
+        throw new Error("Unable to connect to data source");
       }
     } catch (error) {
       console.error("Data load error:", error);
@@ -251,7 +227,7 @@ export default function MappingTemplateWorkspace() {
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setLoadingState('idle');
     }
   };
 
@@ -289,7 +265,7 @@ export default function MappingTemplateWorkspace() {
     }
   };
 
-  const autoMapFields = () => {
+  const autoMapFields = async () => {
     if (sampleHeaders.length === 0) {
       toast({
         title: "No Sample Data",
@@ -298,6 +274,11 @@ export default function MappingTemplateWorkspace() {
       });
       return;
     }
+
+    setLoadingState('auto-mapping');
+    
+    // Add a small delay to show the animation
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     const targetFields = getCurrentTargetFields();
     const newMappings: FieldMapping[] = [];
@@ -400,10 +381,9 @@ export default function MappingTemplateWorkspace() {
       setProductDetailMappings(newMappings);
     }
 
-    toast({
-      title: "Auto-mapping Complete",
-      description: `Successfully mapped ${newMappings.length} fields automatically.`
-    });
+    setLoadingState('idle');
+    setShowSuccess(`🎯 Auto-mapping complete! Successfully mapped ${newMappings.length} fields automatically.`);
+    setTimeout(() => setShowSuccess(null), 3000);
   };
 
   const saveTemplate = async () => {
@@ -416,7 +396,7 @@ export default function MappingTemplateWorkspace() {
       return;
     }
 
-    setIsLoading(true);
+    setLoadingState('saving');
     try {
       const mappingRecord = mappings.reduce((acc, mapping) => {
         if (mapping.sourceField && mapping.targetField) {
@@ -438,10 +418,8 @@ export default function MappingTemplateWorkspace() {
 
       await apiRequest("POST", "/api/mapping-templates", templateData);
 
-      toast({
-        title: "Template Saved Successfully",
-        description: `Mapping template "${templateName}" saved with ${mappings.length} field mappings.`
-      });
+      setShowSuccess(`✨ Template "${templateName}" saved successfully with ${mappings.length} field mappings!`);
+      setTimeout(() => setShowSuccess(null), 3000);
     } catch (error) {
       toast({
         title: "Save Failed",
@@ -449,7 +427,7 @@ export default function MappingTemplateWorkspace() {
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setLoadingState('idle');
     }
   };
 
@@ -613,17 +591,38 @@ export default function MappingTemplateWorkspace() {
                 <div className="flex gap-2 mb-4">
                   <Button 
                     onClick={loadSampleData} 
-                    disabled={isLoading || !selectedDataSource || !selectedFile}
+                    disabled={loadingState !== 'idle' || !selectedDataSource || !selectedFile}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    {isLoading ? "Loading..." : "Load Data from Source"}
+                    {loadingState === 'data-loading' ? (
+                      <ButtonSpinner />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    {loadingState === 'data-loading' ? "Loading..." : "Load Data from Source"}
                   </Button>
                   <Button variant="outline" disabled>
                     <Upload className="w-4 h-4 mr-2" />
                     Upload File
                   </Button>
                 </div>
+
+                {/* Show loading animation */}
+                {loadingState === 'data-loading' && (
+                  <div className="mb-6">
+                    <LoadingAnimation 
+                      type="data-loading" 
+                      message={`Pulling real data from ${selectedDataSource?.name} at ${selectedFile}`}
+                    />
+                  </div>
+                )}
+
+                {/* Show success message */}
+                {showSuccess && loadingState === 'idle' && (
+                  <div className="mb-4">
+                    <SuccessAnimation message={showSuccess} />
+                  </div>
+                )}
 
                 {sampleData.length > 0 ? (
                   <div className="space-y-4">
@@ -700,15 +699,31 @@ export default function MappingTemplateWorkspace() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button onClick={autoMapFields} className="bg-blue-600 hover:bg-blue-700">
-                        <Zap className="w-4 h-4 mr-2" />
-                        Auto-Map Fields
+                      <Button 
+                        onClick={autoMapFields} 
+                        disabled={loadingState !== 'idle'}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {loadingState === 'auto-mapping' ? (
+                          <ButtonSpinner />
+                        ) : (
+                          <Zap className="w-4 h-4 mr-2" />
+                        )}
+                        {loadingState === 'auto-mapping' ? "Mapping..." : "Auto-Map Fields"}
                       </Button>
-                      <Button variant="outline" onClick={addMapping}>
+                      <Button 
+                        variant="outline" 
+                        onClick={addMapping}
+                        disabled={loadingState !== 'idle'}
+                      >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Field Mapping
                       </Button>
-                      <Button variant="outline" onClick={previewMapping}>
+                      <Button 
+                        variant="outline" 
+                        onClick={previewMapping}
+                        disabled={loadingState !== 'idle'}
+                      >
                         <Eye className="w-4 h-4 mr-2" />
                         Preview Mapping
                       </Button>
@@ -724,6 +739,23 @@ export default function MappingTemplateWorkspace() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Show auto-mapping animation */}
+                    {loadingState === 'auto-mapping' && (
+                      <div className="my-6">
+                        <LoadingAnimation 
+                          type="auto-mapping" 
+                          message="Analyzing your CWR fields and creating intelligent mappings..."
+                        />
+                      </div>
+                    )}
+
+                    {/* Show success message for auto-mapping */}
+                    {showSuccess && loadingState === 'idle' && activeTab === 'mapping' && (
+                      <div className="mb-4">
+                        <SuccessAnimation message={showSuccess} />
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <div className="text-sm font-medium text-gray-700">
