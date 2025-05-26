@@ -1243,6 +1243,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Import sample data using a mapping template
+  app.post("/api/mapping-templates/:id/import-sample", async (req, res) => {
+    try {
+      const templateId = Number(req.params.id);
+      const { dataSourceId, remotePath, recordLimit = 10 } = req.body;
+
+      // Get the mapping template
+      const template = await storage.getMappingTemplateById(templateId);
+      if (!template) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Mapping template not found" 
+        });
+      }
+
+      // Get the data source
+      const dataSource = await storage.getDataSourceById(dataSourceId);
+      if (!dataSource) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Data source not found" 
+        });
+      }
+
+      // Pull sample data from the source
+      let sampleData = [];
+      if (dataSource.type === 'sftp') {
+        const { pullSampleFromSFTP } = await import('./utils/ftp-ingestion');
+        
+        let config = dataSource.config;
+        if (typeof config === 'string') {
+          config = JSON.parse(config);
+        }
+        
+        const typedConfig = config as any;
+        const credentials = {
+          host: typedConfig.host,
+          port: typedConfig.port || 22,
+          username: typedConfig.username,
+          password: typedConfig.password || process.env.SFTP_PASSWORD,
+          secure: typedConfig.secure || false,
+          remoteDir: typedConfig.path || '/',
+          privateKey: typedConfig.privateKey || undefined,
+          passphrase: typedConfig.passphrase || undefined
+        };
+
+        const result = await pullSampleFromSFTP(credentials, remotePath, {
+          limit: recordLimit,
+          hasHeader: true
+        });
+
+        if (!result.success) {
+          return res.status(500).json({
+            success: false,
+            message: result.message
+          });
+        }
+
+        sampleData = result.records || [];
+      }
+
+      // Parse the template mappings
+      let mappings = template.mappings;
+      if (typeof mappings === 'string') {
+        mappings = JSON.parse(mappings);
+      }
+
+      // Process each record using the mapping template
+      const processedProducts = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const record of sampleData) {
+        try {
+          // Generate EDC SKU
+          const edcSku = `EDC-${String(Date.now() + Math.random()).slice(-8)}`;
+          
+          // Apply catalog mappings
+          const catalogData: any = { sku: edcSku };
+          const productDetailData: any = { sku: edcSku };
+
+          // Process catalog mappings
+          if (mappings.catalog) {
+            for (const mapping of mappings.catalog) {
+              if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
+                catalogData[mapping.targetField] = record[mapping.sourceField];
+              }
+            }
+          }
+
+          // Process product detail mappings  
+          if (mappings.productDetail) {
+            for (const mapping of mappings.productDetail) {
+              if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
+                productDetailData[mapping.targetField] = record[mapping.sourceField];
+              }
+            }
+          }
+
+          // Set required fields and defaults
+          catalogData.status = catalogData.status || 'active';
+          catalogData.supplierId = dataSource.supplierId;
+          catalogData.supplierCode = dataSource.name;
+
+          // Parse costs and prices
+          if (catalogData.cost) catalogData.cost = parseFloat(catalogData.cost) || 0;
+          if (catalogData.price) catalogData.price = parseFloat(catalogData.price) || 0;
+
+          // Handle special product flags from CWR data
+          const flags = {
+            isRemanufactured: record['Remanufactured'] === '1',
+            isCloseout: record['Closeout'] === '1', 
+            isOnSale: record['Sale'] === '1',
+            hasRebate: record['Rebate'] === '1',
+            hasFreeShipping: record['Free Shipping'] === '1'
+          };
+
+          // Create the product with all data
+          const productData = {
+            ...catalogData,
+            ...productDetailData,
+            ...flags,
+            rawSupplierData: JSON.stringify(record),
+            importedAt: new Date(),
+            mappingTemplateId: templateId
+          };
+
+          // Save to storage
+          const newProduct = await storage.createProduct(productData);
+          processedProducts.push(newProduct);
+          successCount++;
+
+        } catch (error) {
+          console.error("Error processing record:", error);
+          errorCount++;
+        }
+      }
+
+      // Create import log
+      const importLog = await storage.createImport({
+        filename: `Sample Import - ${template.name}`,
+        type: 'sample',
+        status: successCount > 0 ? 'success' : 'error',
+        recordCount: sampleData.length,
+        processedCount: successCount,
+        errorCount: errorCount,
+        supplierId: dataSource.supplierId,
+        mappingTemplateId: templateId,
+        completedAt: new Date()
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully imported ${successCount} of ${sampleData.length} sample records`,
+        importId: importLog.id,
+        products: processedProducts,
+        stats: {
+          total: sampleData.length,
+          success: successCount,
+          errors: errorCount
+        }
+      });
+
+    } catch (error) {
+      console.error("Sample import error:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to import sample data"
+      });
+    }
+  });
   
   // Get remote paths for an SFTP/FTP data source
   app.get("/api/data-sources/:id/remote-paths", async (req, res) => {
