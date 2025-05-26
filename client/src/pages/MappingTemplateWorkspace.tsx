@@ -650,32 +650,34 @@ export default function MappingTemplateWorkspace() {
                       <Badge variant="secondary">{sampleData.length} records</Badge>
                     </div>
                     <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            {Object.keys(sampleData[0]).slice(0, 12).map((key) => (
-                              <th key={key} className="text-left px-2 py-1 font-medium border-b text-xs">
-                                {key}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sampleData.map((row, idx) => (
-                            <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                              {Object.values(row).slice(0, 12).map((value, cellIdx) => (
-                                <td key={cellIdx} className="px-2 py-1 border-b text-xs">
-                                  <div className="truncate max-w-20">
-                                    {String(value)}
-                                  </div>
-                                </td>
+                      <div className="overflow-x-auto max-h-96">
+                        <table className="w-full text-xs min-w-max">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              {Object.keys(sampleData[0]).map((key) => (
+                                <th key={key} className="text-left px-3 py-2 font-medium border-b text-xs whitespace-nowrap min-w-32">
+                                  {key}
+                                </th>
                               ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <div className="p-2 bg-gray-50 text-xs text-gray-600">
-                        Showing first 12 of {Object.keys(sampleData[0]).length} total fields
+                          </thead>
+                          <tbody>
+                            {sampleData.map((row, idx) => (
+                              <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                {Object.values(row).map((value, cellIdx) => (
+                                  <td key={cellIdx} className="px-3 py-2 border-b text-xs whitespace-nowrap min-w-32">
+                                    <div className="truncate max-w-40" title={String(value)}>
+                                      {String(value)}
+                                    </div>
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="p-3 bg-gray-50 text-xs text-gray-600 border-t">
+                        Showing all {Object.keys(sampleData[0]).length} fields • Scroll horizontally to view all columns
                       </div>
                     </div>
                     
