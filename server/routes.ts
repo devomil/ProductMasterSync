@@ -28,6 +28,7 @@ import { registerConnectionsRoutes } from "./connections";
 
 // Import the ingestion engine
 import { processSFTPIngestion } from "./utils/ingestion-engine";
+import { BulkImportProcessor } from "./utils/bulk-import";
 
 // Set up multer for file uploads
 const upload = multer({
