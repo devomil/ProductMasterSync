@@ -47,10 +47,9 @@ export default function MappingTemplateWorkspace() {
   const sampleHeaders = sampleData.length > 0 ? Object.keys(sampleData[0]) : [];
 
   const catalogFields = [
-    { id: "sku", name: "SKU", required: true },
     { id: "product_name", name: "Product Name", required: true },
+    { id: "usin", name: "USIN", required: true },
     { id: "mpn", name: "MPN", required: false },
-    { id: "usin", name: "USIN", required: false },
     { id: "upc", name: "UPC", required: false },
     { id: "cost", name: "Cost", required: false },
     { id: "price", name: "Price", required: false },
