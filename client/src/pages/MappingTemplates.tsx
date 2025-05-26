@@ -597,14 +597,10 @@ export default function MappingTemplates() {
         description: "Importing sample data using your mapping template..."
       });
 
-      const response = await apiRequest(`/api/mapping-templates/${template.id}/import-sample`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dataSourceId: dataSource.id,
-          remotePath: '/eco8/out/catalog.csv',
-          recordLimit: 10
-        })
+      const response = await apiRequest('POST', `/api/mapping-templates/${template.id}/import-sample`, {
+        dataSourceId: dataSource.id,
+        remotePath: '/eco8/out/catalog.csv',
+        recordLimit: 10
       });
 
       if (response.success) {
