@@ -1325,11 +1325,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const catalogData: any = { sku: edcSku };
           const productDetailData: any = { sku: edcSku };
 
-          // Process catalog mappings
+          // Process catalog mappings - handle both old and new mapping format
           if (mappings.catalog) {
             for (const mapping of mappings.catalog) {
               if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
                 catalogData[mapping.targetField] = record[mapping.sourceField];
+              }
+            }
+          } else {
+            // Handle direct mappings object format
+            for (const [sourceField, targetField] of Object.entries(mappings)) {
+              if (record[sourceField]) {
+                catalogData[targetField as string] = record[sourceField];
               }
             }
           }
