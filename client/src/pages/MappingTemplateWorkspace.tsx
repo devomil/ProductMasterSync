@@ -49,6 +49,8 @@ export default function MappingTemplateWorkspace() {
   const catalogFields = [
     { id: "sku", name: "SKU", required: true },
     { id: "product_name", name: "Product Name", required: true },
+    { id: "mpn", name: "MPN", required: false },
+    { id: "usin", name: "USIN", required: false },
     { id: "upc", name: "UPC", required: false },
     { id: "cost", name: "Cost", required: false },
     { id: "price", name: "Price", required: false },
@@ -296,6 +298,8 @@ export default function MappingTemplateWorkspace() {
         // Smart field mapping for CWR data
         if (field.id === 'sku' && (headerLower.includes('sku') || headerLower.includes('part number'))) return true;
         if (field.id === 'product_name' && (headerLower.includes('name') || headerLower.includes('title'))) return true;
+        if (field.id === 'mpn' && headerLower.includes('manufacturer part number')) return true;
+        if (field.id === 'usin' && headerLower.includes('cwr part number')) return true;
         if (field.id === 'price' && headerLower.includes('price')) return true;
         if (field.id === 'cost' && headerLower.includes('cost')) return true;
         if (field.id === 'brand' && (headerLower.includes('mfg') || headerLower.includes('brand') || headerLower.includes('manufacturer'))) return true;
