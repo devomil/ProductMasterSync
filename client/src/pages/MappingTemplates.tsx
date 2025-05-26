@@ -579,6 +579,60 @@ export default function MappingTemplates() {
     }
   };
 
+  // Import sample data using a template
+  const handleImportSample = async (template: any) => {
+    try {
+      const dataSource = dataSources?.find((ds: any) => ds.supplierId === template.supplierId);
+      if (!dataSource) {
+        toast({
+          variant: "destructive",
+          title: "Import Error",
+          description: "No data source found for this template"
+        });
+        return;
+      }
+
+      toast({
+        title: "Starting Import",
+        description: "Importing sample data using your mapping template..."
+      });
+
+      const response = await apiRequest(`/api/mapping-templates/${template.id}/import-sample`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataSourceId: dataSource.id,
+          remotePath: '/eco8/out/catalog.csv',
+          recordLimit: 10
+        })
+      });
+
+      if (response.success) {
+        toast({
+          title: "Import Successful!",
+          description: `Successfully imported ${response.stats.success} products to your master catalog`
+        });
+
+        // Refresh products data
+        queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/imports'] });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Import Failed",
+          description: response.message || "Failed to import sample data"
+        });
+      }
+    } catch (error) {
+      console.error("Import error:", error);
+      toast({
+        variant: "destructive",
+        title: "Import Error",
+        description: error instanceof Error ? error.message : "Failed to import sample data"
+      });
+    }
+  };
+
   // Edit a template
   const handleEditTemplate = (template: MappingTemplate) => {
     setSelectedTemplate(template);
@@ -713,16 +767,25 @@ export default function MappingTemplates() {
                                 <Trash className="h-4 w-4 mr-1" /> Delete
                               </Button>
                               {template.sourceType === 'sftp' && supplier && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedTemplate(template);
-                                    setShowProcessSftpDialog(true);
-                                  }}
-                                >
-                                  <Upload className="h-4 w-4 mr-1" /> Process SFTP
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleImportSample(template)}
+                                  >
+                                    <FileUp className="h-4 w-4 mr-1" /> Import Sample
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedTemplate(template);
+                                      setShowProcessSftpDialog(true);
+                                    }}
+                                  >
+                                    <Upload className="h-4 w-4 mr-1" /> Process SFTP
+                                  </Button>
+                                </>
                               )}
                             </TableCell>
                           </TableRow>
