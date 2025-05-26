@@ -1355,10 +1355,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
           
+          // Debug: Log the mapping and record data
+          console.log('Available CWR fields:', Object.keys(record));
+          console.log('Mapped catalog data:', catalogData);
+          console.log('Template mappings:', mappings);
+          
           // Ensure required fields have values - use fallbacks if mapping fails
           if (!catalogData.product_name && !catalogData.name) {
             // Try different CWR title fields as fallback
             catalogData.name = record['Title'] || record['Uppercase Title'] || `Product ${edcSku}`;
+            console.log('Set fallback name:', catalogData.name);
           } else if (catalogData.product_name) {
             catalogData.name = catalogData.product_name;
           }
