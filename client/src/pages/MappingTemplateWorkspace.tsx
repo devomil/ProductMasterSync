@@ -448,7 +448,19 @@ export default function MappingTemplateWorkspace() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Saving overlay */}
+      {loadingState === 'saving' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md mx-4">
+            <LoadingAnimation 
+              type="saving" 
+              message={`Saving "${templateName}" with all your field mappings...`}
+            />
+          </div>
+        </div>
+      )}
+      
       <div className="container mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
@@ -460,9 +472,13 @@ export default function MappingTemplateWorkspace() {
           </Link>
           <h1 className="text-2xl font-bold">Create Mapping Template</h1>
           <div className="ml-auto">
-            <Button onClick={saveTemplate} disabled={isLoading}>
-              <Save className="w-4 h-4 mr-2" />
-              Save Template
+            <Button onClick={saveTemplate} disabled={loadingState !== 'idle'}>
+              {loadingState === 'saving' ? (
+                <ButtonSpinner />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {loadingState === 'saving' ? "Saving..." : "Save Template"}
             </Button>
           </div>
         </div>
@@ -850,9 +866,13 @@ export default function MappingTemplateWorkspace() {
                     )}
 
                     <div className="pt-4 border-t">
-                      <Button onClick={saveTemplate} disabled={isLoading} className="w-full">
-                        <Save className="w-4 h-4 mr-2" />
-                        {isLoading ? "Saving..." : "Save Mapping Template"}
+                      <Button onClick={saveTemplate} disabled={loadingState !== 'idle'} className="w-full">
+                        {loadingState === 'saving' ? (
+                          <ButtonSpinner />
+                        ) : (
+                          <Save className="w-4 h-4 mr-2" />
+                        )}
+                        {loadingState === 'saving' ? "Saving..." : "Save Mapping Template"}
                       </Button>
                     </div>
                   </div>
