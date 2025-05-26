@@ -1354,6 +1354,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.status = catalogData.status || 'active';
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
+          
+          // Ensure required fields have values - use fallbacks if mapping fails
+          if (!catalogData.product_name && !catalogData.name) {
+            // Try different CWR title fields as fallback
+            catalogData.name = record['Title'] || record['Uppercase Title'] || `Product ${edcSku}`;
+          } else if (catalogData.product_name) {
+            catalogData.name = catalogData.product_name;
+          }
 
           // Parse costs and prices
           if (catalogData.cost) catalogData.cost = parseFloat(catalogData.cost) || 0;
