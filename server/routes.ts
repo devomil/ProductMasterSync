@@ -1251,7 +1251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { dataSourceId, remotePath, recordLimit = 10 } = req.body;
 
       // Get the mapping template
-      const template = await storage.getMappingTemplateById(templateId);
+      const template = await storage.getMappingTemplate(templateId);
       if (!template) {
         return res.status(404).json({ 
           success: false, 
@@ -1260,7 +1260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the data source
-      const dataSource = await storage.getDataSourceById(dataSourceId);
+      const dataSource = await storage.getDataSource(dataSourceId);
       if (!dataSource) {
         return res.status(404).json({ 
           success: false, 

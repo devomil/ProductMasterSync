@@ -603,10 +603,12 @@ export default function MappingTemplates() {
         recordLimit: 10
       });
 
-      if (response.success) {
+      const data = await response.json();
+      
+      if (data.success) {
         toast({
           title: "Import Successful!",
-          description: `Successfully imported ${response.stats.success} products to your master catalog`
+          description: `Successfully imported ${data.stats.success} products to your master catalog`
         });
 
         // Refresh products data
@@ -616,7 +618,7 @@ export default function MappingTemplates() {
         toast({
           variant: "destructive",
           title: "Import Failed",
-          description: response.message || "Failed to import sample data"
+          description: data.message || "Failed to import sample data"
         });
       }
     } catch (error) {
