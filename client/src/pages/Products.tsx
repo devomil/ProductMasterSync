@@ -651,7 +651,7 @@ const Products = () => {
                     <TableHead className="min-w-[180px] text-sm font-medium">Category</TableHead>
                     <TableHead className="w-[80px] text-sm font-medium">Cost</TableHead>
                     <TableHead className="w-[80px] text-sm font-medium">Price</TableHead>
-                    <TableHead className="w-[100px] text-sm font-medium">Weight</TableHead>
+                    <TableHead className="w-[120px] text-sm font-medium">Weight</TableHead>
                     <TableHead className="w-[80px] text-sm font-medium">Status</TableHead>
                     <TableHead className="w-[80px] text-right text-sm font-medium">Actions</TableHead>
                   </TableRow>
