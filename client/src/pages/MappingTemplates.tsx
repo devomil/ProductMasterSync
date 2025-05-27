@@ -1042,7 +1042,7 @@ export default function MappingTemplates() {
                 </div>
 
                 {/* Dual Mapping Interface */}
-                <Tabs value={mappingView} onValueChange={setMappingView} className="w-full">
+                <Tabs value={mappingView} onValueChange={(value) => setMappingView(value as 'catalog' | 'detail')} className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="catalog">Master Catalog View</TabsTrigger>
                     <TabsTrigger value="detail">Product Detail View</TabsTrigger>
