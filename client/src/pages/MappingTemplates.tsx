@@ -1156,6 +1156,8 @@ export default function MappingTemplates() {
                         <SelectItem value="json">JSON</SelectItem>
                         <SelectItem value="xml">XML</SelectItem>
                         <SelectItem value="api">API</SelectItem>
+                        <SelectItem value="sftp">SFTP</SelectItem>
+                        <SelectItem value="ftp">FTP</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
