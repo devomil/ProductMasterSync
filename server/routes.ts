@@ -1338,6 +1338,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
             for (const [sourceField, targetField] of Object.entries(mappings)) {
+              // Debug category fields for first few records
+              if (sourceField === 'Category Name' && records.indexOf(record) < 3) {
+                console.log(`🏷️ Record ${records.indexOf(record)} Category Name:`, record[sourceField]);
+              }
               
               if (record[sourceField]) {
                 let value = record[sourceField];
