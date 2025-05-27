@@ -1227,68 +1227,52 @@ export default function MappingTemplates() {
             </TabsContent>
 
             <TabsContent value="mapping" className="pt-4">
-              <div className="border rounded-md p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium">Field Mappings</h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={addMappingRow}
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Add Mapping
-                  </Button>
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold mb-2">Map Supplier Fields to Catalog Schema</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Connect your supplier's data fields to the standardized catalog schema
+                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  {fieldMappings.map((mapping, index) => (
-                    <div key={index} className="grid grid-cols-5 gap-2 items-center">
-                      <div className="col-span-2">
-                        <Input
-                          placeholder="Source Field"
-                          value={mapping.sourceField}
-                          onChange={(e) => updateFieldMapping(index, 'sourceField', e.target.value)}
-                        />
+                <div className="grid gap-4">
+                  {AVAILABLE_TARGET_FIELDS.map((targetField) => {
+                    const mappedSourceField = fieldMappings.find(m => m.targetField === targetField.id)?.sourceField || '';
+                    
+                    return (
+                      <div key={targetField.id} className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${targetField.required ? 'bg-red-500' : 'bg-gray-400'}`} />
+                            <span className="font-medium text-sm">{targetField.name}</span>
+                            {targetField.required && (
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Required</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground capitalize">{targetField.type}</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Input
+                            placeholder={`Enter source field for ${targetField.name.toLowerCase()}`}
+                            value={mappedSourceField}
+                            onChange={(e) => {
+                              const newMappings = fieldMappings.filter(m => m.targetField !== targetField.id);
+                              if (e.target.value.trim()) {
+                                newMappings.push({ sourceField: e.target.value.trim(), targetField: targetField.id });
+                              }
+                              setFieldMappings(newMappings);
+                              updateFormMappings(newMappings);
+                            }}
+                            className="text-sm"
+                          />
+                          {targetField.description && (
+                            <p className="text-xs text-muted-foreground">{targetField.description}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex justify-center">
-                        <span className="text-gray-500">→</span>
-                      </div>
-                      <div className="col-span-2">
-                        <Select
-                          value={mapping.targetField}
-                          onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Target Field" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {AVAILABLE_TARGET_FIELDS.map((field) => (
-                              <SelectItem key={field.id} value={field.id}>
-                                {field.name}{field.required ? " *" : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeMappingRow(index)}
-                          disabled={fieldMappings.length <= 1}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="mt-4 text-sm text-muted-foreground">
-                  <p>* Required fields</p>
-                  <p className="mt-2">
-                    Map every supplier field to a target field. Required fields (SKU, Product Name) must be mapped. 
-                    For fields without a mapping, default values will be used.
-                  </p>
+                    );
+                  })}
                 </div>
               </div>
             </TabsContent>
