@@ -129,8 +129,12 @@ const PRODUCT_DETAIL_FIELDS = [
   { id: "primaryImage", name: "Primary Image", required: false, type: "string", description: "Primary product image URL" },
   { id: "weight", name: "Weight", required: false, type: "string", description: "Product weight" },
   { id: "dimensions", name: "Dimensions", required: false, type: "string", description: "Product dimensions" },
+  { id: "specifications", name: "Specifications", required: false, type: "string", description: "Detailed specifications" },
+  { id: "images", name: "Additional Images", required: false, type: "string", description: "Additional product images" },
+  { id: "documents", name: "Documents", required: false, type: "string", description: "Product documents/manuals" },
+  { id: "warranty", name: "Warranty", required: false, type: "string", description: "Warranty information" },
+  { id: "compliance", name: "Compliance", required: false, type: "string", description: "Regulatory compliance" },
   { id: "features", name: "Features", required: false, type: "string", description: "Product features" },
-  { id: "specifications", name: "Specifications", required: false, type: "string", description: "Technical specifications" },
 ];
 
 export default function MappingTemplates() {
