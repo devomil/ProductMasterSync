@@ -633,7 +633,7 @@ export default function MappingTemplates() {
   };
 
   // Edit a template
-  const handleEditTemplate = (template: MappingTemplate) => {
+  const handleEditTemplate = async (template: MappingTemplate) => {
     setSelectedTemplate(template);
     
     console.log('Editing template:', template);
@@ -672,6 +672,25 @@ export default function MappingTemplates() {
     }
     
     setFieldMappings(mappingsArray);
+    
+    // Load complete source data to show all available fields (like create template does)
+    if (template.supplierId) {
+      try {
+        const dataSource = dataSources.find((ds: any) => ds.supplierId === template.supplierId);
+        if (dataSource) {
+          const response = await fetch(`/api/data-sources/${dataSource.id}/test-pull?limit=10`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.sample_data && result.sample_data.length > 0) {
+              setSampleData(result.sample_data);
+              console.log('Loaded sample data for editing with', Object.keys(result.sample_data[0]).length, 'source fields');
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Could not load sample data for editing, will show existing mapped fields only');
+      }
+    }
     
     // If there are no validation rules but we have mappings, generate them
     if ((!template.validationRules || template.validationRules.length === 0) && 
