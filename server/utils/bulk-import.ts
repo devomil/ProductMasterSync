@@ -1,7 +1,6 @@
 import { db } from "../db";
 import { products, productSuppliers, mappingTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { processDescription, formatDescriptionForContext } from "./description-processor";
 
 interface BulkImportConfig {
   batchSize: number;

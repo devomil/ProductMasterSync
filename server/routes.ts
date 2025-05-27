@@ -1337,7 +1337,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Handle direct mappings object format
             for (const [sourceField, targetField] of Object.entries(mappings)) {
               if (record[sourceField]) {
-                catalogData[targetField as string] = record[sourceField];
+                let value = record[sourceField];
+                
+                // Special handling for description field - ensure we only store clean text
+                if (targetField === 'description' && typeof value === 'string' && value.includes('<')) {
+                  value = value
+                    .replace(/<[^>]*>/g, '')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/&trade;/g, '™')
+                    .replace(/&reg;/g, '®')
+                    .replace(/&copy;/g, '©')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                  console.log('🧹 Processed HTML description to clean text during mapping');
+                }
+                
+                catalogData[targetField as string] = value;
               }
             }
           }
