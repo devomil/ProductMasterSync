@@ -1,4 +1,5 @@
 import { useState, useReducer } from "react";
+import { Link } from "wouter";
 import { 
   Package2, 
   Plus, 
@@ -677,10 +678,16 @@ const Products = () => {
                 ) : (
                   filteredProducts.map(product => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium text-sm">{product.sku}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+                          {product.sku}
+                        </Link>
+                      </TableCell>
                       <TableCell className="min-w-[240px]">
                         <div>
-                          <div className="font-medium text-sm leading-5">{product.name}</div>
+                          <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline">
+                            {product.name}
+                          </Link>
                           {getSpecialFlagComponents(product)}
                         </div>
                       </TableCell>
