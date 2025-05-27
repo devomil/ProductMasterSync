@@ -315,7 +315,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
-      res.json(products);
+      
+      // Enhance products with category information
+      const categories = await storage.getCategories();
+      const enhancedProducts = products.map(product => {
+        if (product.categoryId) {
+          const category = categories.find(cat => cat.id === product.categoryId);
+          if (category) {
+            return {
+              ...product,
+              categoryName: category.path || category.name
+            };
+          }
+        }
+        return {
+          ...product,
+          categoryName: product.categoryName || null
+        };
+      });
+      
+      res.json(enhancedProducts);
     } catch (error) {
       handleError(res, error);
     }
