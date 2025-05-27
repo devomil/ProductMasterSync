@@ -1318,8 +1318,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const record of sampleData) {
         try {
-          // Generate EDC SKU
-          const edcSku = `EDC-${String(Date.now() + Math.random()).slice(-8)}`;
+          // Generate numeric EDC code (6 digits)
+          const edcSku = String(Math.floor(Math.random() * 900000) + 100000);
           
           // Apply catalog mappings
           const catalogData: any = { sku: edcSku };

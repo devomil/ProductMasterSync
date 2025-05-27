@@ -637,8 +637,8 @@ const Products = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">
-                    SKU
+                  <TableHead className="w-[120px]">
+                    EDC
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </TableHead>
                   <TableHead>
@@ -689,9 +689,9 @@ const Products = () => {
                         </div>
                       </TableCell>
                       <TableCell>{product.upc || '-'}</TableCell>
-                      <TableCell>{product.manufacturerPartNumber || '-'}</TableCell>
-                      <TableCell>{product.manufacturerName || '-'}</TableCell>
-                      <TableCell>{product.categoryName || '-'}</TableCell>
+                      <TableCell>{product.mpn || '-'}</TableCell>
+                      <TableCell>{product.brand || '-'}</TableCell>
+                      <TableCell>{product.category || '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <span className="font-medium">{product.stockQuantity || 0}</span>
