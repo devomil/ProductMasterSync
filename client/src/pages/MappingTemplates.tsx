@@ -681,9 +681,14 @@ export default function MappingTemplates() {
           const response = await fetch(`/api/data-sources/${dataSource.id}/test-pull?limit=10`);
           if (response.ok) {
             const result = await response.json();
+            console.log('Sample data API response:', result);
             if (result.success && result.sample_data && result.sample_data.length > 0) {
               setSampleData(result.sample_data);
               console.log('Loaded sample data for editing with', Object.keys(result.sample_data[0]).length, 'source fields');
+            } else if (result.data && result.data.length > 0) {
+              // Try alternative response format
+              setSampleData(result.data);
+              console.log('Loaded sample data (alt format) for editing with', Object.keys(result.data[0]).length, 'source fields');
             }
           }
         }
