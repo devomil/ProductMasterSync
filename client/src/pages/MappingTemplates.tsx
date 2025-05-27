@@ -1002,65 +1002,151 @@ export default function MappingTemplates() {
                   </Button>
                 </div>
 
-                <div className="space-y-2">
-                  {fieldMappings.map((mapping, index) => (
-                    <div key={index} className="grid grid-cols-5 gap-2 items-center">
-                      <div className="col-span-2">
-                        <Select
-                          value={mapping.sourceField}
-                          onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Source Field" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sampleHeaders.length > 0 ? (
-                              sampleHeaders.map((header) => (
-                                <SelectItem key={header} value={header}>
-                                  {header}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="none" disabled>
-                                No source fields available
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                {/* Dual Mapping Interface */}
+                <Tabs value={mappingView} onValueChange={setMappingView} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="catalog">Master Catalog View</TabsTrigger>
+                    <TabsTrigger value="detail">Product Detail View</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="catalog" className="mt-4">
+                    <div className="space-y-3">
+                      <div className="text-sm text-gray-600 mb-3">
+                        Map fields for the master catalog view (core business fields)
                       </div>
-                      <div className="flex justify-center">
-                        <span className="text-gray-500">→</span>
-                      </div>
-                      <div className="col-span-2">
-                        <Select
-                          value={mapping.targetField}
-                          onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Target Field" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {AVAILABLE_TARGET_FIELDS.map((field) => (
-                              <SelectItem key={field.id} value={field.id}>
-                                {field.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeMappingRow(index)}
-                          disabled={fieldMappings.length <= 1}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {fieldMappings.map((mapping, index) => (
+                        <div key={index} className="grid grid-cols-5 gap-2 items-center">
+                          <div className="col-span-2">
+                            <Select
+                              value={mapping.sourceField}
+                              onValueChange={(value) => updateFieldMapping(index, 'sourceField', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Source Field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {sampleHeaders.length > 0 ? (
+                                  sampleHeaders.map((header) => (
+                                    <SelectItem key={header} value={header}>
+                                      {header}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="none" disabled>
+                                    No source fields available
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex justify-center">
+                            <span className="text-gray-500">→</span>
+                          </div>
+                          <div className="col-span-2">
+                            <Select
+                              value={mapping.targetField}
+                              onValueChange={(value) => updateFieldMapping(index, 'targetField', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Target Field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {AVAILABLE_TARGET_FIELDS.map((field) => (
+                                  <SelectItem key={field.id} value={field.id}>
+                                    {field.name}{field.required ? " *" : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeMappingRow(index)}
+                              disabled={fieldMappings.length <= 1}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </TabsContent>
+
+                  <TabsContent value="detail" className="mt-4">
+                    <div className="space-y-3">
+                      <div className="text-sm text-gray-600 mb-3">
+                        Map fields for product detail view (includes USIN and comprehensive product data)
+                      </div>
+                      {productDetailMappings.map((mapping, index) => (
+                        <div key={index} className="grid grid-cols-5 gap-2 items-center">
+                          <div className="col-span-2">
+                            <Select
+                              value={mapping.sourceField}
+                              onValueChange={(value) => updateProductDetailMapping(index, 'sourceField', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Source Field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {sampleHeaders.length > 0 ? (
+                                  sampleHeaders.map((header) => (
+                                    <SelectItem key={header} value={header}>
+                                      {header}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="none" disabled>
+                                    No source fields available
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex justify-center">
+                            <span className="text-gray-500">→</span>
+                          </div>
+                          <div className="col-span-2">
+                            <Select
+                              value={mapping.targetField}
+                              onValueChange={(value) => updateProductDetailMapping(index, 'targetField', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Target Field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PRODUCT_DETAIL_FIELDS.map((field) => (
+                                  <SelectItem key={field.id} value={field.id}>
+                                    {field.name}{field.required ? " *" : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeProductDetailMapping(index)}
+                              disabled={productDetailMappings.length <= 1}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={addProductDetailMapping}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Add Product Detail Mapping
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </TabsContent>
 
