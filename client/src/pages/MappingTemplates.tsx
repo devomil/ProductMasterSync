@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash, FileUp, Download, Upload, Maximize, Minimize, Zap, X } from "lucide-react";
+import { LoadingAnimation, ButtonSpinner } from "@/components/ui/loading-animations";
 import { useDataSourceActions } from "../hooks/useDataSourceActions";
 import {
   Dialog,
