@@ -41,6 +41,7 @@ function Router() {
       <Route path="/mapping-templates/new" component={MappingTemplateWorkspace} />
       <Route path="/mapping-templates/:id" component={MappingTemplateWorkspace} />
       <Route path="/mapping-demo" component={SimpleMappingDemo} />
+      <Route path="/description-processor" component={DescriptionProcessor} />
       <Route path="/connections" component={Connections} />
       <Route path="/api-configuration" component={ApiConfiguration} />
       <Route path="/approvals" component={Approvals} />
