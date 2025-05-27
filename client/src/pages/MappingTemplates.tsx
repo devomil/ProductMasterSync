@@ -1427,18 +1427,26 @@ export default function MappingTemplates() {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-blue-900">Master Catalog View</h4>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                      Active
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium text-gray-700">
-                      Master Catalog Field Mappings ({fieldMappings.length})
-                    </div>
+                {/* Dual Mapping Interface with Tabs */}
+                <Tabs value={mappingView} onValueChange={(value) => setMappingView(value as 'catalog' | 'detail')} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="catalog">Master Catalog View</TabsTrigger>
+                    <TabsTrigger value="detail">Product Detail View</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="catalog" className="mt-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-blue-900">Master Catalog View</h4>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                          Active
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium text-gray-700">
+                          Master Catalog Field Mappings ({fieldMappings.length})
+                        </div>
                     
                     {fieldMappings.map((mapping, index) => (
                       <div key={index} className="grid grid-cols-5 gap-3 items-center bg-white p-3 rounded border">
@@ -1509,8 +1517,97 @@ export default function MappingTemplates() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="detail" className="mt-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-green-900">Product Detail View</h4>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700">
+                          Comprehensive
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium text-gray-700">
+                          Product Detail Field Mappings ({productDetailMappings.length})
+                        </div>
+                        
+                        {productDetailMappings.map((mapping, index) => (
+                          <div key={index} className="grid grid-cols-5 gap-3 items-center bg-white p-3 rounded border">
+                            <div className="col-span-2">
+                              <Label className="text-xs text-gray-500 mb-1 block">Source Field</Label>
+                              <Select
+                                value={mapping.sourceField}
+                                onValueChange={(value) => updateProductDetailMapping(index, 'sourceField', value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select source field" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sampleData && sampleData.length > 0 ? (
+                                    Object.keys(sampleData[0]).map((field) => (
+                                      <SelectItem key={field} value={field}>
+                                        {field}
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    Object.keys(templateForm.mappings || {}).map((field) => (
+                                      <SelectItem key={field} value={field}>
+                                        {field}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="flex justify-center">
+                              <span className="text-gray-400">→</span>
+                            </div>
+                            
+                            <div className="col-span-2">
+                              <Label className="text-xs text-gray-500 mb-1 block">Detail Target Field</Label>
+                              <Select
+                                value={mapping.targetField}
+                                onValueChange={(value) => updateProductDetailMapping(index, 'targetField', value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select target field" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PRODUCT_DETAIL_FIELDS.map((field) => (
+                                    <SelectItem key={field.id} value={field.id}>
+                                      <div className="flex items-center gap-2">
+                                        <span>{field.name}</span>
+                                        {field.required && (
+                                          <span className="text-red-500">*</span>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="flex justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeProductDetailMapping(index)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </TabsContent>
 
