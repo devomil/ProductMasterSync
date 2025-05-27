@@ -62,7 +62,7 @@ const Sidebar = () => {
                   icon={<Package2 size={20} />} 
                   active={location === "/products"}
                 >
-                  Products
+                  Master Catalog
                 </SidebarLink>
                 <SidebarLink 
                   href="/categories" 

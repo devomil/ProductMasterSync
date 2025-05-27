@@ -412,7 +412,7 @@ const Products = () => {
   return (
     <>
       <div className="pb-5 border-b border-neutral-200 sm:flex sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-neutral-900">Products</h1>
+        <h1 className="text-2xl font-semibold text-neutral-900">Master Catalog</h1>
         <div className="mt-3 sm:mt-0 sm:ml-4">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
