@@ -527,10 +527,7 @@ export default function MappingTemplates() {
         fileLabel: templateForm.fileLabel || null
       };
 
-      const response = await apiRequest(`/api/mapping-templates/${selectedTemplate.id}`, {
-        method: 'PUT',
-        data: templateData
-      });
+      const response = await apiRequest('PUT', `/api/mapping-templates/${selectedTemplate.id}`, templateData);
 
       if (response) {
         toast({
