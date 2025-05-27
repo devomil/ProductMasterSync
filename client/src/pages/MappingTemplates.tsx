@@ -1265,15 +1265,27 @@ export default function MappingTemplates() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="font-medium mb-3">Available Source Fields:</h4>
                   <div className="flex flex-wrap gap-2">
-                    {Object.keys(templateForm.mappings || {}).map((sourceField) => (
-                      <Badge 
-                        key={sourceField} 
-                        variant="outline" 
-                        className="cursor-pointer hover:bg-blue-100 text-xs px-2 py-1 bg-blue-100 text-blue-800"
-                      >
-                        {sourceField}
-                      </Badge>
-                    ))}
+                    {sampleData && sampleData.length > 0 ? (
+                      Object.keys(sampleData[0]).map((sourceField) => (
+                        <Badge 
+                          key={sourceField} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-blue-100 text-xs px-2 py-1 bg-blue-100 text-blue-800"
+                        >
+                          {sourceField}
+                        </Badge>
+                      ))
+                    ) : (
+                      Object.keys(templateForm.mappings || {}).map((sourceField) => (
+                        <Badge 
+                          key={sourceField} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-blue-100 text-xs px-2 py-1 bg-blue-100 text-blue-800"
+                        >
+                          {sourceField}
+                        </Badge>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1302,11 +1314,19 @@ export default function MappingTemplates() {
                               <SelectValue placeholder="Select source field" />
                             </SelectTrigger>
                             <SelectContent>
-                              {Object.keys(templateForm.mappings || {}).map((field) => (
-                                <SelectItem key={field} value={field}>
-                                  {field}
-                                </SelectItem>
-                              ))}
+                              {sampleData && sampleData.length > 0 ? (
+                                Object.keys(sampleData[0]).map((field) => (
+                                  <SelectItem key={field} value={field}>
+                                    {field}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                Object.keys(templateForm.mappings || {}).map((field) => (
+                                  <SelectItem key={field} value={field}>
+                                    {field}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
