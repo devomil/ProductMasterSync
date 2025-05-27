@@ -170,18 +170,8 @@ export function formatDescriptionForContext(html: string, context: 'catalog' | '
         : processed.cleanText;
         
     case 'detail':
-      // Full formatted version for product detail pages
-      let result = processed.formattedText;
-      
-      if (processed.features.length > 0) {
-        result += '\n\nFeatures:\n' + processed.features.map(f => `• ${f}`).join('\n');
-      }
-      
-      if (processed.warnings.length > 0) {
-        result += '\n\nWarnings:\n' + processed.warnings.join('\n');
-      }
-      
-      return result;
+      // Clean text version for master catalog
+      return processed.cleanText;
       
     case 'search':
       // Clean text optimized for search indexing

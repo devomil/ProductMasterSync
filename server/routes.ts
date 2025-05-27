@@ -1365,7 +1365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (catalogData.description && catalogData.description.includes('<')) {
             try {
               const descriptionProcessor = await import('../server/utils/description-processor.js');
-              const processedDescription = descriptionProcessor.processDescription(catalogData.description, 'detail');
+              const processedDescription = descriptionProcessor.processDescription(catalogData.description);
               catalogData.description = processedDescription.cleanText || catalogData.description;
               console.log('🧹 Automatically processed HTML description to clean text');
             } catch (error) {
