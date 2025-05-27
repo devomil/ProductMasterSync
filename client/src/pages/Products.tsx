@@ -639,7 +639,7 @@ const Products = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[120px] text-sm font-medium">
-                      USIN
+                      EDC
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </TableHead>
                     <TableHead className="min-w-[240px] text-sm font-medium">
@@ -681,7 +681,7 @@ const Products = () => {
                 ) : (
                   filteredProducts.map(product => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium text-sm">{product.usin || product.sku}</TableCell>
+                      <TableCell className="font-medium text-sm">{product.sku}</TableCell>
                       <TableCell className="min-w-[240px]">
                         <div>
                           <div className="font-medium text-sm leading-5">{product.name}</div>
