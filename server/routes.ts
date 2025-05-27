@@ -1336,6 +1336,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             // Handle direct mappings object format
             for (const [sourceField, targetField] of Object.entries(mappings)) {
+              // Debug category mapping specifically
+              if (sourceField === 'Category Name') {
+                console.log('🏷️ Category Name raw value:', record[sourceField], 'Type:', typeof record[sourceField]);
+              }
+              
               if (record[sourceField]) {
                 let value = record[sourceField];
                 
