@@ -340,6 +340,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update product categories
+  app.post("/api/products/update-categories", async (req, res) => {
+    try {
+      const updates = req.body.updates || [];
+      let updateCount = 0;
+      
+      for (const update of updates) {
+        const products = await storage.getProducts();
+        const matchingProducts = products.filter(p => 
+          p.name.toUpperCase().includes(update.pattern.toUpperCase())
+        );
+        
+        for (const product of matchingProducts) {
+          await storage.updateProduct(product.id, { categoryId: update.categoryId });
+          updateCount++;
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Updated ${updateCount} products with category links`,
+        updatedCount: updateCount 
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Search products with advanced filters
   app.get("/api/products/search", async (req, res) => {
     try {
