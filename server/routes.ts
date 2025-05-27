@@ -1335,14 +1335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           } else {
             // Handle direct mappings object format
-            // Debug: Show category fields for first record
-            if (records.indexOf(record) === 0) {
-              console.log('🏷️ === CATEGORY DEBUG FOR FIRST RECORD ===');
-              console.log('🏷️ Category Name:', record['Category Name'], 'Type:', typeof record['Category Name']);
-              console.log('🏷️ Category ID:', record['Category ID'], 'Type:', typeof record['Category ID']);
-              console.log('🏷️ Google Merchant Category:', record['Google Merchant Category'], 'Type:', typeof record['Google Merchant Category']);
-              console.log('🏷️ === END CATEGORY DEBUG ===');
-            }
+
 
             for (const [sourceField, targetField] of Object.entries(mappings)) {
               
@@ -1386,14 +1379,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
           
-          // Handle category field - keep the category name as text for now
-          // TODO: Implement category name to ID mapping when categories are set up
-          console.log('🏷️ Category field value:', catalogData.categoryId, 'Type:', typeof catalogData.categoryId);
+          // Handle category field - store category names as text since CWR data has empty categories
           if (catalogData.categoryId && typeof catalogData.categoryId === 'string') {
-            // Keep the category name for display purposes
+            // Store the category name for display purposes
             catalogData.categoryName = catalogData.categoryId;
-            catalogData.categoryId = null; // Set ID to null until proper category mapping is implemented
-            console.log('🏷️ Set categoryName to:', catalogData.categoryName);
+            catalogData.categoryId = null; // Set ID to null since we're not using category IDs
+          } else {
+            // If no category data, set a default based on brand for marine products
+            catalogData.categoryName = catalogData.manufacturerName ? `${catalogData.manufacturerName} Products` : 'Uncategorized';
           }
           
           // Ensure description is always simple text, never an object
