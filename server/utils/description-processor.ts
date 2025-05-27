@@ -105,79 +105,33 @@ export function extractWarnings(html: string): string[] {
 /**
  * Process a product description and return cleaned versions
  */
-export function processDescription(html: string): ProcessedDescription {
-  if (!html) {
-    return {
-      cleanText: '',
-      formattedText: '',
-      bulletPoints: [],
-      features: [],
-      warnings: []
-    };
-  }
-  
-  const cleanText = stripHtml(html);
-  const bulletPoints = extractBulletPoints(html);
-  const features = extractFeatures(html);
-  const warnings = extractWarnings(html);
-  
-  // Create a formatted version without warnings and excessive markup
-  let formattedText = html
-    // Remove warning sections
-    .replace(/<[^>]*>WARNING:.*?<\/[^>]*>/gi, '')
-    // Remove image tags
-    .replace(/<img[^>]*>/gi, '')
-    // Remove comment tags
-    .replace(/<!--.*?-->/gs, '')
-    // Convert paragraph breaks to line breaks
-    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
-    .replace(/<p[^>]*>/gi, '')
-    .replace(/<\/p>/gi, '')
-    // Convert strong tags to simple formatting
-    .replace(/<strong[^>]*>/gi, '**')
-    .replace(/<\/strong>/gi, '**')
-    // Convert lists to simple format
-    .replace(/<ul[^>]*>/gi, '')
-    .replace(/<\/ul>/gi, '')
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<\/li>/gi, '\n');
-  
-  formattedText = stripHtml(formattedText)
-    .replace(/\*\*\s*\*\*/g, '') // Remove empty bold tags
-    .replace(/\n\s*\n/g, '\n\n') // Clean up line breaks
-    .trim();
-  
-  return {
-    cleanText,
-    formattedText,
-    bulletPoints,
-    features,
-    warnings
-  };
+export function processDescription(html: string): string {
+  // Return only clean text for imports - no JSON objects
+  return stripHtml(html);
 }
 
 /**
  * Auto-format description for different display contexts
  */
 export function formatDescriptionForContext(html: string, context: 'catalog' | 'detail' | 'search'): string {
-  const processed = processDescription(html);
+  const cleanText = processDescription(html);
   
   switch (context) {
     case 'catalog':
       // Short, clean version for catalog listings
-      return processed.cleanText.length > 150 
-        ? processed.cleanText.substring(0, 147) + '...'
-        : processed.cleanText;
+      return cleanText.length > 150 
+        ? cleanText.substring(0, 147) + '...'
+        : cleanText;
         
     case 'detail':
       // Clean text version for master catalog
-      return processed.cleanText;
+      return cleanText;
       
     case 'search':
       // Clean text optimized for search indexing
-      return processed.cleanText.toLowerCase();
+      return cleanText.toLowerCase();
       
     default:
-      return processed.cleanText;
+      return cleanText;
   }
 }
