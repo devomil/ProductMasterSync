@@ -638,22 +638,24 @@ const Products = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px] text-sm font-medium">
-                      EDC
+                    <TableHead className="w-[120px] text-sm font-medium">
+                      USIN
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </TableHead>
                     <TableHead className="min-w-[240px] text-sm font-medium">
                       <div className="flex items-center">
-                        Title
+                        Product Name
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </div>
                     </TableHead>
                     <TableHead className="min-w-[200px] text-sm font-medium">Description</TableHead>
                     <TableHead className="w-[120px] text-sm font-medium">UPC</TableHead>
-                    <TableHead className="w-[120px] text-sm font-medium">MFG Part #</TableHead>
-                    <TableHead className="w-[140px] text-sm font-medium">Manufacturer</TableHead>
+                    <TableHead className="w-[120px] text-sm font-medium">MPN</TableHead>
+                    <TableHead className="w-[140px] text-sm font-medium">Brand</TableHead>
                     <TableHead className="min-w-[180px] text-sm font-medium">Category</TableHead>
-                    <TableHead className="w-[80px] text-sm font-medium">Stock</TableHead>
+                    <TableHead className="w-[80px] text-sm font-medium">Cost</TableHead>
+                    <TableHead className="w-[80px] text-sm font-medium">Price</TableHead>
+                    <TableHead className="w-[80px] text-sm font-medium">Weight</TableHead>
                     <TableHead className="w-[80px] text-sm font-medium">Status</TableHead>
                     <TableHead className="w-[80px] text-right text-sm font-medium">Actions</TableHead>
                   </TableRow>
@@ -662,13 +664,15 @@ const Products = () => {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-64" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
@@ -677,7 +681,7 @@ const Products = () => {
                 ) : (
                   filteredProducts.map(product => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium text-sm">{product.sku}</TableCell>
+                      <TableCell className="font-medium text-sm">{product.usin || product.sku}</TableCell>
                       <TableCell className="min-w-[240px]">
                         <div>
                           <div className="font-medium text-sm leading-5">{product.name}</div>
@@ -691,13 +695,11 @@ const Products = () => {
                       </TableCell>
                       <TableCell className="text-sm">{product.upc || '-'}</TableCell>
                       <TableCell className="text-sm">{product.manufacturerPartNumber || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.brand || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.category || '-'}</TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex items-center">
-                          <span className="font-medium">0</span>
-                        </div>
-                      </TableCell>
+                      <TableCell className="text-sm">{product.manufacturerName || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.categoryId || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.cost || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.price || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.weight || '-'}</TableCell>
                       <TableCell>
                         <Badge
                           variant={product.status === 'active' ? 'default' : 'secondary'}
