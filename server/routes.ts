@@ -1361,6 +1361,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             catalogData.categoryId = null;
           }
           
+          // Apply automatic description processing if HTML is detected
+          if (catalogData.description && catalogData.description.includes('<')) {
+            try {
+              const descriptionProcessor = await import('../server/utils/description-processor.js');
+              catalogData.description = descriptionProcessor.processDescription(catalogData.description, 'detail');
+              console.log('🧹 Automatically processed HTML description');
+            } catch (error) {
+              console.error('Error processing description:', error);
+            }
+          }
+          
           // Debug: Log the mapping and record data
           console.log('Available CWR fields:', Object.keys(record));
           console.log('Mapped catalog data:', catalogData);
@@ -1397,6 +1408,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             importedAt: new Date(),
             mappingTemplateId: templateId
           };
+          
+          // Final cleanup - ensure categoryId is null if it's still a string
+          if (productData.categoryId && typeof productData.categoryId === 'string') {
+            productData.categoryId = null;
+          }
 
           // Save to storage
           const newProduct = await storage.createProduct(productData);
