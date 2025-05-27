@@ -63,6 +63,7 @@ export default function MappingTemplateWorkspace() {
 
   const productDetailFields = [
     // Core Product Information
+    { id: "usin", name: "USIN", required: false },
     { id: "detailed_description", name: "Detailed Description", required: false },
     { id: "full_description", name: "Full Description", required: false },
     { id: "uppercase_title", name: "Uppercase Title", required: false },
