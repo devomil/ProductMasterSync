@@ -104,7 +104,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const [createdProduct] = await db.insert(schema.products).values(product).returning();
+    // Clean up category field if it's a string
+    const cleanProduct = { ...product };
+    if (cleanProduct.categoryId && typeof cleanProduct.categoryId === 'string') {
+      cleanProduct.categoryId = null;
+    }
+    
+    const [createdProduct] = await db.insert(schema.products).values(cleanProduct).returning();
     return createdProduct;
   }
 
