@@ -1376,9 +1376,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
           
-          // Handle category field - if it's text, store as null for now
+          // Handle category field - keep the category name as text for now
+          // TODO: Implement category name to ID mapping when categories are set up
           if (catalogData.categoryId && typeof catalogData.categoryId === 'string') {
-            catalogData.categoryId = null;
+            // Keep the category name for display purposes
+            catalogData.categoryName = catalogData.categoryId;
+            catalogData.categoryId = null; // Set ID to null until proper category mapping is implemented
           }
           
           // Ensure description is always simple text, never an object
