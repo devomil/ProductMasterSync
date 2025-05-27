@@ -115,6 +115,24 @@ const AVAILABLE_TARGET_FIELDS = [
   { id: "weight", name: "Weight", required: false, type: "string", description: "Product weight" },
 ];
 
+const PRODUCT_DETAIL_FIELDS = [
+  { id: "usin", name: "USIN", required: true, type: "string", description: "Unique Supplier Identification Number" },
+  { id: "name", name: "Product Name", required: true, type: "string", description: "Product Name/Title" },
+  { id: "manufacturerPartNumber", name: "MPN", required: false, type: "string", description: "Manufacturer Part Number" },
+  { id: "upc", name: "UPC", required: false, type: "string", description: "UPC Code" },
+  { id: "cost", name: "Cost", required: false, type: "string", description: "Product cost" },
+  { id: "price", name: "Price", required: false, type: "string", description: "Retail price" },
+  { id: "manufacturerName", name: "Brand", required: false, type: "string", description: "Brand/Manufacturer Name" },
+  { id: "categoryId", name: "Category", required: false, type: "string", description: "Product category" },
+  { id: "status", name: "Status", required: false, type: "string", description: "Product status" },
+  { id: "description", name: "Description", required: false, type: "string", description: "Product Description" },
+  { id: "primaryImage", name: "Primary Image", required: false, type: "string", description: "Primary product image URL" },
+  { id: "weight", name: "Weight", required: false, type: "string", description: "Product weight" },
+  { id: "dimensions", name: "Dimensions", required: false, type: "string", description: "Product dimensions" },
+  { id: "features", name: "Features", required: false, type: "string", description: "Product features" },
+  { id: "specifications", name: "Specifications", required: false, type: "string", description: "Technical specifications" },
+];
+
 export default function MappingTemplates() {
   // State for template list
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -127,6 +145,10 @@ export default function MappingTemplates() {
   const [selectedRemotePath, setSelectedRemotePath] = useState("");
   const [deleteAfterProcessing, setDeleteAfterProcessing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [mappingView, setMappingView] = useState<'catalog' | 'detail'>('catalog');
+  const [productDetailMappings, setProductDetailMappings] = useState<FieldMapping[]>([
+    { sourceField: "", targetField: "" }
+  ]);
   const [, navigate] = useLocation();
   
   // Toggle full screen handler
@@ -204,6 +226,23 @@ export default function MappingTemplates() {
   // Add a new field mapping row
   const addMappingRow = () => {
     setFieldMappings([...fieldMappings, { sourceField: "", targetField: "" }]);
+  };
+
+  // Product Detail Mapping handlers
+  const updateProductDetailMapping = (index: number, field: 'sourceField' | 'targetField', value: string) => {
+    const newMappings = [...productDetailMappings];
+    newMappings[index][field] = value;
+    setProductDetailMappings(newMappings);
+  };
+
+  const addProductDetailMapping = () => {
+    setProductDetailMappings([...productDetailMappings, { sourceField: "", targetField: "" }]);
+  };
+
+  const removeProductDetailMapping = (index: number) => {
+    const newMappings = [...productDetailMappings];
+    newMappings.splice(index, 1);
+    setProductDetailMappings(newMappings);
   };
 
   // Generate validation rules based on target field properties
