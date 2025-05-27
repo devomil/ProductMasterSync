@@ -99,26 +99,27 @@ interface FieldMapping {
 
 // Using ValidationRule interface from shared schema
 
-// Available target fields (internal schema fields)
+// Available target fields (Master Catalog schema fields)
 const AVAILABLE_TARGET_FIELDS = [
-  { id: "sku", name: "SKU", required: true, type: "string", description: "Unique product identifier" },
-  { id: "name", name: "Product Name", required: true, type: "string", description: "Primary product name" },
+  { id: "usin", name: "USIN", required: true, type: "string", description: "Unique Supplier Identification Number" },
+  { id: "product_name", name: "Product Name", required: true, type: "string", description: "Primary product name" },
   { id: "description", name: "Description", required: false, type: "string", description: "Detailed product description" },
-  { id: "manufacturerPartNumber", name: "Manufacturer Part Number", required: false, type: "string", description: "Manufacturer's part number" },
+  { id: "mpn", name: "Manufacturer Part Number", required: false, type: "string", description: "Manufacturer's part number" },
   { id: "upc", name: "UPC", required: false, type: "string", description: "Universal Product Code" },
-  { id: "price", name: "Price", required: false, type: "float", description: "Retail price", defaultValue: "0.00" },
-  { id: "cost", name: "Cost", required: false, type: "float", description: "Product cost", defaultValue: "0.00" },
-  { id: "weight", name: "Weight", required: false, type: "float", description: "Product weight", defaultValue: "0.00" },
-  { id: "dimensions", name: "Dimensions", required: false, type: "string", description: "Product dimensions (LxWxH)" },
-  { id: "manufacturerName", name: "Manufacturer Name", required: false, type: "string", description: "Name of manufacturer" },
-  { id: "status", name: "Status", required: false, type: "string", description: "Product status (active, inactive, etc.)", defaultValue: "active" },
-  { id: "categoryId", name: "Category ID", required: false, type: "integer", description: "ID of product category" },
-  { id: "inventoryQuantity", name: "Inventory Quantity", required: false, type: "integer", description: "Current stock quantity", defaultValue: "0" },
-  { id: "isRemanufactured", name: "Is Remanufactured", required: false, type: "boolean", description: "Whether product is remanufactured", defaultValue: "false" },
-  { id: "isCloseout", name: "Is Closeout", required: false, type: "boolean", description: "Whether product is closeout", defaultValue: "false" },
-  { id: "isOnSale", name: "Is On Sale", required: false, type: "boolean", description: "Whether product is on sale", defaultValue: "false" },
-  { id: "hasFreeShipping", name: "Has Free Shipping", required: false, type: "boolean", description: "Whether product has free shipping", defaultValue: "false" },
-  { id: "hasRebate", name: "Has Rebate", required: false, type: "boolean", description: "Whether product has a rebate", defaultValue: "false" },
+  { id: "price", name: "Price", required: false, type: "float", description: "Retail price" },
+  { id: "cost", name: "Cost", required: false, type: "float", description: "Product cost" },
+  { id: "weight", name: "Weight", required: false, type: "float", description: "Product weight" },
+  { id: "dimensions", name: "Dimensions", required: false, type: "string", description: "Product dimensions" },
+  { id: "brand", name: "Brand", required: false, type: "string", description: "Product brand/manufacturer" },
+  { id: "category", name: "Category", required: false, type: "string", description: "Product category" },
+  { id: "primary_image", name: "Primary Image", required: false, type: "string", description: "Primary product image URL" },
+  { id: "status", name: "Status", required: false, type: "string", description: "Product status" },
+  { id: "inventory_quantity", name: "Inventory Quantity", required: false, type: "integer", description: "Current stock quantity" },
+  { id: "is_remanufactured", name: "Is Remanufactured", required: false, type: "boolean", description: "Whether product is remanufactured" },
+  { id: "is_closeout", name: "Is Closeout", required: false, type: "boolean", description: "Whether product is closeout" },
+  { id: "is_on_sale", name: "Is On Sale", required: false, type: "boolean", description: "Whether product is on sale" },
+  { id: "has_free_shipping", name: "Has Free Shipping", required: false, type: "boolean", description: "Whether product has free shipping" },
+  { id: "has_rebate", name: "Has Rebate", required: false, type: "boolean", description: "Whether product has a rebate" },
 ];
 
 export default function MappingTemplates() {
