@@ -647,7 +647,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
-      res.json(product);
+      
+      // Get categories for category name
+      const categories = await storage.getCategories();
+      const category = categories.find(c => c.id === product.categoryId);
+      
+      // Format the product with proper field mapping
+      const formattedProduct = {
+        ...product,
+        manufacturerPartNumber: product.manufacturerPartNumber,
+        upc: product.upc,
+        manufacturerName: product.manufacturerName,
+        price: product.price,
+        cost: product.cost,
+        weight: product.weight,
+        name: product.name,
+        description: product.description,
+        status: product.status,
+        sku: product.sku,
+        inventoryQuantity: product.inventoryQuantity,
+        isRemanufactured: product.isRemanufactured,
+        isCloseout: product.isCloseout,
+        isOnSale: product.isOnSale,
+        hasRebate: product.hasRebate,
+        hasFreeShipping: product.hasFreeShipping,
+        categoryName: category?.name || null,
+        imageUrl: product.imageUrl
+      };
+      
+      res.json(formattedProduct);
     } catch (error) {
       handleError(res, error);
     }
