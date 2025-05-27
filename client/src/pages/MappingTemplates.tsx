@@ -200,6 +200,7 @@ export default function MappingTemplates() {
   const [productDetailMappings, setProductDetailMappings] = useState<FieldMapping[]>([
     { sourceField: "", targetField: "" }
   ]);
+  const [isImporting, setIsImporting] = useState(false);
   const [, navigate] = useLocation();
   
   // Toggle full screen handler
@@ -664,6 +665,8 @@ export default function MappingTemplates() {
   // Import sample data using a template
   const handleImportSample = async (template: any) => {
     try {
+      setIsImporting(true);
+      
       const dataSource = dataSources?.find((ds: any) => ds.supplierId === template.supplierId);
       if (!dataSource) {
         toast({
@@ -673,11 +676,6 @@ export default function MappingTemplates() {
         });
         return;
       }
-
-      toast({
-        title: "Starting Import",
-        description: "Importing sample data using your mapping template..."
-      });
 
       const response = await apiRequest('POST', `/api/mapping-templates/${template.id}/import-sample`, {
         dataSourceId: dataSource.id,
@@ -690,7 +688,7 @@ export default function MappingTemplates() {
       if (data.success) {
         toast({
           title: "Import Successful!",
-          description: `Successfully imported ${data.stats.success} products to your master catalog`
+          description: `Successfully imported ${data.stats.success} products with cleaned descriptions!`
         });
 
         // Refresh products data
@@ -710,6 +708,8 @@ export default function MappingTemplates() {
         title: "Import Error",
         description: error instanceof Error ? error.message : "Failed to import sample data"
       });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -892,8 +892,14 @@ export default function MappingTemplates() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleImportSample(template)}
+                                    disabled={isImporting}
                                   >
-                                    <FileUp className="h-4 w-4 mr-1" /> Import Sample
+                                    {isImporting ? (
+                                      <ButtonSpinner />
+                                    ) : (
+                                      <FileUp className="h-4 w-4 mr-1" />
+                                    )}
+                                    {isImporting ? "Importing..." : "Import Sample"}
                                   </Button>
                                   <Button
                                     variant="ghost"
