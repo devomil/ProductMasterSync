@@ -696,7 +696,7 @@ const Products = () => {
                       <TableCell className="text-sm">{product.upc || '-'}</TableCell>
                       <TableCell className="text-sm">{product.manufacturerPartNumber || '-'}</TableCell>
                       <TableCell className="text-sm">{product.manufacturerName || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.categoryId || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.categoryName || '-'}</TableCell>
                       <TableCell className="text-sm">{product.cost || '-'}</TableCell>
                       <TableCell className="text-sm">{product.price || '-'}</TableCell>
                       <TableCell className="text-sm">{product.weight || '-'}</TableCell>
