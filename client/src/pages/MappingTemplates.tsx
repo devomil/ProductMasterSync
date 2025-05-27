@@ -673,28 +673,26 @@ export default function MappingTemplates() {
     
     setFieldMappings(mappingsArray);
     
-    // Load complete source data to show all available fields (like create template does)
-    if (template.supplierId) {
-      try {
-        const dataSource = dataSources.find((ds: any) => ds.supplierId === template.supplierId);
-        if (dataSource) {
-          const response = await fetch(`/api/data-sources/${dataSource.id}/test-pull?limit=10`);
-          if (response.ok) {
-            const result = await response.json();
-            console.log('Sample data API response:', result);
-            if (result.success && result.sample_data && result.sample_data.length > 0) {
-              setSampleData(result.sample_data);
-              console.log('Loaded sample data for editing with', Object.keys(result.sample_data[0]).length, 'source fields');
-            } else if (result.data && result.data.length > 0) {
-              // Try alternative response format
-              setSampleData(result.data);
-              console.log('Loaded sample data (alt format) for editing with', Object.keys(result.data[0]).length, 'source fields');
-            }
-          }
-        }
-      } catch (error) {
-        console.log('Could not load sample data for editing, will show existing mapped fields only');
-      }
+    // Load complete CWR source fields for editing (all 64 fields)
+    if (template.supplierId === 1) { // CWR supplier
+      const cwrSampleData = [{
+        "CWR Part Number": "", "Manufacturer Part Number": "", "UPC Code": "", "Quantity Available to Ship (Combined)": "",
+        "Quantity Available to Ship (NJ)": "", "Quantity Available to Ship (FL)": "", "Next Shipment Date (Combined)": "",
+        "Next Shipment Date (NJ)": "", "Next Shipment Date (FL)": "", "Your Cost": "", "List Price": "", "M.A.P. Price": "",
+        "M.R.P. Price": "", "Uppercase Title": "", "Title": "", "Full Description": "", "Category ID": "", "Category Name": "",
+        "Manufacturer Name": "", "Shipping Weight": "", "Box Height": "", "Box Length": "", "Box Width": "",
+        "List of Accessories by SKU": "", "List of Accessories by MFG#": "", "Quick Specs": "", "Image (300x300) Url": "",
+        "Image (1000x1000) Url": "", "Non-stock": "", "Drop Ships Direct From Vendor": "", "Hazardous Materials": "",
+        "Truck Freight": "", "Exportable": "", "First Class Mail": "", "Oversized": "", "Remanufactured": "", "Closeout": "",
+        "Harmonization Code": "", "Country Of Origin": "", "Sale": "", "Original Price (if on Sale/Closeout)": "",
+        "Sale Start Date": "", "Sale End Date": "", "Rebate": "", "Rebate Description": "", "Rebate Description With Link": "",
+        "Rebate Start Date": "", "Rebate End Date": "", "Google Merchant Category": "", "Quick Guide Literature (pdf) Url": "",
+        "Owners Manual (pdf) Url": "", "Brochure Literature (pdf) Url": "", "Installation Guide (pdf) Url": "", "Video Urls": "",
+        "Prop 65": "", "Prop 65 Description": "", "Free Shipping": "", "Free Shipping End Date": "", "Returnable": "",
+        "Image Additional (1000x1000) Urls": "", "Case Qty (NJ)": "", "Case Qty (FL)": "", "3rd Party Marketplaces": "", "FCC ID": ""
+      }];
+      setSampleData(cwrSampleData);
+      console.log('Loaded CWR source fields for editing (64 fields)');
     }
     
     // If there are no validation rules but we have mappings, generate them
