@@ -172,8 +172,9 @@ export class BulkImportProcessor {
         } else {
           // This is product data
           if (targetField === 'description' && typeof value === 'string' && value.includes('<')) {
-            // Automatically process HTML descriptions
-            transformed[targetField] = formatDescriptionForContext(value, 'detail');
+            // Automatically process HTML descriptions and extract clean text
+            const processedDescription = formatDescriptionForContext(value, 'detail');
+            transformed[targetField] = processedDescription.cleanText || this.cleanValue(value);
           } else {
             transformed[targetField] = this.cleanValue(value);
           }
