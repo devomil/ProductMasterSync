@@ -1378,10 +1378,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Handle category field - keep the category name as text for now
           // TODO: Implement category name to ID mapping when categories are set up
+          console.log('🏷️ Category field value:', catalogData.categoryId, 'Type:', typeof catalogData.categoryId);
           if (catalogData.categoryId && typeof catalogData.categoryId === 'string') {
             // Keep the category name for display purposes
             catalogData.categoryName = catalogData.categoryId;
             catalogData.categoryId = null; // Set ID to null until proper category mapping is implemented
+            console.log('🏷️ Set categoryName to:', catalogData.categoryName);
           }
           
           // Ensure description is always simple text, never an object
