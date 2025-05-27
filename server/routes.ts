@@ -1341,6 +1341,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log('🏷️ Category Name raw value:', record[sourceField], 'Type:', typeof record[sourceField]);
               }
               
+              // Also check Category ID
+              if (sourceField === 'Category Name') {
+                console.log('🏷️ Category ID value:', record['Category ID'], 'Type:', typeof record['Category ID']);
+              }
+              
               if (record[sourceField]) {
                 let value = record[sourceField];
                 
