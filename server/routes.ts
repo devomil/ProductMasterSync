@@ -1381,10 +1381,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             catalogData.categoryId = null;
           }
           
-          // Apply automatic description processing if HTML is detected
-          if (catalogData.description && catalogData.description.includes('<')) {
-            try {
-              const cleanText = catalogData.description
+          // Ensure description is always simple text, never an object
+          if (catalogData.description) {
+            if (typeof catalogData.description === 'object') {
+              // If somehow it's an object, extract cleanText
+              catalogData.description = catalogData.description.cleanText || '';
+            } else if (typeof catalogData.description === 'string' && catalogData.description.includes('<')) {
+              // Strip HTML tags
+              catalogData.description = catalogData.description
                 .replace(/<[^>]*>/g, '')
                 .replace(/&nbsp;/g, ' ')
                 .replace(/&amp;/g, '&')
@@ -1397,11 +1401,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 .replace(/&copy;/g, '©')
                 .replace(/\s+/g, ' ')
                 .trim();
-              catalogData.description = cleanText;
-              console.log('🧹 Automatically processed HTML description to clean text');
-            } catch (error) {
-              console.error('Error processing description:', error);
             }
+            console.log('🧹 Ensured description is clean text:', typeof catalogData.description);
           }
           
           // Debug: Log the mapping and record data
