@@ -1335,16 +1335,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           } else {
             // Handle direct mappings object format
+            // Debug: Show category fields for first record
+            if (records.indexOf(record) === 0) {
+              console.log('🏷️ === CATEGORY DEBUG FOR FIRST RECORD ===');
+              console.log('🏷️ Category Name:', record['Category Name'], 'Type:', typeof record['Category Name']);
+              console.log('🏷️ Category ID:', record['Category ID'], 'Type:', typeof record['Category ID']);
+              console.log('🏷️ Google Merchant Category:', record['Google Merchant Category'], 'Type:', typeof record['Google Merchant Category']);
+              console.log('🏷️ === END CATEGORY DEBUG ===');
+            }
+
             for (const [sourceField, targetField] of Object.entries(mappings)) {
-              // Debug category mapping specifically
-              if (sourceField === 'Category Name') {
-                console.log('🏷️ Category Name raw value:', record[sourceField], 'Type:', typeof record[sourceField]);
-              }
-              
-              // Also check Category ID
-              if (sourceField === 'Category Name') {
-                console.log('🏷️ Category ID value:', record['Category ID'], 'Type:', typeof record['Category ID']);
-              }
               
               if (record[sourceField]) {
                 let value = record[sourceField];
