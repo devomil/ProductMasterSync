@@ -1356,6 +1356,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
           
+          // Handle category field - if it's text, store as null for now
+          if (catalogData.categoryId && typeof catalogData.categoryId === 'string') {
+            catalogData.categoryId = null;
+          }
+          
           // Debug: Log the mapping and record data
           console.log('Available CWR fields:', Object.keys(record));
           console.log('Mapped catalog data:', catalogData);
