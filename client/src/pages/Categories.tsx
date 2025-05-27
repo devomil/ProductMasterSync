@@ -35,6 +35,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Category } from "@shared/schema";
+import CategoryMappingIntelligence from "@/components/category/CategoryMappingIntelligence";
 
 // Component to display the category tree
 const CategoryTree = () => {
@@ -168,6 +169,7 @@ const Categories = () => {
             <TabsList>
               <TabsTrigger value="list">List View</TabsTrigger>
               <TabsTrigger value="tree">Tree View</TabsTrigger>
+              <TabsTrigger value="intelligence">AI Intelligence</TabsTrigger>
             </TabsList>
 
             <div className="flex space-x-2">
@@ -304,6 +306,10 @@ const Categories = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="intelligence" className="mt-6">
+            <CategoryMappingIntelligence />
           </TabsContent>
         </Tabs>
       </div>
