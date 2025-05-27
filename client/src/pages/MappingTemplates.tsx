@@ -635,6 +635,9 @@ export default function MappingTemplates() {
   const handleEditTemplate = (template: MappingTemplate) => {
     setSelectedTemplate(template);
     
+    console.log('Editing template:', template);
+    console.log('Template mappings:', template.mappings);
+    
     // Populate form with template data
     setTemplateForm({
       name: template.name,
@@ -646,13 +649,28 @@ export default function MappingTemplates() {
       validationRules: template.validationRules || []
     });
 
-    // Populate field mappings
-    const mappingsArray = Object.entries(template.mappings || {}).map(([sourceField, targetField]) => ({
-      sourceField,
-      targetField: targetField as string
-    }));
+    // Convert mappings object to field mapping array for display
+    const mappingsArray: FieldMapping[] = [];
     
-    setFieldMappings(mappingsArray.length > 0 ? mappingsArray : [{ sourceField: "", targetField: "" }]);
+    if (template.mappings && typeof template.mappings === 'object') {
+      Object.entries(template.mappings).forEach(([sourceField, targetField]) => {
+        if (sourceField && targetField) {
+          mappingsArray.push({ 
+            sourceField, 
+            targetField: targetField as string 
+          });
+        }
+      });
+    }
+    
+    console.log('Converted mappings array:', mappingsArray);
+    
+    // Ensure at least one empty row if no mappings exist
+    if (mappingsArray.length === 0) {
+      mappingsArray.push({ sourceField: "", targetField: "" });
+    }
+    
+    setFieldMappings(mappingsArray);
     
     // If there are no validation rules but we have mappings, generate them
     if ((!template.validationRules || template.validationRules.length === 0) && 
