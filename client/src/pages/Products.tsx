@@ -634,30 +634,31 @@ const Products = () => {
 
           {/* Products Table */}
           <div className="mt-6 overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[120px]">
-                    EDC
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex items-center">
-                      Title
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px] text-sm font-medium">
+                      EDC
                       <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-[220px]">Description</TableHead>
-                  <TableHead>UPC</TableHead>
-                  <TableHead>MFG Part #</TableHead>
-                  <TableHead>Manufacturer</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                    </TableHead>
+                    <TableHead className="min-w-[240px] text-sm font-medium">
+                      <div className="flex items-center">
+                        Title
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </div>
+                    </TableHead>
+                    <TableHead className="min-w-[200px] text-sm font-medium">Description</TableHead>
+                    <TableHead className="w-[120px] text-sm font-medium">UPC</TableHead>
+                    <TableHead className="w-[120px] text-sm font-medium">MFG Part #</TableHead>
+                    <TableHead className="w-[140px] text-sm font-medium">Manufacturer</TableHead>
+                    <TableHead className="min-w-[180px] text-sm font-medium">Category</TableHead>
+                    <TableHead className="w-[80px] text-sm font-medium">Stock</TableHead>
+                    <TableHead className="w-[80px] text-sm font-medium">Status</TableHead>
+                    <TableHead className="w-[80px] text-right text-sm font-medium">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
@@ -676,31 +677,25 @@ const Products = () => {
                 ) : (
                   filteredProducts.map(product => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.sku}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium text-sm">{product.sku}</TableCell>
+                      <TableCell className="min-w-[240px]">
                         <div>
-                          <div className="font-medium">{product.name}</div>
+                          <div className="font-medium text-sm leading-5">{product.name}</div>
                           {getSpecialFlagComponents(product)}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="min-w-[200px]">
                         <div className="text-sm text-gray-600 line-clamp-2" title={product.description || ''}>
                           {product.description || '-'}
                         </div>
                       </TableCell>
-                      <TableCell>{product.upc || '-'}</TableCell>
-                      <TableCell>{product.mpn || '-'}</TableCell>
-                      <TableCell>{product.brand || '-'}</TableCell>
-                      <TableCell>{product.category || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-sm">{product.upc || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.manufacturerPartNumber || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.brand || '-'}</TableCell>
+                      <TableCell className="text-sm">{product.category || '-'}</TableCell>
+                      <TableCell className="text-sm">
                         <div className="flex items-center">
-                          <span className="font-medium">{product.stockQuantity || 0}</span>
-                          {/* Set a lower fixed threshold for demo purposes */}
-                          {product.stockQuantity && product.stockQuantity < 100 && (
-                            <Badge variant="outline" className="ml-2 text-amber-700 bg-amber-50 border-amber-200">
-                              Low
-                            </Badge>
-                          )}
+                          <span className="font-medium">0</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -763,6 +758,7 @@ const Products = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
           </div>
 
           {/* Pagination */}
