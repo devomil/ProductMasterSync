@@ -28,7 +28,7 @@ import { registerConnectionsRoutes } from "./connections";
 
 // Import the ingestion engine
 import { processSFTPIngestion } from "./utils/ingestion-engine";
-import { processDescription, formatDescriptionForContext } from "./utils/description-processor";
+// Removed complex description processor to ensure clean text storage
 import { BulkImportProcessor } from "./utils/bulk-import";
 
 // Set up multer for file uploads
