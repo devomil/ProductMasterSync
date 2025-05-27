@@ -1364,9 +1364,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Apply automatic description processing if HTML is detected
           if (catalogData.description && catalogData.description.includes('<')) {
             try {
-              const descriptionProcessor = await import('../server/utils/description-processor.js');
-              const processedDescription = descriptionProcessor.processDescription(catalogData.description);
-              catalogData.description = processedDescription.cleanText || catalogData.description;
+              const cleanText = catalogData.description
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .replace(/&trade;/g, '™')
+                .replace(/&reg;/g, '®')
+                .replace(/&copy;/g, '©')
+                .replace(/\s+/g, ' ')
+                .trim();
+              catalogData.description = cleanText;
               console.log('🧹 Automatically processed HTML description to clean text');
             } catch (error) {
               console.error('Error processing description:', error);

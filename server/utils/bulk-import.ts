@@ -173,8 +173,20 @@ export class BulkImportProcessor {
           // This is product data
           if (targetField === 'description' && typeof value === 'string' && value.includes('<')) {
             // Automatically process HTML descriptions and extract clean text
-            const processedDescription = formatDescriptionForContext(value, 'detail');
-            transformed[targetField] = processedDescription.cleanText || this.cleanValue(value);
+            const cleanText = value
+              .replace(/<[^>]*>/g, '')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .replace(/&trade;/g, '™')
+              .replace(/&reg;/g, '®')
+              .replace(/&copy;/g, '©')
+              .replace(/\s+/g, ' ')
+              .trim();
+            transformed[targetField] = cleanText;
           } else {
             transformed[targetField] = this.cleanValue(value);
           }
