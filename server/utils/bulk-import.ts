@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { products, productSuppliers, mappingTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { processDescription, formatDescriptionForContext } from "./description-processor";
 
 interface BulkImportConfig {
   batchSize: number;
@@ -170,7 +171,12 @@ export class BulkImportProcessor {
           transformed.supplierData[supplierField] = this.cleanValue(value);
         } else {
           // This is product data
-          transformed[targetField] = this.cleanValue(value);
+          if (targetField === 'description' && typeof value === 'string' && value.includes('<')) {
+            // Automatically process HTML descriptions
+            transformed[targetField] = formatDescriptionForContext(value, 'detail');
+          } else {
+            transformed[targetField] = this.cleanValue(value);
+          }
         }
       }
     }
