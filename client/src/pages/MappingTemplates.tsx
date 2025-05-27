@@ -112,14 +112,6 @@ const AVAILABLE_TARGET_FIELDS = [
   { id: "description", name: "Description", required: false, type: "string", description: "Product Description" },
   { id: "primaryImage", name: "Primary Image", required: false, type: "string", description: "Primary product image URL" },
   { id: "weight", name: "Weight", required: false, type: "string", description: "Product weight" },
-  { id: "inventoryQuantity", name: "Inventory Quantity", required: false, type: "integer", description: "Current stock quantity" },
-  { id: "reorderThreshold", name: "Reorder Threshold", required: false, type: "integer", description: "Reorder threshold" },
-  { id: "isRemanufactured", name: "Is Remanufactured", required: false, type: "boolean", description: "Whether product is remanufactured" },
-  { id: "isCloseout", name: "Is Closeout", required: false, type: "boolean", description: "Whether product is closeout" },
-  { id: "isOnSale", name: "Is On Sale", required: false, type: "boolean", description: "Whether product is on sale" },
-  { id: "hasFreeShipping", name: "Has Free Shipping", required: false, type: "boolean", description: "Whether product has free shipping" },
-  { id: "hasRebate", name: "Has Rebate", required: false, type: "boolean", description: "Whether product has a rebate" },
-  { id: "attributes", name: "Attributes", required: false, type: "json", description: "Flexible attributes" },
 ];
 
 export default function MappingTemplates() {
