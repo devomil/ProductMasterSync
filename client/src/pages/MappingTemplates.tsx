@@ -102,6 +102,7 @@ interface FieldMapping {
 // Available target fields (Master Catalog schema fields)
 const AVAILABLE_TARGET_FIELDS = [
   { id: "usin", name: "USIN", required: true, type: "string", description: "Unique Supplier Identification Number" },
+  { id: "name", name: "Product Name", required: true, type: "string", description: "Product Name/Title" },
   { id: "manufacturerPartNumber", name: "MPN", required: false, type: "string", description: "Manufacturer Part Number" },
   { id: "upc", name: "UPC", required: false, type: "string", description: "UPC Code" },
   { id: "cost", name: "Cost", required: false, type: "string", description: "Product cost" },
