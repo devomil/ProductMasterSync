@@ -1338,10 +1338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
             for (const [sourceField, targetField] of Object.entries(mappings)) {
-              // Debug category fields for first few records
-              if (sourceField === 'Category Name' && records.indexOf(record) < 3) {
-                console.log(`🏷️ Record ${records.indexOf(record)} Category Name:`, record[sourceField]);
-              }
+
               
               if (record[sourceField]) {
                 let value = record[sourceField];
@@ -1383,13 +1380,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
           
-          // Handle category field - store category names as text since CWR data has empty categories
+          // Handle category field - use actual category data when available
           if (catalogData.categoryId && typeof catalogData.categoryId === 'string') {
-            // Store the category name for display purposes
+            // Store the actual category name from CWR data
             catalogData.categoryName = catalogData.categoryId;
-            catalogData.categoryId = null; // Set ID to null since we're not using category IDs
+            catalogData.categoryId = null; // Set ID to null since we're storing names directly
           } else {
-            // If no category data, set a default based on brand for marine products
+            // For records without category data, create a reasonable default
             catalogData.categoryName = catalogData.manufacturerName ? `${catalogData.manufacturerName} Products` : 'Uncategorized';
           }
           
