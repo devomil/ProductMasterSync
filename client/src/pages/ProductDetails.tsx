@@ -409,128 +409,235 @@ export default function ProductDetails() {
                   <CardTitle>Product Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-gray-700">{product.description}</p>
+                  <div className="text-gray-700 leading-relaxed">
+                    {product.description && (
+                      <div className="space-y-3">
+                        {product.description.split('\n').map((paragraph, index) => (
+                          paragraph.trim() && (
+                            <p key={index} className="text-sm">
+                              {paragraph.trim()}
+                            </p>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   
                   <Separator />
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <h3 className="font-medium text-gray-900">Basic Information</h3>
-                      <ul className="mt-2 space-y-2">
-                        {product.price && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">Price:</span>
-                            <span className="font-medium">${product.price}</span>
-                          </li>
-                        )}
-                        {product.manufacturer && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">Manufacturer:</span>
-                            <span>{product.manufacturer}</span>
-                          </li>
-                        )}
-                        {product.brand && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">Brand:</span>
-                            <span>{product.brand}</span>
-                          </li>
-                        )}
-                        {product.category && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">Category:</span>
-                            <span>{product.category}</span>
-                          </li>
+                      <h3 className="font-semibold text-gray-900 mb-3">Product Information</h3>
+                      <div className="space-y-2">
+                        {product.manufacturerPartNumber && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">MPN:</span>
+                            <span className="font-medium">{product.manufacturerPartNumber}</span>
+                          </div>
                         )}
                         {product.upc && (
-                          <li className="flex justify-between">
+                          <div className="flex justify-between py-1">
                             <span className="text-gray-600">UPC:</span>
-                            <span>{product.upc}</span>
-                          </li>
+                            <span className="font-medium">{product.upc}</span>
+                          </div>
                         )}
-                        {product.manufacturerPartNumber && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">MPN:</span>
-                            <span>{product.manufacturerPartNumber}</span>
-                          </li>
+                        {product.manufacturerName && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Brand:</span>
+                            <span className="font-medium">{product.manufacturerName}</span>
+                          </div>
                         )}
-                      </ul>
+                        {product.weight && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Weight:</span>
+                            <span className="font-medium">{product.weight} lbs</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div>
-                      <h3 className="font-medium text-gray-900">Dimensions & Weight</h3>
-                      <ul className="mt-2 space-y-2">
-                        {product.weight && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">Weight:</span>
-                            <span>{product.weight} lbs</span>
-                          </li>
+                      <h3 className="font-semibold text-gray-900 mb-3">Pricing & Status</h3>
+                      <div className="space-y-2">
+                        {product.price && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">MSRP:</span>
+                            <span className="font-bold text-green-600">${product.price}</span>
+                          </div>
                         )}
-                        {product.dimensions && (
-                          <>
-                            <li className="flex justify-between">
-                              <span className="text-gray-600">Dimensions:</span>
-                              <span>
-                                {product.dimensions.length} × {product.dimensions.width} × {product.dimensions.height} {product.dimensions.unit}
-                              </span>
-                            </li>
-                          </>
+                        {product.cost && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Cost:</span>
+                            <span className="font-medium">${product.cost}</span>
+                          </div>
                         )}
-                      </ul>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600">Status:</span>
+                          <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
+                            {product.status || 'Active'}
+                          </Badge>
+                        )}
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600">EDC:</span>
+                          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{product.sku}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Product Flags */}
+                  {(product.isRemanufactured || product.isCloseout || product.isOnSale || product.hasRebate || product.hasFreeShipping) && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-3">Special Offers</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {product.isRemanufactured && (
+                            <Badge variant="outline" className="text-orange-600 border-orange-200">
+                              Remanufactured
+                            </Badge>
+                          )}
+                          {product.isCloseout && (
+                            <Badge variant="outline" className="text-red-600 border-red-200">
+                              Closeout
+                            </Badge>
+                          )}
+                          {product.isOnSale && (
+                            <Badge variant="outline" className="text-green-600 border-green-200">
+                              On Sale
+                            </Badge>
+                          )}
+                          {product.hasRebate && (
+                            <Badge variant="outline" className="text-blue-600 border-blue-200">
+                              Rebate Available
+                            </Badge>
+                          )}
+                          {product.hasFreeShipping && (
+                            <Badge variant="outline" className="text-purple-600 border-purple-200">
+                              Free Shipping
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* California Proposition 65 Warning if present in description */}
+                  {product.description?.toLowerCase().includes('warning') && product.description?.toLowerCase().includes('california') && (
+                    <>
+                      <Separator />
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-yellow-800 mb-2">⚠️ California Proposition 65 Warning</h4>
+                        <p className="text-sm text-yellow-700">
+                          This product contains chemicals known to the State of California to cause cancer, birth defects, or other reproductive harm.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
-              
+            </TabsContent>
+            
+            {/* Specifications Tab */}
+            <TabsContent value="specifications" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Supplier Options</CardTitle>
-                  <CardDescription>Select a supplier to view details and add to cart</CardDescription>
+                  <CardTitle>Technical Specifications</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4">
-                    {product.suppliers.map((supplier) => (
-                      <div 
-                        key={supplier.supplierId}
-                        className={`border rounded-md p-4 cursor-pointer transition-colors ${
-                          selectedSupplier?.supplierId === supplier.supplierId 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                        onClick={() => setSelectedSupplier(supplier)}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h3 className="font-medium">{supplier.supplierName}</h3>
-                            <div className="flex items-center mt-1 text-sm text-gray-600">
-                              <TruckIcon className="w-3 h-3 mr-1" />
-                              <span>{supplier.shippingTime}</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">${supplier.cost}</div>
-                            <div className={`text-sm ${supplier.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {supplier.stock > 0 ? `${supplier.stock} in stock` : 'Out of stock'}
-                            </div>
-                            {supplier.shippingOptions && supplier.shippingOptions.length > 0 && (
-                              <div className="text-sm text-blue-600">
-                                {supplier.shippingOptions.some(option => option.cost === "0.00") 
-                                  ? "Free shipping available" 
-                                  : `Ships from $${Math.min(...supplier.shippingOptions.map(option => parseFloat(option.cost))).toFixed(2)}`}
-                              </div>
-                            )}
-                          </div>
+                  {selectedSupplier?.specifications ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(selectedSupplier.specifications).map(([key, value]) => (
+                        <div key={key} className="flex justify-between py-2 border-b border-gray-100">
+                          <span className="text-gray-600 font-medium">{key}:</span>
+                          <span className="text-gray-900">{value}</span>
                         </div>
-                        
-                        <Button 
-                          variant="link" 
-                          className="p-0 h-auto mt-2 text-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedSupplier(supplier);
-                            setShowSupplierDetails(true);
-                          }}
-                        >
-                          View warehouse inventory
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No detailed specifications available from selected supplier.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Gallery Tab */}
+            <TabsContent value="gallery" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Gallery</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedSupplier?.images && selectedSupplier.images.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedSupplier.images.map((image) => (
+                        <div key={image.id} className="relative aspect-square rounded-lg overflow-hidden border">
+                          <img 
+                            src={image.url} 
+                            alt={image.alt}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
+                          />
+                          {image.isPrimary && (
+                            <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                              Primary
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No additional images available from selected supplier.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+        
+        {/* Sidebar */}
+        <div className="col-span-1 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Supplier Options</CardTitle>
+              <CardDescription>Select a supplier to view details and add to cart</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border rounded-md p-4 bg-blue-50 border-blue-200">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium">CWR</h3>
+                      <div className="flex items-center mt-1 text-sm text-gray-600">
+                        <TruckIcon className="w-3 h-3 mr-1" />
+                        <span>2-3 business days</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">${product.cost || "N/A"}</div>
+                      <div className={`text-sm ${(product.inventoryQuantity || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(product.inventoryQuantity || 0) > 0 ? `${product.inventoryQuantity} in stock` : 'Contact for availability'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-blue-200">
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div><strong>MPN:</strong> {product.manufacturerPartNumber || "N/A"}</div>
+                      <div><strong>UPC:</strong> {product.upc || "N/A"}</div>
+                      <div><strong>Brand:</strong> {product.manufacturerName || "N/A"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
                         </Button>
                       </div>
                     ))}
