@@ -17,6 +17,7 @@ import MappingTemplates from "./pages/MappingTemplates";
 import MappingTemplateEditor from "./pages/MappingTemplateEditor";
 import MappingTemplateWorkspace from "./pages/MappingTemplateWorkspace";
 import SimpleMappingDemo from "./pages/SimpleMappingDemo";
+import DescriptionProcessor from "./pages/DescriptionProcessor";
 import Connections from "@/pages/Connections";
 import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
