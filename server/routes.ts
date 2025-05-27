@@ -318,19 +318,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Enhance products with category information
       const categories = await storage.getCategories();
+      console.log('Available categories:', categories.map(c => ({ id: c.id, name: c.name, path: c.path })));
+      
       const enhancedProducts = products.map(product => {
+        let categoryName = null;
+        
         if (product.categoryId) {
           const category = categories.find(cat => cat.id === product.categoryId);
           if (category) {
-            return {
-              ...product,
-              categoryName: category.path || category.name
-            };
+            categoryName = category.path || category.name;
           }
         }
+        
         return {
           ...product,
-          categoryName: product.categoryName || null
+          categoryName: categoryName
         };
       });
       
