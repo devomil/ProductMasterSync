@@ -44,9 +44,12 @@ const CategoryTree = () => {
   });
 
   const getCategoryChildren = (parentId: number | null) => {
-    return categories.filter(cat => 
-      parentId === null ? cat.parentId === undefined || cat.parentId === null : cat.parentId === parentId
-    );
+    return categories.filter(cat => {
+      if (parentId === null) {
+        return cat.parentId === undefined || cat.parentId === null || cat.level === 0;
+      }
+      return cat.parentId === parentId;
+    });
   };
 
   // Root level categories
