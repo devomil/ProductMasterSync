@@ -27,6 +27,7 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 import { deduplicateProducts, findDuplicateStats } from './utils/deduplication';
+import { inventoryService } from './utils/inventory-service';
 
 // Import the ingestion engine
 import { processSFTPIngestion } from "./utils/ingestion-engine";
@@ -2782,6 +2783,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Real-time inventory API routes for CWR integration
+  app.get("/api/inventory/:sku", async (req, res) => {
+    try {
+      const { sku } = req.params;
+      console.log(`Fetching real CWR inventory for SKU: ${sku}`);
+      
+      const warehouses = await inventoryService.getProductInventory(sku);
+      
+      res.json({
+        success: true,
+        sku,
+        warehouses,
+        lastUpdated: new Date().toISOString(),
+        source: "CWR Live Feed"
+      });
+    } catch (error) {
+      console.error('Failed to fetch CWR inventory:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch inventory data from CWR',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Bulk inventory update endpoint for automated pulls
+  app.post("/api/inventory/bulk-update", async (req, res) => {
+    try {
+      console.log('Starting bulk inventory update from CWR...');
+      
+      const allInventory = await inventoryService.getAllInventoryUpdates();
+      
+      // Update product inventory in database
+      for (const record of allInventory) {
+        try {
+          // Find product by SKU and update inventory
+          const products = await db.select()
+            .from(storage.products)
+            .where(eq(storage.products.sku, record.sku))
+            .limit(1);
+            
+          if (products.length > 0) {
+            await db.update(storage.products)
+              .set({
+                inventoryQuantity: record.quantity,
+                cost: record.cost.toString(),
+                updatedAt: new Date()
+              })
+              .where(eq(storage.products.id, products[0].id));
+          }
+        } catch (updateError) {
+          console.warn(`Failed to update inventory for SKU ${record.sku}:`, updateError);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: 'Bulk inventory update completed',
+        recordsProcessed: allInventory.length,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('Bulk inventory update failed:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Bulk inventory update failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Automated pull frequency settings API
+  app.post("/api/schedules/inventory", async (req, res) => {
+    try {
+      const { frequency, enabled } = req.body;
+      
+      // Create or update CWR inventory schedule
+      const [existingSchedule] = await db
+        .select()
+        .from(schedules)
+        .where(and(
+          eq(schedules.remotePath, '/eco8/out/inventory.csv'),
+          eq(schedules.pathLabel, 'CWR Inventory Feed')
+        ));
+      
+      if (existingSchedule) {
+        // Update existing schedule
+        const [updated] = await db
+          .update(schedules)
+          .set({
+            frequency,
+            enabled,
+            updatedAt: new Date()
+          })
+          .where(eq(schedules.id, existingSchedule.id))
+          .returning();
+          
+        res.json({
+          success: true,
+          message: 'Inventory sync schedule updated',
+          schedule: updated
+        });
+      } else {
+        // Create new schedule
+        const [created] = await db
+          .insert(schedules)
+          .values({
+            dataSourceId: 1, // Assuming CWR is dataSource ID 1
+            remotePath: '/eco8/out/inventory.csv',
+            pathLabel: 'CWR Inventory Feed',
+            frequency,
+            enabled,
+            nextRun: new Date(Date.now() + 2 * 60 * 60 * 1000) // Next run in 2 hours
+          })
+          .returning();
+          
+        res.json({
+          success: true,
+          message: 'Inventory sync schedule created',
+          schedule: created
+        });
+      }
+      
+    } catch (error) {
+      console.error('Failed to configure inventory schedule:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to configure inventory schedule',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Register connections management routes
   // Register connections routes directly
   registerConnectionsRoutes(app);

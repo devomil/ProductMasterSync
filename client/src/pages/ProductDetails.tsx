@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, TruckIcon, Package, MapPin } from "lucide-react";
+import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 
 // Mock vendor stock data - this will be replaced with real data from your system
 const getVendorStockData = (product: any) => {
@@ -77,6 +78,10 @@ export default function ProductDetails() {
   }) as { data: any, isLoading: boolean, error: any };
   
   const vendorStockData = getVendorStockData(product);
+  
+  // State for warehouse detail modal
+  const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<string>('');
 
   if (isLoading) {
     return (
