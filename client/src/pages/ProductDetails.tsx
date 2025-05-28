@@ -82,6 +82,9 @@ export default function ProductDetails() {
   // State for warehouse detail modal
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  
+  // State for tab management
+  const [activeTab, setActiveTab] = useState("overview");
 
   if (isLoading) {
     return (
@@ -165,10 +168,7 @@ export default function ProductDetails() {
                 <div className="grid grid-cols-4 gap-4 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-600 border-b">
                   <div>Supplier</div>
                   <div>Stock</div>
-                  <div className="flex items-center gap-1">
-                    <TruckIcon className="h-3 w-3" />
-                    <span></span>
-                  </div>
+                  <div>Cost</div>
                   <div>Qty</div>
                 </div>
                 
@@ -178,8 +178,8 @@ export default function ProductDetails() {
                     key={index}
                     className="grid grid-cols-4 gap-4 px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     onClick={() => {
-                      // Handle vendor click - could open modal with warehouse details
                       console.log('Clicked vendor:', vendor.name);
+                      setActiveTab("supplier");
                     }}
                   >
                     <div className="font-medium text-blue-600 hover:text-blue-800">
@@ -213,7 +213,7 @@ export default function ProductDetails() {
             </div>
           </div>
           
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="specifications">Specifications</TabsTrigger>
