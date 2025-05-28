@@ -107,6 +107,7 @@ export class BulkImportProcessor {
               brand: product.brand,
               weight: product.weight,
               imageUrl: product.imageUrl,
+              imageUrlLarge: product.imageUrlLarge,
               status: product.status || 'active'
             })
             .onConflictDoUpdate({
@@ -120,6 +121,7 @@ export class BulkImportProcessor {
                 brand: product.brand,
                 weight: product.weight,
                 imageUrl: product.imageUrl,
+                imageUrlLarge: product.imageUrlLarge,
                 updatedAt: new Date()
               }
             })
@@ -191,6 +193,14 @@ export class BulkImportProcessor {
           }
         }
       }
+    }
+
+    // Automatically capture authentic CWR image URLs from SFTP data
+    if (!transformed.imageUrl && rawProduct['AA']) {
+      transformed.imageUrl = this.cleanValue(rawProduct['AA']);
+    }
+    if (!transformed.imageUrlLarge && rawProduct['AB']) {
+      transformed.imageUrlLarge = this.cleanValue(rawProduct['AB']);
     }
 
     // Ensure required fields have values
