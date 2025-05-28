@@ -74,6 +74,14 @@ export default function ProductDetails() {
                 src={product.imageUrl || "/placeholder-product.jpg"} 
                 alt={product.name}
                 className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  // If the CWR image fails to load, try the large version, then fallback
+                  if (e.currentTarget.src === product.imageUrl && product.imageUrlLarge) {
+                    e.currentTarget.src = product.imageUrlLarge;
+                  } else if (e.currentTarget.src !== "/placeholder-product.jpg") {
+                    e.currentTarget.src = "/placeholder-product.jpg";
+                  }
+                }}
               />
             </div>
           </Card>
