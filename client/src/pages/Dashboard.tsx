@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Package2, Building2, Upload, CheckSquare, Plus } from "lucide-react";
+import { Package2, Building2, Upload, CheckSquare, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MetricCard from "@/components/dashboard/MetricCard";
 import ImportActivity from "@/components/dashboard/ImportActivity";
@@ -8,6 +8,7 @@ import PendingApprovals from "@/components/dashboard/PendingApprovals";
 import QuickActions from "@/components/dashboard/QuickActions";
 import ProcessFlow from "@/components/dashboard/ProcessFlow";
 import ImportModal from "@/components/imports/ImportModal";
+import { useOnboarding } from "@/components/onboarding/OnboardingManager";
 
 // Data quality metrics
 const dataQualityMetrics = [
@@ -19,6 +20,7 @@ const dataQualityMetrics = [
 
 const Dashboard = () => {
   const [showImportModal, setShowImportModal] = useState(false);
+  const { triggerOnboarding } = useOnboarding();
   const [statistics, setStatistics] = useState({
     totalProducts: 23456,
     activeSuppliers: 156,
@@ -50,7 +52,15 @@ const Dashboard = () => {
     <>
       <div className="pb-5 border-b border-neutral-200 sm:flex sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-neutral-900">Dashboard</h1>
-        <div className="mt-3 sm:mt-0 sm:ml-4">
+        <div className="mt-3 sm:mt-0 sm:ml-4 flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={triggerOnboarding}
+            className="gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            View Tour
+          </Button>
           <Button onClick={() => setShowImportModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Import
