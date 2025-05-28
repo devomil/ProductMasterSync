@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Package, Clock, TruckIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapPin, Package, Clock, TruckIcon, DollarSign, Truck, Shield, Tag, FileText } from "lucide-react";
 
 interface WarehouseLocation {
   code: string;
@@ -24,6 +25,7 @@ interface WarehouseDetailModalProps {
   onClose: () => void;
   vendorName: string;
   sku: string;
+  productId?: string;
 }
 
 export default function WarehouseDetailModal({ 
