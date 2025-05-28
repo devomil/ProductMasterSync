@@ -32,7 +32,7 @@ const getVendorStockData = (product: any) => {
       name: "CWR",
       stock: "Live Inventory",
       cost: parseFloat(product.cost) || 0,
-      quantity: 0, // Will be populated from real-time inventory
+      quantity: "Stock Available", // Shows as "Stock Available" until real-time data loads
       type: "authentic"
     });
   }
@@ -517,7 +517,7 @@ export default function ProductDetails() {
                             </div>
                           </div>
                           <div className="text-right">
-                            {vendor.type === 'cost' && (
+                            {vendor.cost > 0 && (
                               <div className="font-bold text-lg text-green-600">Cost: ${vendor.cost.toFixed(2)}</div>
                             )}
                             <div className="text-sm text-gray-600">
