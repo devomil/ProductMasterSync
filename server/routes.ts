@@ -1513,9 +1513,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Generate numeric EDC code (6 digits)
           const edcSku = String(Math.floor(Math.random() * 900000) + 100000);
           
+          // Check if this is CWR data and apply specialized processing
+          const isCWRData = record['CWR Part Number'];
+          
           // Apply catalog mappings
           const catalogData: any = { sku: edcSku };
           const productDetailData: any = { sku: edcSku };
+          
+          // Handle authentic CWR images if detected
+          if (isCWRData) {
+            const images = [];
+            if (record['Image (1000x1000) Url'] && record['Image (1000x1000) Url'].trim() !== '') {
+              images.push(record['Image (1000x1000) Url'].trim());
+            }
+            if (record['Image (300x300) Url'] && record['Image (300x300) Url'].trim() !== '') {
+              images.push(record['Image (300x300) Url'].trim());
+            }
+            if (record['Image Additional (1000x1000) Urls'] && record['Image Additional (1000x1000) Urls'].trim() !== '') {
+              const additionalImages = record['Image Additional (1000x1000) Urls'].split(',')
+                .map(url => url.trim())
+                .filter(url => url !== '');
+              images.push(...additionalImages);
+            }
+            
+            if (images.length > 0) {
+              catalogData.imageUrl = images[0];
+              catalogData.imageUrlLarge = images.length > 1 ? images[1] : images[0];
+              catalogData.primaryImage = images[0];
+              catalogData.images = JSON.stringify(images);
+              console.log(`🖼️ CWR images captured for ${record['CWR Part Number']}: ${images.length} images`);
+            }
+          }
 
           // Process catalog mappings - handle both old and new mapping format
           if (mappings.catalog) {
@@ -1652,9 +1680,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             productData.categoryId = null;
           }
 
-          // Save to storage
-          const newProduct = await storage.createProduct(productData);
-          processedProducts.push(newProduct);
+          // Check for existing product by supplier SKU to prevent duplicates
+          let existingProduct = null;
+          if (productData.usin) {
+            try {
+              const existingProducts = await storage.getProducts();
+              existingProduct = existingProducts.find(p => 
+                p.manufacturerPartNumber === productData.usin ||
+                (p.rawSupplierData && JSON.parse(p.rawSupplierData)['CWR Part Number'] === productData.usin)
+              );
+            } catch (e) {
+              console.log('Could not check for existing products:', e.message);
+            }
+          }
+
+          let savedProduct;
+          if (existingProduct) {
+            // Update existing product
+            savedProduct = await storage.updateProduct(existingProduct.id, productData);
+            console.log(`📝 Updated existing product: ${productData.name}`);
+          } else {
+            // Create new product
+            savedProduct = await storage.createProduct(productData);
+            console.log(`✨ Created new product: ${productData.name}`);
+          }
+          
+          processedProducts.push(savedProduct);
           successCount++;
 
         } catch (error) {
