@@ -85,9 +85,7 @@ export class AdvancedDeduplicationEngine {
    * Find product by exact USIN match
    */
   private async findByUsin(usin: string) {
-    return await db.query.products.findFirst({
-      where: eq(products.usin, usin)
-    });
+    return await db.select().from(products).where(eq(products.usin, usin)).limit(1);
   }
 
   /**
