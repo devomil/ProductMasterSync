@@ -116,12 +116,22 @@ export class BulkImportProcessor {
               price: product.price,
               cost: product.cost,
               description: product.description,
-              category: product.category,
-              brand: product.brand,
+              categoryId: product.categoryId,
+              manufacturerName: product.manufacturerName,
+              manufacturerPartNumber: product.manufacturerPartNumber,
               weight: product.weight,
-              imageUrl: product.imageUrl,
-              imageUrlLarge: product.imageUrlLarge,
-              status: product.status || 'active'
+              imageUrl: product.primaryImage,
+              imageUrlLarge: product.images && product.images.length > 1 ? product.images[1] : product.primaryImage,
+              images: product.images ? JSON.stringify(product.images) : null,
+              primaryImage: product.primaryImage,
+              attributes: product.attributes,
+              status: product.status || 'active',
+              isRemanufactured: product.isRemanufactured || false,
+              isCloseout: product.isCloseout || false,
+              isOnSale: product.isOnSale || false,
+              hasRebate: product.hasRebate || false,
+              hasFreeShipping: product.hasFreeShipping || false,
+              stockQuantity: product.stockQuantity || 0
             })
             .onConflictDoUpdate({
               target: products.sku,
@@ -130,11 +140,15 @@ export class BulkImportProcessor {
                 price: product.price,
                 cost: product.cost,
                 description: product.description,
-                category: product.category,
-                brand: product.brand,
+                categoryId: product.categoryId,
+                manufacturerName: product.manufacturerName,
+                manufacturerPartNumber: product.manufacturerPartNumber,
                 weight: product.weight,
-                imageUrl: product.imageUrl,
-                imageUrlLarge: product.imageUrlLarge,
+                imageUrl: product.primaryImage,
+                imageUrlLarge: product.images && product.images.length > 1 ? product.images[1] : product.primaryImage,
+                images: product.images ? JSON.stringify(product.images) : null,
+                primaryImage: product.primaryImage,
+                attributes: product.attributes,
                 updatedAt: new Date()
               }
             })
