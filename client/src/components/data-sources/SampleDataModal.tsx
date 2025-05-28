@@ -194,39 +194,76 @@ const SampleDataModal: React.FC<SampleDataModalProps> = ({
           {/* Left side buttons */}
           <div className="flex gap-2">
             {!isFullScreen && sampleData.success && selectedFilePath && (
-              <button
-                onClick={() => {
-                  try {
-                    if (!selectedFilePath || !selectedFilePath.path) {
-                      throw new Error("No file path selected");
+              <>
+                <button
+                  onClick={() => {
+                    try {
+                      if (!selectedFilePath || !selectedFilePath.path) {
+                        throw new Error("No file path selected");
+                      }
+                      
+                      toast({
+                        title: "🎮 Starting Gamified Mapping",
+                        description: "Building your confidence with interactive data testing!"
+                      });
+                      
+                      // Navigate to gamified mapping with data source context
+                      const params = new URLSearchParams();
+                      params.set('dataSourceId', selectedFilePath.dataSourceId?.toString() || '1');
+                      params.set('path', selectedFilePath.path);
+                      params.set('debug', 'true');
+                      
+                      window.location.href = `/gamified-mapping?${params.toString()}`;
+                    } catch (error) {
+                      console.error('[DEBUG] Gamified mapping navigation error:', error);
+                      toast({
+                        variant: "destructive",
+                        title: "Navigation Error",
+                        description: error instanceof Error ? error.message : "Unknown error occurred"
+                      });
                     }
-                    
-                    toast({
-                      title: "Create Mapping Template",
-                      description: "Redirecting to create a mapping template using this sample data"
-                    });
-                    
-                    // Build the query parameters with proper encoding
-                    const params = new URLSearchParams();
-                    params.set('create', 'true');
-                    params.set('path', selectedFilePath.path);
-                    params.set('label', selectedFilePath.label || '');
-                    params.set('source', sampleData.fileType || "csv");
-                    
-                    // Navigate to the mapping templates page with query params to pre-populate data
-                    window.location.href = `/mapping-templates?${params.toString()}`;
-                  } catch (error) {
-                    toast({
-                      variant: "destructive",
-                      title: "Navigation Error",
-                      description: error instanceof Error ? error.message : "Unknown error occurred"
-                    });
-                  }
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Create Mapping Template
-              </button>
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded hover:from-purple-700 hover:to-pink-700 flex items-center gap-2"
+                >
+                  🎮 Start Gamified Mapping
+                </button>
+                
+                <button
+                  onClick={() => {
+                    try {
+                      if (!selectedFilePath || !selectedFilePath.path) {
+                        throw new Error("No file path selected");
+                      }
+                      
+                      toast({
+                        title: "Create Mapping Template",
+                        description: "Redirecting to create a mapping template using this sample data"
+                      });
+                      
+                      // Build the query parameters with proper encoding
+                      const params = new URLSearchParams();
+                      params.set('create', 'true');
+                      params.set('path', selectedFilePath.path);
+                      params.set('label', selectedFilePath.label || '');
+                      params.set('source', sampleData.fileType || "csv");
+                      params.set('debug', 'true');
+                      
+                      // Navigate to the mapping templates page with query params to pre-populate data
+                      window.location.href = `/mapping-templates?${params.toString()}`;
+                    } catch (error) {
+                      console.error('[DEBUG] Mapping template navigation error:', error);
+                      toast({
+                        variant: "destructive",
+                        title: "Navigation Error",
+                        description: error instanceof Error ? error.message : "Unknown error occurred"
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Create Mapping Template
+                </button>
+              </>
             )}
           </div>
           

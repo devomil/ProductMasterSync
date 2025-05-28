@@ -141,6 +141,19 @@ export function GamifiedMappingWorkflow({ dataSourceId, sampleData, onComplete }
 
   const handleRunFullImport = async () => {
     try {
+      // Advanced debugging
+      const debugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
+      
+      if (debugMode) {
+        console.log('[DEBUG] Starting full import with gamified mapping data:', {
+          dataSourceId,
+          totalPoints,
+          achievements,
+          confidence: Math.min(95, 70 + (totalPoints / 10)),
+          sampleDataLength: sampleData.length
+        });
+      }
+
       const response = await fetch(`/api/mapping-templates/test-import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,17 +163,33 @@ export function GamifiedMappingWorkflow({ dataSourceId, sampleData, onComplete }
           mappingResult: {
             totalPoints,
             achievements,
-            confidence: Math.min(95, 70 + (totalPoints / 10))
+            confidence: Math.min(95, 70 + (totalPoints / 10)),
+            estimatedRecords: sampleData.length * 100,
+            debugMode
           }
         })
       });
 
+      if (debugMode) {
+        console.log('[DEBUG] Full import response status:', response.status);
+      }
+
       if (response.ok) {
         const result = await response.json();
+        
+        if (debugMode) {
+          console.log('[DEBUG] Full import result:', result);
+        }
+        
         onComplete(result);
+      } else {
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Import failed:', error);
+      console.error('[ERROR] Gamified import failed:', error);
+      
+      // Show user-friendly error
+      alert(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the console for details.`);
     }
   };
 

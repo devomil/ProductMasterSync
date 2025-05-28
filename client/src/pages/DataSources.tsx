@@ -451,6 +451,14 @@ export default function DataSources() {
             title: "Sample Data Retrieved",
             description: `Retrieved ${result.records?.length || 0} records successfully`
           });
+          
+          // Show gamified mapping option if sample data is available
+          if (result.records && result.records.length > 0) {
+            setSampleData({
+              ...sampleData,
+              showGamifiedMapping: true
+            });
+          }
         } else {
           toast({
             variant: "destructive",
