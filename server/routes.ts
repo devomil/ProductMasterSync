@@ -672,7 +672,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasRebate: product.hasRebate,
         hasFreeShipping: product.hasFreeShipping,
         categoryName: category?.name || null,
-        imageUrl: product.imageUrl
+        imageUrl: product.imageUrl,
+        imageUrlLarge: product.imageUrlLarge
       };
       
       res.json(formattedProduct);
