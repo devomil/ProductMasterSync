@@ -165,18 +165,17 @@ export default function ProductDetails() {
             <CardContent className="p-0">
               <div className="space-y-0">
                 {/* Header */}
-                <div className="grid grid-cols-4 gap-4 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-600 border-b">
+                <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-600 border-b">
                   <div>Supplier</div>
-                  <div>Stock</div>
                   <div>Cost</div>
-                  <div>Qty</div>
+                  <div>Stock</div>
                 </div>
                 
                 {/* Vendor rows */}
                 {vendorStockData.map((vendor, index) => (
                   <div 
                     key={index}
-                    className="grid grid-cols-4 gap-4 px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    className="grid grid-cols-3 gap-4 px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     onClick={() => {
                       console.log('Clicked vendor:', vendor.name);
                       setActiveTab("supplier");
@@ -184,9 +183,6 @@ export default function ProductDetails() {
                   >
                     <div className="font-medium text-blue-600 hover:text-blue-800">
                       {vendor.name}
-                    </div>
-                    <div className="text-gray-700">
-                      {vendor.stock}
                     </div>
                     <div className="text-gray-700">
                       {vendor.type === 'cost' && `$${vendor.cost.toFixed(2)}`}
