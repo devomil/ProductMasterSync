@@ -359,10 +359,11 @@ export default function ProductDetails() {
             
             {/* Specifications Tab */}
             <TabsContent value="specifications" className="space-y-4">
+              {/* Master Catalog Information */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Complete Product Specifications</CardTitle>
-                  <CardDescription>All available data fields from CWR supplier feed</CardDescription>
+                  <CardTitle>Master Catalog Information</CardTitle>
+                  <CardDescription>Unified product data across all suppliers</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -403,9 +404,47 @@ export default function ProductDetails() {
                       </div>
                     </div>
 
+                    {/* Physical Specifications */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Physical Specifications</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Weight:</span>
+                          <span className="text-gray-900">{product.weight ? `${product.weight} lbs` : "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Length:</span>
+                          <span className="text-gray-900">{product.length ? `${product.length}"` : "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Width:</span>
+                          <span className="text-gray-900">{product.width ? `${product.width}"` : "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Height:</span>
+                          <span className="text-gray-900">{product.height ? `${product.height}"` : "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Cube:</span>
+                          <span className="text-gray-900">{product.cube || "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* CWR Supplier-Specific Data */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>CWR Supplier Data</CardTitle>
+                  <CardDescription>Supplier-specific pricing, inventory, and logistics information</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     {/* Pricing & Financial */}
                     <div className="space-y-3">
-                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Pricing & Financial</h4>
+                      <h4 className="font-semibold text-lg text-blue-600 border-b pb-2">CWR Pricing & Financial</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600 text-sm font-medium">MSRP:</span>
@@ -434,33 +473,6 @@ export default function ProductDetails() {
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600 text-sm font-medium">Harmonization Code:</span>
                           <span className="text-gray-900">{product.harmonizationCode || "N/A"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Physical Specifications */}
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Physical Specifications</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">Weight:</span>
-                          <span className="text-gray-900">{product.weight ? `${product.weight} lbs` : "N/A"}</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">Length:</span>
-                          <span className="text-gray-900">{product.length ? `${product.length}"` : "N/A"}</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">Width:</span>
-                          <span className="text-gray-900">{product.width ? `${product.width}"` : "N/A"}</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">Height:</span>
-                          <span className="text-gray-900">{product.height ? `${product.height}"` : "N/A"}</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">Cube:</span>
-                          <span className="text-gray-900">{product.cube || "N/A"}</span>
                         </div>
                       </div>
                     </div>
