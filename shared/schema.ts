@@ -91,6 +91,9 @@ export const products = pgTable("products", {
   hasFreeShipping: boolean("has_free_shipping").default(false),
   inventoryQuantity: integer("inventory_quantity").default(0),
   reorderThreshold: integer("reorder_threshold").default(0),
+  // Image fields for CWR product images
+  imageUrl: text("image_url"),                      // Primary product image URL
+  imageUrlLarge: text("image_url_large"),           // Large/high-res product image URL
   // Amazon sync tracking fields
   lastAmazonSync: timestamp("last_amazon_sync"),
   amazonSyncStatus: text("amazon_sync_status").default("pending"), // pending, processing, success, error, ratelimited
