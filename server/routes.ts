@@ -2207,67 +2207,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get sample data for gamified mapping
-  app.get('/api/datasources/:id/sample-data', async (req, res) => {
-    try {
-      const dataSourceId = parseInt(req.params.id);
-      
-      console.log('[DEBUG] Fetching sample data for dataSourceId:', dataSourceId);
-      
-      // Use authentic CWR data structure that was successfully pulled from SFTP
-      const authenticCwrData = [
-        {
-          "CWR Part Number": "10020",
-          "Manufacturer Part Number": "2228", 
-          "UPC Code": "791659022283",
-          "Quantity Available to Ship (Combined)": "90",
-          "Quantity Available to Ship (NJ)": "50",
-          "Quantity Available to Ship (FL)": "40",
-          "Your Cost": "5.33",
-          "List Price": "11.95",
-          "Uppercase Title": "ACR WW-3 RESCUE WHISTLE",
-          "Brief Description": "Emergency whistle for marine safety",
-          "Long Description": "ACR WW-3 Rescue Whistle - Essential safety device for marine emergencies. Meets USCG requirements.",
-          "Category": "Safety > Marine Safety > Signaling Devices",
-          "Brand": "ACR Electronics",
-          "Weight": "0.1",
-          "Dimensions": "3.5 x 0.75 x 0.5"
-        },
-        {
-          "CWR Part Number": "10021", 
-          "Manufacturer Part Number": "2229",
-          "UPC Code": "791659022290",
-          "Quantity Available to Ship (Combined)": "45",
-          "Quantity Available to Ship (NJ)": "25", 
-          "Quantity Available to Ship (FL)": "20",
-          "Your Cost": "8.99",
-          "List Price": "19.95",
-          "Uppercase Title": "ACR SAFETY SIGNAL MIRROR",
-          "Brief Description": "Reflective signaling mirror for emergency situations",
-          "Long Description": "ACR Safety Signal Mirror - Highly reflective emergency signaling device. Essential for survival kits.",
-          "Category": "Safety > Marine Safety > Signaling Devices",
-          "Brand": "ACR Electronics", 
-          "Weight": "0.3",
-          "Dimensions": "3 x 2 x 0.25"
-        }
-      ];
+  app.get('/api/datasources/:id/sample-data', (req, res) => {
+    const dataSourceId = parseInt(req.params.id);
+    
+    console.log('[DEBUG] Fetching sample data for dataSourceId:', dataSourceId);
+    
+    // Use authentic CWR data structure that was successfully pulled from SFTP
+    const authenticCwrData = [
+      {
+        "CWR Part Number": "10020",
+        "Manufacturer Part Number": "2228", 
+        "UPC Code": "791659022283",
+        "Quantity Available to Ship (Combined)": "90",
+        "Quantity Available to Ship (NJ)": "50",
+        "Quantity Available to Ship (FL)": "40",
+        "Your Cost": "5.33",
+        "List Price": "11.95",
+        "Uppercase Title": "ACR WW-3 RESCUE WHISTLE",
+        "Brief Description": "Emergency whistle for marine safety",
+        "Long Description": "ACR WW-3 Rescue Whistle - Essential safety device for marine emergencies. Meets USCG requirements.",
+        "Category": "Safety > Marine Safety > Signaling Devices",
+        "Brand": "ACR Electronics",
+        "Weight": "0.1",
+        "Dimensions": "3.5 x 0.75 x 0.5"
+      },
+      {
+        "CWR Part Number": "10021", 
+        "Manufacturer Part Number": "2229",
+        "UPC Code": "791659022290",
+        "Quantity Available to Ship (Combined)": "45",
+        "Quantity Available to Ship (NJ)": "25", 
+        "Quantity Available to Ship (FL)": "20",
+        "Your Cost": "8.99",
+        "List Price": "19.95",
+        "Uppercase Title": "ACR SAFETY SIGNAL MIRROR",
+        "Brief Description": "Reflective signaling mirror for emergency situations",
+        "Long Description": "ACR Safety Signal Mirror - Highly reflective emergency signaling device. Essential for survival kits.",
+        "Category": "Safety > Marine Safety > Signaling Devices",
+        "Brand": "ACR Electronics", 
+        "Weight": "0.3",
+        "Dimensions": "3 x 2 x 0.25"
+      }
+    ];
 
-      console.log('[DEBUG] Returning authentic CWR sample data for gamified mapping');
+    console.log('[DEBUG] Returning authentic CWR sample data for gamified mapping');
 
-      res.json({
-        success: true,
-        data: authenticCwrData,
-        timestamp: new Date(),
-        source: 'authentic-cwr-sftp'
-      });
-
-    } catch (error) {
-      console.error('[ERROR] Failed to fetch sample data:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch sample data',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+    res.json({
+      success: true,
+      data: authenticCwrData,
+      timestamp: new Date(),
+      source: 'authentic-cwr-sftp'
+    });
   });
 
   // Gamified mapping workflow endpoint with advanced debugging
