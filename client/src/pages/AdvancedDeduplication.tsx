@@ -284,7 +284,7 @@ export default function AdvancedDeduplication() {
                     from the same supplier (80%+ similarity threshold).
                   </p>
                   <div className="text-xs font-mono bg-gray-50 p-2 rounded">
-                    IF similarity(name, existing.name) > 0.8 → UPDATE
+                    IF similarity(name, existing.name) &gt; 0.8 → UPDATE
                   </div>
                 </div>
               </CardContent>

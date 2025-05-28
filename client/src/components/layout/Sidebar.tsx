@@ -12,7 +12,8 @@ import {
   History,
   Database,
   FileCode,
-  ShoppingCart
+  ShoppingCart,
+  Shield
 } from "lucide-react";
 
 interface SidebarLinkProps {
@@ -77,6 +78,13 @@ const Sidebar = () => {
                   active={location === "/suppliers"}
                 >
                   Suppliers
+                </SidebarLink>
+                <SidebarLink 
+                  href="/advanced-deduplication" 
+                  icon={<Shield size={20} />} 
+                  active={location === "/advanced-deduplication"}
+                >
+                  Advanced Deduplication
                 </SidebarLink>
               </div>
             </div>
