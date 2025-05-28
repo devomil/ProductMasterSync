@@ -2186,23 +2186,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/products/advanced-deduplicate', async (req, res) => {
     try {
-      // Get all products for analysis using storage interface
-      const allProducts = await storage.getProducts();
-      
-      // Simple simulation of deduplication results for demo
-      const totalProcessed = allProducts.length;
-      const created = Math.floor(totalProcessed * 0.1); // 10% new
-      const updated = Math.floor(totalProcessed * 0.2); // 20% updated
-      const skipped = totalProcessed - created - updated; // Rest skipped
+      const { cleanupDuplicateUPCs } = await import('./utils/duplicate-cleanup');
+      const result = await cleanupDuplicateUPCs();
       
       res.json({
         success: true,
-        message: 'Advanced deduplication completed',
+        message: `Advanced deduplication completed. Processed ${result.duplicatesFound} duplicate UPC groups, removed ${result.productsDeleted} duplicate products.`,
         results: {
-          created,
-          updated,
-          skipped,
-          totalProcessed
+          duplicatesFound: result.duplicatesFound,
+          productsDeleted: result.productsDeleted,
+          upcGroupsProcessed: result.upcGroupsProcessed,
+          totalProcessed: result.productsDeleted + result.upcGroupsProcessed,
+          details: result.details
         }
       });
     } catch (error) {
