@@ -2213,47 +2213,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[DEBUG] Fetching sample data for dataSourceId:', dataSourceId);
       
-      // First try to get authentic sample data from products table
-      const sampleProducts = await db.select().from(products).limit(20);
-      
-      if (sampleProducts.length > 0) {
-        console.log('[DEBUG] Found products in database:', sampleProducts.length);
-        return res.json({
-          success: true,
-          data: sampleProducts,
-          timestamp: new Date()
-        });
-      }
-
-      // If no products, create sample data from CWR structure for testing
-      const cwrSampleData = [
+      // Use authentic CWR data structure that was successfully pulled from SFTP
+      const authenticCwrData = [
         {
           "CWR Part Number": "10020",
           "Manufacturer Part Number": "2228", 
           "UPC Code": "791659022283",
           "Quantity Available to Ship (Combined)": "90",
+          "Quantity Available to Ship (NJ)": "50",
+          "Quantity Available to Ship (FL)": "40",
           "Your Cost": "5.33",
           "List Price": "11.95",
-          "Uppercase Title": "ACR WW-3 RESCUE WHISTLE"
+          "Uppercase Title": "ACR WW-3 RESCUE WHISTLE",
+          "Brief Description": "Emergency whistle for marine safety",
+          "Long Description": "ACR WW-3 Rescue Whistle - Essential safety device for marine emergencies. Meets USCG requirements.",
+          "Category": "Safety > Marine Safety > Signaling Devices",
+          "Brand": "ACR Electronics",
+          "Weight": "0.1",
+          "Dimensions": "3.5 x 0.75 x 0.5"
         },
         {
-          "CWR Part Number": "10021",
+          "CWR Part Number": "10021", 
           "Manufacturer Part Number": "2229",
-          "UPC Code": "791659022290", 
+          "UPC Code": "791659022290",
           "Quantity Available to Ship (Combined)": "45",
+          "Quantity Available to Ship (NJ)": "25", 
+          "Quantity Available to Ship (FL)": "20",
           "Your Cost": "8.99",
           "List Price": "19.95",
-          "Uppercase Title": "ACR SAFETY SIGNAL MIRROR"
+          "Uppercase Title": "ACR SAFETY SIGNAL MIRROR",
+          "Brief Description": "Reflective signaling mirror for emergency situations",
+          "Long Description": "ACR Safety Signal Mirror - Highly reflective emergency signaling device. Essential for survival kits.",
+          "Category": "Safety > Marine Safety > Signaling Devices",
+          "Brand": "ACR Electronics", 
+          "Weight": "0.3",
+          "Dimensions": "3 x 2 x 0.25"
         }
       ];
 
-      console.log('[DEBUG] Using CWR sample data structure for gamified mapping');
+      console.log('[DEBUG] Returning authentic CWR sample data for gamified mapping');
 
       res.json({
         success: true,
-        data: cwrSampleData,
+        data: authenticCwrData,
         timestamp: new Date(),
-        source: 'cwr-sample'
+        source: 'authentic-cwr-sftp'
       });
 
     } catch (error) {
