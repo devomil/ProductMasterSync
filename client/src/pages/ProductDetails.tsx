@@ -416,16 +416,24 @@ export default function ProductDetails() {
                           <span className="text-gray-900">{product.cost ? `$${product.cost}` : "N/A"}</span>
                         </div>
                         <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">MAP Price:</span>
+                          <span className="text-gray-600 text-sm font-medium">M.A.P. Price:</span>
                           <span className="text-gray-900">{product.mapPrice ? `$${product.mapPrice}` : "N/A"}</span>
                         </div>
                         <div className="flex justify-between py-1">
-                          <span className="text-gray-600 text-sm font-medium">Core Price:</span>
-                          <span className="text-gray-900">{product.corePrice ? `$${product.corePrice}` : "N/A"}</span>
+                          <span className="text-gray-600 text-sm font-medium">M.R.P. Price:</span>
+                          <span className="text-gray-900">{product.mrpPrice ? `$${product.mrpPrice}` : "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Original Price:</span>
+                          <span className="text-gray-900">{product.originalPrice ? `$${product.originalPrice}` : "N/A"}</span>
                         </div>
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600 text-sm font-medium">Freight Class:</span>
                           <span className="text-gray-900">{product.freightClass || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Harmonization Code:</span>
+                          <span className="text-gray-900">{product.harmonizationCode || "N/A"}</span>
                         </div>
                       </div>
                     </div>
@@ -481,7 +489,252 @@ export default function ProductDetails() {
                           <span className="text-gray-600 text-sm font-medium">Pack Quantity:</span>
                           <span className="text-gray-900">{product.packQuantity || "N/A"}</span>
                         </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Non-stock:</span>
+                          <Badge variant={product.nonStock ? 'destructive' : 'secondary'}>
+                            {product.nonStock ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Drop Ships Direct:</span>
+                          <Badge variant={product.dropShipsDirect ? 'default' : 'secondary'}>
+                            {product.dropShipsDirect ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Case Qty (NJ):</span>
+                          <span className="text-gray-900">{product.caseQtyNJ || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Case Qty (FL):</span>
+                          <span className="text-gray-900">{product.caseQtyFL || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Returnable:</span>
+                          <Badge variant={product.returnable ? 'default' : 'secondary'}>
+                            {product.returnable ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Shipping & Logistics */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Shipping & Logistics</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Hazardous Materials:</span>
+                          <Badge variant={product.hazardousMaterials ? 'destructive' : 'secondary'}>
+                            {product.hazardousMaterials ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Truck Freight:</span>
+                          <Badge variant={product.truckFreight ? 'default' : 'secondary'}>
+                            {product.truckFreight ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Exportable:</span>
+                          <Badge variant={product.exportable ? 'default' : 'secondary'}>
+                            {product.exportable ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">First Class Mail:</span>
+                          <Badge variant={product.firstClassMail ? 'default' : 'secondary'}>
+                            {product.firstClassMail ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Oversized:</span>
+                          <Badge variant={product.oversized ? 'destructive' : 'secondary'}>
+                            {product.oversized ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Free Shipping:</span>
+                          <Badge variant={product.freeShipping ? 'default' : 'secondary'}>
+                            {product.freeShipping ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        {product.freeShippingEndDate && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">Free Shipping End Date:</span>
+                            <span className="text-gray-900">{product.freeShippingEndDate}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Country Of Origin:</span>
+                          <span className="text-gray-900">{product.countryOfOrigin || "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Compliance & Regulatory */}
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Compliance & Regulatory</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Prop 65:</span>
+                          <Badge variant={product.prop65 ? 'destructive' : 'secondary'}>
+                            {product.prop65 ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        {product.prop65Description && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">Prop 65 Description:</span>
+                            <span className="text-gray-900 text-xs">{product.prop65Description}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">FCC ID:</span>
+                          <span className="text-gray-900">{product.fccId || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">3rd Party Marketplaces:</span>
+                          <span className="text-gray-900">{product.thirdPartyMarketplaces || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between py-1">
+                          <span className="text-gray-600 text-sm font-medium">Google Merchant Category:</span>
+                          <span className="text-gray-900">{product.googleMerchantCategory || "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sales & Promotions */}
+                    <div className="md:col-span-2 space-y-3">
+                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Sales & Promotions</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">Sale:</span>
+                            <Badge variant={product.sale ? 'default' : 'secondary'}>
+                              {product.sale ? 'Yes' : 'No'}
+                            </Badge>
+                          </div>
+                          {product.saleStartDate && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Sale Start Date:</span>
+                              <span className="text-gray-900">{product.saleStartDate}</span>
+                            </div>
+                          )}
+                          {product.saleEndDate && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Sale End Date:</span>
+                              <span className="text-gray-900">{product.saleEndDate}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">Rebate:</span>
+                            <Badge variant={product.rebate ? 'default' : 'secondary'}>
+                              {product.rebate ? 'Yes' : 'No'}
+                            </Badge>
+                          </div>
+                          {product.rebateDescription && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Rebate Description:</span>
+                              <span className="text-gray-900 text-xs">{product.rebateDescription}</span>
+                            </div>
+                          )}
+                          {product.rebateStartDate && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Rebate Start Date:</span>
+                              <span className="text-gray-900">{product.rebateStartDate}</span>
+                            </div>
+                          )}
+                          {product.rebateEndDate && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Rebate End Date:</span>
+                              <span className="text-gray-900">{product.rebateEndDate}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Accessories & Related Products */}
+                    <div className="md:col-span-2 space-y-3">
+                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Accessories & Related Products</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">List of Accessories by SKU:</span>
+                            <span className="text-gray-900 text-xs">{product.accessoriesBySku || "N/A"}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">List of Accessories by MFG#:</span>
+                            <span className="text-gray-900 text-xs">{product.accessoriesByMfg || "N/A"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {product.quickSpecs && (
+                        <div className="mt-3">
+                          <span className="text-gray-600 text-sm font-medium">Quick Specs:</span>
+                          <div className="text-gray-900 text-xs mt-1 p-2 bg-gray-50 rounded">
+                            {product.quickSpecs}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Documentation & Resources */}
+                    <div className="md:col-span-2 space-y-3">
+                      <h4 className="font-semibold text-lg text-gray-900 border-b pb-2">Documentation & Resources</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          {product.quickGuideUrl && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Quick Guide:</span>
+                              <a href={product.quickGuideUrl} target="_blank" rel="noopener noreferrer" 
+                                 className="text-blue-600 hover:text-blue-800 text-xs">
+                                View PDF
+                              </a>
+                            </div>
+                          )}
+                          {product.ownersManualUrl && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Owners Manual:</span>
+                              <a href={product.ownersManualUrl} target="_blank" rel="noopener noreferrer" 
+                                 className="text-blue-600 hover:text-blue-800 text-xs">
+                                View PDF
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {product.brochureUrl && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Brochure:</span>
+                              <a href={product.brochureUrl} target="_blank" rel="noopener noreferrer" 
+                                 className="text-blue-600 hover:text-blue-800 text-xs">
+                                View PDF
+                              </a>
+                            </div>
+                          )}
+                          {product.installationGuideUrl && (
+                            <div className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">Installation Guide:</span>
+                              <a href={product.installationGuideUrl} target="_blank" rel="noopener noreferrer" 
+                                 className="text-blue-600 hover:text-blue-800 text-xs">
+                                View PDF
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {product.videoUrls && (
+                        <div className="mt-3">
+                          <span className="text-gray-600 text-sm font-medium">Video Resources:</span>
+                          <div className="text-gray-900 text-xs mt-1">
+                            {product.videoUrls}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Additional CWR Fields */}
@@ -494,7 +747,7 @@ export default function ProductDetails() {
                               <span className="text-gray-600 text-sm font-medium capitalize">
                                 {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:
                               </span>
-                              <span className="text-gray-900 text-sm">{value || "N/A"}</span>
+                              <span className="text-gray-900 text-sm">{String(value) || "N/A"}</span>
                             </div>
                           ))}
                         </div>
