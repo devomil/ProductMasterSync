@@ -2211,27 +2211,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dataSourceId = parseInt(req.params.id);
       
-      // Get sample from actual products table for authentic data
+      console.log('[DEBUG] Fetching sample data for dataSourceId:', dataSourceId);
+      
+      // First try to get authentic sample data from products table
       const sampleProducts = await db.select().from(products).limit(20);
       
-      if (sampleProducts.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'No sample data available. Please run a test pull first.'
+      if (sampleProducts.length > 0) {
+        console.log('[DEBUG] Found products in database:', sampleProducts.length);
+        return res.json({
+          success: true,
+          data: sampleProducts,
+          timestamp: new Date()
         });
       }
 
+      // If no products, create sample data from CWR structure for testing
+      const cwrSampleData = [
+        {
+          "CWR Part Number": "10020",
+          "Manufacturer Part Number": "2228", 
+          "UPC Code": "791659022283",
+          "Quantity Available to Ship (Combined)": "90",
+          "Your Cost": "5.33",
+          "List Price": "11.95",
+          "Uppercase Title": "ACR WW-3 RESCUE WHISTLE"
+        },
+        {
+          "CWR Part Number": "10021",
+          "Manufacturer Part Number": "2229",
+          "UPC Code": "791659022290", 
+          "Quantity Available to Ship (Combined)": "45",
+          "Your Cost": "8.99",
+          "List Price": "19.95",
+          "Uppercase Title": "ACR SAFETY SIGNAL MIRROR"
+        }
+      ];
+
+      console.log('[DEBUG] Using CWR sample data structure for gamified mapping');
+
       res.json({
         success: true,
-        data: sampleProducts,
-        timestamp: new Date()
+        data: cwrSampleData,
+        timestamp: new Date(),
+        source: 'cwr-sample'
       });
 
     } catch (error) {
-      console.error('Error fetching sample data:', error);
+      console.error('[ERROR] Failed to fetch sample data:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch sample data'
+        message: 'Failed to fetch sample data',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });
