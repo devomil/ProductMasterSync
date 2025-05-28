@@ -24,7 +24,7 @@ export default function ProductDetails() {
   const { data: product, isLoading, error } = useQuery({
     queryKey: [`/api/products/${id}`],
     enabled: !!id,
-  });
+  }) as { data: any, isLoading: boolean, error: any };
 
   if (isLoading) {
     return (
@@ -290,14 +290,16 @@ export default function ProductDetails() {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Primary CWR Image */}
-                    {product.imageUrl && (
+                    {product?.imageUrl && (
                       <div className="relative group">
                         <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                           <img 
                             src={product.imageUrl} 
-                            alt={`${product.name} - Primary`}
+                            alt={`${product?.name || 'Product'} - Primary`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            onLoad={() => console.log('Image loaded:', product.imageUrl)}
                             onError={(e) => {
+                              console.log('Image failed to load:', product.imageUrl);
                               e.currentTarget.style.display = 'none';
                             }}
                           />
