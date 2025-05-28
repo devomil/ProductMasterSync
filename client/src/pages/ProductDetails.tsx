@@ -500,8 +500,8 @@ export default function ProductDetails() {
                           size="sm" 
                           className="w-full"
                           onClick={() => {
-                            // This would open a modal showing warehouse locations for this vendor
-                            console.log(`Show warehouse locations for ${vendor.name}`);
+                            setSelectedVendor(vendor.name);
+                            setWarehouseModalOpen(true);
                           }}
                         >
                           <MapPin className="w-4 h-4 mr-2" />
@@ -529,6 +529,14 @@ export default function ProductDetails() {
           </Tabs>
         </div>
       </div>
+      
+      {/* Warehouse Detail Modal for real CWR inventory data */}
+      <WarehouseDetailModal
+        isOpen={warehouseModalOpen}
+        onClose={() => setWarehouseModalOpen(false)}
+        vendorName={selectedVendor}
+        sku={product?.sku || ''}
+      />
     </div>
   );
 }
