@@ -149,49 +149,92 @@ export async function transformCWRRecord(record: any, supplierId: number): Promi
     name: record['Title'] || record['Uppercase Title'] || `Product ${record['CWR Part Number']}`,
     sku: `EDC${String(Math.floor(Math.random() * 900000) + 100000)}`, // Generate EDC code
     
-    // Optional fields with authentic CWR data
+    // Core product info
     description: description,
     manufacturerPartNumber: record['Manufacturer Part Number'] || null,
     upc: record['UPC Code'] || null,
     categoryId: categoryId,
-    manufacturerId: null, // Will be populated separately
+    brand: record['Manufacturer Name'] || null,
     
-    // Pricing
+    // Pricing & Financial (for Pricing tab)
     price: parseFloat(record['List Price']) || null,
     cost: parseFloat(record['Your Cost']) || null,
+    mapPrice: parseFloat(record['Map Price']) || null,
+    mrpPrice: parseFloat(record['MRP Price']) || null,
+    originalPrice: parseFloat(record['Original Price']) || null,
+    freightClass: record['Freight Class'] || null,
+    harmonizationCode: record['Harmonization Code'] || null,
     
-    // Inventory
-    stockQuantity: parseInt(record['Quantity Available to Ship (Combined)']) || 0,
-    
-    // Product details
+    // Physical specifications
     weight: parseFloat(record['Shipping Weight']) || null,
-    dimensions: record['Box Length'] && record['Box Width'] && record['Box Height'] 
-      ? `${record['Box Length']} x ${record['Box Width']} x ${record['Box Height']}`
-      : null,
+    length: parseFloat(record['Box Length']) || null,
+    width: parseFloat(record['Box Width']) || null,
+    height: parseFloat(record['Box Height']) || null,
+    cube: record['Cube'] || null,
     
-    // Special flags
+    // Inventory & Logistics (for Shipping tab)
+    stockStatus: record['Stock Status'] || null,
+    availability: record['Availability'] || null,
+    leadTime: record['Lead Time'] || null,
+    dropship: record['Dropship Available'] === '1',
+    packQuantity: parseInt(record['Pack Quantity']) || null,
+    nonStock: record['Non-stock'] === '1',
+    dropShipsDirect: record['Drop Ships Direct'] === '1',
+    caseQtyNJ: parseInt(record['Case Qty NJ']) || null,
+    caseQtyFL: parseInt(record['Case Qty FL']) || null,
+    returnable: record['Returnable'] === '1',
+    
+    // Shipping & Logistics (for Shipping tab)
+    hazardousMaterials: record['Hazardous Materials'] === '1',
+    truckFreight: record['Truck Freight'] === '1',
+    exportable: record['Exportable'] === '1',
+    firstClassMail: record['First Class Mail'] === '1',
+    oversized: record['Oversized'] === '1',
+    freeShipping: record['Free Shipping'] === '1',
+    freeShippingEndDate: record['Free Shipping End Date'] || null,
+    countryOfOrigin: record['Country Of Origin'] || null,
+    
+    // Compliance & Regulatory (for Compliance tab)
+    prop65: record['Prop 65'] === '1',
+    prop65Description: record['Prop 65 Description'] || null,
+    fccId: record['FCC ID'] || null,
+    thirdPartyMarketplaces: record['3rd Party Marketplaces'] || null,
+    googleMerchantCategory: record['Google Merchant Category'] || null,
+    
+    // Sales & Promotions (for Promotions tab)
+    sale: record['Sale'] === '1',
+    saleStartDate: record['Sale Start Date'] || null,
+    saleEndDate: record['Sale End Date'] || null,
+    rebate: record['Rebate'] === '1',
+    rebateDescription: record['Rebate Description'] || null,
+    rebateStartDate: record['Rebate Start Date'] || null,
+    rebateEndDate: record['Rebate End Date'] || null,
+    
+    // Documentation & Resources (for Documentation tab)
+    quickGuideUrl: record['Quick Guide URL'] || null,
+    ownersManualUrl: record['Owners Manual URL'] || null,
+    brochureUrl: record['Brochure URL'] || null,
+    installationGuideUrl: record['Installation Guide URL'] || null,
+    videoUrls: record['Video URLs'] || null,
+    quickSpecs: record['Quick Specs'] || null,
+    accessoriesBySku: record['List of Accessories by SKU'] || null,
+    accessoriesByMfg: record['List of Accessories by MFG#'] || null,
+    
+    // Product flags
     isRemanufactured: record['Remanufactured'] === '1',
     isCloseout: record['Closeout'] === '1',
-    isOnSale: record['Sale'] === '1',
-    hasRebate: record['Rebate'] === '1',
-    hasFreeShipping: record['Free Shipping'] === '1',
     
-    // Images - store as JSON array
+    // Images
     images: images.length > 0 ? images : null,
     primaryImage: images.length > 0 ? images[0] : null,
     
-    // Metadata
+    // USIN for supplier identification
+    usin: record['CWR Part Number'] || null,
+    
+    // Store additional attributes for extensibility
     attributes: {
-      cwrPartNumber: record['CWR Part Number'],
-      brand: record['Manufacturer Name'],
-      countryOfOrigin: record['Country Of Origin'],
-      harmonizationCode: record['Harmonization Code'],
-      googleMerchantCategory: record['Google Merchant Category'],
-      exportable: record['Exportable'] === '1',
-      hazardousMaterials: record['Hazardous Materials'] === '1',
-      prop65Warning: record['Prop 65'] === '1',
-      returnable: record['Returnable'] === '1',
-      marketplaceAllowed: record['3rd Party Marketplaces'] === 'Allowed'
+      // Store any unmapped CWR fields here
+      additionalData: record
     },
     
     status: 'active',
