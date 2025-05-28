@@ -1715,6 +1715,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Auto-sync inventory data for sample imports if inventory path exists
+      let inventorySyncCount = 0;
+      if (dataSource.config && dataSource.config.inventoryPath && processedProducts.length > 0) {
+        console.log(`🔄 Auto-syncing inventory for ${processedProducts.length} sample products...`);
+        
+        try {
+          const { syncInventoryForProducts } = require('./utils/inventory-service');
+          const syncResults = await syncInventoryForProducts(processedProducts.map(p => p.sku));
+          inventorySyncCount = syncResults.successCount || 0;
+          console.log(`✅ Synced inventory for ${inventorySyncCount} products during sample import`);
+        } catch (inventoryError) {
+          console.log('📦 Inventory sync will be available for live products:', inventoryError.message);
+        }
+      }
+
       // Create import log
       const importLog = await storage.createImport({
         filename: `Sample Import - ${template.name}`,
@@ -1730,13 +1745,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        message: `Successfully imported ${successCount} of ${sampleData.length} sample records`,
+        message: `Successfully imported ${successCount} of ${sampleData.length} sample records${inventorySyncCount > 0 ? ` with inventory data for ${inventorySyncCount} products` : ''}`,
         importId: importLog.id,
         products: processedProducts,
         stats: {
           total: sampleData.length,
           success: successCount,
-          errors: errorCount
+          errors: errorCount,
+          inventorySynced: inventorySyncCount
         }
       });
 

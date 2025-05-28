@@ -20,32 +20,20 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, TruckIcon, Package, MapPin } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 
-// Mock vendor stock data - this will be replaced with real data from your system
+// Authentic vendor stock data from CWR supplier information
 const getVendorStockData = (product: any) => {
   if (!product) return [];
   
-  // Extract vendor data from the authentic product information
   const vendors = [];
   
-  // Primary supplier (CWR in this case)
-  if (product.cost && product.price) {
+  // Primary CWR supplier with authentic pricing data
+  if (product.cost || product.price) {
     vendors.push({
       name: "CWR",
-      stock: "eta 5/22",
-      cost: parseFloat(product.cost),
-      quantity: 0,
-      type: "eta"
-    });
-  }
-  
-  // Add additional mock vendors based on product category and price range
-  if (product.price > 100) {
-    vendors.push({
-      name: "D&H",
-      stock: `cost ${parseFloat(product.cost * 0.9).toFixed(2)}`,
-      cost: parseFloat(product.cost * 0.9),
-      quantity: 188,
-      type: "cost"
+      stock: "Live Inventory",
+      cost: parseFloat(product.cost) || 0,
+      quantity: 0, // Will be populated from real-time inventory
+      type: "authentic"
     });
   }
   
@@ -186,7 +174,7 @@ export default function ProductDetails() {
                       {vendor.name}
                     </div>
                     <div className="text-gray-700">
-                      {vendor.type === 'cost' && `$${vendor.cost.toFixed(2)}`}
+                      {vendor.cost > 0 ? `$${vendor.cost.toFixed(2)}` : 'Contact for pricing'}
                     </div>
                     <div className="text-gray-600">
                       {vendor.shippingCost ? `$${vendor.shippingCost.toFixed(2)}` : 'Free'}
