@@ -2186,8 +2186,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/products/advanced-deduplicate', async (req, res) => {
     try {
-      // Get all products for analysis
-      const allProducts = await db.select().from(products);
+      // Get all products for analysis using storage interface
+      const allProducts = await storage.getProducts();
       
       // Simple simulation of deduplication results for demo
       const totalProcessed = allProducts.length;
