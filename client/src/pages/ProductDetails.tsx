@@ -580,6 +580,7 @@ export default function ProductDetails() {
         onClose={() => setWarehouseModalOpen(false)}
         vendorName={selectedVendor}
         sku={product?.sku || ''}
+        productId={product?.id?.toString()}
       />
     </div>
   );
