@@ -2,6 +2,7 @@ import { db } from "../db";
 import { products, productSuppliers, mappingTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { deduplicationEngine } from './advanced-deduplication';
+import { transformCWRRecord } from './cwr-data-processor';
 
 interface BulkImportConfig {
   batchSize: number;
