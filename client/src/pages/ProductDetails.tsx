@@ -71,15 +71,23 @@ export default function ProductDetails() {
           <Card className="overflow-hidden">
             <div className="relative pb-[100%]">
               <img 
-                src={product.imageUrl || "/placeholder-product.jpg"} 
+                src={product.imageUrl} 
                 alt={product.name}
                 className="absolute inset-0 w-full h-full object-cover"
+                onLoad={() => console.log('Main image loaded:', product.imageUrl)}
                 onError={(e) => {
-                  // If the CWR image fails to load, try the large version, then fallback
-                  if (e.currentTarget.src === product.imageUrl && product.imageUrlLarge) {
+                  console.log('Main image failed to load:', product.imageUrl);
+                  // Try the large version if available
+                  if (product.imageUrlLarge && e.currentTarget.src !== product.imageUrlLarge) {
+                    console.log('Trying large image:', product.imageUrlLarge);
                     e.currentTarget.src = product.imageUrlLarge;
-                  } else if (e.currentTarget.src !== "/placeholder-product.jpg") {
-                    e.currentTarget.src = "/placeholder-product.jpg";
+                  } else {
+                    // Show a simple error state instead of placeholder
+                    e.currentTarget.style.display = 'none';
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500';
+                    errorDiv.textContent = 'Image not available';
+                    e.currentTarget.parentNode?.appendChild(errorDiv);
                   }
                 }}
               />
