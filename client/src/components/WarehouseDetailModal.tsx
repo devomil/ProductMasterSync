@@ -155,13 +155,6 @@ export default function WarehouseDetailModal({
                               </span>
                             </div>
                             
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Cost:</span>
-                              <span className="font-semibold text-green-600">
-                                ${warehouse.cost.toFixed(2)}
-                              </span>
-                            </div>
-                            
                             {warehouse.quantity > 0 && (
                               <div className="pt-2 border-t">
                                 <Button 
