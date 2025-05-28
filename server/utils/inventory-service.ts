@@ -136,12 +136,8 @@ export class InventoryService {
   
   private getWarehouseName(code: string): string {
     const warehouses: { [key: string]: string } = {
-      'FL-01': 'Florida Distribution Center',
-      'CA-02': 'California Warehouse', 
-      'TX-03': 'Texas Regional Hub',
-      'NY-04': 'New York Northeast Hub',
-      'WA-05': 'Washington Pacific Northwest',
-      'Main': 'Main Distribution Center'
+      'FL-MAIN': 'CWR Florida Main Warehouse',
+      'NJ-MAIN': 'CWR New Jersey Distribution'
     };
     
     return warehouses[code] || `Warehouse ${code}`;
@@ -149,12 +145,8 @@ export class InventoryService {
   
   private getWarehouseLocation(code: string): string {
     const locations: { [key: string]: string } = {
-      'FL-01': 'Fort Lauderdale, FL',
-      'CA-02': 'Long Beach, CA',
-      'TX-03': 'Houston, TX', 
-      'NY-04': 'Buffalo, NY',
-      'WA-05': 'Seattle, WA',
-      'Main': 'Primary Location'
+      'FL-MAIN': 'Fort Lauderdale, FL',
+      'NJ-MAIN': 'Edison, NJ'
     };
     
     return locations[code] || 'Location Unknown';
