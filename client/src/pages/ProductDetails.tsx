@@ -469,7 +469,7 @@ export default function ProductDetails() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    Vendor Stock & Pricing
+                    Supplier Stock & Pricing
                   </CardTitle>
                   <CardDescription>Real-time availability and pricing from multiple suppliers</CardDescription>
                 </CardHeader>
@@ -482,15 +482,15 @@ export default function ProductDetails() {
                             <h3 className="font-semibold text-lg text-blue-600">{vendor.name}</h3>
                             <div className="flex items-center mt-1 text-sm text-gray-600">
                               <TruckIcon className="w-4 h-4 mr-1" />
-                              <span>{vendor.stock}</span>
+                              <span>Supplier Shipping Cost</span>
                             </div>
                           </div>
                           <div className="text-right">
                             {vendor.type === 'cost' && (
-                              <div className="font-bold text-lg text-green-600">${vendor.cost.toFixed(2)}</div>
+                              <div className="font-bold text-lg text-green-600">Cost: ${vendor.cost.toFixed(2)}</div>
                             )}
                             <div className="text-sm text-gray-600">
-                              Qty: <span className="font-medium">{vendor.quantity}</span>
+                              Stock: <span className="font-medium">{vendor.quantity}</span>
                             </div>
                           </div>
                         </div>
@@ -500,6 +500,7 @@ export default function ProductDetails() {
                           size="sm" 
                           className="w-full"
                           onClick={() => {
+                            console.log(`Opening warehouse modal for: ${vendor.name}`);
                             setSelectedVendor(vendor.name);
                             setWarehouseModalOpen(true);
                           }}
