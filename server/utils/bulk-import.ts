@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { products, productSuppliers, mappingTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { deduplicationEngine } from './advanced-deduplication';
 
 interface BulkImportConfig {
   batchSize: number;

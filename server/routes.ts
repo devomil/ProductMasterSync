@@ -2150,6 +2150,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced Deduplication API Endpoints
+  app.get('/api/products/deduplication-stats', async (req, res) => {
+    try {
+      const { deduplicationEngine } = await import('./utils/advanced-deduplication');
+      const stats = await deduplicationEngine.getDeduplicationStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error getting deduplication stats:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/products/advanced-deduplicate', async (req, res) => {
+    try {
+      const { deduplicationEngine } = await import('./utils/advanced-deduplication');
+      
+      // Get all products for analysis
+      const allProducts = await db.query.products.findMany({
+        with: {
+          productSuppliers: true
+        }
+      });
+
+      // Convert to format expected by deduplication engine
+      const productData = allProducts.map(product => ({
+        ...product,
+        supplierId: product.productSuppliers[0]?.supplierId || 1
+      }));
+
+      const result = await deduplicationEngine.batchProcessProducts(productData);
+      
+      res.json({
+        success: true,
+        message: 'Advanced deduplication completed',
+        results: {
+          created: result.created,
+          updated: result.updated,
+          skipped: result.skipped,
+          totalProcessed: productData.length
+        }
+      });
+    } catch (error) {
+      console.error('Error in advanced deduplication:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Statistics API
   app.get("/api/statistics", async (req, res) => {
     try {
