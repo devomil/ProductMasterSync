@@ -100,9 +100,10 @@ export default function ProductDetails() {
           </div>
           
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="specifications">Specifications</TabsTrigger>
+              <TabsTrigger value="gallery">Gallery</TabsTrigger>
               <TabsTrigger value="supplier">Supplier Info</TabsTrigger>
             </TabsList>
             
@@ -274,6 +275,73 @@ export default function ProductDetails() {
                       <span className="text-gray-600 font-medium">MSRP:</span>
                       <span className="text-gray-900">{product.price ? `$${product.price}` : "N/A"}</span>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Gallery Tab */}
+            <TabsContent value="gallery" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Gallery</CardTitle>
+                  <CardDescription>High-quality images from multiple suppliers</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Primary CWR Image */}
+                    {product.imageUrl && (
+                      <div className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                          <img 
+                            src={product.imageUrl} 
+                            alt={`${product.name} - Primary`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                          Primary Image
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Large Version if different */}
+                    {product.imageUrlLarge && product.imageUrlLarge !== product.imageUrl && (
+                      <div className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                          <img 
+                            src={product.imageUrlLarge} 
+                            alt={`${product.name} - Large`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                          High Resolution
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Placeholder for additional supplier images */}
+                    <div className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500">
+                      <div className="text-center">
+                        <div className="text-sm font-medium">Additional Images</div>
+                        <div className="text-xs">Available when multiple suppliers provide this product</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Image Quality & Authenticity</h4>
+                    <p className="text-sm text-blue-700">
+                      All product images are sourced directly from authorized suppliers and manufacturers. 
+                      Images show the actual product you will receive, ensuring accuracy and authenticity.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
