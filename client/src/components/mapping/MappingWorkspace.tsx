@@ -99,18 +99,21 @@ export default function MappingWorkspace({
     { id: 'price', name: 'Price', type: 'decimal', required: false },
     { id: 'cost', name: 'Cost', type: 'decimal', required: false },
     { id: 'weight', name: 'Weight', type: 'decimal', required: false },
-    { id: 'upc', name: 'UPC Code', type: 'string', required: false }
+    { id: 'upc', name: 'UPC Code', type: 'string', required: false },
+    { id: 'primary_image', name: 'Primary Image URL', type: 'url', required: false, icon: Image, description: 'Main product image URL from supplier feed' }
   ];
 
   const productDetailFields = [
-    { id: 'images', name: 'Images', type: 'array', required: false },
-    { id: 'specifications', name: 'Specifications', type: 'json', required: false },
-    { id: 'features', name: 'Features', type: 'array', required: false },
-    { id: 'accessories', name: 'Accessories', type: 'array', required: false },
-    { id: 'dimensions', name: 'Dimensions', type: 'string', required: false },
-    { id: 'warranty', name: 'Warranty', type: 'string', required: false },
-    { id: 'manuals', name: 'Manuals', type: 'array', required: false },
-    { id: 'certifications', name: 'Certifications', type: 'array', required: false }
+    { id: 'primary_image_url', name: 'Primary Image URL', type: 'url', required: false, icon: Image, description: 'Main product image URL (300px)' },
+    { id: 'large_image_url', name: 'Large Image URL', type: 'url', required: false, icon: Image, description: 'High-resolution image URL (1000px+)' },
+    { id: 'additional_images', name: 'Additional Images', type: 'array', required: false, icon: Image, description: 'Array of additional product image URLs' },
+    { id: 'specifications', name: 'Specifications', type: 'json', required: false, icon: FileText, description: 'Technical specifications and details' },
+    { id: 'features', name: 'Features', type: 'array', required: false, icon: Layers, description: 'Product features and benefits' },
+    { id: 'accessories', name: 'Accessories', type: 'array', required: false, icon: Plus, description: 'Compatible accessories and add-ons' },
+    { id: 'dimensions', name: 'Dimensions', type: 'string', required: false, icon: LayoutGrid, description: 'Physical dimensions and measurements' },
+    { id: 'warranty', name: 'Warranty', type: 'string', required: false, icon: Tag, description: 'Warranty information and terms' },
+    { id: 'manuals', name: 'Manuals', type: 'array', required: false, icon: FileText, description: 'Product manuals and documentation URLs' },
+    { id: 'certifications', name: 'Certifications', type: 'array', required: false, icon: Tag, description: 'Industry certifications and compliance' }
   ];
 
   // Ensure we always have field definitions by using the passed props or fallbacks
