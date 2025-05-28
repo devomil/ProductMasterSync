@@ -51,33 +51,36 @@ export class InventoryService {
           skip_empty_lines: true 
         });
         
-        // Find inventory for this SKU across FL and NJ warehouses
-        const productInventory = records.filter(record => 
+        // Find inventory for this SKU using authentic CWR inventory structure
+        const productInventory = records.find(record => 
           record['CWR Part Number'] === sku || record['SKU'] === sku
         );
         
-        if (productInventory.length > 0) {
-          // Extract real warehouse data from SFTP inventory file
-          const flInventory = productInventory.find(r => r['Warehouse'] === 'FL' || r['Location'] === 'FL');
-          const njInventory = productInventory.find(r => r['Warehouse'] === 'NJ' || r['Location'] === 'NJ');
+        if (productInventory) {
+          // Extract real warehouse quantities using authentic CWR column names
+          const flQty = parseInt(productInventory['qtyfl'] || '0');
+          const njQty = parseInt(productInventory['qtynj'] || '0'); 
+          const cost = parseFloat(productInventory['Your Cost'] || productInventory['Cost'] || '89.95');
           
-          if (flInventory) {
+          // Add FL warehouse if it has inventory
+          if (flQty >= 0) {
             warehouses.push({
               code: 'FL-MAIN',
               name: 'CWR Florida Main Warehouse',
               location: 'Fort Lauderdale, FL',
-              quantity: parseInt(flInventory['Available Quantity'] || flInventory['Stock'] || '0'),
-              cost: parseFloat(flInventory['Cost'] || flInventory['Your Cost'] || '89.95')
+              quantity: flQty,
+              cost: cost
             });
           }
           
-          if (njInventory) {
+          // Add NJ warehouse if it has inventory
+          if (njQty >= 0) {
             warehouses.push({
               code: 'NJ-MAIN',
               name: 'CWR New Jersey Distribution',
               location: 'Edison, NJ',
-              quantity: parseInt(njInventory['Available Quantity'] || njInventory['Stock'] || '0'),
-              cost: parseFloat(njInventory['Cost'] || njInventory['Your Cost'] || '89.95')
+              quantity: njQty,
+              cost: cost
             });
           }
         }
