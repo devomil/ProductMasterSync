@@ -89,7 +89,18 @@ export class BulkImportProcessor {
   }
 
   private async processBatch(batch: any[], mappings: Record<string, string>, supplierId: number): Promise<void> {
-    const transformedProducts = batch.map(rawProduct => this.transformProduct(rawProduct, mappings, supplierId));
+    // Check if this is CWR data and use specialized processor
+    const isCWRData = batch.some(item => item['CWR Part Number']);
+    
+    let transformedProducts;
+    if (isCWRData) {
+      console.log('🏗️ Processing authentic CWR data with specialized processor');
+      transformedProducts = await Promise.all(
+        batch.map(rawProduct => transformCWRRecord(rawProduct, supplierId))
+      );
+    } else {
+      transformedProducts = batch.map(rawProduct => this.transformProduct(rawProduct, mappings, supplierId));
+    }
     
     // Insert products in batch using transaction
     await db.transaction(async (tx) => {
