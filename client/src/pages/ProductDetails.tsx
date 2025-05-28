@@ -165,9 +165,10 @@ export default function ProductDetails() {
             <CardContent className="p-0">
               <div className="space-y-0">
                 {/* Header */}
-                <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-600 border-b">
+                <div className="grid grid-cols-4 gap-4 px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-600 border-b">
                   <div>Supplier</div>
                   <div>Cost</div>
+                  <div>Shipping Cost</div>
                   <div>Stock</div>
                 </div>
                 
@@ -175,7 +176,7 @@ export default function ProductDetails() {
                 {vendorStockData.map((vendor, index) => (
                   <div 
                     key={index}
-                    className="grid grid-cols-3 gap-4 px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    className="grid grid-cols-4 gap-4 px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     onClick={() => {
                       console.log('Clicked vendor:', vendor.name);
                       setActiveTab("supplier");
@@ -186,6 +187,9 @@ export default function ProductDetails() {
                     </div>
                     <div className="text-gray-700">
                       {vendor.type === 'cost' && `$${vendor.cost.toFixed(2)}`}
+                    </div>
+                    <div className="text-gray-600">
+                      {vendor.shippingCost ? `$${vendor.shippingCost.toFixed(2)}` : 'Free'}
                     </div>
                     <div className="text-gray-900 font-medium">
                       {vendor.quantity}
