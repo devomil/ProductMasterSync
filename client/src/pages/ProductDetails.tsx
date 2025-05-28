@@ -22,7 +22,7 @@ import { ArrowLeft, TruckIcon } from "lucide-react";
 export default function ProductDetails() {
   const { id } = useParams();
   const { data: product, isLoading, error } = useQuery({
-    queryKey: ['/api/products', id],
+    queryKey: [`/api/products/${id}`],
     enabled: !!id,
   });
 
