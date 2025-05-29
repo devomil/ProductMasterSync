@@ -27,7 +27,7 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 import { deduplicateProducts, findDuplicateStats } from './utils/deduplication';
-// Removed problematic inventory service import
+import { inventorySync } from './utils/inventory-sync';
 
 // Import the ingestion engine
 import { processSFTPIngestion } from "./utils/ingestion-engine";
@@ -2875,41 +2875,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Bulk inventory update endpoint for automated pulls
-  app.post("/api/inventory/bulk-update", async (req, res) => {
+  // Automated inventory synchronization endpoint
+  app.post("/api/inventory/sync", async (req, res) => {
     try {
-      console.log('Starting bulk inventory update from CWR...');
+      console.log('Starting automated CWR inventory synchronization...');
       
-      const allInventory = await inventoryService.getAllInventoryUpdates();
-      
-      // Update product inventory in database
-      for (const record of allInventory) {
-        try {
-          // Find product by SKU and update inventory
-          const products = await db.select()
-            .from(storage.products)
-            .where(eq(storage.products.sku, record.sku))
-            .limit(1);
-            
-          if (products.length > 0) {
-            await db.update(storage.products)
-              .set({
-                inventoryQuantity: record.quantity,
-                cost: record.cost.toString(),
-                updatedAt: new Date()
-              })
-              .where(eq(storage.products.id, products[0].id));
-          }
-        } catch (updateError) {
-          console.warn(`Failed to update inventory for SKU ${record.sku}:`, updateError);
-        }
-      }
+      const result = await inventorySync.syncFromCWR();
       
       res.json({
-        success: true,
-        message: 'Bulk inventory update completed',
-        recordsProcessed: allInventory.length,
-        timestamp: new Date().toISOString()
+        success: result.success,
+        message: result.success ? 
+          `Successfully synchronized ${result.updatedProducts} products from CWR` :
+          'CWR inventory synchronization failed',
+        totalCWRRecords: result.totalRecords,
+        updatedProducts: result.updatedProducts,
+        newProductsFound: result.newProducts,
+        errors: result.errors,
+        timestamp: result.timestamp.toISOString(),
+        source: "CWR Authentic SFTP Feed"
       });
       
     } catch (error) {

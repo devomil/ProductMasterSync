@@ -9,6 +9,7 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import ProcessFlow from "@/components/dashboard/ProcessFlow";
 import ImportModal from "@/components/imports/ImportModal";
 import { useOnboarding } from "@/components/onboarding/OnboardingManager";
+import { InventorySyncTester } from "@/components/InventorySyncTester";
 
 // Data quality metrics
 const dataQualityMetrics = [
@@ -117,6 +118,11 @@ const Dashboard = () => {
         <PendingApprovals />
         <DataQuality overallScore={statistics.dataQuality.overall} metrics={dataQualityMetrics} />
         <QuickActions />
+      </div>
+
+      {/* Inventory Synchronization Testing */}
+      <div className="mt-10 flex justify-center">
+        <InventorySyncTester />
       </div>
 
       {/* Process Visualization */}
