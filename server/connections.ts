@@ -1,7 +1,7 @@
 // Connections API handling
 import { Request, Response } from 'express';
 import { db } from './db';
-import { connections, products } from '@shared/schema';
+import { connections, products, dataSources } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { Client as SFTPClient } from 'ssh2';
 import FTP from 'ftp';
@@ -1321,7 +1321,7 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
     }
     
     // Get the data source configuration
-    const dataSource = await db.select().from(connections).where(eq(connections.id, id));
+    const dataSource = await db.select().from(dataSources).where(eq(dataSources.id, id));
     
     if (dataSource.length === 0) {
       return res.status(404).json({ 
