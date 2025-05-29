@@ -27,7 +27,7 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 import { deduplicateProducts, findDuplicateStats } from './utils/deduplication';
-import { inventoryService } from './utils/inventory-service';
+import { inventoryService } from './utils/inventory-service-new';
 
 // Import the ingestion engine
 import { processSFTPIngestion } from "./utils/ingestion-engine";
@@ -2805,93 +2805,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { sku } = req.params;
       console.log(`Fetching real CWR inventory for SKU: ${sku}`);
       
-      // Direct SFTP connection to get authentic CWR inventory data
-      const Client = require('ssh2-sftp-client');
-      const sftp = new Client();
+      const warehouses = await inventoryService.getProductInventory(sku);
       
-      try {
-        await sftp.connect({
-          host: 'edi.cwrdistribution.com',
-          port: 22,
-          username: 'eco8',
-          password: 'jwS3~eIy'
-        });
-        
-        console.log(`Fetching live inventory from CWR SFTP for SKU: ${sku}`);
-        
-        // Download and parse inventory file
-        const csvContent = await sftp.get('/eco8/out/inventory.csv');
-        await sftp.end();
-        
-        // Parse CSV content to find this specific SKU
-        const records = parseCsv(csvContent, {
-          columns: true,
-          skip_empty_lines: true
-        });
-        
-        // Find the record for this specific SKU
-        const productRecord = records.find((record: any) => 
-          record.sku === sku || record.SKU === sku
-        );
-        
-        if (!productRecord) {
-          console.log(`No inventory found for SKU: ${sku}`);
-          return res.json({
-            success: true,
-            sku,
-            warehouses: [],
-            lastUpdated: new Date().toISOString(),
-            source: "CWR Live Feed",
-            message: `No inventory data found for SKU: ${sku}`
-          });
-        }
-        
-        // Extract FL and NJ quantities from the product record
-        const flQty = parseInt(productRecord.qtyfl || '0') || 0;
-        const njQty = parseInt(productRecord.qtynj || '0') || 0;
-        const cost = parseFloat(productRecord.price || '0') || 0;
-        
-        const warehouses = [];
-        
-        if (flQty > 0) {
-          warehouses.push({
-            code: 'FL-MAIN',
-            name: 'CWR Florida Main Warehouse',
-            location: 'Fort Lauderdale, FL',
-            quantity: flQty,
-            cost: cost
-          });
-        }
-        
-        if (njQty > 0) {
-          warehouses.push({
-            code: 'NJ-MAIN',
-            name: 'CWR New Jersey Distribution',
-            location: 'Edison, NJ',
-            quantity: njQty,
-            cost: cost
-          });
-        }
-        
-        console.log(`Retrieved inventory for ${sku} from ${warehouses.length} CWR warehouses`);
-        
-        res.json({
-          success: true,
-          sku,
-          warehouses,
-          lastUpdated: new Date().toISOString(),
-          source: "CWR Live Feed"
-        });
-        
-      } catch (sftpError) {
-        console.error('SFTP connection failed:', sftpError);
-        res.status(500).json({
-          success: false,
-          message: 'Failed to connect to CWR inventory system',
-          error: sftpError instanceof Error ? sftpError.message : 'SFTP connection error'
-        });
-      }
-      
+      res.json({
+        success: true,
+        sku,
+        warehouses,
+        lastUpdated: new Date().toISOString(),
+        source: "CWR Live Feed"
+      });
     } catch (error) {
       console.error('Failed to fetch CWR inventory:', error);
       res.status(500).json({

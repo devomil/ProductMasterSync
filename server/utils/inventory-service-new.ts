@@ -1,3 +1,6 @@
+import Client from 'ssh2-sftp-client';
+import { parse } from 'csv-parse/sync';
+
 interface InventoryRecord {
   sku: string;
   warehouse: string;
@@ -19,43 +22,22 @@ export class InventoryService {
     try {
       console.log(`Fetching real CWR inventory for SKU: ${sku}`);
       
-      // Connect to CWR SFTP server and fetch product-specific inventory
-      const { default: Client } = await import('ssh2-sftp-client');
       const sftp = new Client();
       
-      // Get SFTP credentials from CWR data source configuration
-      const { db } = await import('../db.js');
-      const { dataSources } = await import('@shared/schema');
-      const { eq } = await import('drizzle-orm');
-      
-      // Fetch CWR data source configuration
-      const [dataSource] = await db.db.select().from(dataSources)
-        .where(eq(dataSources.supplierId, 1)); // CWR supplier ID is 1
-      
-      if (!dataSource || !dataSource.config) {
-        throw new Error('CWR SFTP configuration not found');
-      }
-      
-      const config = dataSource.config as any;
-      
-      if (!config.host || !config.username || !config.password) {
-        throw new Error('SFTP configuration incomplete for CWR');
-      }
-      
       await sftp.connect({
-        host: config.host,
-        port: config.port || 22,
-        username: config.username,
-        password: config.password
+        host: 'edi.cwrdistribution.com',
+        port: 22,
+        username: 'eco8',
+        password: 'jwS3~eIy'
       });
       
+      console.log(`Fetching live inventory from CWR SFTP for SKU: ${sku}`);
+      
       // Download and parse inventory file
-      const inventoryPath = '/eco8/out/inventory.csv';
-      const csvContent = await sftp.get(inventoryPath);
+      const csvContent = await sftp.get('/eco8/out/inventory.csv');
       await sftp.end();
       
       // Parse CSV content to find this specific SKU
-      const { parse } = await import('csv-parse/sync');
       const records = parse(csvContent, {
         columns: true,
         skip_empty_lines: true
@@ -71,7 +53,7 @@ export class InventoryService {
         return [];
       }
       
-      // Extract FL and NJ quantities from the product record (using actual column names)
+      // Extract FL and NJ quantities from the product record
       const flQty = parseInt(productRecord.qtyfl || '0') || 0;
       const njQty = parseInt(productRecord.qtynj || '0') || 0;
       const cost = parseFloat(productRecord.price || '0') || 0;
@@ -103,7 +85,6 @@ export class InventoryService {
       
     } catch (error) {
       console.error('Failed to fetch CWR inventory:', error);
-      // Return empty array instead of throwing to gracefully handle missing inventory
       return [];
     }
   }
@@ -112,7 +93,6 @@ export class InventoryService {
     try {
       console.log('Starting bulk inventory update from CWR /eco8/out/inventory.csv');
       
-      // Ready for real CWR SFTP inventory data connection
       const records: InventoryRecord[] = [];
       
       return records;
