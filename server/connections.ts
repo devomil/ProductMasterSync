@@ -1404,8 +1404,10 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                 const errors: string[] = [];
                 
                 // Process each inventory record
+                let processedCount = 0;
                 for (const record of records) {
                   try {
+                    processedCount++;
                     const cwrPartNumber = record.sku || record.SKU;
                     if (!cwrPartNumber) continue;
                     
@@ -1416,6 +1418,11 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     
                     // Find product by CWR Part Number (stored in manufacturer_part_number field)
                     const matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === cwrPartNumber);
+                    
+                    // Debug logging for first few records
+                    if (processedCount <= 5) {
+                      console.log(`[DEBUG] Record ${processedCount}: CWR Part ${cwrPartNumber}, Match: ${matchingProduct ? 'FOUND' : 'NOT FOUND'}`);
+                    }
                     
                     if (matchingProduct) {
                       // Update existing product with cost if available
