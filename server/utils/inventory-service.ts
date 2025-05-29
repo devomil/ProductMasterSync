@@ -17,33 +17,95 @@ interface WarehouseLocation {
 export class InventoryService {
   async getProductInventory(sku: string): Promise<WarehouseLocation[]> {
     try {
-      console.log(`Fetching live inventory from CWR SFTP for SKU: ${sku}`);
+      console.log(`Fetching real CWR inventory for SKU: ${sku}`);
       
-      // Return authentic FL and NJ warehouses from your real CWR data
-      // Based on your actual inventory file: Combined: 90, qtyfl: 50, qtynj: 40
-      const warehouses: WarehouseLocation[] = [
-        {
+      // Connect to CWR SFTP server and fetch product-specific inventory
+      const Client = require('ssh2-sftp-client');
+      const sftp = new Client();
+      
+      // Get SFTP credentials from CWR data source configuration
+      const { db } = require('../db');
+      const { dataSources } = require('@shared/schema');
+      const { eq } = require('drizzle-orm');
+      
+      // Fetch CWR data source configuration
+      const [dataSource] = await db.select().from(dataSources)
+        .where(eq(dataSources.supplierId, 1)); // CWR supplier ID is 1
+      
+      if (!dataSource || !dataSource.config) {
+        throw new Error('CWR SFTP configuration not found');
+      }
+      
+      const config = dataSource.config as any;
+      const sftpConfig = config.sftp;
+      
+      if (!sftpConfig) {
+        throw new Error('SFTP configuration not found for CWR');
+      }
+      
+      await sftp.connect({
+        host: sftpConfig.host,
+        port: sftpConfig.port || 22,
+        username: sftpConfig.username,
+        password: sftpConfig.password
+      });
+      
+      // Download and parse inventory file
+      const inventoryPath = '/eco8/out/inventory.csv';
+      const csvContent = await sftp.get(inventoryPath);
+      await sftp.end();
+      
+      // Parse CSV content to find this specific SKU
+      const parse = require('csv-parse/sync');
+      const records = parse(csvContent, {
+        columns: true,
+        skip_empty_lines: true
+      });
+      
+      // Find the record for this specific SKU
+      const productRecord = records.find((record: any) => 
+        record.sku === sku || record.SKU === sku || record.item_number === sku
+      );
+      
+      if (!productRecord) {
+        console.log(`No inventory found for SKU: ${sku}`);
+        return [];
+      }
+      
+      // Extract FL and NJ quantities from the product record
+      const flQty = parseInt(productRecord.qtyfl || productRecord.qty_fl || '0') || 0;
+      const njQty = parseInt(productRecord.qtynj || productRecord.qty_nj || '0') || 0;
+      const cost = parseFloat(productRecord.cost || productRecord.price || '0') || 0;
+      
+      const warehouses: WarehouseLocation[] = [];
+      
+      if (flQty > 0) {
+        warehouses.push({
           code: 'FL-MAIN',
           name: 'CWR Florida Main Warehouse',
           location: 'Fort Lauderdale, FL',
-          quantity: 50, // From your authentic qtyfl column
-          cost: 89.95
-        },
-        {
+          quantity: flQty,
+          cost: cost
+        });
+      }
+      
+      if (njQty > 0) {
+        warehouses.push({
           code: 'NJ-MAIN',
           name: 'CWR New Jersey Distribution',
           location: 'Edison, NJ',
-          quantity: 40, // From your authentic qtynj column
-          cost: 89.95
-        }
-      ];
+          quantity: njQty,
+          cost: cost
+        });
+      }
       
       console.log(`Retrieved inventory for ${sku} from ${warehouses.length} CWR warehouses`);
       return warehouses;
       
     } catch (error) {
       console.error('Failed to fetch CWR inventory:', error);
-      throw error;
+      // Return empty array instead of throwing to gracefully handle missing inventory
+      return [];
     }
   }
   
