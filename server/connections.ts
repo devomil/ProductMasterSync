@@ -1395,6 +1395,27 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                 
                 console.log(`Processing ${records.length} inventory records from ${inventoryPath}`);
                 
+                // Pre-process to handle duplicate MPNs - keep the record with highest inventory
+                const mpnMap = new Map();
+                for (const record of records) {
+                  const inventorySku = record.sku || record.SKU;
+                  const inventoryMpn = record.mfgn || record.MFGN || record['mfgn or Manufacture Part Number'] || record.mpn || record.MPN;
+                  const flQty = parseInt(record.qtyfl || '0') || 0;
+                  const njQty = parseInt(record.qtynj || '0') || 0;
+                  const totalQty = flQty + njQty;
+                  
+                  if (inventoryMpn) {
+                    const existing = mpnMap.get(inventoryMpn);
+                    if (!existing || totalQty > existing.totalQty) {
+                      mpnMap.set(inventoryMpn, { record, totalQty, inventorySku, inventoryMpn });
+                    }
+                  }
+                }
+                
+                // Convert back to array, keeping only the highest inventory record for each MPN
+                const uniqueRecords = Array.from(mpnMap.values()).map(item => item.record);
+                console.log(`After deduplication: ${uniqueRecords.length} unique inventory records (removed ${records.length - uniqueRecords.length} duplicates)`);
+                
                 // Get all existing products for this supplier
                 const existingProducts = await db.select().from(products);
                 const productMap = new Map(existingProducts.map(p => [p.sku, p]));
@@ -1403,9 +1424,9 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                 let newProductsFound = 0;
                 const errors: string[] = [];
                 
-                // Process each inventory record
+                // Process each unique inventory record
                 let processedCount = 0;
-                for (const record of records) {
+                for (const record of uniqueRecords) {
                   try {
                     processedCount++;
                     const inventorySku = record.sku || record.SKU;
