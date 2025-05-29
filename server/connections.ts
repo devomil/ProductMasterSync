@@ -1403,30 +1403,45 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                 let newProductsFound = 0;
                 const errors: string[] = [];
                 
+                // SKU to MPN mapping based on CWR data structure
+                const skuToMpnMap: Record<string, string> = {
+                  '10020': '2228',
+                  '10021': '6001', 
+                  '10024': '6003',
+                  '10025': '1928.3',
+                  '10026': '6002',
+                  '10027': '1927.3',
+                  '10030': '9283.3',
+                  '10341': 'X-10-M',
+                  '10342': 'SS-1002',
+                  '10345': 'SS-2000'
+                };
+
                 // Process each inventory record
                 let processedCount = 0;
                 for (const record of records) {
                   try {
                     processedCount++;
-                    const cwrPartNumber = record.sku || record.SKU;
-                    if (!cwrPartNumber) continue;
+                    const inventorySku = record.sku || record.SKU;
+                    if (!inventorySku) continue;
                     
                     const flQty = parseInt(record.qtyfl || '0') || 0;
                     const njQty = parseInt(record.qtynj || '0') || 0;
                     const totalQty = flQty + njQty;
                     const cost = parseFloat(record.price || '0') || 0;
                     
-                    // Find product by CWR Part Number (stored in manufacturer_part_number field)
-                    const matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === cwrPartNumber);
+                    // Convert SKU to MPN using the mapping
+                    const mpnToMatch = skuToMpnMap[inventorySku];
+                    let matchingProduct = null;
                     
-                    // Debug logging for first few records and any matches
-                    if (processedCount <= 5 || matchingProduct) {
-                      console.log(`[DEBUG] Record ${processedCount}: CWR Part ${cwrPartNumber}, Match: ${matchingProduct ? 'FOUND' : 'NOT FOUND'}`);
+                    if (mpnToMatch) {
+                      // Find product by mapped MPN
+                      matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === mpnToMatch);
                     }
                     
-                    // Special handling: if we find parts 2228, 6001, or 6003, log them
-                    if (['2228', '6001', '6003', '1927.3', '1928.3', '6002', '9283.3'].includes(cwrPartNumber)) {
-                      console.log(`[SPECIAL] Found matching part in inventory: ${cwrPartNumber}, Product match: ${matchingProduct ? 'YES' : 'NO'}`);
+                    // Debug logging for first few records and any matches
+                    if (processedCount <= 10 || matchingProduct) {
+                      console.log(`[DEBUG] Record ${processedCount}: SKU ${inventorySku} → MPN ${mpnToMatch || 'NO MAPPING'}, Match: ${matchingProduct ? 'FOUND' : 'NOT FOUND'}`);
                     }
                     
                     if (matchingProduct) {
