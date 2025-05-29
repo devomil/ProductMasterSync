@@ -1,5 +1,6 @@
-import Client from 'ssh2-sftp-client';
-import { parse } from 'csv-parse/sync';
+// Using require for better compatibility with the current module system
+const Client = require('ssh2-sftp-client');
+const { parse } = require('csv-parse/sync');
 
 interface InventoryRecord {
   sku: string;
