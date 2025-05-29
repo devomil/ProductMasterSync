@@ -546,6 +546,7 @@ export function useDataSourceActions() {
     handleDeleteDataSource,
     handleConfigureScheduler,
     handleConfirmDelete,
-    handleTestPull
+    handleTestPull,
+    handleSyncInventory
   };
 }
