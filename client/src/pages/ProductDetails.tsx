@@ -21,18 +21,26 @@ import { ArrowLeft, TruckIcon, Package, MapPin } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 
 // Authentic vendor stock data from CWR supplier information
-const getVendorStockData = (product: any) => {
+const getVendorStockData = (product: any, inventoryData?: any) => {
   if (!product) return [];
   
   const vendors = [];
   
   // Primary CWR supplier with authentic pricing data
   if (product.cost || product.price) {
+    // Calculate combined warehouse quantity from FL and NJ
+    let combinedQuantity = 0;
+    if (inventoryData?.warehouses) {
+      combinedQuantity = inventoryData.warehouses.reduce((total: number, warehouse: any) => {
+        return total + (warehouse.quantity || 0);
+      }, 0);
+    }
+    
     vendors.push({
       name: "CWR",
       stock: "Live Inventory",
       cost: parseFloat(product.cost) || 0,
-      quantity: "Stock Available", // Shows as "Stock Available" until real-time data loads
+      quantity: combinedQuantity > 0 ? combinedQuantity : "Stock Available",
       type: "authentic"
     });
   }
@@ -64,8 +72,14 @@ export default function ProductDetails() {
     queryKey: [`/api/products/${id}`],
     enabled: !!id,
   }) as { data: any, isLoading: boolean, error: any };
+
+  // Fetch inventory data for warehouse quantities
+  const { data: inventoryData } = useQuery({
+    queryKey: [`/api/inventory/${product?.sku}`],
+    enabled: !!product?.sku,
+  }) as { data: any };
   
-  const vendorStockData = getVendorStockData(product);
+  const vendorStockData = getVendorStockData(product, inventoryData);
   
   // State for warehouse detail modal
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
