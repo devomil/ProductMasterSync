@@ -1413,10 +1413,17 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     
                     if (!inventorySku && !inventoryMpn) continue;
                     
-                    const flQty = parseInt(record.qtyfl || '0') || 0;
-                    const njQty = parseInt(record.qtynj || '0') || 0;
+                    // Try multiple possible field names for FL and NJ quantities
+                    const flQty = parseInt(record.qtyfl || record.qtyfla || record.fl || record.FL || '0') || 0;
+                    const njQty = parseInt(record.qtynj || record.qtynew || record.nj || record.NJ || '0') || 0;
                     const totalQty = flQty + njQty;
-                    const cost = parseFloat(record.price || '0') || 0;
+                    const cost = parseFloat(record.price || record.cost || record.Price || record.Cost || '0') || 0;
+                    
+                    // Debug: show field structure for first few records
+                    if (processedCount <= 3) {
+                      console.log(`[FIELD DEBUG] Record ${processedCount} fields:`, Object.keys(record));
+                      console.log(`[FIELD DEBUG] Record ${processedCount} full data:`, JSON.stringify(record, null, 2));
+                    }
                     
                     // Try to match by MPN first, then by SKU
                     let matchingProduct = null;
@@ -1434,7 +1441,7 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     
                     // Debug logging for first few records and any matches
                     if (processedCount <= 10 || matchingProduct) {
-                      console.log(`[DEBUG] Record ${processedCount}: SKU ${inventorySku}, MPN ${inventoryMpn}, Match: ${matchingProduct ? `FOUND (${matchMethod})` : 'NOT FOUND'}`);
+                      console.log(`[DEBUG] Record ${processedCount}: SKU ${inventorySku}, MPN ${inventoryMpn}, FL: ${flQty}, NJ: ${njQty}, Total: ${totalQty}, Match: ${matchingProduct ? `FOUND (${matchMethod})` : 'NOT FOUND'}`);
                     }
                     
                     if (matchingProduct) {
