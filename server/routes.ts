@@ -2864,8 +2864,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Fallback: use database inventory_quantity if available
-      if (product.inventory_quantity && product.inventory_quantity > 0) {
+      // Fallback: use database inventoryQuantity if available
+      if (product.inventoryQuantity && product.inventoryQuantity > 0) {
         return res.json({
           success: true,
           sku,
@@ -2873,7 +2873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             code: 'TOTAL',
             name: 'Total Available Inventory',
             location: 'All Locations',
-            quantity: product.inventory_quantity,
+            quantity: product.inventoryQuantity,
             cost: parseFloat(product.cost || '0')
           }],
           lastUpdated: product.updatedAt?.toISOString() || new Date().toISOString(),
