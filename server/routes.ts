@@ -14,7 +14,8 @@ import {
   insertMappingTemplateSchema,
   schedules,
   dataSources,
-  categories
+  categories,
+  products
 } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import marketplaceRoutes from "./marketplace/routes";
@@ -2803,66 +2804,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/inventory/:sku", async (req, res) => {
     try {
       const { sku } = req.params;
-      console.log(`Fetching real CWR inventory for SKU: ${sku}`);
+      console.log(`Fetching inventory data for SKU: ${sku}`);
       
-      // Based on the authentic CWR inventory data structure you've accessed
-      // Using product-specific data that matches your real SFTP file
-      const inventoryMap: { [key: string]: { fl: number, nj: number, price: number } } = {
-        '329650': { fl: 40, nj: 50, price: 5.33 },   // From your real CWR SFTP test
-        '942464': { fl: 12, nj: 8, price: 24.95 },   // Authentic CWR product data
-        '672275': { fl: 18, nj: 22, price: 67.99 },  // Authentic CWR product data
-        '10020': { fl: 40, nj: 50, price: 5.33 },    // Your working test data
-        '10021': { fl: 3, nj: 3, price: 86.60 },     // From your SFTP output  
-        '520322': { fl: 25, nj: 15, price: 12.75 },  // Authentic CWR product data
-        '772893': { fl: 10, nj: 20, price: 159.66 }, // Authentic CWR product data
-        '10024': { fl: 8, nj: 12, price: 45.20 },    // Authentic CWR product data
-        '10025': { fl: 15, nj: 25, price: 23.80 },   // Authentic CWR product data
-        '535646': { fl: 30, nj: 45, price: 89.95 }   // Authentic CWR product data
-      };
+      // Get the product from database to check if inventory_quantity is available
+      const [product] = await db.select().from(products).where(eq(products.sku, sku));
       
-      const inventory = inventoryMap[sku];
-      if (!inventory) {
-        console.log(`No inventory found for SKU: ${sku}`);
+      if (!product) {
         return res.json({
           success: true,
           sku,
           warehouses: [],
           lastUpdated: new Date().toISOString(),
-          source: "CWR Live Feed",
-          message: `No inventory data found for SKU: ${sku}`
+          source: "Database",
+          message: `Product not found for SKU: ${sku}`
         });
       }
       
-      const warehouses = [];
+      // If inventory_quantity is available and > 0, use it
+      if (product.inventory_quantity && product.inventory_quantity > 0) {
+        // Since we don't have warehouse-specific breakdown in database, 
+        // we'll fetch it from the live SFTP feed for accuracy
+        try {
+          const inventorySync = new (await import('./utils/inventory-sync.js')).InventorySync();
+          const inventoryData = await inventorySync.getInventoryForSKU(sku);
+          
+          if (inventoryData) {
+            const warehouses = [];
+            
+            if (inventoryData.fl > 0) {
+              warehouses.push({
+                code: 'FL-MAIN',
+                name: 'CWR Florida Main Warehouse',
+                location: 'Fort Lauderdale, FL',
+                quantity: inventoryData.fl,
+                cost: inventoryData.cost
+              });
+            }
+            
+            if (inventoryData.nj > 0) {
+              warehouses.push({
+                code: 'NJ-MAIN',
+                name: 'CWR New Jersey Distribution',
+                location: 'Edison, NJ',
+                quantity: inventoryData.nj,
+                cost: inventoryData.cost
+              });
+            }
+            
+            return res.json({
+              success: true,
+              sku,
+              warehouses,
+              lastUpdated: new Date().toISOString(),
+              source: "CWR Live Feed"
+            });
+          }
+        } catch (sftpError) {
+          console.log('SFTP fetch failed, falling back to database total');
+        }
+      }
       
-      if (inventory.fl > 0) {
-        warehouses.push({
-          code: 'FL-MAIN',
-          name: 'CWR Florida Main Warehouse',
-          location: 'Fort Lauderdale, FL',
-          quantity: inventory.fl,
-          cost: inventory.price
+      // Fallback: use database inventory_quantity if available
+      if (product.inventory_quantity && product.inventory_quantity > 0) {
+        return res.json({
+          success: true,
+          sku,
+          warehouses: [{
+            code: 'TOTAL',
+            name: 'Total Available Inventory',
+            location: 'All Locations',
+            quantity: product.inventory_quantity,
+            cost: parseFloat(product.cost || '0')
+          }],
+          lastUpdated: product.updatedAt?.toISOString() || new Date().toISOString(),
+          source: "Database (Last Sync)"
         });
       }
       
-      if (inventory.nj > 0) {
-        warehouses.push({
-          code: 'NJ-MAIN',
-          name: 'CWR New Jersey Distribution',
-          location: 'Edison, NJ',
-          quantity: inventory.nj,
-          cost: inventory.price
-        });
-      }
-      
-      console.log(`Retrieved inventory for ${sku} from ${warehouses.length} CWR warehouses`);
-      
-      res.json({
+      // No inventory available
+      return res.json({
         success: true,
         sku,
-        warehouses,
+        warehouses: [],
         lastUpdated: new Date().toISOString(),
-        source: "CWR Live Feed"
+        source: "Database",
+        message: `No inventory available for SKU: ${sku}`
       });
       
     } catch (error) {
