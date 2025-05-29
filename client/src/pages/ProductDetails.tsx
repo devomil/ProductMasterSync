@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { HelpBubble, helpContexts } from "@/components/HelpBubble";
 import { 
   Tabs, 
   TabsContent, 

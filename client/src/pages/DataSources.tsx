@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ChevronRight, FilePlus, FileEdit, Link2, Server, Database, UploadCloud, FileCode, Settings, Plus, Trash } from "lucide-react";
+import { HelpBubble, helpContexts } from "@/components/HelpBubble";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { v4 as uuidv4 } from "uuid";
@@ -758,9 +759,17 @@ export default function DataSources() {
   return (
     <main className="container mx-auto py-6 px-4 md:px-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Data Sources</h1>
-          <p className="text-gray-500">Manage your data connections and sources</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">Data Sources</h1>
+            <p className="text-gray-500">Manage your data connections and sources</p>
+          </div>
+          <HelpBubble 
+            tips={helpContexts.dataSourcesList}
+            contextTitle="Data Sources"
+            trigger="click"
+            position="bottom"
+          />
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
