@@ -1308,6 +1308,196 @@ const pullSampleDataFromFTP = async (
   });
 };
 
+// Sync inventory for a specific data source
+export const syncInventoryForDataSource = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid data source ID' 
+      });
+    }
+    
+    // Get the data source configuration
+    const dataSource = await db.select().from(connections).where(eq(connections.id, id));
+    
+    if (dataSource.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Data source not found' 
+      });
+    }
+    
+    const source = dataSource[0];
+    
+    if (source.type !== 'sftp') {
+      return res.status(400).json({
+        success: false,
+        message: 'Inventory sync only supported for SFTP data sources'
+      });
+    }
+    
+    const config = source.config as any;
+    
+    return new Promise((resolve) => {
+      const client = new SFTPClient();
+      
+      client.on('ready', () => {
+        console.log(`SFTP connection ready for inventory sync (Data Source ${id})`);
+        
+        client.sftp((err, sftp) => {
+          if (err) {
+            client.end();
+            resolve(res.status(500).json({
+              success: false,
+              message: `SFTP error: ${err.message}`
+            }));
+            return;
+          }
+          
+          // Look for inventory file (try common paths)
+          const inventoryPaths = [
+            '/eco8/out/inventory.csv',
+            '/inventory.csv',
+            '/out/inventory.csv',
+            '/data/inventory.csv'
+          ];
+          
+          const tryInventoryPath = (pathIndex: number) => {
+            if (pathIndex >= inventoryPaths.length) {
+              client.end();
+              resolve(res.status(404).json({
+                success: false,
+                message: 'No inventory file found in expected locations'
+              }));
+              return;
+            }
+            
+            const inventoryPath = inventoryPaths[pathIndex];
+            console.log(`Trying inventory path: ${inventoryPath}`);
+            
+            const chunks: Buffer[] = [];
+            const stream = sftp.createReadStream(inventoryPath);
+            
+            stream.on('data', (chunk) => {
+              chunks.push(chunk);
+            });
+            
+            stream.on('end', async () => {
+              try {
+                const csvContent = Buffer.concat(chunks).toString();
+                const records = parseCsv(csvContent, {
+                  columns: true,
+                  skip_empty_lines: true
+                });
+                
+                console.log(`Processing ${records.length} inventory records from ${inventoryPath}`);
+                
+                // Get all existing products for this supplier
+                const existingProducts = await db.select().from(products);
+                const productMap = new Map(existingProducts.map(p => [p.sku, p]));
+                
+                let updatedCount = 0;
+                let newProductsFound = 0;
+                const errors: string[] = [];
+                
+                // Process each inventory record
+                for (const record of records) {
+                  try {
+                    const sku = record.sku || record.SKU;
+                    if (!sku) continue;
+                    
+                    const flQty = parseInt(record.qtyfl || '0') || 0;
+                    const njQty = parseInt(record.qtynj || '0') || 0;
+                    const totalQty = flQty + njQty;
+                    const cost = parseFloat(record.price || '0') || 0;
+                    
+                    const existingProduct = productMap.get(sku);
+                    
+                    if (existingProduct) {
+                      // Update existing product
+                      const updateData: any = { updatedAt: new Date() };
+                      
+                      if (cost > 0) {
+                        updateData.cost = cost.toString();
+                      }
+                      
+                      await db.update(products)
+                        .set(updateData)
+                        .where(eq(products.id, existingProduct.id));
+                        
+                      updatedCount++;
+                      
+                    } else if (totalQty > 0) {
+                      // Track new products found in inventory
+                      newProductsFound++;
+                    }
+                    
+                  } catch (recordError) {
+                    const errorMsg = `Failed to process record for SKU ${record.sku}: ${recordError}`;
+                    errors.push(errorMsg);
+                  }
+                }
+                
+                client.end();
+                resolve(res.json({
+                  success: true,
+                  message: `Successfully synchronized inventory from ${inventoryPath}`,
+                  totalRecords: records.length,
+                  updatedProducts: updatedCount,
+                  newProductsFound: newProductsFound,
+                  errors: errors,
+                  dataSourceId: id,
+                  inventoryPath: inventoryPath,
+                  timestamp: new Date().toISOString()
+                }));
+                
+              } catch (parseError) {
+                console.error(`Error parsing inventory file: ${parseError}`);
+                tryInventoryPath(pathIndex + 1);
+              }
+            });
+            
+            stream.on('error', (streamError) => {
+              console.log(`Failed to read ${inventoryPath}: ${streamError.message}`);
+              tryInventoryPath(pathIndex + 1);
+            });
+          };
+          
+          tryInventoryPath(0);
+        });
+      });
+      
+      client.on('error', (err) => {
+        resolve(res.status(500).json({
+          success: false,
+          message: `Connection failed: ${err.message}`
+        }));
+      });
+      
+      // Apply SFTP credentials with environment variable support
+      const connectConfig = {
+        host: config.host,
+        port: config.port || 22,
+        username: config.username,
+        password: config.password
+      };
+      
+      applySFTPCredentials(config, connectConfig);
+      client.connect(connectConfig);
+    });
+    
+  } catch (error) {
+    console.error('Error syncing inventory:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error syncing inventory' 
+    });
+  }
+};
+
 // Register routes
 export const registerConnectionsRoutes = (app: any) => {
   app.get('/api/connections', getConnections);
@@ -1318,4 +1508,5 @@ export const registerConnectionsRoutes = (app: any) => {
   app.post('/api/connections/test', testConnection);
   app.post('/api/connections/pull-sample-data', pullSampleData);
   app.post('/api/connections/sample-data', pullSampleData); // Added alias for client compatibility
+  app.post('/api/data-sources/:id/sync-inventory', syncInventoryForDataSource);
 };

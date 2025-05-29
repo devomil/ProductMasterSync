@@ -1015,6 +1015,9 @@ export default function DataSources() {
                             <DropdownMenuItem onClick={() => dataSourceActions.handlePullSampleDataForDataSource(dataSource)}>
                               Pull Sample Data
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => dataSourceActions.handleSyncInventory(dataSource)}>
+                              Sync Inventory
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => dataSourceActions.handleConfigureScheduler(dataSource)}>
                               Configure Scheduler
                             </DropdownMenuItem>

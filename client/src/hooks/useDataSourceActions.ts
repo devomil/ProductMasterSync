@@ -31,6 +31,7 @@ export function useDataSourceActions() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentDataSource, setCurrentDataSource] = useState<DataSource | null>(null);
+  const [isSyncingInventory, setIsSyncingInventory] = useState(false);
 
   // Function to handle test connection for an existing data source
   const handleTestConnectionForDataSource = async (dataSource: DataSource) => {
@@ -463,11 +464,56 @@ export function useDataSourceActions() {
     }
   };
 
+  const handleSyncInventory = async (dataSource: DataSource) => {
+    if (dataSource.type !== 'sftp') {
+      toast({
+        variant: "destructive",
+        title: "Unsupported Data Source",
+        description: "Inventory sync is only available for SFTP data sources"
+      });
+      return;
+    }
+
+    setIsSyncingInventory(true);
+    try {
+      const response = await fetch(`/api/data-sources/${dataSource.id}/sync-inventory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "Inventory Synchronized",
+          description: `Updated ${result.updatedProducts} products from ${result.inventoryPath}`
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Inventory Sync Failed",
+          description: result.message || "Unable to synchronize inventory"
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing inventory:", error);
+      toast({
+        variant: "destructive",
+        title: "Sync Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    } finally {
+      setIsSyncingInventory(false);
+    }
+  };
+
   return {
     // States
     isTestingConnection,
     isPullingSampleData,
     isProcessingIngestion,
+    isSyncingInventory,
     sampleData,
     showSampleDataModal,
     showPathSelector,
