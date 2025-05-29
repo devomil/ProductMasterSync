@@ -1,12 +1,13 @@
 // Connections API handling
 import { Request, Response } from 'express';
 import { db } from './db';
-import { connections } from '@shared/schema';
+import { connections, products } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { Client as SFTPClient } from 'ssh2';
 import FTP from 'ftp';
 import pg from 'pg';
 import path from 'path';
+import { parse as parseCsv } from 'csv-parse/sync';
 
 // Helper function to properly parse CSV lines, handling quoted fields
 const parseCSVLine = (line: string): string[] => {
