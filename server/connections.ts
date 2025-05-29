@@ -1419,9 +1419,14 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     // Find product by CWR Part Number (stored in manufacturer_part_number field)
                     const matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === cwrPartNumber);
                     
-                    // Debug logging for first few records
-                    if (processedCount <= 5) {
+                    // Debug logging for first few records and any matches
+                    if (processedCount <= 5 || matchingProduct) {
                       console.log(`[DEBUG] Record ${processedCount}: CWR Part ${cwrPartNumber}, Match: ${matchingProduct ? 'FOUND' : 'NOT FOUND'}`);
+                    }
+                    
+                    // Special handling: if we find parts 2228, 6001, or 6003, log them
+                    if (['2228', '6001', '6003', '1927.3', '1928.3', '6002', '9283.3'].includes(cwrPartNumber)) {
+                      console.log(`[SPECIAL] Found matching part in inventory: ${cwrPartNumber}, Product match: ${matchingProduct ? 'YES' : 'NO'}`);
                     }
                     
                     if (matchingProduct) {
