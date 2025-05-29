@@ -77,8 +77,11 @@ export class InventorySync {
           const existingProduct = productMap.get(sku);
           
           if (existingProduct) {
-            // Update existing product
-            const updateData: any = { updatedAt: new Date() };
+            // Update existing product with inventory quantity
+            const updateData: any = { 
+              updatedAt: new Date(),
+              inventory_quantity: totalQty
+            };
             
             if (cost > 0) {
               updateData.cost = cost.toString();
@@ -89,6 +92,7 @@ export class InventorySync {
               .where(eq(products.id, existingProduct.id));
               
             result.updatedProducts++;
+            console.log(`Updated product ${sku}: FL=${flQty}, NJ=${njQty}, Total=${totalQty}`);
             
           } else if (totalQty > 0) {
             // Track new products found in inventory (don't auto-create)
