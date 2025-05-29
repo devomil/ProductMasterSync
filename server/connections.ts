@@ -1445,22 +1445,31 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     }
                     
                     if (matchingProduct) {
-                      // Update existing product with inventory quantity and cost
-                      const updateData: any = { 
-                        updatedAt: new Date(),
-                        inventoryQuantity: totalQty
-                      };
+                      // Get current database value for this product
+                      const [currentProduct] = await db.select().from(products).where(eq(products.id, matchingProduct.id));
+                      const currentInventory = currentProduct?.inventoryQuantity || 0;
+                      const shouldUpdate = totalQty > currentInventory || (totalQty === currentInventory && cost > 0);
                       
-                      if (cost > 0) {
-                        updateData.cost = cost.toString();
+                      if (shouldUpdate) {
+                        // Update existing product with inventory quantity and cost
+                        const updateData: any = { 
+                          updatedAt: new Date(),
+                          inventoryQuantity: totalQty
+                        };
+                        
+                        if (cost > 0) {
+                          updateData.cost = cost.toString();
+                        }
+                        
+                        console.log(`[UPDATE] Updating product ${matchingProduct.sku} with inventory: ${totalQty} (FL: ${flQty}, NJ: ${njQty}) - Previous: ${currentInventory}`);
+                        
+                        await db.update(products)
+                          .set(updateData)
+                          .where(eq(products.id, matchingProduct.id));
+                      } else {
+                        console.log(`[SKIP] Product ${matchingProduct.sku} already has higher inventory (${currentInventory}) than current record (${totalQty})`);
                       }
                       
-                      console.log(`[UPDATE] Updating product ${matchingProduct.sku} with inventory: ${totalQty} (FL: ${flQty}, NJ: ${njQty})`);
-                      
-                      await db.update(products)
-                        .set(updateData)
-                        .where(eq(products.id, matchingProduct.id));
-                        
                       updatedCount++;
                       
                     } else if (totalQty > 0) {
