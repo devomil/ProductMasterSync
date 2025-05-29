@@ -1414,8 +1414,8 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     const totalQty = flQty + njQty;
                     const cost = parseFloat(record.price || '0') || 0;
                     
-                    // Find product by CWR Part Number (stored in usin field)
-                    const matchingProduct = existingProducts.find(p => p.usin === cwrPartNumber);
+                    // Find product by CWR Part Number (stored in manufacturer_part_number field)
+                    const matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === cwrPartNumber);
                     
                     if (matchingProduct) {
                       // Update existing product with cost if available
