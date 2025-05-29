@@ -61,9 +61,18 @@ export class InventorySync {
       
       // Get all existing products
       const existingProducts = await db.select().from(products);
+      console.log(`[SYNC DEBUG] Found ${existingProducts.length} existing products in database`);
+      
       // Create map by manufacturer part number AND SKU for matching
       const productMapByMPN = new Map(existingProducts.map(p => [p.manufacturerPartNumber, p]));
       const productMapBySKU = new Map(existingProducts.map(p => [p.sku, p]));
+      
+      console.log(`[SYNC DEBUG] Created MPN map with ${productMapByMPN.size} entries`);
+      console.log(`[SYNC DEBUG] Created SKU map with ${productMapBySKU.size} entries`);
+      
+      // Debug: show some sample MPNs in our database
+      const sampleMPNs = Array.from(productMapByMPN.keys()).filter(mpn => mpn).slice(0, 10);
+      console.log(`[SYNC DEBUG] Sample MPNs in database:`, sampleMPNs);
       
       // Process each inventory record
       for (const record of records) {
@@ -107,10 +116,14 @@ export class InventorySync {
               updateData.cost = cost.toString();
             }
             
-            await db.update(products)
+            console.log(`[UPDATE DEBUG] Updating product ID ${existingProduct.id}, SKU ${existingProduct.sku} with:`, updateData);
+            
+            const updateResult = await db.update(products)
               .set(updateData)
               .where(eq(products.id, existingProduct.id));
               
+            console.log(`[UPDATE RESULT] Updated rows:`, updateResult);
+            
             result.updatedProducts++;
             console.log(`Updated product ${existingProduct.sku} (${matchType}): FL=${flQty}, NJ=${njQty}, Total=${totalQty}`);
             

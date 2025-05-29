@@ -1438,12 +1438,17 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     }
                     
                     if (matchingProduct) {
-                      // Update existing product with cost if available
-                      const updateData: any = { updatedAt: new Date() };
+                      // Update existing product with inventory quantity and cost
+                      const updateData: any = { 
+                        updatedAt: new Date(),
+                        inventoryQuantity: totalQty
+                      };
                       
                       if (cost > 0) {
                         updateData.cost = cost.toString();
                       }
+                      
+                      console.log(`[UPDATE] Updating product ${matchingProduct.sku} with inventory: ${totalQty} (FL: ${flQty}, NJ: ${njQty})`);
                       
                       await db.update(products)
                         .set(updateData)
