@@ -61,20 +61,39 @@ export class InventorySync {
       
       // Get all existing products
       const existingProducts = await db.select().from(products);
-      const productMap = new Map(existingProducts.map(p => [p.sku, p]));
+      // Create map by manufacturer part number AND SKU for matching
+      const productMapByMPN = new Map(existingProducts.map(p => [p.manufacturerPartNumber, p]));
+      const productMapBySKU = new Map(existingProducts.map(p => [p.sku, p]));
       
       // Process each inventory record
       for (const record of records) {
         try {
-          const sku = record.sku || record.SKU;
-          if (!sku) continue;
+          const inventorySku = record.sku || record.SKU;
+          const inventoryMPN = record.mpn || record.MPN || record.manufacturerpartnumber || record.manufacturerPartNumber;
+          if (!inventorySku && !inventoryMPN) continue;
+          
+          // Debug: log first few records to understand field structure
+          if (result.updatedProducts + result.newProducts < 5) {
+            console.log('Sample record fields:', Object.keys(record));
+            console.log('Sample record:', record);
+          }
           
           const flQty = parseInt(record.qtyfl || '0') || 0;
           const njQty = parseInt(record.qtynj || '0') || 0;
           const totalQty = flQty + njQty;
           const cost = parseFloat(record.price || '0') || 0;
           
-          const existingProduct = productMap.get(sku);
+          // Try to find product by manufacturer part number first, then by SKU
+          let existingProduct = null;
+          let matchType = '';
+          
+          if (inventoryMPN && productMapByMPN.has(inventoryMPN)) {
+            existingProduct = productMapByMPN.get(inventoryMPN);
+            matchType = 'MPN';
+          } else if (inventorySku && productMapBySKU.has(inventorySku)) {
+            existingProduct = productMapBySKU.get(inventorySku);
+            matchType = 'SKU';
+          }
           
           if (existingProduct) {
             // Update existing product with inventory quantity
@@ -92,16 +111,16 @@ export class InventorySync {
               .where(eq(products.id, existingProduct.id));
               
             result.updatedProducts++;
-            console.log(`Updated product ${sku}: FL=${flQty}, NJ=${njQty}, Total=${totalQty}`);
+            console.log(`Updated product ${existingProduct.sku} (${matchType}): FL=${flQty}, NJ=${njQty}, Total=${totalQty}`);
             
           } else if (totalQty > 0) {
             // Track new products found in inventory (don't auto-create)
             result.newProducts++;
-            console.log(`New product found in CWR inventory: SKU ${sku} (FL: ${flQty}, NJ: ${njQty})`);
+            console.log(`New product found in CWR inventory: SKU ${inventorySku}, MPN ${inventoryMPN} (FL: ${flQty}, NJ: ${njQty})`);
           }
           
         } catch (recordError) {
-          const errorMsg = `Failed to process record for SKU ${record.sku}: ${recordError}`;
+          const errorMsg = `Failed to process record for SKU ${inventorySku}: ${recordError}`;
           result.errors.push(errorMsg);
           console.warn(errorMsg);
         }
