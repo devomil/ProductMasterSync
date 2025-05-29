@@ -73,9 +73,10 @@ export class InventorySync {
           if (!inventorySku && !inventoryMPN) continue;
           
           // Debug: log first few records to understand field structure
-          if (result.updatedProducts + result.newProducts < 5) {
-            console.log('Sample record fields:', Object.keys(record));
-            console.log('Sample record:', record);
+          if (result.updatedProducts + result.newProducts < 3) {
+            console.log(`[INVENTORY DEBUG] Record ${result.updatedProducts + result.newProducts + 1}:`);
+            console.log('Available fields:', Object.keys(record));
+            console.log('Full record:', JSON.stringify(record, null, 2));
           }
           
           const flQty = parseInt(record.qtyfl || '0') || 0;
