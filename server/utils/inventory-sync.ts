@@ -80,7 +80,7 @@ export class InventorySync {
             // Update existing product with inventory quantity
             const updateData: any = { 
               updatedAt: new Date(),
-              inventory_quantity: totalQty
+              inventoryQuantity: totalQty
             };
             
             if (cost > 0) {

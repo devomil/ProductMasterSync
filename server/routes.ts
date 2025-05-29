@@ -2820,8 +2820,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // If inventory_quantity is available and > 0, use it
-      if (product.inventory_quantity && product.inventory_quantity > 0) {
+      // If inventoryQuantity is available and > 0, use it
+      if (product.inventoryQuantity && product.inventoryQuantity > 0) {
         // Since we don't have warehouse-specific breakdown in database, 
         // we'll fetch it from the live SFTP feed for accuracy
         try {
