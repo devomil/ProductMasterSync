@@ -1406,18 +1406,19 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                 // Process each inventory record
                 for (const record of records) {
                   try {
-                    const sku = record.sku || record.SKU;
-                    if (!sku) continue;
+                    const cwrPartNumber = record.sku || record.SKU;
+                    if (!cwrPartNumber) continue;
                     
                     const flQty = parseInt(record.qtyfl || '0') || 0;
                     const njQty = parseInt(record.qtynj || '0') || 0;
                     const totalQty = flQty + njQty;
                     const cost = parseFloat(record.price || '0') || 0;
                     
-                    const existingProduct = productMap.get(sku);
+                    // Find product by CWR Part Number (stored in usin field)
+                    const matchingProduct = existingProducts.find(p => p.usin === cwrPartNumber);
                     
-                    if (existingProduct) {
-                      // Update existing product
+                    if (matchingProduct) {
+                      // Update existing product with cost if available
                       const updateData: any = { updatedAt: new Date() };
                       
                       if (cost > 0) {
@@ -1426,7 +1427,7 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                       
                       await db.update(products)
                         .set(updateData)
-                        .where(eq(products.id, existingProduct.id));
+                        .where(eq(products.id, matchingProduct.id));
                         
                       updatedCount++;
                       
@@ -1436,7 +1437,7 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     }
                     
                   } catch (recordError) {
-                    const errorMsg = `Failed to process record for SKU ${record.sku}: ${recordError}`;
+                    const errorMsg = `Failed to process record for CWR Part ${record.sku}: ${recordError}`;
                     errors.push(errorMsg);
                   }
                 }
