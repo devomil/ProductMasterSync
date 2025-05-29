@@ -27,7 +27,7 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 import { deduplicateProducts, findDuplicateStats } from './utils/deduplication';
-import { inventoryService } from './utils/inventory-service-new';
+// Removed problematic inventory service import
 
 // Import the ingestion engine
 import { processSFTPIngestion } from "./utils/ingestion-engine";
