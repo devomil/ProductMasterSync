@@ -1413,9 +1413,9 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                     
                     if (!inventorySku && !inventoryMpn) continue;
                     
-                    // Try multiple possible field names for FL and NJ quantities
-                    const flQty = parseInt(record.qtyfl || record.qtyfla || record.fl || record.FL || '0') || 0;
-                    const njQty = parseInt(record.qtynj || record.qtynew || record.nj || record.NJ || '0') || 0;
+                    // Extract FL and NJ quantities from authentic CWR data
+                    const flQty = parseInt(record.qtyfl || '0') || 0;
+                    const njQty = parseInt(record.qtynj || '0') || 0;
                     const totalQty = flQty + njQty;
                     const cost = parseFloat(record.price || record.cost || record.Price || record.Cost || '0') || 0;
                     

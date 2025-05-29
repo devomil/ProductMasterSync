@@ -2820,34 +2820,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // If inventoryQuantity is available and > 0, use it
+      // If inventoryQuantity is available and > 0, fetch warehouse breakdown from live CWR data
       if (product.inventoryQuantity && product.inventoryQuantity > 0) {
-        // Since we don't have warehouse-specific breakdown in database, 
-        // we'll fetch it from the live SFTP feed for accuracy
         try {
-          const inventorySync = new (await import('./utils/inventory-sync.js')).InventorySync();
-          const inventoryData = await inventorySync.getInventoryForSKU(sku);
+          // Connect to CWR SFTP and get warehouse-specific quantities
+          const { default: Client } = await import('ssh2-sftp-client');
+          const sftp = new Client();
           
-          if (inventoryData) {
+          await sftp.connect({
+            host: 'edi.cwrdistribution.com',
+            port: 22,
+            username: 'eco8',
+            password: process.env.SFTP_PASSWORD || 'jwS3~eIy'
+          });
+          
+          const csvContent = await sftp.get('/eco8/out/inventory.csv');
+          await sftp.end();
+          
+          const { parse } = await import('csv-parse/sync');
+          const records = parse(csvContent.toString(), {
+            columns: true,
+            skip_empty_lines: true
+          });
+          
+          // Find record by MPN (since that's how products are matched)
+          const inventoryRecord = records.find((record: any) => 
+            record.mfgn === product.manufacturerPartNumber || record.sku === sku
+          );
+          
+          if (inventoryRecord) {
+            const flQty = parseInt(inventoryRecord.qtyfl || '0') || 0;
+            const njQty = parseInt(inventoryRecord.qtynj || '0') || 0;
+            const cost = parseFloat(inventoryRecord.price || product.cost || '0') || 0;
+            
             const warehouses = [];
             
-            if (inventoryData.fl > 0) {
+            if (flQty > 0) {
               warehouses.push({
                 code: 'FL-MAIN',
                 name: 'CWR Florida Main Warehouse',
                 location: 'Fort Lauderdale, FL',
-                quantity: inventoryData.fl,
-                cost: inventoryData.cost
+                quantity: flQty,
+                cost: cost
               });
             }
             
-            if (inventoryData.nj > 0) {
+            if (njQty > 0) {
               warehouses.push({
                 code: 'NJ-MAIN',
                 name: 'CWR New Jersey Distribution',
                 location: 'Edison, NJ',
-                quantity: inventoryData.nj,
-                cost: inventoryData.cost
+                quantity: njQty,
+                cost: cost
               });
             }
             
@@ -2856,11 +2880,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sku,
               warehouses,
               lastUpdated: new Date().toISOString(),
-              source: "CWR Live Feed"
+              source: "CWR Authentic Data"
             });
           }
         } catch (sftpError) {
-          console.log('SFTP fetch failed, falling back to database total');
+          console.log('Live CWR fetch failed, using database total');
         }
       }
       
