@@ -236,7 +236,20 @@ export const helpContexts = {
       actions: [
         {
           label: 'Add New Source',
-          action: () => window.location.href = '/data-sources/new',
+          action: () => {
+            // Trigger the "Add Data Source" button click
+            const addButton = document.querySelector('[data-testid="add-data-source-button"]') as HTMLButtonElement;
+            if (addButton) {
+              addButton.click();
+            } else {
+              // Fallback: try to find the button by text content
+              const buttons = Array.from(document.querySelectorAll('button'));
+              const addDataSourceButton = buttons.find(btn => btn.textContent?.includes('Add Data Source'));
+              if (addDataSourceButton) {
+                addDataSourceButton.click();
+              }
+            }
+          },
           variant: 'default' as const
         }
       ]

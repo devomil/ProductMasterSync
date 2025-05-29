@@ -773,7 +773,7 @@ export default function DataSources() {
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" data-testid="add-data-source-button">
               <Plus size={16} />
               Add Data Source
             </Button>
