@@ -120,12 +120,18 @@ export default function ProductDetails() {
   
   return (
     <div className="container mx-auto p-6">
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <Button variant="outline" asChild>
           <Link href="/products">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Master Catalog
           </Link>
         </Button>
+        <HelpBubble 
+          tips={helpContexts.productDetails}
+          contextTitle="Product Details"
+          trigger="click"
+          position="bottom"
+        />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
