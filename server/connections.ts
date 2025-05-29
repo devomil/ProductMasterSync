@@ -1403,45 +1403,38 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
                 let newProductsFound = 0;
                 const errors: string[] = [];
                 
-                // SKU to MPN mapping based on CWR data structure
-                const skuToMpnMap: Record<string, string> = {
-                  '10020': '2228',
-                  '10021': '6001', 
-                  '10024': '6003',
-                  '10025': '1928.3',
-                  '10026': '6002',
-                  '10027': '1927.3',
-                  '10030': '9283.3',
-                  '10341': 'X-10-M',
-                  '10342': 'SS-1002',
-                  '10345': 'SS-2000'
-                };
-
                 // Process each inventory record
                 let processedCount = 0;
                 for (const record of records) {
                   try {
                     processedCount++;
                     const inventorySku = record.sku || record.SKU;
-                    if (!inventorySku) continue;
+                    const inventoryMpn = record.mfgn || record.MFGN || record['mfgn or Manufacture Part Number'] || record.mpn || record.MPN;
+                    
+                    if (!inventorySku && !inventoryMpn) continue;
                     
                     const flQty = parseInt(record.qtyfl || '0') || 0;
                     const njQty = parseInt(record.qtynj || '0') || 0;
                     const totalQty = flQty + njQty;
                     const cost = parseFloat(record.price || '0') || 0;
                     
-                    // Convert SKU to MPN using the mapping
-                    const mpnToMatch = skuToMpnMap[inventorySku];
+                    // Try to match by MPN first, then by SKU
                     let matchingProduct = null;
+                    let matchMethod = '';
                     
-                    if (mpnToMatch) {
-                      // Find product by mapped MPN
-                      matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === mpnToMatch);
+                    if (inventoryMpn) {
+                      matchingProduct = existingProducts.find(p => p.manufacturerPartNumber === inventoryMpn);
+                      if (matchingProduct) matchMethod = 'MPN';
+                    }
+                    
+                    if (!matchingProduct && inventorySku) {
+                      matchingProduct = existingProducts.find(p => p.sku === inventorySku || p.manufacturerPartNumber === inventorySku);
+                      if (matchingProduct) matchMethod = 'SKU';
                     }
                     
                     // Debug logging for first few records and any matches
                     if (processedCount <= 10 || matchingProduct) {
-                      console.log(`[DEBUG] Record ${processedCount}: SKU ${inventorySku} → MPN ${mpnToMatch || 'NO MAPPING'}, Match: ${matchingProduct ? 'FOUND' : 'NOT FOUND'}`);
+                      console.log(`[DEBUG] Record ${processedCount}: SKU ${inventorySku}, MPN ${inventoryMpn}, Match: ${matchingProduct ? `FOUND (${matchMethod})` : 'NOT FOUND'}`);
                     }
                     
                     if (matchingProduct) {
