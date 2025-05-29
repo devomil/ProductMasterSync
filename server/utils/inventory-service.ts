@@ -37,17 +37,16 @@ export class InventoryService {
       }
       
       const config = dataSource.config as any;
-      const sftpConfig = config.sftp;
       
-      if (!sftpConfig) {
-        throw new Error('SFTP configuration not found for CWR');
+      if (!config.host || !config.username || !config.password) {
+        throw new Error('SFTP configuration incomplete for CWR');
       }
       
       await sftp.connect({
-        host: sftpConfig.host,
-        port: sftpConfig.port || 22,
-        username: sftpConfig.username,
-        password: sftpConfig.password
+        host: config.host,
+        port: config.port || 22,
+        username: config.username,
+        password: config.password
       });
       
       // Download and parse inventory file
@@ -64,7 +63,7 @@ export class InventoryService {
       
       // Find the record for this specific SKU
       const productRecord = records.find((record: any) => 
-        record.sku === sku || record.SKU === sku || record.item_number === sku
+        record.sku === sku || record.SKU === sku
       );
       
       if (!productRecord) {
@@ -72,10 +71,10 @@ export class InventoryService {
         return [];
       }
       
-      // Extract FL and NJ quantities from the product record
-      const flQty = parseInt(productRecord.qtyfl || productRecord.qty_fl || '0') || 0;
-      const njQty = parseInt(productRecord.qtynj || productRecord.qty_nj || '0') || 0;
-      const cost = parseFloat(productRecord.cost || productRecord.price || '0') || 0;
+      // Extract FL and NJ quantities from the product record (using actual column names)
+      const flQty = parseInt(productRecord.qtyfl || '0') || 0;
+      const njQty = parseInt(productRecord.qtynj || '0') || 0;
+      const cost = parseFloat(productRecord.price || '0') || 0;
       
       const warehouses: WarehouseLocation[] = [];
       
