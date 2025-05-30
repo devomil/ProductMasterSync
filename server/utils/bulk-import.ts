@@ -261,32 +261,22 @@ export class BulkImportProcessor {
       });
     }
     
-    // Check multiple possible field names for additional images
-    const additionalImageFields = [
-      'Image Additional (1000x1000) Urls',
-      'Image Additional (1000x1000) Url',
-      'Additional Images',
-      'Additional Image Urls',
-      'AH', // Column AH might be the additional images field
-      'AI', // Column AI might be the additional images field
-      'AJ'  // Column AJ might be the additional images field
-    ];
-    
-    if (!transformed.additionalImages) {
-      for (const fieldName of additionalImageFields) {
-        if (rawProduct[fieldName]) {
-          const additionalImageUrls = this.cleanValue(rawProduct[fieldName]);
-          if (additionalImageUrls) {
-            // Split multiple URLs by pipe character and create array
-            const imageArray = additionalImageUrls.split('|').map((url: string) => url.trim()).filter((url: string) => url.length > 0);
-            if (imageArray.length > 0) {
-              transformed.additionalImages = JSON.stringify(imageArray);
-              console.log(`📸 Additional images captured for ${rawProduct['CWR Part Number']}: ${imageArray.length} images from field '${fieldName}'`);
-              break;
-            }
-          }
+    // Check for the specific additional images field as mentioned by the user
+    if (!transformed.additionalImages && rawProduct['Image Additional (1000x1000) Urls']) {
+      const additionalImageUrls = this.cleanValue(rawProduct['Image Additional (1000x1000) Urls']);
+      if (additionalImageUrls) {
+        // Split multiple URLs by pipe character and create array
+        const imageArray = additionalImageUrls.split('|').map((url: string) => url.trim()).filter((url: string) => url.length > 0);
+        if (imageArray.length > 0) {
+          transformed.additionalImages = JSON.stringify(imageArray);
+          console.log(`📸 Additional images captured for ${rawProduct['CWR Part Number']}: ${imageArray.length} images - ${imageArray.join(', ')}`);
         }
       }
+    }
+    
+    // Log if we find the field but it's empty for debugging
+    if (rawProduct['Image Additional (1000x1000) Urls'] !== undefined) {
+      console.log(`🔍 Found 'Image Additional (1000x1000) Urls' field for ${rawProduct['CWR Part Number']}: "${rawProduct['Image Additional (1000x1000) Urls']}"`);
     }
 
     // Ensure required fields have values
