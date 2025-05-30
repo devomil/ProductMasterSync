@@ -110,10 +110,10 @@ export default function MappingTemplateWorkspace() {
     { id: "image_300x300", name: "Image (300x300)", required: false },
     { id: "image_1000x1000", name: "Image (1000x1000)", required: false },
     { id: "image_additional", name: "Additional Images", required: false },
-    { id: "quick_guide_pdf", name: "Quick Guide PDF", required: false },
-    { id: "owners_manual_pdf", name: "Owners Manual PDF", required: false },
-    { id: "brochure_pdf", name: "Brochure PDF", required: false },
-    { id: "installation_guide_pdf", name: "Installation Guide PDF", required: false },
+    { id: "quickGuideUrl", name: "Quick Guide PDF", required: false },
+    { id: "ownersManualUrl", name: "Owners Manual PDF", required: false },
+    { id: "brochureUrl", name: "Brochure PDF", required: false },
+    { id: "installationGuideUrl", name: "Installation Guide PDF", required: false },
     { id: "video_urls", name: "Video URLs", required: false },
     
     // Compliance & Legal

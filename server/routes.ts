@@ -1608,13 +1608,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log('🧹 Processed HTML description to clean text during mapping');
                 }
                 
-                // Keep camelCase for database schema compatibility
-                // Debug logging for packaging dimensions and marketplace fields
-                if (['boxWidth', 'boxHeight', 'boxLength', 'caseQuantity', 'thirdPartyMarketplaces', 'googleMerchantCategory'].includes(targetField)) {
-                  console.log(`📦 Mapping ${sourceField} -> ${targetField}: "${value}"`);
+                // Convert camelCase field names to database column names where needed
+                let dbFieldName = targetField as string;
+                const fieldNameMap: { [key: string]: string } = {
+                  'quickGuideUrl': 'quick_guide_url',
+                  'ownersManualUrl': 'owners_manual_url', 
+                  'brochureUrl': 'brochure_url',
+                  'installationGuideUrl': 'installation_guide_url'
+                };
+                
+                if (fieldNameMap[targetField]) {
+                  dbFieldName = fieldNameMap[targetField];
                 }
                 
-                catalogData[targetField as string] = value;
+                // Debug logging for key fields
+                if (['boxWidth', 'boxHeight', 'boxLength', 'caseQuantity', 'thirdPartyMarketplaces', 'googleMerchantCategory', 'quickGuideUrl', 'ownersManualUrl', 'brochureUrl', 'installationGuideUrl'].includes(targetField)) {
+                  console.log(`📦 Mapping ${sourceField} -> ${dbFieldName}: "${value}"`);
+                }
+                
+                catalogData[dbFieldName] = value;
               }
             }
           }
