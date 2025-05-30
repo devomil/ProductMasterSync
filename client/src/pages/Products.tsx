@@ -180,6 +180,7 @@ const Products = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
   
   // State for product drawers
   const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string, upc: string | null} | null>(null);
@@ -769,7 +770,7 @@ const Products = () => {
           {/* Pagination */}
           <div className="mt-5 flex items-center justify-between">
             <div className="text-sm text-neutral-500">
-              Showing <span className="font-medium">{filteredProducts.length > 0 ? 1 : 0}</span> to <span className="font-medium">{Math.min(10, filteredProducts.length)}</span> of <span className="font-medium">{filteredProducts.length}</span> products
+              Showing <span className="font-medium">{filteredProducts.length > 0 ? 1 : 0}</span> to <span className="font-medium">{filteredProducts.length}</span> of <span className="font-medium">{filteredProducts.length}</span> products
             </div>
             <Pagination>
               <PaginationContent>

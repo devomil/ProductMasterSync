@@ -645,7 +645,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/products/:id", async (req, res) => {
     try {
-      const product = await storage.getProduct(Number(req.params.id));
+      const productId = parseInt(req.params.id);
+      if (isNaN(productId)) {
+        return res.status(400).json({ message: "Invalid product ID" });
+      }
+      
+      const product = await storage.getProduct(productId);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
@@ -2326,32 +2331,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get basic product counts using storage interface
       const allProducts = await storage.getProducts();
-      const totalCount = allProducts.length;
+      const totalCount = allProducts ? allProducts.length : 0;
       
       // Simple duplicate detection based on UPC and MPN
       const upcGroups: { [key: string]: number } = {};
       const mpnGroups: { [key: string]: number } = {};
       
-      allProducts.forEach(product => {
-        if (product.upc) {
-          upcGroups[product.upc] = (upcGroups[product.upc] || 0) + 1;
-        }
-        if (product.manufacturerPartNumber) {
-          mpnGroups[product.manufacturerPartNumber] = (mpnGroups[product.manufacturerPartNumber] || 0) + 1;
-        }
-      });
+      if (allProducts && Array.isArray(allProducts)) {
+        allProducts.forEach(product => {
+          if (product && product.upc && product.upc.trim() !== '') {
+            upcGroups[product.upc] = (upcGroups[product.upc] || 0) + 1;
+          }
+          if (product && product.manufacturerPartNumber && product.manufacturerPartNumber.trim() !== '') {
+            mpnGroups[product.manufacturerPartNumber] = (mpnGroups[product.manufacturerPartNumber] || 0) + 1;
+          }
+        });
+      }
       
       const upcDuplicates = Object.values(upcGroups).filter(count => count > 1);
       const mpnDuplicates = Object.values(mpnGroups).filter(count => count > 1);
       
       res.json({
-        totalProducts: totalCount,
-        potentialUpcDuplicates: upcDuplicates.length,
-        potentialMpnDuplicates: mpnDuplicates.length
+        totalProducts: totalCount || 0,
+        potentialUpcDuplicates: upcDuplicates.length || 0,
+        potentialMpnDuplicates: mpnDuplicates.length || 0
       });
     } catch (error) {
       console.error('Error getting deduplication stats:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({
+        error: "Internal server error",
+        totalProducts: 0,
+        potentialUpcDuplicates: 0,
+        potentialMpnDuplicates: 0
+      });
     }
   });
 
