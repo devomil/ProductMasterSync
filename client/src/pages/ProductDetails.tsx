@@ -37,11 +37,25 @@ const getVendorStockData = (product: any, inventoryData?: any) => {
       }, 0);
     }
     
+    // Determine stock status and ETA
+    let stockDisplay;
+    if (combinedQuantity > 0) {
+      stockDisplay = combinedQuantity;
+    } else {
+      // Check for Next Shipment Date for ETA
+      const nextShipmentDate = product.nextShipmentDateCombined || product.nextShipmentDate;
+      if (nextShipmentDate && nextShipmentDate.toLowerCase() !== 'pending') {
+        stockDisplay = `Out of Stock - ETA: ${nextShipmentDate}`;
+      } else {
+        stockDisplay = "Out of Stock - ETA: Pending";
+      }
+    }
+    
     vendors.push({
       name: "CWR",
       stock: "Live Inventory",
       cost: parseFloat(product.cost) || 0,
-      quantity: combinedQuantity > 0 ? combinedQuantity : "Stock Available",
+      quantity: stockDisplay,
       type: "authentic"
     });
   }
