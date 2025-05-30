@@ -245,13 +245,27 @@ export class BulkImportProcessor {
     }
 
     // Automatically capture authentic CWR additional images from SFTP data
-    if (!transformed.additionalImages && rawProduct['Image Additional (1000x1000) Urls']) {
-      const additionalImageUrls = this.cleanValue(rawProduct['Image Additional (1000x1000) Urls']);
-      if (additionalImageUrls) {
-        // Split multiple URLs by pipe character and create array
-        const imageArray = additionalImageUrls.split('|').map((url: string) => url.trim()).filter((url: string) => url.length > 0);
-        if (imageArray.length > 0) {
-          transformed.additionalImages = JSON.stringify(imageArray);
+    // Check multiple possible field names for additional images
+    const additionalImageFields = [
+      'Image Additional (1000x1000) Urls',
+      'Image Additional (1000x1000) Url',
+      'Additional Images',
+      'Additional Image Urls'
+    ];
+    
+    if (!transformed.additionalImages) {
+      for (const fieldName of additionalImageFields) {
+        if (rawProduct[fieldName]) {
+          const additionalImageUrls = this.cleanValue(rawProduct[fieldName]);
+          if (additionalImageUrls) {
+            // Split multiple URLs by pipe character and create array
+            const imageArray = additionalImageUrls.split('|').map((url: string) => url.trim()).filter((url: string) => url.length > 0);
+            if (imageArray.length > 0) {
+              transformed.additionalImages = JSON.stringify(imageArray);
+              console.log(`📸 Additional images captured for ${rawProduct['CWR Part Number']}: ${imageArray.length} images from field '${fieldName}'`);
+              break;
+            }
+          }
         }
       }
     }
