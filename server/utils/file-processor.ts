@@ -311,14 +311,14 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
           dimensions: record.dimensions,
           status: record.status || 'active',
           attributes: record.attributes || {},
-          // New catalog fields
-          thirdPartyMarketplaces: record.thirdPartyMarketplaces || record['3rd_party_marketplaces'] || record.marketplaces,
-          caseQuantity: record.caseQuantity || record.case_qty || record.caseQty,
-          googleMerchantCategory: record.googleMerchantCategory || record.google_merchant_category || record.merchantCategory,
-          countryOfOrigin: record.countryOfOrigin || record.country_of_origin || record.origin,
-          boxHeight: record.boxHeight || record.box_height,
-          boxLength: record.boxLength || record.box_length,
-          boxWidth: record.boxWidth || record.box_width,
+          // New catalog fields - mapped from authentic CWR catalog structure
+          thirdPartyMarketplaces: record['3rd Party Marketplaces'] || record.thirdPartyMarketplaces || record.marketplaces,
+          caseQuantity: record['Case Qty'] || record['Case Quantity'] || record.caseQuantity || record.case_qty,
+          googleMerchantCategory: record['Google Merchant Category'] || record['Google Category'] || record.googleMerchantCategory,
+          countryOfOrigin: record['Country of Origin'] || record['Origin Country'] || record.countryOfOrigin,
+          boxHeight: record['Box Height'] || record['Height'] || record.boxHeight || record.height,
+          boxLength: record['Box Length'] || record['Length'] || record.boxLength || record.length,
+          boxWidth: record['Box Width'] || record['Width'] || record.boxWidth || record.width,
           updatedAt: new Date()
         };
         
