@@ -311,6 +311,14 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
           dimensions: record.dimensions,
           status: record.status || 'active',
           attributes: record.attributes || {},
+          // New catalog fields
+          thirdPartyMarketplaces: record.thirdPartyMarketplaces || record['3rd_party_marketplaces'] || record.marketplaces,
+          caseQty: record.caseQty || record.case_qty ? parseInt(record.caseQty || record.case_qty) : null,
+          googleMerchantCategory: record.googleMerchantCategory || record.google_merchant_category || record.merchantCategory,
+          countryOfOrigin: record.countryOfOrigin || record.country_of_origin || record.origin,
+          boxHeight: record.boxHeight || record.box_height ? parseFloat(record.boxHeight || record.box_height) : null,
+          boxLength: record.boxLength || record.box_length ? parseFloat(record.boxLength || record.box_length) : null,
+          boxWidth: record.boxWidth || record.box_width ? parseFloat(record.boxWidth || record.box_width) : null,
           updatedAt: new Date()
         };
         
