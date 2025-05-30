@@ -1409,23 +1409,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       } else {
-        // Handle other data source types
-        // For other types, return sample data as a placeholder
-        const sampleData = [
-          { sku: "ABC123", name: "Test Product 1", price: "19.99", inventory: "100" },
-          { sku: "DEF456", name: "Test Product 2", price: "29.99", inventory: "50" },
-          { sku: "GHI789", name: "Test Product 3", price: "39.99", inventory: "75" }
-        ];
+        // Handle other data source types - require authentic data configuration
+        console.log(`Test pull request for data source ${id}, type: ${dataSource.type} - authentic data source required`);
         
-        // Log info for debugging
-        console.log(`Test pull request for data source ${id}, path: ${remotePath} (using mock data for type ${dataSource.type})`);
-        
-        return res.json({
-          success: true,
-          message: `Sample data retrieved successfully (mock data for ${dataSource.type})`,
-          sample_data: sampleData,
-          remote_path: remotePath,
-          total_records: sampleData.length
+        return res.status(400).json({
+          success: false,
+          message: `Data source type '${dataSource.type}' requires proper configuration for authentic data access. Please configure the connection settings.`,
+          error_details: {
+            error_type: "ConfigurationRequired",
+            data_source_type: dataSource.type
+          }
         });
       }
     } catch (error) {

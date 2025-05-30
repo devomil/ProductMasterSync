@@ -289,102 +289,97 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
       return result;
     }
     
-    // Process each record
-    for (let i = 0; i < processedRecords.length; i++) {
-      const record = processedRecords[i];
+    // Process records in batches for better performance with large files
+    const BATCH_SIZE = 50;
+    const totalRecords = processedRecords.length;
+    
+    for (let batchStart = 0; batchStart < totalRecords; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, totalRecords);
+      const batch = processedRecords.slice(batchStart, batchEnd);
       
-      try {
-        // Extract product data from the record
-        // This assumes the record has been properly mapped to product fields
-        const productData = {
-          sku: record.sku || '',
-          name: record.name || '',
-          description: record.description,
-          categoryId: record.categoryId ? parseInt(record.categoryId) : null,
-          manufacturerId: record.manufacturerId ? parseInt(record.manufacturerId) : null,
-          manufacturerName: record.manufacturerName,
-          manufacturerPartNumber: record.manufacturerPartNumber,
-          upc: record.upc,
-          price: record.price,
-          cost: record.cost,
-          weight: record.weight,
-          dimensions: record.dimensions,
-          status: record.status || 'active',
-          attributes: record.attributes || {},
-          // New catalog fields - mapped from authentic CWR catalog structure
-          thirdPartyMarketplaces: record['3rd Party Marketplaces'] || record.thirdPartyMarketplaces || record.marketplaces,
-          caseQuantity: record['Case Qty'] || record['Case Quantity'] || record.caseQuantity || record.case_qty,
-          googleMerchantCategory: record['Google Merchant Category'] || record['Google Category'] || record.googleMerchantCategory,
-          countryOfOrigin: record['Country of Origin'] || record['Origin Country'] || record.countryOfOrigin,
-          boxHeight: record['Box Height'] || record['Height'] || record.boxHeight || record.height,
-          boxLength: record['Box Length'] || record['Length'] || record.boxLength || record.length,
-          boxWidth: record['Box Width'] || record['Width'] || record.boxWidth || record.width,
-          updatedAt: new Date()
-        };
-        
-        // Check if product already exists
-        const existingProducts = await db.select({ id: products.id })
-          .from(products)
-          .where(eq(products.sku, productData.sku))
-          .limit(1);
+      const newProducts: any[] = [];
+      const updateProducts: { id: number; data: any }[] = [];
+      
+      // Process batch to determine inserts vs updates
+      for (const record of batch) {
+        try {
+          const productData = {
+            sku: record.sku || '',
+            name: record.name || '',
+            description: record.description,
+            categoryId: record.categoryId ? parseInt(record.categoryId) : null,
+            manufacturerId: record.manufacturerId ? parseInt(record.manufacturerId) : null,
+            manufacturerName: record.manufacturerName,
+            manufacturerPartNumber: record.manufacturerPartNumber,
+            upc: record.upc,
+            price: record.price,
+            cost: record.cost,
+            weight: record.weight,
+            dimensions: record.dimensions,
+            status: record.status || 'active',
+            attributes: record.attributes || {},
+            // Catalog fields from authentic CWR data structure
+            thirdPartyMarketplaces: record['3rd Party Marketplaces'] || record.thirdPartyMarketplaces,
+            caseQuantity: record['Case Qty'] || record['Case Quantity'] || record.caseQuantity,
+            googleMerchantCategory: record['Google Merchant Category'] || record.googleMerchantCategory,
+            countryOfOrigin: record['Country of Origin'] || record.countryOfOrigin,
+            boxHeight: record['Box Height'] || record.boxHeight,
+            boxLength: record['Box Length'] || record.boxLength,
+            boxWidth: record['Box Width'] || record.boxWidth,
+            updatedAt: new Date()
+          };
           
-        let productId: number;
-        
-        if (existingProducts.length > 0) {
-          // Update existing product
-          productId = existingProducts[0].id;
-          await db.update(products)
-            .set(productData)
-            .where(eq(products.id, productId));
-        } else {
-          // Create new product
-          const [newProduct] = await db.insert(products)
-            .values({
-              ...productData,
-              createdAt: new Date()
-            })
-            .returning({ id: products.id });
+          // Check if product exists
+          const existingProducts = await db.select({ id: products.id })
+            .from(products)
+            .where(eq(products.sku, productData.sku))
+            .limit(1);
             
-          productId = newProduct.id;
+          if (existingProducts.length > 0) {
+            updateProducts.push({ id: existingProducts[0].id, data: productData });
+          } else {
+            newProducts.push({ ...productData, createdAt: new Date() });
+          }
+        } catch (error) {
+          result.errors.push({
+            record: batchStart + newProducts.length + updateProducts.length + 1,
+            message: error instanceof Error ? error.message : 'Error processing record'
+          });
+          result.errorCount++;
         }
-        
-        // Update or create product supplier relationship
-        const existingRelation = await db.select({ id: productSuppliers.id })
-          .from(productSuppliers)
-          .where(eq(productSuppliers.productId, productId))
-          .where(eq(productSuppliers.supplierId, importRecord.supplierId))
-          .limit(1);
-          
-        const supplierData = {
-          supplierSku: record.supplierSku || record.sku || '',
-          supplierAttributes: record.supplierAttributes || {},
-          isPrimary: record.isPrimary === true
-        };
-        
-        if (existingRelation.length > 0) {
-          // Update existing relation
-          await db.update(productSuppliers)
-            .set(supplierData)
-            .where(eq(productSuppliers.id, existingRelation[0].id));
-        } else {
-          // Create new relation
-          await db.insert(productSuppliers)
-            .values({
-              ...supplierData,
-              productId,
-              supplierId: importRecord.supplierId,
-              confidence: 100
-            });
+      }
+      
+      // Batch insert new products
+      if (newProducts.length > 0) {
+        try {
+          const insertedProducts = await db.insert(products)
+            .values(newProducts)
+            .returning({ id: products.id });
+          result.processedCount += insertedProducts.length;
+        } catch (error) {
+          result.errors.push({
+            batch: Math.floor(batchStart / BATCH_SIZE) + 1,
+            message: `Batch insert failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          });
+          result.errorCount += newProducts.length;
         }
-        
-        result.processedCount++;
-      } catch (error) {
-        console.error(`Error processing record ${i + 1}:`, error);
-        result.errorCount++;
-        result.errors.push({
-          recordIndex: i,
-          record,
-          error: error instanceof Error ? error.message : String(error)
+      }
+      
+      // Batch update existing products
+      for (const update of updateProducts) {
+        try {
+          await db.update(products)
+            .set(update.data)
+            .where(eq(products.id, update.id));
+          result.processedCount++;
+        } catch (error) {
+          result.errors.push({
+            productId: update.id,
+            message: `Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          });
+          result.errorCount++;
+        }
+      }
         });
       }
       
