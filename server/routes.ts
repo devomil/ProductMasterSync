@@ -1435,7 +1435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/mapping-templates/:id/import-sample", async (req, res) => {
     try {
       const templateId = Number(req.params.id);
-      const { dataSourceId, remotePath, recordLimit = 10 } = req.body;
+      const { dataSourceId, remotePath, recordLimit = 50 } = req.body;
 
       // Get the mapping template
       const template = await storage.getMappingTemplate(templateId);

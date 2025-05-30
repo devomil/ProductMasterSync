@@ -103,6 +103,21 @@ export const products = pgTable("products", {
   boxHeight: text("box_height"),                    // Box Height
   boxLength: text("box_length"),                    // Box Length
   boxWidth: text("box_width"),                      // Box Width
+  // Documentation and Resources
+  installationGuideUrl: text("installation_guide_url"),    // Installation Guide PDF URL
+  ownersManualUrl: text("owners_manual_url"),              // Owners Manual PDF URL
+  brochureUrl: text("brochure_url"),                       // Brochure Literature PDF URL
+  quickGuideUrl: text("quick_guide_url"),                  // Quick Guide Literature PDF URL
+  additionalImages: text("additional_images"),             // Additional Image URLs (JSON array)
+  // Shipping and Logistics
+  isOversized: boolean("is_oversized").default(false),     // Oversized shipping flag
+  isReturnable: boolean("is_returnable").default(true),    // Returnable flag
+  quickSpecs: text("quick_specs"),                         // Quick Specifications
+  // Inventory dates
+  nextShipmentDateNJ: text("next_shipment_date_nj"),       // Next Shipment Date NJ
+  nextShipmentDateFL: text("next_shipment_date_fl"),       // Next Shipment Date FL
+  nextShipmentDateCombined: text("next_shipment_date_combined"), // Next Shipment Date Combined
+  primaryImage: text("primary_image"),                     // Primary Image (1000x1000)
   // Amazon sync tracking fields
   lastAmazonSync: timestamp("last_amazon_sync"),
   amazonSyncStatus: text("amazon_sync_status").default("pending"), // pending, processing, success, error, ratelimited
