@@ -245,12 +245,20 @@ export class BulkImportProcessor {
     }
 
     // Automatically capture authentic CWR additional images from SFTP data
+    // Debug: Log all available field names for a specific product to identify the correct field name
+    if (rawProduct['CWR Part Number'] === '10341') {
+      console.log(`🔍 Available fields for product ${rawProduct['CWR Part Number']}:`, Object.keys(rawProduct));
+    }
+    
     // Check multiple possible field names for additional images
     const additionalImageFields = [
       'Image Additional (1000x1000) Urls',
       'Image Additional (1000x1000) Url',
       'Additional Images',
-      'Additional Image Urls'
+      'Additional Image Urls',
+      'AH', // Column AH might be the additional images field
+      'AI', // Column AI might be the additional images field
+      'AJ'  // Column AJ might be the additional images field
     ];
     
     if (!transformed.additionalImages) {
