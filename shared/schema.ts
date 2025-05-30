@@ -71,6 +71,7 @@ export const categories = pgTable("categories", {
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   sku: text("sku").notNull(),                       // Internal SKU/Part Number
+  usin: text("usin"),                               // Universal Supplier Item Number (USIN)
   manufacturerPartNumber: text("manufacturer_part_number"),  // Manufacturer's Part Number
   upc: text("upc"),                                 // UPC Code
   name: text("name").notNull(),                     // Product Title
