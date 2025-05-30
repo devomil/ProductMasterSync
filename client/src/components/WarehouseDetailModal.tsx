@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Package, Clock, TruckIcon, DollarSign, Truck, Shield, Tag, FileText } from "lucide-react";
+import { MapPin, Package, Clock, TruckIcon, DollarSign, Truck, Shield, Tag, FileText, RefreshCw } from "lucide-react";
+import UrlHealthIndicator from "@/components/url-validation/UrlHealthIndicator";
+import { apiRequest } from "@/lib/queryClient";
 
 interface WarehouseLocation {
   code: string;

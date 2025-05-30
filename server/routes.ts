@@ -3144,6 +3144,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // URL Validation API endpoints
+  app.post("/api/validate-url", async (req, res) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({
+          success: false,
+          message: "URL is required"
+        });
+      }
+      
+      const result = await UrlValidator.validateUrl(url);
+      res.json({
+        success: true,
+        result
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/validate-urls", async (req, res) => {
+    try {
+      const { urls, concurrency = 5 } = req.body;
+      
+      if (!urls || !Array.isArray(urls)) {
+        return res.status(400).json({
+          success: false,
+          message: "URLs array is required"
+        });
+      }
+      
+      const result = await UrlValidator.validateUrls(urls, concurrency);
+      res.json({
+        success: true,
+        result
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/products/:id/documentation-health", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const product = await storage.getProduct(productId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      const result = await UrlValidator.validateProductDocumentation({
+        sku: product.sku,
+        installationGuideUrl: product.installationGuideUrl,
+        ownersManualUrl: product.ownersManualUrl,
+        brochureUrl: product.brochureUrl,
+        quickGuideUrl: product.quickGuideUrl
+      });
+      
+      res.json({
+        success: true,
+        result
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/products/bulk-documentation-health", async (req, res) => {
+    try {
+      const { productIds, concurrency = 3 } = req.body;
+      
+      if (!productIds || !Array.isArray(productIds)) {
+        return res.status(400).json({
+          success: false,
+          message: "Product IDs array is required"
+        });
+      }
+      
+      const results = [];
+      
+      // Process products in batches to avoid overwhelming the system
+      for (let i = 0; i < productIds.length; i += concurrency) {
+        const batch = productIds.slice(i, i + concurrency);
+        const batchPromises = batch.map(async (productId) => {
+          try {
+            const product = await storage.getProduct(Number(productId));
+            if (!product) return null;
+            
+            return await UrlValidator.validateProductDocumentation({
+              sku: product.sku,
+              installationGuideUrl: product.installationGuideUrl,
+              ownersManualUrl: product.ownersManualUrl,
+              brochureUrl: product.brochureUrl,
+              quickGuideUrl: product.quickGuideUrl
+            });
+          } catch (error) {
+            console.error(`Error validating product ${productId}:`, error);
+            return null;
+          }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults.filter(result => result !== null));
+      }
+      
+      // Generate summary statistics
+      const summary = {
+        totalChecked: results.length,
+        healthy: results.filter(r => r.overallHealth === 'healthy').length,
+        partial: results.filter(r => r.overallHealth === 'partial').length,
+        broken: results.filter(r => r.overallHealth === 'broken').length
+      };
+      
+      res.json({
+        success: true,
+        results,
+        summary
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Register connections management routes
   // Register connections routes directly
   registerConnectionsRoutes(app);
