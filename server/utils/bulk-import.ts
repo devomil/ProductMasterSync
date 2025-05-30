@@ -230,6 +230,20 @@ export class BulkImportProcessor {
       transformed.imageUrlLarge = this.cleanValue(rawProduct['AB']);
     }
 
+    // Automatically capture authentic CWR documentation URLs from SFTP data
+    if (!transformed.installationGuideUrl && rawProduct['AC']) {
+      transformed.installationGuideUrl = this.cleanValue(rawProduct['AC']);
+    }
+    if (!transformed.ownersManualUrl && rawProduct['AD']) {
+      transformed.ownersManualUrl = this.cleanValue(rawProduct['AD']);
+    }
+    if (!transformed.brochureUrl && rawProduct['AE']) {
+      transformed.brochureUrl = this.cleanValue(rawProduct['AE']);
+    }
+    if (!transformed.quickGuideUrl && rawProduct['AF']) {
+      transformed.quickGuideUrl = this.cleanValue(rawProduct['AF']);
+    }
+
     // Ensure required fields have values
     if (!transformed.sku) {
       transformed.sku = rawProduct['CWR Part Number'] || rawProduct['sku'] || `UNKNOWN-${Date.now()}`;
