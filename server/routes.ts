@@ -3144,6 +3144,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import URL validator
+  const { UrlValidator } = await import('./utils/url-validator');
+
   // URL Validation API endpoints
   app.post("/api/validate-url", async (req, res) => {
     try {
