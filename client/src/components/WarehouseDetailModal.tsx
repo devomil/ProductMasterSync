@@ -298,6 +298,29 @@ export default function WarehouseDetailModal({
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Packaging Dimensions Section */}
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-gray-900 mb-4">Package Dimensions</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Height</div>
+                        <div className="font-semibold text-lg">{productData?.boxHeight || "N/A"}</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Length</div>
+                        <div className="font-semibold text-lg">{productData?.boxLength || "N/A"}</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Width</div>
+                        <div className="font-semibold text-lg">{productData?.boxWidth || "N/A"}</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Case Qty</div>
+                        <div className="font-semibold text-lg">{productData?.caseQuantity || "N/A"}</div>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
