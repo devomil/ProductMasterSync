@@ -201,6 +201,8 @@ export default function MappingTemplates() {
     { sourceField: "", targetField: "" }
   ]);
   const [isImporting, setIsImporting] = useState(false);
+  const [showImportSampleDialog, setShowImportSampleDialog] = useState(false);
+  const [importSampleSize, setImportSampleSize] = useState(10);
   const [, navigate] = useLocation();
   
   // Toggle full screen handler
@@ -662,12 +664,20 @@ export default function MappingTemplates() {
     }
   };
 
+  // Open import sample dialog
+  const openImportSampleDialog = (template: any) => {
+    setSelectedTemplate(template);
+    setShowImportSampleDialog(true);
+  };
+
   // Import sample data using a template
-  const handleImportSample = async (template: any) => {
+  const handleImportSample = async () => {
+    if (!selectedTemplate) return;
+    
     try {
       setIsImporting(true);
       
-      const dataSource = dataSources?.find((ds: any) => ds.supplierId === template.supplierId);
+      const dataSource = dataSources?.find((ds: any) => ds.supplierId === selectedTemplate.supplierId);
       if (!dataSource) {
         toast({
           variant: "destructive",
@@ -677,10 +687,10 @@ export default function MappingTemplates() {
         return;
       }
 
-      const response = await apiRequest('POST', `/api/mapping-templates/${template.id}/import-sample`, {
+      const response = await apiRequest('POST', `/api/mapping-templates/${selectedTemplate.id}/import-sample`, {
         dataSourceId: dataSource.id,
         remotePath: '/eco8/out/catalog.csv',
-        recordLimit: 10
+        recordLimit: importSampleSize
       });
 
       const data = await response.json();
@@ -695,6 +705,9 @@ export default function MappingTemplates() {
         queryClient.invalidateQueries({ queryKey: ['/api/products'] });
         queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
         queryClient.invalidateQueries({ queryKey: ['/api/imports'] });
+        
+        // Close dialog
+        setShowImportSampleDialog(false);
       } else {
         toast({
           variant: "destructive",
@@ -892,7 +905,7 @@ export default function MappingTemplates() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleImportSample(template)}
+                                    onClick={() => openImportSampleDialog(template)}
                                     disabled={isImporting}
                                   >
                                     {isImporting ? (
