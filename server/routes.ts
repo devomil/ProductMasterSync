@@ -28,6 +28,7 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 import { deduplicateProducts, findDuplicateStats } from './utils/deduplication';
+import { UrlValidator } from "./utils/url-validator";
 import { inventorySync } from './utils/inventory-sync';
 
 // Import the ingestion engine
