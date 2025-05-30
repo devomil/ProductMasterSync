@@ -1706,6 +1706,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
+          // Debug: Log packaging dimensions before database insertion
+          console.log('📦 Product data before DB insertion:', {
+            sku: productData.sku,
+            box_height: productData.box_height,
+            box_width: productData.box_width,
+            box_length: productData.box_length,
+            third_party_marketplaces: productData.third_party_marketplaces,
+            google_merchant_category: productData.google_merchant_category
+          });
+
           let savedProduct;
           if (existingProduct) {
             // Update existing product
