@@ -90,7 +90,43 @@ export class DatabaseStorage implements IStorage {
 
   // Product management
   async getProducts(): Promise<Product[]> {
-    return await db.select().from(schema.products);
+    return await db.select({
+      id: schema.products.id,
+      sku: schema.products.sku,
+      name: schema.products.name,
+      description: schema.products.description,
+      categoryId: schema.products.categoryId,
+      manufacturerId: schema.products.manufacturerId,
+      manufacturerName: schema.products.manufacturerName,
+      manufacturerPartNumber: schema.products.manufacturerPartNumber,
+      upc: schema.products.upc,
+      price: schema.products.price,
+      cost: schema.products.cost,
+      weight: schema.products.weight,
+      dimensions: schema.products.dimensions,
+      attributes: schema.products.attributes,
+      status: schema.products.status,
+      isRemanufactured: schema.products.isRemanufactured,
+      isCloseout: schema.products.isCloseout,
+      isOnSale: schema.products.isOnSale,
+      hasRebate: schema.products.hasRebate,
+      hasFreeShipping: schema.products.hasFreeShipping,
+      inventoryQuantity: schema.products.inventoryQuantity,
+      reorderThreshold: schema.products.reorderThreshold,
+      imageUrl: schema.products.imageUrl,
+      imageUrlLarge: schema.products.imageUrlLarge,
+      lastAmazonSync: schema.products.lastAmazonSync,
+      amazonSyncStatus: schema.products.amazonSyncStatus,
+      thirdPartyMarketplaces: schema.products.thirdPartyMarketplaces,
+      caseQuantity: schema.products.caseQuantity,
+      googleMerchantCategory: schema.products.googleMerchantCategory,
+      countryOfOrigin: schema.products.countryOfOrigin,
+      boxHeight: schema.products.boxHeight,
+      boxLength: schema.products.boxLength,
+      boxWidth: schema.products.boxWidth,
+      createdAt: schema.products.createdAt,
+      updatedAt: schema.products.updatedAt,
+    }).from(schema.products);
   }
 
   async getProduct(id: number): Promise<Product | undefined> {

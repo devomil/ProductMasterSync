@@ -313,12 +313,12 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
           attributes: record.attributes || {},
           // New catalog fields
           thirdPartyMarketplaces: record.thirdPartyMarketplaces || record['3rd_party_marketplaces'] || record.marketplaces,
-          caseQty: record.caseQty || record.case_qty ? parseInt(record.caseQty || record.case_qty) : null,
+          caseQuantity: record.caseQuantity || record.case_qty || record.caseQty,
           googleMerchantCategory: record.googleMerchantCategory || record.google_merchant_category || record.merchantCategory,
           countryOfOrigin: record.countryOfOrigin || record.country_of_origin || record.origin,
-          boxHeight: record.boxHeight || record.box_height ? parseFloat(record.boxHeight || record.box_height) : null,
-          boxLength: record.boxLength || record.box_length ? parseFloat(record.boxLength || record.box_length) : null,
-          boxWidth: record.boxWidth || record.box_width ? parseFloat(record.boxWidth || record.box_width) : null,
+          boxHeight: record.boxHeight || record.box_height,
+          boxLength: record.boxLength || record.box_length,
+          boxWidth: record.boxWidth || record.box_width,
           updatedAt: new Date()
         };
         
