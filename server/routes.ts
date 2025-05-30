@@ -1572,6 +1572,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
               catalogData.images = JSON.stringify(images);
               console.log(`🖼️ CWR images captured for ${record['CWR Part Number']}: ${images.length} images`);
             }
+            
+            // Handle CWR documentation URLs
+            if (record['Installation Guide (pdf) Url'] && record['Installation Guide (pdf) Url'].trim() !== '') {
+              catalogData.installationGuideUrl = record['Installation Guide (pdf) Url'].trim();
+            }
+            if (record['Owners Manual (pdf) Url'] && record['Owners Manual (pdf) Url'].trim() !== '') {
+              catalogData.ownersManualUrl = record['Owners Manual (pdf) Url'].trim();
+            }
+            if (record['Brochure Literature (pdf) Url'] && record['Brochure Literature (pdf) Url'].trim() !== '') {
+              catalogData.brochureUrl = record['Brochure Literature (pdf) Url'].trim();
+            }
+            if (record['Quick Guide Literature (pdf) Url'] && record['Quick Guide Literature (pdf) Url'].trim() !== '') {
+              catalogData.quickGuideUrl = record['Quick Guide Literature (pdf) Url'].trim();
+            }
+            
+            // Log documentation URLs if found
+            const docUrls = [
+              catalogData.installationGuideUrl,
+              catalogData.ownersManualUrl, 
+              catalogData.brochureUrl,
+              catalogData.quickGuideUrl
+            ].filter(Boolean);
+            
+            if (docUrls.length > 0) {
+              console.log(`📄 CWR documentation URLs captured for ${record['CWR Part Number']}: ${docUrls.length} documents`);
+            }
           }
 
           // Process catalog mappings - handle both old and new mapping format
