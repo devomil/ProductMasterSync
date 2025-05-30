@@ -1587,6 +1587,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                targetField === 'manufacturerName' ? 'manufacturer_name' :
                                targetField;
                 
+                // Debug logging for packaging dimensions and marketplace fields
+                if (['boxWidth', 'boxHeight', 'boxLength', 'caseQuantity', 'thirdPartyMarketplaces', 'googleMerchantCategory'].includes(targetField)) {
+                  console.log(`📦 Mapping ${sourceField} -> ${targetField} (DB: ${dbField}): "${value}"`);
+                }
+                
                 catalogData[dbField as string] = value;
               }
             }
