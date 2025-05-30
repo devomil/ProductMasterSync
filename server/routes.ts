@@ -1600,6 +1600,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catalogData.supplierId = dataSource.supplierId;
           catalogData.supplierCode = dataSource.name;
           
+          // For CWR imports, set USIN to the same value as SKU (CWR Part Number)
+          if (dataSource.name === 'CWR' && catalogData.sku) {
+            catalogData.usin = catalogData.sku;
+          }
+          
           // Handle category field - create hierarchical categories automatically
           if (catalogData.categoryId && typeof catalogData.categoryId === 'string') {
             // Parse hierarchical category like "Marine Navigation & Instruments | Compasses"
