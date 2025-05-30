@@ -244,6 +244,18 @@ export class BulkImportProcessor {
       transformed.quickGuideUrl = this.cleanValue(rawProduct['AF']);
     }
 
+    // Automatically capture authentic CWR additional images from SFTP data
+    if (!transformed.additionalImages && rawProduct['Image Additional (1000x1000) Urls']) {
+      const additionalImageUrls = this.cleanValue(rawProduct['Image Additional (1000x1000) Urls']);
+      if (additionalImageUrls) {
+        // Split multiple URLs by pipe character and create array
+        const imageArray = additionalImageUrls.split('|').map((url: string) => url.trim()).filter((url: string) => url.length > 0);
+        if (imageArray.length > 0) {
+          transformed.additionalImages = JSON.stringify(imageArray);
+        }
+      }
+    }
+
     // Ensure required fields have values
     if (!transformed.sku) {
       transformed.sku = rawProduct['CWR Part Number'] || rawProduct['sku'] || `UNKNOWN-${Date.now()}`;
