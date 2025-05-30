@@ -1575,24 +1575,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log('🧹 Processed HTML description to clean text during mapping');
                 }
                 
-                // Convert camelCase to snake_case for database columns
-                const dbField = targetField === 'boxWidth' ? 'box_width' :
-                               targetField === 'boxHeight' ? 'box_height' :
-                               targetField === 'boxLength' ? 'box_length' :
-                               targetField === 'caseQuantity' ? 'case_quantity' :
-                               targetField === 'googleMerchantCategory' ? 'google_merchant_category' :
-                               targetField === 'thirdPartyMarketplaces' ? 'third_party_marketplaces' :
-                               targetField === 'manufacturerPartNumber' ? 'manufacturer_part_number' :
-                               targetField === 'countryOfOrigin' ? 'country_of_origin' :
-                               targetField === 'manufacturerName' ? 'manufacturer_name' :
-                               targetField;
-                
+                // Keep camelCase for database schema compatibility
                 // Debug logging for packaging dimensions and marketplace fields
                 if (['boxWidth', 'boxHeight', 'boxLength', 'caseQuantity', 'thirdPartyMarketplaces', 'googleMerchantCategory'].includes(targetField)) {
-                  console.log(`📦 Mapping ${sourceField} -> ${targetField} (DB: ${dbField}): "${value}"`);
+                  console.log(`📦 Mapping ${sourceField} -> ${targetField}: "${value}"`);
                 }
                 
-                catalogData[dbField as string] = value;
+                catalogData[targetField as string] = value;
               }
             }
           }
@@ -1709,11 +1698,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Debug: Log packaging dimensions before database insertion
           console.log('📦 Product data before DB insertion:', {
             sku: productData.sku,
-            box_height: productData.box_height,
-            box_width: productData.box_width,
-            box_length: productData.box_length,
-            third_party_marketplaces: productData.third_party_marketplaces,
-            google_merchant_category: productData.google_merchant_category
+            boxHeight: productData.boxHeight,
+            boxWidth: productData.boxWidth,
+            boxLength: productData.boxLength,
+            thirdPartyMarketplaces: productData.thirdPartyMarketplaces,
+            googleMerchantCategory: productData.googleMerchantCategory
           });
 
           let savedProduct;
