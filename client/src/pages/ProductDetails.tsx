@@ -253,7 +253,7 @@ export default function ProductDetails() {
                   
                   <Separator />
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-3">Product Information</h3>
                       <div className="space-y-2">
@@ -279,6 +279,18 @@ export default function ProductDetails() {
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">Weight:</span>
                             <span className="font-medium">{product.weight} lbs</span>
+                          </div>
+                        )}
+                        {product.countryOfOrigin && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Country of Origin:</span>
+                            <span className="font-medium">{product.countryOfOrigin}</span>
+                          </div>
+                        )}
+                        {product.caseQuantity && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Case Qty:</span>
+                            <span className="font-medium">{product.caseQuantity}</span>
                           </div>
                         )}
                       </div>
@@ -309,6 +321,42 @@ export default function ProductDetails() {
                           <span className="text-gray-600">EDC:</span>
                           <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{product.sku}</span>
                         </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3">Packaging & Shipping</h3>
+                      <div className="space-y-2">
+                        {product.boxHeight && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Box Height:</span>
+                            <span className="font-medium">{product.boxHeight}"</span>
+                          </div>
+                        )}
+                        {product.boxLength && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Box Length:</span>
+                            <span className="font-medium">{product.boxLength}"</span>
+                          </div>
+                        )}
+                        {product.boxWidth && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Box Width:</span>
+                            <span className="font-medium">{product.boxWidth}"</span>
+                          </div>
+                        )}
+                        {product.googleMerchantCategory && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">Google Category:</span>
+                            <span className="font-medium">{product.googleMerchantCategory}</span>
+                          </div>
+                        )}
+                        {product.thirdPartyMarketplaces && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">3rd Party Marketplaces:</span>
+                            <span className="font-medium">{product.thirdPartyMarketplaces}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
