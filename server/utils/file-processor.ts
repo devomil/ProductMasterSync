@@ -380,8 +380,6 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
           result.errorCount++;
         }
       }
-        });
-      }
       
       // Update import progress periodically 
       if (i % 100 === 0 || i === processedRecords.length - 1) {

@@ -691,8 +691,9 @@ export default function MappingTemplates() {
           description: `Successfully imported ${data.stats.success} products with cleaned descriptions!`
         });
 
-        // Refresh products data
+        // Refresh products data and categories
         queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
         queryClient.invalidateQueries({ queryKey: ['/api/imports'] });
       } else {
         toast({
