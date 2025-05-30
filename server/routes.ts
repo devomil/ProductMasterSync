@@ -1498,10 +1498,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mappings = JSON.parse(mappings);
       }
 
-      // Process each record using the mapping template
+      // Enhanced validation and error tracking
       const processedProducts = [];
+      const validationErrors = [];
+      const processingWarnings = [];
       let successCount = 0;
       let errorCount = 0;
+      let skippedCount = 0;
+
+      // Validate mapping template before processing
+      const requiredFields = ['sku', 'name'];
+      const mappedTargetFields = new Set();
+      
+      if (mappings.catalog) {
+        mappings.catalog.forEach(mapping => {
+          if (mapping.targetField) mappedTargetFields.add(mapping.targetField);
+        });
+      } else {
+        Object.values(mappings).forEach(targetField => {
+          if (targetField) mappedTargetFields.add(targetField);
+        });
+      }
+
+      // Check for missing required field mappings
+      for (const requiredField of requiredFields) {
+        if (!mappedTargetFields.has(requiredField)) {
+          validationErrors.push({
+            type: 'missing_required_mapping',
+            field: requiredField,
+            message: `Required field '${requiredField}' is not mapped in the template`
+          });
+        }
+      }
 
       for (const record of sampleData) {
         try {
@@ -1809,7 +1837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({
-        success: true,
+        success: successCount > 0,
         message: `Successfully imported ${successCount} of ${sampleData.length} sample records${inventorySyncCount > 0 ? ` with warehouse stock data for ${inventorySyncCount} products` : ''}`,
         importId: importLog.id,
         products: processedProducts,
@@ -1817,10 +1845,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           total: sampleData.length,
           success: successCount,
           errors: errorCount,
+          skipped: skippedCount,
           inventorySynced: inventorySyncCount,
           categoriesCreated: true,
           warehouseDataSynced: inventorySyncCount > 0
-        }
+        },
+        validation: {
+          errors: validationErrors,
+          warnings: processingWarnings,
+          hasErrors: validationErrors.length > 0,
+          hasWarnings: processingWarnings.length > 0
+        },
+        errors: validationErrors.length > 0 ? validationErrors : undefined
       });
 
     } catch (error) {
