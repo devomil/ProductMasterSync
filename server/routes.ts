@@ -1575,7 +1575,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log('🧹 Processed HTML description to clean text during mapping');
                 }
                 
-                catalogData[targetField as string] = value;
+                // Convert camelCase to snake_case for database columns
+                const dbField = targetField === 'boxWidth' ? 'box_width' :
+                               targetField === 'boxHeight' ? 'box_height' :
+                               targetField === 'boxLength' ? 'box_length' :
+                               targetField === 'caseQuantity' ? 'case_quantity' :
+                               targetField === 'googleMerchantCategory' ? 'google_merchant_category' :
+                               targetField === 'thirdPartyMarketplaces' ? 'third_party_marketplaces' :
+                               targetField === 'manufacturerPartNumber' ? 'manufacturer_part_number' :
+                               targetField === 'countryOfOrigin' ? 'country_of_origin' :
+                               targetField === 'manufacturerName' ? 'manufacturer_name' :
+                               targetField;
+                
+                catalogData[dbField as string] = value;
               }
             }
           }
