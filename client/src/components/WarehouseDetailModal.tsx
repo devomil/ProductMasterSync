@@ -489,71 +489,71 @@ export default function WarehouseDetailModal({
                     <div className="space-y-4">
                       <h4 className="font-semibold text-gray-900">Product Documentation</h4>
                       {productData?.quickGuideUrl && (
-                        <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-gray-600 font-medium">Quick Guide:</span>
-                          <div className="flex items-center gap-2">
+                        <div className="py-3 border-b">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-gray-600 font-medium">Quick Guide:</span>
                             {documentationHealth?.result?.quickGuide && (
                               <UrlHealthIndicator 
                                 status={documentationHealth.result.quickGuide} 
                                 compact={true} 
                               />
                             )}
-                            <a href={productData.quickGuideUrl} target="_blank" rel="noopener noreferrer" 
-                               className="text-blue-600 hover:text-blue-800 font-medium">
-                              View PDF
-                            </a>
                           </div>
+                          <a href={productData.quickGuideUrl} target="_blank" rel="noopener noreferrer" 
+                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
+                            {productData.quickGuideUrl}
+                          </a>
                         </div>
                       )}
                       {productData?.ownersManualUrl && (
-                        <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-gray-600 font-medium">Owner's Manual:</span>
-                          <div className="flex items-center gap-2">
+                        <div className="py-3 border-b">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-gray-600 font-medium">Owner's Manual:</span>
                             {documentationHealth?.result?.ownersManual && (
                               <UrlHealthIndicator 
                                 status={documentationHealth.result.ownersManual} 
                                 compact={true} 
                               />
                             )}
-                            <a href={productData.ownersManualUrl} target="_blank" rel="noopener noreferrer" 
-                               className="text-blue-600 hover:text-blue-800 font-medium">
-                              View PDF
-                            </a>
                           </div>
+                          <a href={productData.ownersManualUrl} target="_blank" rel="noopener noreferrer" 
+                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
+                            {productData.ownersManualUrl}
+                          </a>
                         </div>
                       )}
                       {productData?.brochureUrl && (
-                        <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-gray-600 font-medium">Brochure:</span>
-                          <div className="flex items-center gap-2">
+                        <div className="py-3 border-b">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-gray-600 font-medium">Brochure:</span>
                             {documentationHealth?.result?.brochure && (
                               <UrlHealthIndicator 
                                 status={documentationHealth.result.brochure} 
                                 compact={true} 
                               />
                             )}
-                            <a href={productData.brochureUrl} target="_blank" rel="noopener noreferrer" 
-                               className="text-blue-600 hover:text-blue-800 font-medium">
-                              View PDF
-                            </a>
                           </div>
+                          <a href={productData.brochureUrl} target="_blank" rel="noopener noreferrer" 
+                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
+                            {productData.brochureUrl}
+                          </a>
                         </div>
                       )}
                       {productData?.installationGuideUrl && (
-                        <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-gray-600 font-medium">Installation Guide:</span>
-                          <div className="flex items-center gap-2">
+                        <div className="py-3 border-b">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-gray-600 font-medium">Installation Guide:</span>
                             {documentationHealth?.result?.installationGuide && (
                               <UrlHealthIndicator 
                                 status={documentationHealth.result.installationGuide} 
                                 compact={true} 
                               />
                             )}
-                            <a href={productData.installationGuideUrl} target="_blank" rel="noopener noreferrer" 
-                               className="text-blue-600 hover:text-blue-800 font-medium">
-                              View PDF
-                            </a>
                           </div>
+                          <a href={productData.installationGuideUrl} target="_blank" rel="noopener noreferrer" 
+                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
+                            {productData.installationGuideUrl}
+                          </a>
                         </div>
                       )}
                     </div>
