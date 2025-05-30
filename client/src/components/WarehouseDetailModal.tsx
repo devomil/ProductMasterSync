@@ -38,6 +38,9 @@ export default function WarehouseDetailModal({
   sku,
   productId 
 }: WarehouseDetailModalProps) {
+  const [isValidatingUrls, setIsValidatingUrls] = useState(false);
+  const queryClient = useQueryClient();
+
   const { data: inventoryData, isLoading } = useQuery({
     queryKey: [`/api/inventory/${sku}`],
     enabled: isOpen && !!sku,
@@ -48,6 +51,31 @@ export default function WarehouseDetailModal({
     queryKey: [`/api/products/${productId}`],
     enabled: isOpen && !!productId,
   }) as { data: any };
+
+  // URL health validation query
+  const { data: documentationHealth, isLoading: isLoadingHealth } = useQuery({
+    queryKey: [`/api/products/${productId}/documentation-health`],
+    enabled: isOpen && !!productId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  }) as { data: any, isLoading: boolean };
+
+  // URL validation mutation
+  const validateUrlsMutation = useMutation({
+    mutationFn: async () => {
+      setIsValidatingUrls(true);
+      const response = await apiRequest(`/api/products/${productId}/documentation-health`, {
+        method: 'GET',
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([`/api/products/${productId}/documentation-health`], data);
+      setIsValidatingUrls(false);
+    },
+    onError: () => {
+      setIsValidatingUrls(false);
+    },
+  });
 
   const getStatusColor = (quantity: number) => {
     if (quantity > 10) return "bg-green-100 text-green-800";
@@ -428,46 +456,105 @@ export default function WarehouseDetailModal({
             <TabsContent value="docs" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg text-blue-600">{vendorName} Documentation & Resources</CardTitle>
+                  <CardTitle className="flex items-center justify-between text-lg text-blue-600">
+                    <span>{vendorName} Documentation & Resources</span>
+                    <div className="flex items-center gap-2">
+                      {(isLoadingHealth || isValidatingUrls) && (
+                        <RefreshCw className="h-4 w-4 animate-spin text-gray-500" />
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => validateUrlsMutation.mutate()}
+                        disabled={isValidatingUrls || !productId}
+                        className="text-xs"
+                      >
+                        <Shield className="h-3 w-3 mr-1" />
+                        Check Links
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  {documentationHealth?.result?.overallHealth && (
+                    <div className="text-sm text-gray-600">
+                      Overall Health: <Badge variant={
+                        documentationHealth.result.overallHealth === 'healthy' ? 'default' :
+                        documentationHealth.result.overallHealth === 'partial' ? 'secondary' : 'destructive'
+                      }>
+                        {documentationHealth.result.overallHealth}
+                      </Badge>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <h4 className="font-semibold text-gray-900">Product Documentation</h4>
                       {productData?.quickGuideUrl && (
-                        <div className="flex justify-between py-2 border-b">
+                        <div className="flex justify-between items-center py-2 border-b">
                           <span className="text-gray-600 font-medium">Quick Guide:</span>
-                          <a href={productData.quickGuideUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 font-medium">
-                            View PDF
-                          </a>
+                          <div className="flex items-center gap-2">
+                            {documentationHealth?.result?.quickGuide && (
+                              <UrlHealthIndicator 
+                                status={documentationHealth.result.quickGuide} 
+                                compact={true} 
+                              />
+                            )}
+                            <a href={productData.quickGuideUrl} target="_blank" rel="noopener noreferrer" 
+                               className="text-blue-600 hover:text-blue-800 font-medium">
+                              View PDF
+                            </a>
+                          </div>
                         </div>
                       )}
                       {productData?.ownersManualUrl && (
-                        <div className="flex justify-between py-2 border-b">
+                        <div className="flex justify-between items-center py-2 border-b">
                           <span className="text-gray-600 font-medium">Owner's Manual:</span>
-                          <a href={productData.ownersManualUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 font-medium">
-                            View PDF
-                          </a>
+                          <div className="flex items-center gap-2">
+                            {documentationHealth?.result?.ownersManual && (
+                              <UrlHealthIndicator 
+                                status={documentationHealth.result.ownersManual} 
+                                compact={true} 
+                              />
+                            )}
+                            <a href={productData.ownersManualUrl} target="_blank" rel="noopener noreferrer" 
+                               className="text-blue-600 hover:text-blue-800 font-medium">
+                              View PDF
+                            </a>
+                          </div>
                         </div>
                       )}
                       {productData?.brochureUrl && (
-                        <div className="flex justify-between py-2 border-b">
+                        <div className="flex justify-between items-center py-2 border-b">
                           <span className="text-gray-600 font-medium">Brochure:</span>
-                          <a href={productData.brochureUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 font-medium">
-                            View PDF
-                          </a>
+                          <div className="flex items-center gap-2">
+                            {documentationHealth?.result?.brochure && (
+                              <UrlHealthIndicator 
+                                status={documentationHealth.result.brochure} 
+                                compact={true} 
+                              />
+                            )}
+                            <a href={productData.brochureUrl} target="_blank" rel="noopener noreferrer" 
+                               className="text-blue-600 hover:text-blue-800 font-medium">
+                              View PDF
+                            </a>
+                          </div>
                         </div>
                       )}
                       {productData?.installationGuideUrl && (
-                        <div className="flex justify-between py-2 border-b">
+                        <div className="flex justify-between items-center py-2 border-b">
                           <span className="text-gray-600 font-medium">Installation Guide:</span>
-                          <a href={productData.installationGuideUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 font-medium">
-                            View PDF
-                          </a>
+                          <div className="flex items-center gap-2">
+                            {documentationHealth?.result?.installationGuide && (
+                              <UrlHealthIndicator 
+                                status={documentationHealth.result.installationGuide} 
+                                compact={true} 
+                              />
+                            )}
+                            <a href={productData.installationGuideUrl} target="_blank" rel="noopener noreferrer" 
+                               className="text-blue-600 hover:text-blue-800 font-medium">
+                              View PDF
+                            </a>
+                          </div>
                         </div>
                       )}
                     </div>
