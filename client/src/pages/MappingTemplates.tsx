@@ -203,6 +203,7 @@ export default function MappingTemplates() {
   const [isImporting, setIsImporting] = useState(false);
   const [showImportSampleDialog, setShowImportSampleDialog] = useState(false);
   const [importSampleSize, setImportSampleSize] = useState(10);
+  const [validationErrors, setValidationErrors] = useState<Array<{field: string, message: string, severity: 'error' | 'warning'}>>([]);
   const [, navigate] = useLocation();
   
   // Toggle full screen handler
@@ -662,6 +663,144 @@ export default function MappingTemplates() {
         description: "Failed to delete template"
       });
     }
+  };
+
+  // String similarity function for auto-mapping
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const s1 = str1.toLowerCase().replace(/[_\s-]/g, '');
+    const s2 = str2.toLowerCase().replace(/[_\s-]/g, '');
+    
+    if (s1 === s2) return 1;
+    if (s1.includes(s2) || s2.includes(s1)) return 0.8;
+    
+    // Check for common keywords
+    const keywords = {
+      'sku': ['sku', 'partno', 'partnumber', 'part', 'code', 'id'],
+      'name': ['name', 'title', 'product', 'description'],
+      'price': ['price', 'cost', 'amount', 'value'],
+      'weight': ['weight', 'mass'],
+      'upc': ['upc', 'barcode', 'gtin'],
+      'manufacturerPartNumber': ['mpn', 'mfg', 'manufacturer', 'partnumber'],
+      'manufacturerName': ['brand', 'manufacturer', 'company', 'vendor']
+    };
+    
+    for (const [target, aliases] of Object.entries(keywords)) {
+      if (target.toLowerCase() === s2) {
+        for (const alias of aliases) {
+          if (s1.includes(alias)) return 0.7;
+        }
+      }
+    }
+    
+    return 0;
+  };
+
+  // Auto-mapping function
+  const handleAutoMapping = () => {
+    if (!sampleData || sampleData.length === 0) {
+      toast({
+        title: "No sample data",
+        description: "Please upload sample data first to enable auto-mapping",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const sourceFields = Object.keys(sampleData[0]);
+    const newMappings: FieldMapping[] = [];
+    const usedTargetFields = new Set<string>();
+    let mappedCount = 0;
+
+    // Auto-map fields based on similarity
+    for (const sourceField of sourceFields) {
+      let bestMatch = { targetField: '', score: 0 };
+      
+      for (const targetField of AVAILABLE_TARGET_FIELDS) {
+        if (usedTargetFields.has(targetField.id)) continue;
+        
+        const score = calculateSimilarity(sourceField, targetField.id) || 
+                     calculateSimilarity(sourceField, targetField.name);
+        
+        if (score > bestMatch.score && score >= 0.6) {
+          bestMatch = { targetField: targetField.id, score };
+        }
+      }
+      
+      if (bestMatch.targetField) {
+        newMappings.push({
+          sourceField,
+          targetField: bestMatch.targetField
+        });
+        usedTargetFields.add(bestMatch.targetField);
+        mappedCount++;
+      }
+    }
+    
+    // Add empty mappings for unmapped source fields
+    for (const sourceField of sourceFields) {
+      if (!newMappings.find(m => m.sourceField === sourceField)) {
+        newMappings.push({
+          sourceField,
+          targetField: ''
+        });
+      }
+    }
+
+    setFieldMappings(newMappings);
+    validateMappings(newMappings);
+    
+    toast({
+      title: "Auto-mapping complete",
+      description: `Successfully mapped ${mappedCount} of ${sourceFields.length} fields based on similarity`
+    });
+  };
+
+  // Validate mappings
+  const validateMappings = (mappings: FieldMapping[]) => {
+    const errors: Array<{field: string, message: string, severity: 'error' | 'warning'}> = [];
+    const mappedTargetFields = new Set<string>();
+    
+    // Check for required fields
+    const requiredFields = AVAILABLE_TARGET_FIELDS.filter(f => f.required);
+    const mappedFields = mappings.filter(m => m.targetField).map(m => m.targetField);
+    
+    for (const requiredField of requiredFields) {
+      if (!mappedFields.includes(requiredField.id)) {
+        errors.push({
+          field: requiredField.name,
+          message: `Required field "${requiredField.name}" is not mapped`,
+          severity: 'error'
+        });
+      }
+    }
+    
+    // Check for duplicate mappings
+    for (const mapping of mappings) {
+      if (mapping.targetField) {
+        if (mappedTargetFields.has(mapping.targetField)) {
+          const field = AVAILABLE_TARGET_FIELDS.find(f => f.id === mapping.targetField);
+          errors.push({
+            field: field?.name || mapping.targetField,
+            message: `Field "${field?.name || mapping.targetField}" is mapped multiple times`,
+            severity: 'warning'
+          });
+        } else {
+          mappedTargetFields.add(mapping.targetField);
+        }
+      }
+    }
+    
+    // Check for unmapped source fields
+    const unmappedCount = mappings.filter(m => !m.targetField).length;
+    if (unmappedCount > 0) {
+      errors.push({
+        field: 'General',
+        message: `${unmappedCount} source fields are not mapped to any target field`,
+        severity: 'warning'
+      });
+    }
+    
+    setValidationErrors(errors);
   };
 
   // Open import sample dialog
@@ -1449,13 +1588,7 @@ export default function MappingTemplates() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        // Auto-map logic can be added here
-                        toast({
-                          title: "Auto-mapping complete",
-                          description: "Fields have been automatically mapped based on similarity"
-                        });
-                      }}
+                      onClick={handleAutoMapping}
                     >
                       <Zap className="h-4 w-4 mr-1" />
                       Auto-Map Fields
@@ -1497,6 +1630,31 @@ export default function MappingTemplates() {
                     )}
                   </div>
                 </div>
+
+                {/* Validation Panel */}
+                {validationErrors.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h4 className="font-medium text-red-800 mb-3 flex items-center">
+                      <X className="h-4 w-4 mr-2" />
+                      Mapping Validation Issues ({validationErrors.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {validationErrors.map((error, index) => (
+                        <div 
+                          key={index}
+                          className={`p-2 rounded text-sm ${
+                            error.severity === 'error' 
+                              ? 'bg-red-100 text-red-800 border border-red-300' 
+                              : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                          }`}
+                        >
+                          <div className="font-medium">{error.field}</div>
+                          <div className="text-xs mt-1">{error.message}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Dual Mapping Interface with Tabs */}
                 <Tabs value={mappingView} onValueChange={(value) => setMappingView(value as 'catalog' | 'detail')} className="w-full">
