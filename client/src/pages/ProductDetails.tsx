@@ -345,18 +345,7 @@ export default function ProductDetails() {
                             <span className="font-medium">{product.boxWidth}"</span>
                           </div>
                         )}
-                        {product.googleMerchantCategory && (
-                          <div className="flex justify-between py-1">
-                            <span className="text-gray-600">Google Category:</span>
-                            <span className="font-medium">{product.googleMerchantCategory}</span>
-                          </div>
-                        )}
-                        {product.thirdPartyMarketplaces && (
-                          <div className="flex justify-between py-1">
-                            <span className="text-gray-600">3rd Party Marketplaces:</span>
-                            <span className="font-medium">{product.thirdPartyMarketplaces}</span>
-                          </div>
-                        )}
+
                       </div>
                     </div>
                   </div>
