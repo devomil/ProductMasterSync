@@ -94,6 +94,14 @@ export const products = pgTable("products", {
   // Image fields for CWR product images
   imageUrl: text("image_url"),                      // Primary product image URL
   imageUrlLarge: text("image_url_large"),           // Large/high-res product image URL
+  // Missing fields from catalog.csv
+  thirdPartyMarketplaces: text("third_party_marketplaces"), // 3rd Party Marketplaces
+  caseQuantity: text("case_quantity"),              // Case Qty
+  googleMerchantCategory: text("google_merchant_category"), // Google Merchant Category
+  countryOfOrigin: text("country_of_origin"),       // Country of Origin
+  boxHeight: text("box_height"),                    // Box Height
+  boxLength: text("box_length"),                    // Box Length
+  boxWidth: text("box_width"),                      // Box Width
   // Amazon sync tracking fields
   lastAmazonSync: timestamp("last_amazon_sync"),
   amazonSyncStatus: text("amazon_sync_status").default("pending"), // pending, processing, success, error, ratelimited
