@@ -63,10 +63,9 @@ export default function WarehouseDetailModal({
   const validateUrlsMutation = useMutation({
     mutationFn: async () => {
       setIsValidatingUrls(true);
-      const response = await apiRequest(`/api/products/${productId}/documentation-health`, {
-        method: 'GET',
-      });
-      return response;
+      const response = await fetch(`/api/products/${productId}/documentation-health`);
+      const data = await response.json();
+      return data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData([`/api/products/${productId}/documentation-health`], data);
