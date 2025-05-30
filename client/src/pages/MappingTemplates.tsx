@@ -1856,6 +1856,70 @@ export default function MappingTemplates() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Sample Dialog */}
+      <Dialog open={showImportSampleDialog} onOpenChange={setShowImportSampleDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Sample Data</DialogTitle>
+            <DialogDescription>
+              Select the number of products to import from template "{selectedTemplate?.name}"
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="importSampleSize">Number of Products to Import</Label>
+              <Select
+                value={importSampleSize.toString()}
+                onValueChange={(value) => setImportSampleSize(parseInt(value))}
+              >
+                <SelectTrigger id="importSampleSize">
+                  <SelectValue placeholder="Select quantity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 products</SelectItem>
+                  <SelectItem value="15">15 products</SelectItem>
+                  <SelectItem value="20">20 products</SelectItem>
+                  <SelectItem value="25">25 products</SelectItem>
+                  <SelectItem value="30">30 products</SelectItem>
+                  <SelectItem value="35">35 products</SelectItem>
+                  <SelectItem value="40">40 products</SelectItem>
+                  <SelectItem value="45">45 products</SelectItem>
+                  <SelectItem value="50">50 products</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              This will import a sample of {importSampleSize} products using the configured field mappings. 
+              Perfect for testing your template before processing larger datasets.
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportSampleDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleImportSample} 
+              disabled={isImporting}
+            >
+              {isImporting ? (
+                <>
+                  <ButtonSpinner />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Import {importSampleSize} Products
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
