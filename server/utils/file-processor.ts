@@ -382,7 +382,7 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
       }
       
       // Update import progress periodically 
-      if (i % 100 === 0 || i === processedRecords.length - 1) {
+      if (batchStart % 1000 === 0 || batchStart + BATCH_SIZE >= totalRecords) {
         await db.update(imports)
           .set({ 
             processedCount: result.processedCount,
