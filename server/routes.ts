@@ -1709,18 +1709,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Auto-sync inventory data for sample imports if inventory path exists
+      // Auto-sync inventory data for sample imports from CWR SFTP
       let inventorySyncCount = 0;
-      if (dataSource.config && dataSource.config.inventoryPath && processedProducts.length > 0) {
-        console.log(`🔄 Auto-syncing inventory for ${processedProducts.length} sample products...`);
+      if (dataSource.type === 'sftp' && processedProducts.length > 0) {
+        console.log(`🔄 Auto-syncing inventory for ${processedProducts.length} sample products from CWR...`);
         
         try {
-          const { syncInventoryForProducts } = require('./utils/inventory-service');
-          const syncResults = await syncInventoryForProducts(processedProducts.map(p => p.sku));
-          inventorySyncCount = syncResults.successCount || 0;
-          console.log(`✅ Synced inventory for ${inventorySyncCount} products during sample import`);
+          // Sync inventory from the same SFTP source for each imported product
+          for (const product of processedProducts) {
+            if (product.sku && product.manufacturerPartNumber) {
+              try {
+                // Update the product with inventory data from SFTP
+                const { default: Client } = await import('ssh2-sftp-client');
+                const sftp = new Client();
+                
+                const sftpConfig = typeof dataSource.config === 'string' ? JSON.parse(dataSource.config) : dataSource.config;
+                
+                await sftp.connect({
+                  host: sftpConfig.host || 'edi.cwrdistribution.com',
+                  port: sftpConfig.port || 22,
+                  username: sftpConfig.username || 'eco8',
+                  password: sftpConfig.password || process.env.SFTP_PASSWORD
+                });
+                
+                const csvContent = await sftp.get('/eco8/out/inventory.csv');
+                await sftp.end();
+                
+                const { parse } = await import('csv-parse/sync');
+                const records = parse(csvContent.toString(), {
+                  columns: true,
+                  skip_empty_lines: true
+                });
+                
+                // Find inventory record matching this product
+                const inventoryRecord = records.find((record: any) => 
+                  record.mfgn === product.manufacturerPartNumber || record.sku === product.sku
+                );
+                
+                if (inventoryRecord) {
+                  const flQty = parseInt(inventoryRecord.qtyfl || '0') || 0;
+                  const njQty = parseInt(inventoryRecord.qtynj || '0') || 0;
+                  const totalQty = flQty + njQty;
+                  
+                  // Update product with inventory quantity
+                  await db.update(products)
+                    .set({ 
+                      inventoryQuantity: totalQty.toString(),
+                      updatedAt: new Date()
+                    })
+                    .where(eq(products.id, product.id));
+                  
+                  inventorySyncCount++;
+                  console.log(`📦 Updated inventory for ${product.sku}: ${totalQty} units (FL: ${flQty}, NJ: ${njQty})`);
+                }
+              } catch (productInventoryError) {
+                console.log(`⚠️ Could not sync inventory for ${product.sku}:`, productInventoryError.message);
+              }
+            }
+          }
+          
+          console.log(`✅ Synced inventory for ${inventorySyncCount} of ${processedProducts.length} products during sample import`);
         } catch (inventoryError) {
-          console.log('📦 Inventory sync will be available for live products:', inventoryError.message);
+          console.log('📦 Inventory sync will be available after proper SFTP credentials are provided:', inventoryError.message);
         }
       }
 
@@ -1739,14 +1789,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        message: `Successfully imported ${successCount} of ${sampleData.length} sample records${inventorySyncCount > 0 ? ` with inventory data for ${inventorySyncCount} products` : ''}`,
+        message: `Successfully imported ${successCount} of ${sampleData.length} sample records${inventorySyncCount > 0 ? ` with warehouse stock data for ${inventorySyncCount} products` : ''}`,
         importId: importLog.id,
         products: processedProducts,
         stats: {
           total: sampleData.length,
           success: successCount,
           errors: errorCount,
-          inventorySynced: inventorySyncCount
+          inventorySynced: inventorySyncCount,
+          categoriesCreated: true,
+          warehouseDataSynced: inventorySyncCount > 0
         }
       });
 
