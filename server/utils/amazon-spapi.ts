@@ -109,9 +109,12 @@ export async function searchCatalogItemsByUPC(
     }
 
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error searching catalog items by UPC:', error);
-    throw new Error(`Failed to search Amazon catalog: ${(error as Error).message}`);
+    if (error.response?.data) {
+      console.error('Amazon API error details:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw new Error(`Failed to search Amazon catalog: ${error.message}`);
   }
 }
 
