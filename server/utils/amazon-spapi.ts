@@ -9,14 +9,11 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { createHmac } from 'crypto';
 
-// SP-API configuration
+// SP-API configuration using LWA OAuth 2.0
 interface SPAPIConfig {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
-  accessKeyId: string;
-  secretKey: string;
-  roleArn: string;
   marketplaceId: string;
   endpoint: string;
 }
@@ -35,78 +32,7 @@ interface SPAPICatalogItem {
 // Current token cache
 let tokenCache: SPAPIToken | null = null;
 
-/**
- * Generates an AWS Signature V4 for API calls
- */
-function generateAWSSignature(
-  method: string,
-  path: string,
-  queryParams: Record<string, string>,
-  body: string | null,
-  accessKey: string,
-  secretKey: string,
-  region: string = 'us-east-1',
-  service: string = 'execute-api'
-): Record<string, string> {
-  const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const date = timestamp.substring(0, 8);
-
-  // Create canonical request
-  const canonicalUri = path;
-  const canonicalQueryString = Object.keys(queryParams)
-    .sort()
-    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
-    .join('&');
-
-  const canonicalHeaders = [
-    `host:${new URL(path).host}`,
-    `x-amz-date:${timestamp}`
-  ].join('\n') + '\n';
-
-  const signedHeaders = 'host;x-amz-date';
-  const payloadHash = crypto
-    .createHash('sha256')
-    .update(body || '')
-    .digest('hex');
-
-  const canonicalRequest = [
-    method,
-    canonicalUri,
-    canonicalQueryString,
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash
-  ].join('\n');
-
-  // Create string to sign
-  const algorithm = 'AWS4-HMAC-SHA256';
-  const credentialScope = `${date}/${region}/${service}/aws4_request`;
-  const stringToSign = [
-    algorithm,
-    timestamp,
-    credentialScope,
-    crypto.createHash('sha256').update(canonicalRequest).digest('hex')
-  ].join('\n');
-
-  // Calculate signature
-  let signingKey = createHmac('sha256', `AWS4${secretKey}`).update(date).digest();
-  signingKey = createHmac('sha256', signingKey).update(region).digest();
-  signingKey = createHmac('sha256', signingKey).update(service).digest();
-  signingKey = createHmac('sha256', signingKey).update('aws4_request').digest();
-  const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
-
-  // Create authorization header
-  const authorizationHeader = [
-    `${algorithm} Credential=${accessKey}/${credentialScope}`,
-    `SignedHeaders=${signedHeaders}`,
-    `Signature=${signature}`
-  ].join(', ');
-
-  return {
-    'Authorization': authorizationHeader,
-    'X-Amz-Date': timestamp
-  };
-}
+// Remove AWS signature generation - no longer needed with LWA OAuth 2.0
 
 /**
  * Get access token for SP-API
@@ -150,7 +76,6 @@ export async function searchCatalogItemsByUPC(
     const accessToken = await getAccessToken(config);
     
     // Setup API call parameters
-    const method = 'GET';
     const endpoint = config.endpoint || 'https://sellingpartnerapi-na.amazon.com';
     const path = '/catalog/2022-04-01/items';
     const queryParams = {
@@ -160,28 +85,18 @@ export async function searchCatalogItemsByUPC(
       includedData: 'attributes,dimensions,images,productTypes,relationships,salesRanks,summaries'
     };
 
-    // Generate AWS signature
-    const awsHeaders = generateAWSSignature(
-      method,
-      path,
-      queryParams,
-      null,
-      config.accessKeyId,
-      config.secretKey
-    );
-
     // Build query string
     const queryString = Object.keys(queryParams)
       .map(key => `${key}=${encodeURIComponent(queryParams[key as keyof typeof queryParams])}`)
       .join('&');
 
-    // Make API request
+    // Make API request with LWA OAuth 2.0 authentication
     const response = await axios({
-      method,
+      method: 'GET',
       url: `${endpoint}${path}?${queryString}`,
       headers: {
         'x-amz-access-token': accessToken,
-        ...awsHeaders
+        'Content-Type': 'application/json'
       }
     });
 
@@ -212,7 +127,6 @@ export async function getCatalogItem(
     const accessToken = await getAccessToken(config);
     
     // Setup API call parameters
-    const method = 'GET';
     const endpoint = config.endpoint || 'https://sellingpartnerapi-na.amazon.com';
     const path = `/catalog/2022-04-01/items/${asin}`;
     const queryParams = {
@@ -220,28 +134,18 @@ export async function getCatalogItem(
       includedData: 'attributes,dimensions,images,productTypes,relationships,salesRanks,summaries'
     };
 
-    // Generate AWS signature
-    const awsHeaders = generateAWSSignature(
-      method,
-      path,
-      queryParams,
-      null,
-      config.accessKeyId,
-      config.secretKey
-    );
-
     // Build query string
     const queryString = Object.keys(queryParams)
       .map(key => `${key}=${encodeURIComponent(queryParams[key as keyof typeof queryParams])}`)
       .join('&');
 
-    // Make API request
+    // Make API request with LWA OAuth 2.0 authentication
     const response = await axios({
-      method,
+      method: 'GET',
       url: `${endpoint}${path}?${queryString}`,
       headers: {
         'x-amz-access-token': accessToken,
-        ...awsHeaders
+        'Content-Type': 'application/json'
       }
     });
 
@@ -350,9 +254,6 @@ export function getAmazonConfig(): SPAPIConfig {
     clientId: process.env.AMAZON_SP_API_CLIENT_ID || '',
     clientSecret: process.env.AMAZON_SP_API_CLIENT_SECRET || '',
     refreshToken: process.env.AMAZON_SP_API_REFRESH_TOKEN || '',
-    accessKeyId: process.env.AMAZON_SP_API_ACCESS_KEY_ID || '',
-    secretKey: process.env.AMAZON_SP_API_SECRET_KEY || '',
-    roleArn: process.env.AMAZON_SP_API_ROLE_ARN || '',
     marketplaceId: process.env.AMAZON_SP_API_MARKETPLACE_ID || 'ATVPDKIKX0DER', // Default US marketplace
     endpoint: process.env.AMAZON_SP_API_ENDPOINT || 'https://sellingpartnerapi-na.amazon.com'
   };
@@ -365,8 +266,6 @@ export function validateAmazonConfig(config: SPAPIConfig): boolean {
   return !!(
     config.clientId &&
     config.clientSecret &&
-    config.refreshToken &&
-    config.accessKeyId &&
-    config.secretKey
+    config.refreshToken
   );
 }
