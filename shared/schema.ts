@@ -331,29 +331,164 @@ export const amazonSyncLogs = pgTable("amazon_sync_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Amazon marketplace data
-export const amazonMarketData = pgTable("amazon_market_data", {
+// UPC to ASIN mapping table - captures the many-to-many relationship
+export const upcAsinMappings = pgTable("upc_asin_mappings", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id).notNull(),
+  upc: text("upc").notNull(),
   asin: text("asin").notNull(),
-  title: text("title"),
-  category: text("category"),
-  brand: text("brand"),
-  priceEstimate: integer("price_estimate"), // Stored in cents
-  salesRank: integer("sales_rank"),
-  restrictionsFlag: boolean("restrictions_flag").default(false),
-  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
-  additionalData: json("additional_data").default({}), // For any extra data we might want to store
-  parentAsin: text("parent_asin"), // For variation relationship
-  variationCount: integer("variation_count"), // Number of related variations
-  marketplaceId: text("marketplace_id"), // Amazon marketplace ID
-  imageUrl: text("image_url"),
-  fulfillmentOptions: json("fulfillment_options").default([]), // FBA, FBM, etc.
+  discoveredAt: timestamp("discovered_at").defaultNow(),
+  lastVerifiedAt: timestamp("last_verified_at").defaultNow(),
+  isActive: boolean("is_active").default(true), // Whether this mapping is still valid
+  confidence: integer("confidence").default(100), // 0-100 confidence in the mapping
+  source: text("source").default("sp_api"), // How we discovered this mapping
+  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"), // Amazon marketplace ID
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
-    productAsinIdx: uniqueIndex("amazon_market_data_product_asin_idx").on(table.productId, table.asin),
+    upcAsinIdx: uniqueIndex("upc_asin_mappings_upc_asin_idx").on(table.upc, table.asin, table.marketplaceId),
+    upcIdx: uniqueIndex("upc_asin_mappings_upc_idx").on(table.upc),
+    asinIdx: uniqueIndex("upc_asin_mappings_asin_idx").on(table.asin),
+  };
+});
+
+// Amazon marketplace competitive intelligence data
+export const amazonMarketData = pgTable("amazon_market_data", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull(),
+  upc: text("upc"), // Reference UPC for tracking
+  title: text("title"),
+  brand: text("brand"),
+  manufacturer: text("manufacturer"),
+  category: text("category"),
+  subcategory: text("subcategory"),
+  
+  // Pricing intelligence
+  currentPrice: integer("current_price"), // Stored in cents
+  listPrice: integer("list_price"), // MSRP in cents
+  lowestPrice: integer("lowest_price"), // Lowest price we've seen
+  highestPrice: integer("highest_price"), // Highest price we've seen
+  priceHistory: json("price_history").default([]), // Historical price data
+  
+  // Sales rank and performance
+  salesRank: integer("sales_rank"),
+  categoryRank: integer("category_rank"),
+  bsr30Day: integer("bsr_30_day"), // Best Sellers Rank 30-day average
+  rankHistory: json("rank_history").default([]), // Historical rank data
+  
+  // Product details
+  imageUrl: text("image_url"),
+  dimensions: json("dimensions").default({}), // L x W x H
+  weight: text("weight"),
+  features: json("features").default([]), // Bullet points
+  description: text("description"),
+  
+  // Availability and fulfillment
+  availability: text("availability"), // In Stock, Out of Stock, etc.
+  fulfillmentBy: text("fulfillment_by"), // Amazon, Merchant, etc.
+  isAmazonChoice: boolean("is_amazon_choice").default(false),
+  isPrime: boolean("is_prime").default(false),
+  
+  // Variation data
+  parentAsin: text("parent_asin"), // For variation relationships
+  variationType: text("variation_type"), // color, size, etc.
+  variationValue: text("variation_value"), // red, large, etc.
+  totalVariations: integer("total_variations"),
+  
+  // Review and rating data
+  rating: integer("rating"), // Stored as 1-50 (multiply by 0.1 for display)
+  reviewCount: integer("review_count"),
+  qaCount: integer("qa_count"), // Number of Q&A items
+  
+  // Seller information
+  sellerName: text("seller_name"),
+  sellerType: text("seller_type"), // Amazon, Third Party, etc.
+  soldBy: text("sold_by"),
+  shippedBy: text("shipped_by"),
+  
+  // Intelligence flags
+  isRestrictedBrand: boolean("is_restricted_brand").default(false),
+  hasGating: boolean("has_gating").default(false),
+  isHazmat: boolean("is_hazmat").default(false),
+  requiresApproval: boolean("requires_approval").default(false),
+  
+  // Sync metadata
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  lastPriceCheck: timestamp("last_price_check"),
+  lastRankCheck: timestamp("last_rank_check"),
+  syncFrequency: text("sync_frequency").default("daily"), // daily, weekly, monthly
+  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
+  
+  // Raw data storage
+  rawApiResponse: json("raw_api_response").default({}), // Full API response for debugging
+  additionalData: json("additional_data").default({}), // Any extra data we collect
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    asinIdx: uniqueIndex("amazon_market_data_asin_idx").on(table.asin, table.marketplaceId),
+    upcIdx: uniqueIndex("amazon_market_data_upc_idx").on(table.upc),
+    salesRankIdx: uniqueIndex("amazon_market_data_sales_rank_idx").on(table.salesRank),
+    brandIdx: uniqueIndex("amazon_market_data_brand_idx").on(table.brand),
+  };
+});
+
+// Amazon competitive intelligence analysis
+export const amazonCompetitiveAnalysis = pgTable("amazon_competitive_analysis", {
+  id: serial("id").primaryKey(),
+  upc: text("upc").notNull(),
+  analysisDate: timestamp("analysis_date").defaultNow(),
+  
+  // Market overview
+  totalAsinsFound: integer("total_asins_found").default(0),
+  priceRangeMin: integer("price_range_min"), // Lowest price across all ASINs
+  priceRangeMax: integer("price_range_max"), // Highest price across all ASINs
+  averagePrice: integer("average_price"),
+  medianPrice: integer("median_price"),
+  
+  // Brand competition
+  uniqueBrands: integer("unique_brands").default(0),
+  dominantBrand: text("dominant_brand"), // Brand with most ASINs
+  brandDistribution: json("brand_distribution").default({}), // { "brand": count }
+  
+  // Sales performance insights
+  bestPerformingAsin: text("best_performing_asin"), // Highest ranked ASIN
+  worstPerformingAsin: text("worst_performing_asin"), // Lowest ranked ASIN
+  averageSalesRank: integer("average_sales_rank"),
+  rankSpread: integer("rank_spread"), // Difference between best and worst rank
+  
+  // Market saturation indicators
+  fbaVsFbmRatio: json("fba_vs_fbm_ratio").default({}), // Fulfillment method distribution
+  primeEligibleCount: integer("prime_eligible_count").default(0),
+  amazonChoiceCount: integer("amazon_choice_count").default(0),
+  
+  // Entry barriers and opportunities
+  averageReviewCount: integer("average_review_count"),
+  reviewCountRange: json("review_count_range").default({}), // min, max
+  gatedBrandCount: integer("gated_brand_count").default(0),
+  restrictedAsinCount: integer("restricted_asin_count").default(0),
+  
+  // Market trends
+  priceVolatility: integer("price_volatility"), // Standard deviation of prices
+  marketConcentration: integer("market_concentration"), // 0-100, how concentrated the market is
+  competitionLevel: text("competition_level"), // "low", "medium", "high", "saturated"
+  
+  // Strategic recommendations
+  recommendedStrategy: text("recommended_strategy"), // "enter", "avoid", "monitor", "undercut"
+  opportunityScore: integer("opportunity_score"), // 0-100 overall opportunity rating
+  riskFactors: json("risk_factors").default([]), // Array of identified risks
+  keyInsights: json("key_insights").default([]), // Array of strategic insights
+  
+  // Metadata
+  dataQuality: integer("data_quality").default(100), // 0-100 completeness of analysis
+  nextAnalysisDate: timestamp("next_analysis_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    upcAnalysisIdx: uniqueIndex("amazon_competitive_analysis_upc_idx").on(table.upc, table.analysisDate),
+    opportunityIdx: uniqueIndex("amazon_competitive_analysis_opportunity_idx").on(table.opportunityScore),
   };
 });
 
@@ -377,8 +512,10 @@ export const insertDataMergingConfigSchema = createInsertSchema(dataMergingConfi
 export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).omit({ id: true, startedAt: true });
 export const insertConnectionSchema = createInsertSchema(connections).omit({ id: true, createdAt: true, updatedAt: true, lastTested: true });
+export const insertUpcAsinMappingSchema = createInsertSchema(upcAsinMappings).omit({ id: true, createdAt: true, updatedAt: true, discoveredAt: true });
 export const insertAmazonMarketDataSchema = createInsertSchema(amazonMarketData).omit({ id: true, createdAt: true, updatedAt: true, dataFetchedAt: true });
 export const insertAmazonSyncLogSchema = createInsertSchema(amazonSyncLogs).omit({ id: true, syncStartedAt: true, createdAt: true });
+export const insertAmazonCompetitiveAnalysisSchema = createInsertSchema(amazonCompetitiveAnalysis).omit({ id: true, createdAt: true, updatedAt: true, analysisDate: true });
 
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -400,8 +537,10 @@ export type InsertDataMergingConfig = z.infer<typeof insertDataMergingConfigSche
 export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
 export type InsertConnection = z.infer<typeof insertConnectionSchema>;
+export type InsertUpcAsinMapping = z.infer<typeof insertUpcAsinMappingSchema>;
 export type InsertAmazonMarketData = z.infer<typeof insertAmazonMarketDataSchema>;
 export type InsertAmazonSyncLog = z.infer<typeof insertAmazonSyncLogSchema>;
+export type InsertAmazonCompetitiveAnalysis = z.infer<typeof insertAmazonCompetitiveAnalysisSchema>;
 
 // Types for selects
 export type User = typeof users.$inferSelect;
@@ -423,5 +562,7 @@ export type DataMergingConfig = typeof dataMergingConfig.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
 export type Connection = typeof connections.$inferSelect;
+export type UpcAsinMapping = typeof upcAsinMappings.$inferSelect;
 export type AmazonMarketData = typeof amazonMarketData.$inferSelect;
 export type AmazonSyncLog = typeof amazonSyncLogs.$inferSelect;
+export type AmazonCompetitiveAnalysis = typeof amazonCompetitiveAnalysis.$inferSelect;
