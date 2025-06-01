@@ -108,13 +108,7 @@ export function useAmazonConfigStatus() {
 export function useBatchSyncAmazonData() {
   const mutation = useMutation({
     mutationFn: async (limit: number = 10) => {
-      return apiRequest('/api/marketplace/amazon/batch-sync', {
-        method: 'POST',
-        body: JSON.stringify({ limit }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      return apiRequest('POST', '/api/marketplace/amazon/batch-sync', { limit });
     },
     onSuccess: (data) => {
       toast({
