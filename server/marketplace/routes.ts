@@ -315,4 +315,85 @@ router.post('/amazon/scheduler/trigger', async (req, res) => {
   }
 });
 
+/**
+ * POST /marketplace/amazon/test-upc
+ * Test endpoint to see raw Amazon API response for a UPC
+ */
+router.post('/amazon/test-upc', async (req, res) => {
+  try {
+    // Validate config first
+    const config = getAmazonConfig();
+    if (!validateAmazonConfig(config)) {
+      return res.status(400).json({ 
+        error: 'Amazon SP-API configuration is missing. Please set the required environment variables.',
+        requiredEnvVars: [
+          'AMAZON_SP_API_CLIENT_ID',
+          'AMAZON_SP_API_CLIENT_SECRET', 
+          'AMAZON_SP_API_REFRESH_TOKEN',
+          'AMAZON_SP_API_ACCESS_KEY_ID',
+          'AMAZON_SP_API_SECRET_KEY'
+        ]
+      });
+    }
+
+    // Validate UPC
+    const upcSchema = z.object({
+      upc: z.string().min(1, 'UPC is required')
+    });
+    
+    const validationResult = upcSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({ 
+        error: 'Invalid request body',
+        details: validationResult.error.format()
+      });
+    }
+
+    const { upc } = validationResult.data;
+    
+    // Import the search function
+    const { searchCatalogItemsByUPC, getCatalogItem } = await import('../utils/amazon-spapi');
+    
+    console.log(`🔍 Testing Amazon API for UPC: ${upc}`);
+    
+    // Search for catalog items by UPC
+    const catalogItems = await searchCatalogItemsByUPC(upc, config);
+    
+    if (!catalogItems.length) {
+      return res.json({
+        success: true,
+        upc,
+        message: 'No ASINs found for this UPC',
+        catalogItems: [],
+        rawApiResponse: null
+      });
+    }
+
+    // Get detailed data for the first ASIN found
+    const firstItem = catalogItems[0];
+    const detailedData = await getCatalogItem(firstItem.asin, config);
+    
+    console.log(`📦 Found ${catalogItems.length} ASINs for UPC ${upc}`);
+    console.log(`🎯 Getting detailed data for ASIN: ${firstItem.asin}`);
+    
+    return res.json({
+      success: true,
+      upc,
+      totalAsinsFound: catalogItems.length,
+      asins: catalogItems.map(item => item.asin),
+      sampleAsin: firstItem.asin,
+      catalogItems: catalogItems,
+      detailedApiResponse: detailedData,
+      message: `Found ${catalogItems.length} ASIN(s) for UPC ${upc}`
+    });
+    
+  } catch (error) {
+    console.error('Error in POST /marketplace/amazon/test-upc:', error);
+    return res.status(500).json({ 
+      error: (error as Error).message,
+      details: error
+    });
+  }
+});
+
 export default router;
