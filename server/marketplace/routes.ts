@@ -33,8 +33,6 @@ router.get('/amazon/config-status', (req, res) => {
         !config.clientId && 'AMAZON_SP_API_CLIENT_ID',
         !config.clientSecret && 'AMAZON_SP_API_CLIENT_SECRET',
         !config.refreshToken && 'AMAZON_SP_API_REFRESH_TOKEN',
-        !config.accessKeyId && 'AMAZON_SP_API_ACCESS_KEY_ID',
-        !config.secretKey && 'AMAZON_SP_API_SECRET_KEY'
       ].filter(Boolean) : []
     };
     
@@ -188,8 +186,6 @@ router.get('/amazon/config-status', (req, res) => {
         !config.clientId && 'AMAZON_SP_API_CLIENT_ID',
         !config.clientSecret && 'AMAZON_SP_API_CLIENT_SECRET',
         !config.refreshToken && 'AMAZON_SP_API_REFRESH_TOKEN',
-        !config.accessKeyId && 'AMAZON_SP_API_ACCESS_KEY_ID',
-        !config.secretKey && 'AMAZON_SP_API_SECRET_KEY'
       ].filter(Boolean) : []
     };
     
