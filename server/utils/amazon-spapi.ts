@@ -81,7 +81,7 @@ export async function searchCatalogItemsByUPC(
     const queryParams = {
       marketplaceIds: config.marketplaceId,
       identifiers: upc,
-      identifierType: 'UPC',
+      identifiersType: 'UPC',
       includedData: 'attributes,dimensions,images,productTypes,relationships,salesRanks,summaries'
     };
 
