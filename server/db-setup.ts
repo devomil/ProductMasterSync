@@ -229,6 +229,31 @@ async function createAmazonCompetitiveAnalysisTable() {
   }
 }
 
+async function createAmazonSyncLogsTable() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS amazon_sync_logs (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER,
+        upc TEXT NOT NULL,
+        batch_id TEXT,
+        sync_status TEXT CHECK (sync_status IN ('success', 'error', 'skipped')) NOT NULL,
+        asins_found INTEGER DEFAULT 0,
+        error_message TEXT,
+        sync_duration_ms INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_amazon_sync_logs_status ON amazon_sync_logs(sync_status);
+      CREATE INDEX IF NOT EXISTS idx_amazon_sync_logs_upc ON amazon_sync_logs(upc);
+    `);
+    console.log('amazon_sync_logs table created successfully');
+    return true;
+  } catch (error) {
+    console.error('Error creating amazon_sync_logs table:', error);
+    return false;
+  }
+}
+
 async function setupDatabase() {
   console.log('Starting database setup...');
   
@@ -238,7 +263,8 @@ async function setupDatabase() {
     createMappingTemplatesTable(),
     createUpcAsinMappingsTable(),
     createAmazonMarketDataTable(),
-    createAmazonCompetitiveAnalysisTable()
+    createAmazonCompetitiveAnalysisTable(),
+    createAmazonSyncLogsTable()
   ]);
   
   // Log results
