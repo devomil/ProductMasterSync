@@ -716,30 +716,90 @@ export default function ProductDetails() {
                       </CardHeader>
                       <CardContent>
                         {product?.upc ? (
-                          <div className="flex gap-3 mb-4">
-                            <Button 
-                              variant="outline"
-                              onClick={handleTestUPC}
-                              disabled={testLoading}
-                            >
-                              {testLoading ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                              )}
-                              Test UPC Lookup
-                            </Button>
-                            <Button
-                              onClick={handleSyncData}
-                              disabled={syncAmazonDataMutation.isPending}
-                            >
-                              {syncAmazonDataMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                              )}
-                              Sync to Database
-                            </Button>
+                          <div>
+                            <div className="flex gap-3 mb-4">
+                              <Button 
+                                variant="outline"
+                                onClick={handleTestUPC}
+                                disabled={testLoading}
+                              >
+                                {testLoading ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                )}
+                                Test UPC Lookup
+                              </Button>
+                              <Button
+                                onClick={handleSyncData}
+                                disabled={syncAmazonDataMutation.isPending}
+                              >
+                                {syncAmazonDataMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                )}
+                                Sync to Database
+                              </Button>
+                            </div>
+
+                            {testResults && (
+                              <div className="space-y-4">
+                                <Separator />
+                                
+                                {testResults.success ? (
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-semibold text-green-700">Amazon Data Found</h4>
+                                      <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                        {testResults.totalAsinsFound} ASINs Found
+                                      </Badge>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <div className="text-sm font-medium text-gray-700">ASINs</div>
+                                        <div className="space-y-1">
+                                          {testResults.asins?.map((asin: string, index: number) => (
+                                            <div key={index} className="flex items-center gap-2">
+                                              <Badge variant="outline">{asin}</Badge>
+                                              <a 
+                                                href={`https://amazon.com/dp/${asin}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800"
+                                              >
+                                                <ExternalLink className="h-3 w-3" />
+                                              </a>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="space-y-2">
+                                        <div className="text-sm font-medium text-gray-700">Sample Data</div>
+                                        {testResults.catalogItems && testResults.catalogItems[0] && (
+                                          <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
+                                            <div><strong>Brand:</strong> {testResults.catalogItems[0].attributes?.brand?.[0]?.value || 'N/A'}</div>
+                                            <div><strong>Weight:</strong> {testResults.catalogItems[0].attributes?.item_weight?.[0]?.value || 'N/A'}</div>
+                                            <div><strong>Dimensions:</strong> Available in full data</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <div className="flex items-center gap-2">
+                                      <AlertCircle className="h-4 w-4 text-red-600" />
+                                      <div className="text-red-800">
+                                        {testResults.error || 'No Amazon data found for this UPC'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="text-center py-8 text-gray-500">
@@ -758,11 +818,59 @@ export default function ProductDetails() {
                         <CardDescription>Previously synced competitive intelligence data</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-center py-8 text-gray-500">
-                          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                          <div>No Amazon market data stored yet</div>
-                          <div className="text-sm mt-1">Use the "Sync to Database" button to fetch and store competitive data</div>
-                        </div>
+                        {marketDataLoading ? (
+                          <div className="text-center py-8">
+                            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-gray-400" />
+                            <div className="text-gray-500">Loading stored data...</div>
+                          </div>
+                        ) : marketData && marketData.data && marketData.data.length > 0 ? (
+                          <div className="space-y-4">
+                            {marketData.data.map((item: any, index: number) => (
+                              <div key={index} className="border rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline">{item.asin}</Badge>
+                                    <a 
+                                      href={`https://amazon.com/dp/${item.asin}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Last updated: {new Date(item.lastUpdated || item.created_at).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                  <div>
+                                    <div className="font-medium text-gray-700">Product Info</div>
+                                    <div>Brand: {item.brand || 'N/A'}</div>
+                                    <div>Title: {item.title ? item.title.substring(0, 50) + '...' : 'N/A'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-gray-700">Dimensions</div>
+                                    <div>Weight: {item.itemWeight || item.item_weight || 'N/A'}</div>
+                                    <div>Size: {item.itemDimensions || item.item_dimensions || 'N/A'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-gray-700">Identifiers</div>
+                                    <div>UPC: {item.upc}</div>
+                                    <div>ASIN: {item.asin}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                            <div>No Amazon market data stored yet</div>
+                            <div className="text-sm mt-1">Use the "Sync to Database" button to fetch and store competitive data</div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>

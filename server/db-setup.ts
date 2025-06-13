@@ -241,6 +241,7 @@ async function createAmazonSyncLogsTable() {
         asins_found INTEGER DEFAULT 0,
         error_message TEXT,
         sync_duration_ms INTEGER,
+        response_time_ms INTEGER,
         created_at TIMESTAMP DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_amazon_sync_logs_status ON amazon_sync_logs(sync_status);
