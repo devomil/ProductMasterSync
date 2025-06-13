@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, TruckIcon, Package, MapPin } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
-import { default as AmazonMarketData } from "@/components/products/AmazonMarketData";
+import AmazonMarketData from "@/components/products/AmazonMarketData";
 
 // Authentic vendor stock data from CWR supplier information
 const getVendorStockData = (product: any, inventoryData?: any) => {

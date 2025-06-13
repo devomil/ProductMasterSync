@@ -25,7 +25,7 @@ export default function AmazonMarketData({ productId, upc }: AmazonMarketDataPro
   });
 
   // Hook to fetch fresh Amazon data
-  const fetchAmazonMutation = useFetchAmazonDataByUpc();
+  const fetchAmazonMutation = useFetchAmazonDataByUpc(Number(productId || 0));
 
   const handleTestUPC = async () => {
     if (!upc) return;
@@ -179,9 +179,9 @@ export default function AmazonMarketData({ productId, upc }: AmazonMarketDataPro
               <Loader2 className="h-6 w-6 animate-spin mr-2" />
               Loading market data...
             </div>
-          ) : marketData && marketData.length > 0 ? (
+          ) : marketData && Array.isArray(marketData) && marketData.length > 0 ? (
             <div className="space-y-4">
-              {marketData.map((item: any, index: number) => (
+              {(marketData as any[]).map((item: any, index: number) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
