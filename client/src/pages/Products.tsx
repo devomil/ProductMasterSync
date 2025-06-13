@@ -102,7 +102,7 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { FulfillmentDrawer } from "@/components/products/FulfillmentDrawer";
-import { AmazonMarketData } from "@/components/products/AmazonMarketData";
+// import { AmazonMarketData } from "@/components/products/AmazonMarketData";
 
 // Search filter schema
 const searchFilterSchema = z.object({
@@ -1140,10 +1140,10 @@ const Products = () => {
           </DrawerHeader>
           <div className="p-6">
             {selectedProduct && (
-              <AmazonMarketData
-                productId={parseInt(selectedProduct.id)}
-                upc={selectedProduct.upc}
-              />
+              <div className="text-center py-8 text-gray-500">
+                <div className="mb-4">Amazon Marketplace Intelligence</div>
+                <div className="text-sm">Feature temporarily unavailable</div>
+              </div>
             )}
           </div>
           <DrawerFooter className="border-t">

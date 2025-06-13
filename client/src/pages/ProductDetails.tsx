@@ -18,9 +18,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, TruckIcon, Package, MapPin } from "lucide-react";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
-import AmazonMarketData from "@/components/products/AmazonMarketData";
+// import AmazonMarketData from "@/components/products/AmazonMarketData";
 
 // Authentic vendor stock data from CWR supplier information
 const getVendorStockData = (product: any, inventoryData?: any) => {
@@ -641,7 +641,59 @@ export default function ProductDetails() {
                   <CardDescription>Competitive analysis and marketplace data for this product</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <AmazonMarketData productId={product?.id?.toString()} upc={product?.upc} />
+                  <div className="space-y-6">
+                    {/* Test UPC Section */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5" />
+                          Amazon Lookup Test
+                        </CardTitle>
+                        <CardDescription>
+                          {product?.upc ? (
+                            <>Test what Amazon returns for UPC: <span className="font-mono font-semibold">{product.upc}</span></>
+                          ) : (
+                            "No UPC available for Amazon marketplace lookup"
+                          )}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {product?.upc ? (
+                          <div className="flex gap-3 mb-4">
+                            <Button variant="outline">
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Test UPC Lookup
+                            </Button>
+                            <Button>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Sync to Database
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                            <div>No UPC available for this product</div>
+                            <div className="text-sm mt-1">Amazon marketplace data requires a valid UPC code</div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Stored Market Data Section */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Stored Amazon Data</CardTitle>
+                        <CardDescription>Previously synced competitive intelligence data</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-center py-8 text-gray-500">
+                          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                          <div>No Amazon market data stored yet</div>
+                          <div className="text-sm mt-1">Use the "Sync to Database" button to fetch and store competitive data</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
