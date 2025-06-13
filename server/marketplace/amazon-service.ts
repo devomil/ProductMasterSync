@@ -23,11 +23,13 @@ import { InsertAmazonSyncLog } from '@shared/schema';
 export async function fetchAmazonDataByUpc(productId: number, upc: string) {
   const startTime = Date.now();
   const config = getAmazonConfig();
-  let syncLog: InsertAmazonSyncLog = {
-    productId,
-    upc,
-    batchId: generateBatchId(),
-    result: 'processing'
+  let syncLog: any = {
+    product_id: productId,
+    upc: upc,
+    batch_id: generateBatchId(),
+    sync_status: 'success',
+    asins_found: 0,
+    sync_duration_ms: 0
   };
   
   try {
@@ -110,8 +112,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
       result: isRateLimited ? 'rate_limited' : 'error',
       syncCompletedAt: new Date(),
       responseTimeMs: endTime - startTime,
-      errorMessage: errorMessage.substring(0, 255), // Trim to fit in DB column
-      errorDetails: { stack: (error as Error).stack }
+      errorMessage: errorMessage.substring(0, 255) // Trim to fit in DB column
     };
     await createSyncLog(syncLog);
     
