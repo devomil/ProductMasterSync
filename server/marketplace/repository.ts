@@ -32,15 +32,31 @@ export async function getAmazonDataForProduct(productId: number): Promise<Amazon
  * @param data 
  */
 export async function saveAmazonMarketData(data: InsertAmazonMarketData): Promise<AmazonMarketData> {
-  const [savedData] = await db
-    .insert(amazonMarketData)
-    .values({
-      ...data,
-      dataFetchedAt: new Date()
-    })
-    .returning();
-
-  return savedData;
+  try {
+    const [savedData] = await db
+      .insert(amazonMarketData)
+      .values({
+        ...data,
+        dataFetchedAt: new Date()
+      })
+      .returning();
+    return savedData;
+  } catch (error: any) {
+    if (error.code === '23505') {
+      // Duplicate key error - fetch existing record instead of updating
+      const [existingData] = await db
+        .select()
+        .from(amazonMarketData)
+        .where(
+          and(
+            eq(amazonMarketData.asin, data.asin),
+            eq(amazonMarketData.marketplaceId, data.marketplaceId || 'ATVPDKIKX0DER')
+          )
+        );
+      return existingData;
+    }
+    throw error;
+  }
 }
 
 /**
