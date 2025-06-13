@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { HelpBubble, helpContexts } from "@/components/HelpBubble";
 import { 
   Tabs, 
@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 // import AmazonMarketData from "@/components/products/AmazonMarketData";
 
@@ -103,6 +103,63 @@ export default function ProductDetails() {
   
   // State for tab management
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // State for Amazon Markets functionality
+  const [testResults, setTestResults] = useState<any>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Fetch existing Amazon data for this product
+  const { data: marketData, isLoading: marketDataLoading, refetch: refetchMarketData } = useQuery({
+    queryKey: [`/api/marketplace/amazon/product/${id}`],
+    enabled: !!id,
+    retry: 1
+  });
+
+  // Mutation for syncing Amazon data to database
+  const syncAmazonDataMutation = useMutation({
+    mutationFn: async (upc: string) => {
+      const response = await fetch(`/api/marketplace/amazon/fetch/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upc })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to sync Amazon data');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchMarketData();
+    }
+  });
+
+  // Handle UPC test lookup
+  const handleTestUPC = async () => {
+    if (!product?.upc) return;
+    
+    setTestLoading(true);
+    try {
+      const response = await fetch('/api/marketplace/amazon/test-upc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upc: product.upc })
+      });
+      const data = await response.json();
+      setTestResults(data);
+    } catch (error) {
+      console.error('Error testing UPC:', error);
+      setTestResults({ error: 'Failed to test UPC' });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  // Handle syncing data to database
+  const handleSyncData = () => {
+    if (!product?.upc) return;
+    syncAmazonDataMutation.mutate(product.upc);
+  };
 
   if (isLoading) {
     return (
@@ -660,12 +717,27 @@ export default function ProductDetails() {
                       <CardContent>
                         {product?.upc ? (
                           <div className="flex gap-3 mb-4">
-                            <Button variant="outline">
-                              <RefreshCw className="h-4 w-4 mr-2" />
+                            <Button 
+                              variant="outline"
+                              onClick={handleTestUPC}
+                              disabled={testLoading}
+                            >
+                              {testLoading ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                              )}
                               Test UPC Lookup
                             </Button>
-                            <Button>
-                              <CheckCircle className="h-4 w-4 mr-2" />
+                            <Button
+                              onClick={handleSyncData}
+                              disabled={syncAmazonDataMutation.isPending}
+                            >
+                              {syncAmazonDataMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                              )}
                               Sync to Database
                             </Button>
                           </div>
