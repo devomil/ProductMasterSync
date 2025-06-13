@@ -90,10 +90,11 @@ export async function updateProductAmazonSyncStatus(
  * Create a sync log entry
  * @param logData 
  */
-export async function createSyncLog(logData: InsertAmazonSyncLog): Promise<void> {
-  await db
-    .insert(amazonSyncLogs)
-    .values(logData);
+export async function createSyncLog(logData: any): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO amazon_sync_logs (product_id, upc, batch_id, sync_status, asins_found, sync_duration_ms)
+    VALUES (${logData.product_id}, ${logData.upc}, ${logData.batch_id}, ${logData.sync_status}, ${logData.asins_found}, ${logData.sync_duration_ms})
+  `);
 }
 
 /**

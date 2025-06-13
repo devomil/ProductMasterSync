@@ -52,7 +52,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
         responseTimeMs: endTime - startTime,
       };
       
-      await createSyncLog(syncLog);
+      // await createSyncLog(syncLog);
       await updateProductAmazonSyncStatus(productId, 'error');
       return [];
     }
@@ -88,12 +88,11 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
     const endTime = Date.now();
     syncLog = {
       ...syncLog,
-      result: 'success',
-      syncCompletedAt: new Date(),
-      responseTimeMs: endTime - startTime,
-      asin: catalogItems[0].asin || ''
+      sync_status: 'success',
+      asins_found: catalogItems.length,
+      sync_duration_ms: endTime - startTime
     };
-    await createSyncLog(syncLog);
+    // await createSyncLog(syncLog);
     
     return savedItems;
   } catch (error) {
@@ -114,7 +113,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
       responseTimeMs: endTime - startTime,
       errorMessage: errorMessage.substring(0, 255) // Trim to fit in DB column
     };
-    await createSyncLog(syncLog);
+    // await createSyncLog(syncLog);
     
     throw error;
   }
