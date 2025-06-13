@@ -229,3 +229,5 @@ export default function AmazonMarketData({ productId, upc }: AmazonMarketDataPro
     </div>
   );
 }
+
+export default AmazonMarketData;
