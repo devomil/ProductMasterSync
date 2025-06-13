@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, TruckIcon, Package, MapPin } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
+import { default as AmazonMarketData } from "@/components/products/AmazonMarketData";
 
 // Authentic vendor stock data from CWR supplier information
 const getVendorStockData = (product: any, inventoryData?: any) => {
@@ -237,11 +238,12 @@ export default function ProductDetails() {
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="specifications">Specifications</TabsTrigger>
               <TabsTrigger value="gallery">Gallery</TabsTrigger>
               <TabsTrigger value="supplier">Supplier Info</TabsTrigger>
+              <TabsTrigger value="markets">Markets</TabsTrigger>
             </TabsList>
             
             {/* Overview Tab */}
@@ -627,6 +629,19 @@ export default function ProductDetails() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Markets Tab */}
+            <TabsContent value="markets" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Amazon Marketplace Intelligence</CardTitle>
+                  <CardDescription>Competitive analysis and marketplace data for this product</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AmazonMarketData productId={product?.id?.toString()} upc={product?.upc} />
                 </CardContent>
               </Card>
             </TabsContent>
