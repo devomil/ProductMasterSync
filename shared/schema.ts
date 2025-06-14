@@ -556,7 +556,7 @@ export const amazonPriceHistory = pgTable("amazon_price_history", {
 // Link products to their Amazon ASINs
 export const productAsinMapping = pgTable("product_asin_mapping", {
   id: serial("id").primaryKey(),
-  productId: text("product_id").notNull().references(() => products.id),
+  productId: integer("product_id").notNull().references(() => products.id),
   asin: text("asin").notNull().references(() => amazonAsins.asin),
   
   // Mapping metadata
