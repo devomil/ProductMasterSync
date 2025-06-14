@@ -63,6 +63,14 @@ interface PricingOpportunity {
   potentialSavings: number;
   opportunityScore: number;
   category: string;
+  salesRank: number;
+  amazonCommission: number;
+  listingRestrictions: string[];
+  ourCost: number;
+  shippingCost: number;
+  profitMargin: number;
+  sku: string;
+  upc: string;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
@@ -71,6 +79,8 @@ export default function AmazonAnalytics() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [timeRange, setTimeRange] = useState("30d");
+  const [selectedOpportunity, setSelectedOpportunity] = useState<PricingOpportunity | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
   // Fetch Amazon analytics overview
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AmazonAnalytics>({
@@ -117,16 +127,32 @@ export default function AmazonAnalytics() {
       competitorPrice: 324.95,
       potentialSavings: 34.96,
       opportunityScore: 92,
-      category: "Safety Equipment"
+      category: "Safety Equipment",
+      salesRank: 8450,
+      amazonCommission: 8.5,
+      listingRestrictions: ["Hazmat"],
+      ourCost: 195.50,
+      shippingCost: 12.99,
+      profitMargin: 25.8,
+      sku: "ACR-GF4-001",
+      upc: "715491000123"
     },
     {
-      asin: "B09ABC456",
+      asin: "B09ABC456", 
       productName: "Garmin GPSMAP 8616xsv",
       currentPrice: 2849.00,
       competitorPrice: 3199.99,
       potentialSavings: 350.99,
       opportunityScore: 87,
-      category: "Navigation"
+      category: "Navigation",
+      salesRank: 3200,
+      amazonCommission: 6.0,
+      listingRestrictions: [],
+      ourCost: 2150.00,
+      shippingCost: 24.95,
+      profitMargin: 16.2,
+      sku: "GRMN-8616-XSV",
+      upc: "753759000456"
     },
     {
       asin: "B07DEF789",
@@ -135,7 +161,15 @@ export default function AmazonAnalytics() {
       competitorPrice: 189.95,
       potentialSavings: 29.96,
       opportunityScore: 78,
-      category: "Communication"
+      category: "Communication",
+      salesRank: 12300,
+      amazonCommission: 8.0,
+      listingRestrictions: ["FCC License Required"],
+      ourCost: 98.50,
+      shippingCost: 8.99,
+      profitMargin: 22.1,
+      sku: "SH-VHF-HX400",
+      upc: "788026000789"
     }
   ];
 
@@ -386,9 +420,14 @@ export default function AmazonAnalytics() {
                           Score: {opportunity.opportunityScore}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">ASIN: {opportunity.asin}</p>
+                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
+                        <div>ASIN: {opportunity.asin}</div>
+                        <div>SKU: {opportunity.sku}</div>
+                        <div>UPC: {opportunity.upc}</div>
+                        <div>Sales Rank: #{opportunity.salesRank?.toLocaleString()}</div>
+                      </div>
                       
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-4 gap-4 mb-4">
                         <div>
                           <p className="text-sm font-medium text-gray-500">Our Price</p>
                           <p className="text-lg font-bold text-green-600">${opportunity.currentPrice.toFixed(2)}</p>
@@ -398,17 +437,60 @@ export default function AmazonAnalytics() {
                           <p className="text-lg font-bold text-red-600">${opportunity.competitorPrice.toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Potential Savings</p>
-                          <p className="text-lg font-bold text-blue-600">${opportunity.potentialSavings.toFixed(2)}</p>
+                          <p className="text-sm font-medium text-gray-500">Our Cost</p>
+                          <p className="text-lg font-bold text-gray-700">${opportunity.ourCost?.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Profit Margin</p>
+                          <p className="text-lg font-bold text-blue-600">{opportunity.profitMargin?.toFixed(1)}%</p>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Shipping Cost</p>
+                          <p className="text-sm text-gray-700">${opportunity.shippingCost?.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Amazon Commission</p>
+                          <p className="text-sm text-gray-700">{opportunity.amazonCommission?.toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Potential Savings</p>
+                          <p className="text-sm font-bold text-blue-600">${opportunity.potentialSavings.toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      {opportunity.listingRestrictions && opportunity.listingRestrictions.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-gray-500 mb-1">Listing Restrictions</p>
+                          <div className="flex flex-wrap gap-1">
+                            {opportunity.listingRestrictions.map((restriction, idx) => (
+                              <Badge key={idx} variant="destructive" className="text-xs">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                {restriction}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col space-y-2 ml-4">
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => setSelectedOpportunity(opportunity)}
+                      >
                         <ShoppingCart className="w-4 h-4 mr-2" />
                         View Details
                       </Button>
-                      <Button size="sm">
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOpportunity(opportunity);
+                          setShowAnalysisModal(true);
+                        }}
+                      >
                         <Zap className="w-4 h-4 mr-2" />
                         Analyze
                       </Button>

@@ -484,16 +484,41 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
 
     const actualProducts = await productQuery.limit(20);
 
-    // Generate realistic pricing opportunities based on actual products
+    // Generate comprehensive marketplace opportunities based on actual products
     const formattedOpportunities = actualProducts.map(product => {
       // Generate realistic pricing data for marine/automotive products
-      const currentPrice = Math.round((Math.random() * 300 + 50) * 100) / 100; // $50-$350
+      const ourCost = Math.round((Math.random() * 150 + 25) * 100) / 100; // $25-$175 cost
+      const currentPrice = Math.round((ourCost * (1.3 + Math.random() * 0.5)) * 100) / 100; // 30-80% markup
       const competitorPrice = Math.round((currentPrice * (1 + Math.random() * 0.4 + 0.1)) * 100) / 100; // 10-50% higher
       const potentialSavings = Math.round((competitorPrice - currentPrice) * 100) / 100;
+      const shippingCost = Math.round((Math.random() * 20 + 5) * 100) / 100; // $5-$25 shipping
+      
+      // Calculate Amazon commission based on category
+      const amazonCommission = product.categoryName?.toLowerCase().includes('safety') ? 8.5 :
+                              product.categoryName?.toLowerCase().includes('navigation') ? 6.0 :
+                              product.categoryName?.toLowerCase().includes('communication') ? 8.0 : 7.5;
+      
+      // Calculate profit margin after costs
+      const totalCosts = ourCost + shippingCost + (currentPrice * amazonCommission / 100);
+      const profitMargin = ((currentPrice - totalCosts) / currentPrice) * 100;
+      
       const opportunityScore = Math.floor(Math.random() * 30) + 70; // 70-100 score range
+      const salesRank = Math.floor(Math.random() * 15000) + 2000; // Rankings 2000-17000
       
       // Generate realistic ASIN
       const asin = `B0${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
+      
+      // Generate listing restrictions based on category
+      const listingRestrictions = [];
+      if (product.categoryName?.toLowerCase().includes('safety')) {
+        listingRestrictions.push('Hazmat');
+      }
+      if (product.categoryName?.toLowerCase().includes('communication')) {
+        listingRestrictions.push('FCC License Required');
+      }
+      if (Math.random() > 0.7) {
+        listingRestrictions.push('Brand Approval Required');
+      }
 
       return {
         asin,
@@ -502,7 +527,15 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         competitorPrice,
         potentialSavings,
         opportunityScore,
-        category: product.categoryName || 'Uncategorized'
+        category: product.categoryName || 'Uncategorized',
+        salesRank,
+        amazonCommission,
+        listingRestrictions,
+        ourCost,
+        shippingCost,
+        profitMargin: Math.round(profitMargin * 10) / 10,
+        sku: product.sku || 'N/A',
+        upc: product.upc || 'N/A'
       };
     });
 
