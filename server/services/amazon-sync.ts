@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { products, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
 import { amazonService } from './amazon-sp-api';
-import { eq, inArray, and, isNull, or, isNotNull } from 'drizzle-orm';
+import { eq, inArray, and, isNull, or, isNotNull, sql } from 'drizzle-orm';
 
 interface ProductSyncResult {
   productId: string;
@@ -26,7 +26,7 @@ export class AmazonSyncService {
       const [product] = await db
         .select()
         .from(products)
-        .where(eq(products.id, productId));
+        .where(eq(products.id, parseInt(productId)));
 
       if (!product) {
         result.errors.push('Product not found');
@@ -80,7 +80,7 @@ export class AmazonSyncService {
           await db
             .insert(productAsinMapping)
             .values({
-              productId: product.id,
+              productId: product.id.toString(),
               asin,
               mappingSource: product.upc && foundAsins.includes(asin) ? 'upc' : 'mfg_number',
               isActive: true
@@ -198,7 +198,7 @@ export class AmazonSyncService {
         manufacturerPartNumber: products.manufacturerPartNumber
       })
       .from(products)
-      .leftJoin(productAsinMapping, eq(products.id.toString(), productAsinMapping.productId))
+      .leftJoin(productAsinMapping, eq(sql`${products.id}::text`, productAsinMapping.productId))
       .where(
         and(
           isNull(productAsinMapping.productId),
