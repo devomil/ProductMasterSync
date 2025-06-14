@@ -2797,6 +2797,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register marketplace routes
   app.use("/api/marketplace", marketplaceRoutes);
   
+  // Register AI purchasing routes
+  app.use("/api/ai-purchasing", aiPurchasingRoutes);
+  
   // Direct implementation of scheduling routes until we fix the module structure
   
   // Utility function to handle errors

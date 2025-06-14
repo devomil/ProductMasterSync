@@ -24,6 +24,7 @@ import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
 import AmazonIntegration from "@/pages/AmazonIntegration";
+import AIPurchasing from "@/pages/AIPurchasing";
 import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
@@ -52,6 +53,7 @@ function Router() {
       <Route path="/validation-rules" component={ValidationRules} />
       <Route path="/audit-logs" component={AuditLogs} />
       <Route path="/amazon-integration" component={AmazonIntegration} />
+      <Route path="/ai-purchasing" component={AIPurchasing} />
       <Route path="/sample-data-test" component={SampleDataTest} />
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
       <Route path="/gamified-mapping" component={GamifiedMapping} />
