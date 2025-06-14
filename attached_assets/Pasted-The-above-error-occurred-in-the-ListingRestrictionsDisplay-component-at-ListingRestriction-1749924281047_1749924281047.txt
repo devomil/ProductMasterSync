@@ -1,0 +1,40 @@
+The above error occurred in the <ListingRestrictionsDisplay> component:
+
+    at ListingRestrictionsDisplay (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/pages/AmazonAnalytics.tsx:55:39)
+    at div
+    at _c9 (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at div
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=55f7cb0a:42:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LLLTVKM7.js?v=55f7cb0a:61:7
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=55f7cb0a:79:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=55f7cb0a:56:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=55f7cb0a:42:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-HG7P5XMB.js?v=55f7cb0a:29:5
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5YUVJUDR.js?v=55f7cb0a:233:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5YUVJUDR.js?v=55f7cb0a:156:58
+    at Presence (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LUE5KDWX.js?v=55f7cb0a:24:11)
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5YUVJUDR.js?v=55f7cb0a:147:64
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=55f7cb0a:79:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=55f7cb0a:56:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=55f7cb0a:42:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LLLTVKM7.js?v=55f7cb0a:260:22
+    at Presence (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LUE5KDWX.js?v=55f7cb0a:24:11)
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=55f7cb0a:38:15)
+    at DialogPortal (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5YUVJUDR.js?v=55f7cb0a:109:11)
+    at _c3 (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=55f7cb0a:38:15)
+    at Dialog (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5YUVJUDR.js?v=55f7cb0a:50:5)
+    at div
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=55f7cb0a:42:13
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=55f7cb0a:38:15)
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=55f7cb0a:52:7
+    at div
+    at AmazonAnalytics (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/pages/AmazonAnalytics.tsx:229:39)
+    at Route (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=55f7cb0a:265:16)
+    at Switch (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=55f7cb0a:321:17)
+    at Router
+    at…
+RefreshCw is not defined

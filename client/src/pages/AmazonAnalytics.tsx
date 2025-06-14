@@ -35,7 +35,8 @@ import {
   CheckCircle,
   Clock,
   Target,
-  Zap
+  Zap,
+  RefreshCw
 } from "lucide-react";
 
 interface AmazonAnalytics {
