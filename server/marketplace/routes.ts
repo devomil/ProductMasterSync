@@ -11,6 +11,10 @@ import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
 import { scheduler } from '../utils/scheduler';
 import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct } from './repository';
 import { amazonListingsRestrictionsService } from './amazon-listings-restrictions';
+import { db } from '../db';
+import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
+import { eq, and, isNotNull, sql } from 'drizzle-orm';
+import { amazonSyncService } from '../services/amazon-sync';
 
 const router = Router();
 
@@ -466,87 +470,122 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
   try {
     const selectedCategory = req.query.category as string || 'all';
     
-    // Get products from our actual database to generate realistic opportunities
-    let productQuery = db
+    // Get products with Amazon ASIN mappings and market intelligence data
+    const productsWithAsins = await db
       .select({
         productId: products.id,
-        productName: products.name,
         sku: products.sku,
+        name: products.name,
+        category: categories.name,
         upc: products.upc,
-        categoryName: categories.name
+        manufacturerPartNumber: products.manufacturerPartNumber,
+        cost: products.cost,
+        price: products.price,
+        stock: products.stock,
+        asin: productAsinMapping.asin,
+        mappingSource: productAsinMapping.mappingSource,
+        
+        // Amazon market data
+        amazonTitle: amazonAsins.title,
+        amazonBrand: amazonAsins.brand,
+        amazonImageUrl: amazonAsins.imageUrl,
+        currentPrice: amazonMarketIntelligence.currentPrice,
+        listPrice: amazonMarketIntelligence.listPrice,
+        salesRank: amazonMarketIntelligence.salesRank,
+        categoryRank: amazonMarketIntelligence.categoryRank,
+        inStock: amazonMarketIntelligence.inStock,
+        isPrime: amazonMarketIntelligence.isPrime,
+        profitMarginPercent: amazonMarketIntelligence.profitMarginPercent,
+        opportunityScore: amazonMarketIntelligence.opportunityScore,
+        competitionLevel: amazonMarketIntelligence.competitionLevel,
+        estimatedSalesPerMonth: amazonMarketIntelligence.estimatedSalesPerMonth,
+        dataFetchedAt: amazonMarketIntelligence.dataFetchedAt
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(isNotNull(products.name));
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
+      .leftJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+      .where(
+        and(
+          eq(productAsinMapping.isActive, true),
+          selectedCategory !== 'all' ? eq(categories.name, selectedCategory) : sql`1=1`
+        )
+      )
+      .orderBy(
+        sql`${amazonMarketIntelligence.opportunityScore} DESC NULLS LAST`,
+        sql`${amazonMarketIntelligence.profitMarginPercent} DESC NULLS LAST`
+      )
+      .limit(50);
 
-    if (selectedCategory !== 'all') {
-      productQuery = productQuery.where(eq(categories.name, selectedCategory));
+    if (productsWithAsins.length === 0) {
+      return res.json({
+        success: false,
+        opportunities: [],
+        total: 0,
+        message: 'No products with Amazon ASIN mappings found. Use the sync endpoint to populate Amazon data.'
+      });
     }
 
-    const actualProducts = await productQuery.limit(20);
-
-    // Generate comprehensive marketplace opportunities based on actual products
-    const formattedOpportunities = actualProducts.map(product => {
-      // Generate realistic pricing data for marine/automotive products
-      const ourCost = Math.round((Math.random() * 150 + 25) * 100) / 100; // $25-$175 cost
-      const currentPrice = Math.round((ourCost * (1.3 + Math.random() * 0.5)) * 100) / 100; // 30-80% markup
-      const competitorPrice = Math.round((currentPrice * (1 + Math.random() * 0.4 + 0.1)) * 100) / 100; // 10-50% higher
-      const potentialSavings = Math.round((competitorPrice - currentPrice) * 100) / 100;
-      const shippingCost = Math.round((Math.random() * 20 + 5) * 100) / 100; // $5-$25 shipping
+    // Transform the data into opportunities format
+    const opportunities = productsWithAsins.map((product: any) => {
+      const ourCost = product.cost || 0;
+      const shippingCost = 5.00; // Default shipping estimate
+      const amazonCommission = 0.15; // 15% Amazon referral fee
+      const currentPrice = product.currentPrice ? product.currentPrice / 100 : 0; // Convert from cents
+      const listPrice = product.listPrice ? product.listPrice / 100 : 0;
       
-      // Calculate Amazon commission based on category
-      const amazonCommission = product.categoryName?.toLowerCase().includes('safety') ? 8.5 :
-                              product.categoryName?.toLowerCase().includes('navigation') ? 6.0 :
-                              product.categoryName?.toLowerCase().includes('communication') ? 8.0 : 7.5;
+      const totalCost = ourCost + shippingCost;
+      const amazonFees = currentPrice * amazonCommission;
+      const netProfit = currentPrice - totalCost - amazonFees;
+      const profitMargin = currentPrice > 0 ? netProfit / currentPrice : 0;
       
-      // Calculate profit margin after costs
-      const totalCosts = ourCost + shippingCost + (currentPrice * amazonCommission / 100);
-      const profitMargin = ((currentPrice - totalCosts) / currentPrice) * 100;
-      
-      const opportunityScore = Math.floor(Math.random() * 30) + 70; // 70-100 score range
-      const salesRank = Math.floor(Math.random() * 15000) + 2000; // Rankings 2000-17000
-      
-      // Generate realistic ASIN
-      const asin = `B0${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-      
-      // Generate listing restrictions based on category
-      const listingRestrictions = [];
-      if (product.categoryName?.toLowerCase().includes('safety')) {
-        listingRestrictions.push('Hazmat');
-      }
-      if (product.categoryName?.toLowerCase().includes('communication')) {
-        listingRestrictions.push('FCC License Required');
-      }
-      if (Math.random() > 0.7) {
-        listingRestrictions.push('Brand Approval Required');
-      }
-
       return {
-        asin,
-        productName: product.productName || 'Unknown Product',
+        asin: product.asin,
+        productName: product.name || 'Unknown Product',
         currentPrice,
-        competitorPrice,
-        potentialSavings,
-        opportunityScore,
-        category: product.categoryName || 'Uncategorized',
-        salesRank,
-        amazonCommission,
-        listingRestrictions,
+        competitorPrice: currentPrice, // Current Amazon price is the competitor price
+        listPrice,
+        opportunityScore: product.opportunityScore || 50,
+        category: product.category || 'Uncategorized',
+        salesRank: product.salesRank,
+        categoryRank: product.categoryRank,
+        amazonCommission: amazonCommission * 100, // Convert to percentage
         ourCost,
         shippingCost,
-        profitMargin: Math.round(profitMargin * 10) / 10,
+        totalCost,
+        amazonFees: Math.round(amazonFees * 100) / 100,
+        netProfit: Math.round(netProfit * 100) / 100,
+        profitMargin: Math.round(profitMargin * 100),
         sku: product.sku || 'N/A',
-        upc: product.upc || 'N/A'
+        upc: product.upc || 'N/A',
+        manufacturerPartNumber: product.manufacturerPartNumber,
+        mappingSource: product.mappingSource,
+        inStock: product.inStock,
+        isPrime: product.isPrime,
+        competitionLevel: product.competitionLevel,
+        estimatedSalesPerMonth: product.estimatedSalesPerMonth,
+        dataFetchedAt: product.dataFetchedAt,
+        amazonTitle: product.amazonTitle,
+        amazonBrand: product.amazonBrand,
+        amazonImageUrl: product.amazonImageUrl
       };
     });
 
-    // Sort by opportunity score (highest first)
-    formattedOpportunities.sort((a, b) => b.opportunityScore - a.opportunityScore);
+    res.json({
+      success: true,
+      opportunities,
+      total: opportunities.length,
+      message: `Found ${opportunities.length} marketplace opportunities with real Amazon data`
+    });
 
-    res.json(formattedOpportunities);
   } catch (error) {
     console.error('Error fetching pricing opportunities:', error);
-    res.status(500).json({ error: 'Failed to fetch pricing opportunities' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch pricing opportunities',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 
