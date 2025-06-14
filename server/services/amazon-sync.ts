@@ -107,8 +107,9 @@ export class AmazonSyncService {
         title: amazonProduct.title,
         brand: amazonProduct.brand,
         manufacturer: amazonProduct.manufacturer,
-        imageUrl: amazonProduct.imageUrl,
-        isActive: true
+        primaryImageUrl: amazonProduct.imageUrl,
+        dataFetchedAt: new Date(),
+        lastUpdatedAt: new Date()
       })
       .onConflictDoUpdate({
         target: amazonAsins.asin,
@@ -116,7 +117,8 @@ export class AmazonSyncService {
           title: amazonProduct.title,
           brand: amazonProduct.brand,
           manufacturer: amazonProduct.manufacturer,
-          imageUrl: amazonProduct.imageUrl,
+          primaryImageUrl: amazonProduct.imageUrl,
+          lastUpdatedAt: new Date(),
           updatedAt: new Date()
         }
       });
@@ -196,7 +198,7 @@ export class AmazonSyncService {
         manufacturerPartNumber: products.manufacturerPartNumber
       })
       .from(products)
-      .leftJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .leftJoin(productAsinMapping, eq(products.id.toString(), productAsinMapping.productId))
       .where(
         and(
           isNull(productAsinMapping.productId),
