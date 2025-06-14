@@ -80,7 +80,7 @@ export class AmazonSyncService {
           await db
             .insert(productAsinMapping)
             .values({
-              productId: product.id.toString(),
+              productId: product.id,
               asin,
               mappingSource: product.upc && foundAsins.includes(asin) ? 'upc' : 'mfg_number',
               isActive: true
@@ -188,8 +188,8 @@ export class AmazonSyncService {
   }
 
   async syncAllProductsWithoutAsins(limit: number = 10): Promise<ProductSyncResult[]> {
-    // Find products that don't have any ASIN mappings
-    const productsWithoutAsins = await db
+    // Get products with UPC or MFG# that don't have ASIN mappings
+    const allProducts = await db
       .select({
         id: products.id,
         sku: products.sku,
@@ -198,17 +198,24 @@ export class AmazonSyncService {
         manufacturerPartNumber: products.manufacturerPartNumber
       })
       .from(products)
-      .leftJoin(productAsinMapping, eq(sql`${products.id}::text`, productAsinMapping.productId))
       .where(
-        and(
-          isNull(productAsinMapping.productId),
-          or(
-            isNotNull(products.upc),
-            isNotNull(products.manufacturerPartNumber)
-          )
+        or(
+          isNotNull(products.upc),
+          isNotNull(products.manufacturerPartNumber)
         )
       )
-      .limit(limit);
+      .limit(limit * 2);
+
+    // Check which products already have ASIN mappings
+    const existingMappings = await db
+      .select({ productId: productAsinMapping.productId })
+      .from(productAsinMapping)
+      .where(inArray(productAsinMapping.productId, allProducts.map(p => p.id)));
+
+    const mappedProductIds = new Set(existingMappings.map(m => m.productId));
+    const productsWithoutAsins = allProducts
+      .filter(p => !mappedProductIds.has(p.id))
+      .slice(0, limit);
 
     console.log(`Found ${productsWithoutAsins.length} products without ASIN mappings`);
 
