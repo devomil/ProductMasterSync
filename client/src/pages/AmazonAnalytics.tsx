@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,6 +226,7 @@ function ListingRestrictionsDisplay({ asin, productCategory }: { asin: string; p
 }
 
 export default function AmazonAnalytics() {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [timeRange, setTimeRange] = useState("30d");
@@ -560,9 +562,71 @@ export default function AmazonAnalytics() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {displayOpportunities.map((opportunity, index) => (
-              <Card key={index}>
+          {!hasRealData ? (
+            <div className="text-center py-12 bg-blue-50 border-2 border-dashed border-blue-200 rounded-lg">
+              <Database className="w-16 h-16 mx-auto mb-4 text-blue-400" />
+              <h3 className="text-xl font-semibold text-blue-900 mb-2">No Amazon Data Available</h3>
+              <p className="text-blue-700 mb-4 max-w-md mx-auto">
+                Start by syncing your product catalog with Amazon to discover real marketplace opportunities and competitive pricing.
+              </p>
+              <div className="space-y-3">
+                <div className="text-sm text-blue-600">
+                  <p className="mb-2"><strong>What happens during sync:</strong></p>
+                  <ul className="list-disc list-inside space-y-1 text-left max-w-lg mx-auto">
+                    <li>Products matched to Amazon ASINs using UPC codes</li>
+                    <li>Manufacturer part numbers used as fallback when UPC fails</li>
+                    <li>Real Amazon prices, sales ranks, and restrictions retrieved</li>
+                    <li>Profit margins and opportunity scores calculated</li>
+                  </ul>
+                </div>
+                <Button 
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/marketplace/sync/products', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ limit: 10 })
+                      });
+                      const result = await response.json();
+                      if (result.success) {
+                        toast({
+                          title: "Sync Started",
+                          description: `Processing ${result.summary?.productsProcessed || 0} products...`,
+                        });
+                        refetchOpportunities();
+                      } else {
+                        toast({
+                          title: "Sync Failed",
+                          description: result.message || "Amazon SP-API credentials may be missing",
+                          variant: "destructive"
+                        });
+                      }
+                    } catch (error) {
+                      toast({
+                        title: "Sync Error",
+                        description: "Failed to start Amazon sync",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Start Amazon Sync (10 Products)
+                </Button>
+                {syncStatus && !syncStatus.amazonConfigured && (
+                  <div className="text-sm text-red-600 flex items-center justify-center mt-2">
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    Amazon SP-API credentials required for sync
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {displayOpportunities.map((opportunity: any, index: number) => (
+                <Card key={index}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -654,7 +718,8 @@ export default function AmazonAnalytics() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* Opportunity Analysis Modal */}
