@@ -660,8 +660,12 @@ export const insertWorkflowSchema = createInsertSchema(workflows).omit({ id: tru
 export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).omit({ id: true, startedAt: true });
 export const insertConnectionSchema = createInsertSchema(connections).omit({ id: true, createdAt: true, updatedAt: true, lastTested: true });
 export const insertUpcAsinMappingSchema = createInsertSchema(upcAsinMappings).omit({ id: true, createdAt: true, updatedAt: true, discoveredAt: true });
-export const insertAmazonMarketDataSchema = createInsertSchema(amazonMarketData).omit({ id: true, createdAt: true, updatedAt: true, dataFetchedAt: true });
-export const insertAmazonSyncLogSchema = createInsertSchema(amazonSyncLogs).omit({ id: true, syncStartedAt: true, createdAt: true });
+// Amazon marketplace schemas
+export const insertAmazonAsinSchema = createInsertSchema(amazonAsins).omit({ id: true, createdAt: true, updatedAt: true, lastUpdatedAt: true });
+export const insertAmazonMarketIntelligenceSchema = createInsertSchema(amazonMarketIntelligence).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProductAmazonLookupSchema = createInsertSchema(productAmazonLookup).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProductAsinMappingSchema = createInsertSchema(productAsinMapping).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAmazonPriceHistorySchema = createInsertSchema(amazonPriceHistory).omit({ id: true, createdAt: true });
 export const insertAmazonCompetitiveAnalysisSchema = createInsertSchema(amazonCompetitiveAnalysis).omit({ id: true, createdAt: true, updatedAt: true, analysisDate: true });
 
 // Types for inserts
@@ -685,8 +689,12 @@ export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
 export type InsertConnection = z.infer<typeof insertConnectionSchema>;
 export type InsertUpcAsinMapping = z.infer<typeof insertUpcAsinMappingSchema>;
-export type InsertAmazonMarketData = z.infer<typeof insertAmazonMarketDataSchema>;
-export type InsertAmazonSyncLog = z.infer<typeof insertAmazonSyncLogSchema>;
+// Amazon marketplace insert types
+export type InsertAmazonAsin = z.infer<typeof insertAmazonAsinSchema>;
+export type InsertAmazonMarketIntelligence = z.infer<typeof insertAmazonMarketIntelligenceSchema>;
+export type InsertProductAmazonLookup = z.infer<typeof insertProductAmazonLookupSchema>;
+export type InsertProductAsinMapping = z.infer<typeof insertProductAsinMappingSchema>;
+export type InsertAmazonPriceHistory = z.infer<typeof insertAmazonPriceHistorySchema>;
 export type InsertAmazonCompetitiveAnalysis = z.infer<typeof insertAmazonCompetitiveAnalysisSchema>;
 
 // Types for selects
@@ -710,6 +718,10 @@ export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
 export type Connection = typeof connections.$inferSelect;
 export type UpcAsinMapping = typeof upcAsinMappings.$inferSelect;
-export type AmazonMarketData = typeof amazonMarketData.$inferSelect;
-export type AmazonSyncLog = typeof amazonSyncLogs.$inferSelect;
+// Amazon marketplace select types
+export type AmazonAsin = typeof amazonAsins.$inferSelect;
+export type AmazonMarketIntelligence = typeof amazonMarketIntelligence.$inferSelect;
+export type ProductAmazonLookup = typeof productAmazonLookup.$inferSelect;
+export type ProductAsinMapping = typeof productAsinMapping.$inferSelect;
+export type AmazonPriceHistory = typeof amazonPriceHistory.$inferSelect;
 export type AmazonCompetitiveAnalysis = typeof amazonCompetitiveAnalysis.$inferSelect;

@@ -20,6 +20,7 @@ import {
 import { eq, and, isNull } from "drizzle-orm";
 import marketplaceRoutes from "./marketplace/routes";
 import schedulerRoutes from './routes/scheduler';
+import aiPurchasingRoutes from './routes/ai-purchasing';
 import multer from "multer";
 import path from "path";
 import fs from "fs";
