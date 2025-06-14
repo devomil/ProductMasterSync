@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, uniqueIndex, pgEnum, index, real } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -352,85 +353,231 @@ export const upcAsinMappings = pgTable("upc_asin_mappings", {
   };
 });
 
-// Amazon marketplace competitive intelligence data
-export const amazonMarketData = pgTable("amazon_market_data", {
+// Product-to-Amazon lookup mapping table
+export const productAmazonLookup = pgTable("product_amazon_lookup", {
   id: serial("id").primaryKey(),
-  asin: text("asin").notNull(),
-  upc: text("upc"), // Reference UPC for tracking
-  title: text("title"),
-  brand: text("brand"),
-  manufacturer: text("manufacturer"),
-  category: text("category"),
-  subcategory: text("subcategory"),
+  productId: integer("product_id").references(() => products.id),
+  upc: text("upc"),
+  manufacturerPartNumber: text("manufacturer_part_number"),
   
-  // Pricing intelligence
-  currentPrice: integer("current_price"), // Stored in cents
-  listPrice: integer("list_price"), // MSRP in cents
-  lowestPrice: integer("lowest_price"), // Lowest price we've seen
-  highestPrice: integer("highest_price"), // Highest price we've seen
-  priceHistory: json("price_history").default([]), // Historical price data
+  // Search metadata
+  searchMethod: text("search_method"), // "upc", "mfg_number", "manual"
+  lastSearchAt: timestamp("last_search_at").defaultNow(),
+  searchStatus: text("search_status").default("pending"), // pending, found, not_found, error
+  asinsFound: integer("asins_found").default(0),
   
-  // Sales rank and performance
-  salesRank: integer("sales_rank"),
-  categoryRank: integer("category_rank"),
-  bsr30Day: integer("bsr_30_day"), // Best Sellers Rank 30-day average
-  rankHistory: json("rank_history").default([]), // Historical rank data
-  
-  // Product details
-  imageUrl: text("image_url"),
-  dimensions: json("dimensions").default({}), // L x W x H
-  weight: text("weight"),
-  features: json("features").default([]), // Bullet points
-  description: text("description"),
-  
-  // Availability and fulfillment
-  availability: text("availability"), // In Stock, Out of Stock, etc.
-  fulfillmentBy: text("fulfillment_by"), // Amazon, Merchant, etc.
-  isAmazonChoice: boolean("is_amazon_choice").default(false),
-  isPrime: boolean("is_prime").default(false),
-  
-  // Variation data
-  parentAsin: text("parent_asin"), // For variation relationships
-  variationType: text("variation_type"), // color, size, etc.
-  variationValue: text("variation_value"), // red, large, etc.
-  totalVariations: integer("total_variations"),
-  
-  // Review and rating data
-  rating: integer("rating"), // Stored as 1-50 (multiply by 0.1 for display)
-  reviewCount: integer("review_count"),
-  qaCount: integer("qa_count"), // Number of Q&A items
-  
-  // Seller information
-  sellerName: text("seller_name"),
-  sellerType: text("seller_type"), // Amazon, Third Party, etc.
-  soldBy: text("sold_by"),
-  shippedBy: text("shipped_by"),
-  
-  // Intelligence flags
-  isRestrictedBrand: boolean("is_restricted_brand").default(false),
-  hasGating: boolean("has_gating").default(false),
-  isHazmat: boolean("is_hazmat").default(false),
-  requiresApproval: boolean("requires_approval").default(false),
-  
-  // Sync metadata
-  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
-  lastPriceCheck: timestamp("last_price_check"),
-  lastRankCheck: timestamp("last_rank_check"),
-  syncFrequency: text("sync_frequency").default("daily"), // daily, weekly, monthly
-  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
-  
-  // Raw data storage
-  rawApiResponse: json("raw_api_response").default({}), // Full API response for debugging
-  additionalData: json("additional_data").default({}), // Any extra data we collect
+  // Next search strategy
+  nextSearchMethod: text("next_search_method"), // What to try next if current fails
+  shouldRetryAt: timestamp("should_retry_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
-    asinIdx: uniqueIndex("amazon_market_data_asin_idx").on(table.asin, table.marketplaceId),
-    upcIdx: uniqueIndex("amazon_market_data_upc_idx").on(table.upc),
-    salesRankIdx: uniqueIndex("amazon_market_data_sales_rank_idx").on(table.salesRank),
-    brandIdx: uniqueIndex("amazon_market_data_brand_idx").on(table.brand),
+    productIdx: index("product_amazon_lookup_product_idx").on(table.productId),
+    upcIdx: index("product_amazon_lookup_upc_idx").on(table.upc),
+    mfgIdx: index("product_amazon_lookup_mfg_idx").on(table.manufacturerPartNumber),
+  };
+});
+
+// Amazon ASIN records - one record per ASIN found
+export const amazonAsins = pgTable("amazon_asins", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull().unique(),
+  
+  // Core product information
+  title: text("title"),
+  brand: text("brand"),
+  manufacturer: text("manufacturer"),
+  model: text("model"),
+  partNumber: text("part_number"),
+  upc: text("upc"),
+  ean: text("ean"),
+  
+  // Category and classification
+  category: text("category"),
+  subcategory: text("subcategory"),
+  browseNodes: json("browse_nodes").default([]), // Amazon category nodes
+  categoryPath: text("category_path"), // Full category breadcrumb
+  productGroup: text("product_group"),
+  productType: text("product_type"),
+  
+  // Physical attributes
+  dimensions: json("dimensions").default({}), // L x W x H in inches
+  weight: text("weight"), // Weight with unit
+  color: text("color"),
+  size: text("size"),
+  
+  // Images and media
+  primaryImageUrl: text("primary_image_url"),
+  additionalImages: json("additional_images").default([]),
+  videoUrls: json("video_urls").default([]),
+  
+  // Product details
+  features: json("features").default([]), // Bullet points array
+  description: text("description"),
+  technicalDetails: json("technical_details").default({}),
+  
+  // Parent/child relationships for variations
+  parentAsin: text("parent_asin"),
+  variationType: text("variation_type"), // color, size, etc.
+  variationValue: text("variation_value"),
+  childAsins: json("child_asins").default([]),
+  
+  // Marketplace metadata
+  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
+  itemCondition: text("item_condition").default("New"),
+  
+  // Data freshness
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    asinIdx: uniqueIndex("amazon_asins_asin_idx").on(table.asin),
+    upcIdx: index("amazon_asins_upc_idx").on(table.upc),
+    brandIdx: index("amazon_asins_brand_idx").on(table.brand),
+    categoryIdx: index("amazon_asins_category_idx").on(table.category),
+    parentIdx: index("amazon_asins_parent_idx").on(table.parentAsin),
+  };
+});
+
+// Amazon marketplace intelligence - pricing, ranking, competition data
+export const amazonMarketIntelligence = pgTable("amazon_market_intelligence", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull().references(() => amazonAsins.asin),
+  
+  // Current pricing data
+  currentPrice: integer("current_price"), // In cents
+  listPrice: integer("list_price"), // MSRP in cents
+  dealPrice: integer("deal_price"), // Deal/promotion price
+  currencyCode: text("currency_code").default("USD"),
+  
+  // Price tracking
+  lowestPrice30Day: integer("lowest_price_30_day"),
+  highestPrice30Day: integer("highest_price_30_day"),
+  averagePrice30Day: integer("average_price_30_day"),
+  priceChangePercent: real("price_change_percent"), // % change from previous check
+  
+  // Sales performance
+  salesRank: integer("sales_rank"), // Overall BSR
+  categoryRank: integer("category_rank"), // Category-specific rank
+  bsr30DayAvg: integer("bsr_30_day_avg"),
+  bsr90DayAvg: integer("bsr_90_day_avg"),
+  rankTrend: text("rank_trend"), // "improving", "declining", "stable"
+  
+  // Estimated sales data (from third-party tools or calculations)
+  estimatedSalesPerDay: integer("estimated_sales_per_day"),
+  estimatedSalesPerMonth: integer("estimated_sales_per_month"),
+  estimatedRevenue: integer("estimated_revenue"), // Monthly revenue in cents
+  
+  // Competition metrics
+  totalSellers: integer("total_sellers"), // Number of sellers for this ASIN
+  amazonSeller: boolean("amazon_seller").default(false),
+  buyBoxPrice: integer("buy_box_price"), // Current buy box price
+  buyBoxSeller: text("buy_box_seller"),
+  
+  // Availability and fulfillment
+  inStock: boolean("in_stock").default(true),
+  stockLevel: text("stock_level"), // "high", "medium", "low", "out"
+  fulfillmentMethod: text("fulfillment_method"), // FBA, FBM, Amazon
+  isPrime: boolean("is_prime").default(false),
+  shippingTime: text("shipping_time"), // "1-2 days", "3-5 days", etc.
+  
+  // Review and rating metrics
+  rating: real("rating"), // 1.0 to 5.0
+  reviewCount: integer("review_count"),
+  reviewVelocity: integer("review_velocity"), // Reviews per month
+  qaCount: integer("qa_count"),
+  
+  // Amazon features and badges
+  isAmazonChoice: boolean("is_amazon_choice").default(false),
+  isBestseller: boolean("is_bestseller").default(false),
+  hasVideo: boolean("has_video").default(false),
+  hasARView: boolean("has_ar_view").default(false),
+  
+  // Restrictions and compliance
+  isRestrictedBrand: boolean("is_restricted_brand").default(false),
+  hasGating: boolean("has_gating").default(false),
+  isHazmat: boolean("is_hazmat").default(false),
+  requiresApproval: boolean("requires_approval").default(false),
+  ageRestricted: boolean("age_restricted").default(false),
+  
+  // Profitability metrics (calculated fields)
+  profitMarginPercent: real("profit_margin_percent"),
+  roiPercent: real("roi_percent"), // Return on investment
+  competitionLevel: text("competition_level"), // "low", "medium", "high"
+  opportunityScore: integer("opportunity_score"), // 1-100 scoring system
+  
+  // Data sync metadata
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  lastPriceCheck: timestamp("last_price_check"),
+  lastRankCheck: timestamp("last_rank_check"),
+  syncFrequency: text("sync_frequency").default("daily"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    asinIdx: index("amazon_market_intelligence_asin_idx").on(table.asin),
+    salesRankIdx: index("amazon_market_intelligence_sales_rank_idx").on(table.salesRank),
+    priceIdx: index("amazon_market_intelligence_price_idx").on(table.currentPrice),
+    opportunityIdx: index("amazon_market_intelligence_opportunity_idx").on(table.opportunityScore),
+    profitIdx: index("amazon_market_intelligence_profit_idx").on(table.profitMarginPercent),
+  };
+});
+
+// Historical price and rank tracking
+export const amazonPriceHistory = pgTable("amazon_price_history", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull().references(() => amazonAsins.asin),
+  
+  price: integer("price"), // In cents
+  listPrice: integer("list_price"),
+  salesRank: integer("sales_rank"),
+  categoryRank: integer("category_rank"),
+  
+  // Seller information at time of capture
+  seller: text("seller"),
+  fulfillmentMethod: text("fulfillment_method"),
+  inStock: boolean("in_stock"),
+  
+  capturedAt: timestamp("captured_at").defaultNow(),
+}, (table) => {
+  return {
+    asinDateIdx: index("amazon_price_history_asin_date_idx").on(table.asin, table.capturedAt),
+    priceIdx: index("amazon_price_history_price_idx").on(table.price),
+    rankIdx: index("amazon_price_history_rank_idx").on(table.salesRank),
+  };
+});
+
+// Link products to their Amazon ASINs
+export const productAsinMapping = pgTable("product_asin_mapping", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id),
+  asin: text("asin").notNull().references(() => amazonAsins.asin),
+  
+  // Mapping metadata
+  matchMethod: text("match_method"), // "upc", "mfg_number", "manual", "ai_suggested"
+  matchConfidence: real("match_confidence"), // 0.0 to 1.0
+  isVerified: boolean("is_verified").default(false), // Human verified
+  verifiedBy: text("verified_by"), // User who verified
+  verifiedAt: timestamp("verified_at"),
+  
+  // Competitive analysis
+  isDirectCompetitor: boolean("is_direct_competitor").default(true),
+  isSimilarProduct: boolean("is_similar_product").default(false),
+  notes: text("notes"), // Manual notes about this mapping
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("product_asin_mapping_product_idx").on(table.productId),
+    asinIdx: index("product_asin_mapping_asin_idx").on(table.asin),
+    productAsinIdx: uniqueIndex("product_asin_mapping_product_asin_idx").on(table.productId, table.asin),
   };
 });
 

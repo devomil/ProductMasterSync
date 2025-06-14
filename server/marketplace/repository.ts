@@ -7,12 +7,12 @@ import { eq, and, isNull, desc, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   products,
-  amazonMarketData,
-  amazonSyncLogs,
-  type InsertAmazonMarketData,
-  type InsertAmazonSyncLog,
-  type Product,
-  type AmazonMarketData
+  amazonAsins,
+  amazonMarketIntelligence,
+  productAmazonLookup,
+  productAsinMapping,
+  amazonPriceHistory,
+  type Product
 } from '@shared/schema';
 
 /**
