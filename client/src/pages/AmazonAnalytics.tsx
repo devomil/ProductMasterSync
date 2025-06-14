@@ -77,12 +77,51 @@ interface PricingOpportunity {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
-// Component for displaying real Amazon listing restrictions
-function ListingRestrictionsDisplay({ asin }: { asin: string }) {
+// Component for displaying Amazon listing restrictions with fallback
+function ListingRestrictionsDisplay({ asin, productCategory }: { asin: string; productCategory?: string }) {
   const { data: restrictions, isLoading, error } = useQuery({
     queryKey: [`/api/marketplace/restrictions/${asin}`],
     enabled: !!asin,
   });
+
+  // Generate category-based restriction simulation when API unavailable
+  const getSimulatedRestrictions = (category: string) => {
+    const categoryLower = category.toLowerCase();
+    
+    if (categoryLower.includes('safety')) {
+      return {
+        canList: false,
+        reasonCodes: ['APPROVAL_REQUIRED'],
+        messages: ['Safety equipment requires Amazon approval and compliance documentation'],
+        isSimulated: true
+      };
+    }
+    
+    if (categoryLower.includes('communication')) {
+      return {
+        canList: false,
+        reasonCodes: ['APPROVAL_REQUIRED'],
+        messages: ['FCC licensing and compliance verification required for communication devices'],
+        isSimulated: true
+      };
+    }
+    
+    if (categoryLower.includes('navigation') || categoryLower.includes('electronics')) {
+      return {
+        canList: true,
+        reasonCodes: [],
+        messages: [],
+        isSimulated: true
+      };
+    }
+    
+    return {
+      canList: true,
+      reasonCodes: [],
+      messages: [],
+      isSimulated: true
+    };
+  };
 
   if (isLoading) {
     return (
@@ -93,21 +132,33 @@ function ListingRestrictionsDisplay({ asin }: { asin: string }) {
     );
   }
 
-  if (error) {
+  // Use simulated data when API credentials are missing
+  const displayData = error && productCategory ? 
+    getSimulatedRestrictions(productCategory) : 
+    restrictions;
+
+  if (error && !productCategory) {
     return (
-      <div className="space-y-2">
-        <div className="flex items-center space-x-2 text-red-600">
+      <div className="space-y-3">
+        <div className="flex items-center space-x-2 text-orange-600">
           <AlertTriangle className="w-4 h-4" />
-          <span className="text-sm">Unable to fetch listing restrictions</span>
+          <span className="text-sm font-medium">Amazon SP-API Credentials Required</span>
         </div>
-        <p className="text-xs text-gray-500">
-          This may indicate missing Amazon SP-API credentials or rate limiting.
-        </p>
+        <div className="text-xs text-gray-600 bg-orange-50 p-3 rounded">
+          <p className="mb-2">To fetch real listing restrictions, provide these environment variables:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>AMAZON_SP_API_ACCESS_TOKEN</li>
+            <li>AMAZON_SP_API_REFRESH_TOKEN</li>
+            <li>AMAZON_SP_API_CLIENT_ID</li>
+            <li>AMAZON_SP_API_CLIENT_SECRET</li>
+            <li>AMAZON_SELLER_ID</li>
+          </ul>
+        </div>
       </div>
     );
   }
 
-  if (!restrictions || !restrictions.canList === undefined) {
+  if (!displayData) {
     return (
       <div className="text-sm text-gray-500">
         No restriction data available for this ASIN.
@@ -118,7 +169,7 @@ function ListingRestrictionsDisplay({ asin }: { asin: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
-        {restrictions.canList ? (
+        {displayData.canList ? (
           <>
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             <span className="font-medium text-green-700">Can List on Amazon</span>
@@ -129,13 +180,18 @@ function ListingRestrictionsDisplay({ asin }: { asin: string }) {
             <span className="font-medium text-red-700">Cannot List on Amazon</span>
           </>
         )}
+        {displayData.isSimulated && (
+          <Badge variant="outline" className="text-xs">
+            Simulated
+          </Badge>
+        )}
       </div>
 
-      {restrictions.reasonCodes && restrictions.reasonCodes.length > 0 && (
+      {displayData.reasonCodes && displayData.reasonCodes.length > 0 && (
         <div className="space-y-2">
           <h4 className="font-medium text-sm text-gray-700">Restriction Details:</h4>
           <div className="space-y-1">
-            {restrictions.reasonCodes.map((code: string, index: number) => (
+            {displayData.reasonCodes.map((code: string, index: number) => (
               <Badge 
                 key={index}
                 variant={code === 'NOT_ELIGIBLE' ? 'destructive' : code === 'APPROVAL_REQUIRED' ? 'secondary' : 'outline'}
@@ -148,11 +204,11 @@ function ListingRestrictionsDisplay({ asin }: { asin: string }) {
         </div>
       )}
 
-      {restrictions.messages && restrictions.messages.length > 0 && (
+      {displayData.messages && displayData.messages.length > 0 && (
         <div className="space-y-2">
           <h4 className="font-medium text-sm text-gray-700">Messages:</h4>
           <div className="space-y-1">
-            {restrictions.messages.map((message: string, index: number) => (
+            {displayData.messages.map((message: string, index: number) => (
               <p key={index} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
                 {message}
               </p>
@@ -162,7 +218,7 @@ function ListingRestrictionsDisplay({ asin }: { asin: string }) {
       )}
 
       <div className="text-xs text-gray-500 pt-2 border-t">
-        ASIN: {asin} • Data from Amazon SP-API getListingsRestrictions
+        ASIN: {asin} • {displayData.isSimulated ? 'Category-based simulation' : 'Amazon SP-API getListingsRestrictions'}
       </div>
     </div>
   );
@@ -692,7 +748,10 @@ export default function AmazonAnalytics() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ListingRestrictionsDisplay asin={selectedOpportunity.asin} />
+                    <ListingRestrictionsDisplay 
+                      asin={selectedOpportunity.asin} 
+                      productCategory={selectedOpportunity.category}
+                    />
                   </CardContent>
                 </Card>
 
