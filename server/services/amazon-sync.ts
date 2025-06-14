@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { products, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
 import { amazonService } from './amazon-sp-api';
-import { eq, inArray, and, isNull, or } from 'drizzle-orm';
+import { eq, inArray, and, isNull, or, isNotNull } from 'drizzle-orm';
 
 interface ProductSyncResult {
   productId: string;
@@ -201,8 +201,8 @@ export class AmazonSyncService {
         and(
           isNull(productAsinMapping.productId),
           or(
-            isNull(products.upc) === false,
-            isNull(products.manufacturerPartNumber) === false
+            isNotNull(products.upc),
+            isNotNull(products.manufacturerPartNumber)
           )
         )
       )
@@ -214,7 +214,7 @@ export class AmazonSyncService {
     
     for (const product of productsWithoutAsins) {
       console.log(`Syncing product: ${product.sku} - ${product.name}`);
-      const result = await this.syncProductByUpcAndMfg(product.id);
+      const result = await this.syncProductByUpcAndMfg(product.id.toString());
       results.push(result);
       
       // Rate limiting between products
