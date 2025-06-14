@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   BarChart, 
   Bar, 
@@ -74,6 +75,97 @@ interface PricingOpportunity {
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+// Component for displaying real Amazon listing restrictions
+function ListingRestrictionsDisplay({ asin }: { asin: string }) {
+  const { data: restrictions, isLoading, error } = useQuery({
+    queryKey: [`/api/marketplace/restrictions/${asin}`],
+    enabled: !!asin,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center space-x-2">
+        <RefreshCw className="w-4 h-4 animate-spin" />
+        <span className="text-sm text-gray-500">Checking Amazon listing restrictions...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2 text-red-600">
+          <AlertTriangle className="w-4 h-4" />
+          <span className="text-sm">Unable to fetch listing restrictions</span>
+        </div>
+        <p className="text-xs text-gray-500">
+          This may indicate missing Amazon SP-API credentials or rate limiting.
+        </p>
+      </div>
+    );
+  }
+
+  if (!restrictions || !restrictions.canList === undefined) {
+    return (
+      <div className="text-sm text-gray-500">
+        No restriction data available for this ASIN.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center space-x-2">
+        {restrictions.canList ? (
+          <>
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span className="font-medium text-green-700">Can List on Amazon</span>
+          </>
+        ) : (
+          <>
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span className="font-medium text-red-700">Cannot List on Amazon</span>
+          </>
+        )}
+      </div>
+
+      {restrictions.reasonCodes && restrictions.reasonCodes.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm text-gray-700">Restriction Details:</h4>
+          <div className="space-y-1">
+            {restrictions.reasonCodes.map((code: string, index: number) => (
+              <Badge 
+                key={index}
+                variant={code === 'NOT_ELIGIBLE' ? 'destructive' : code === 'APPROVAL_REQUIRED' ? 'secondary' : 'outline'}
+                className="text-xs"
+              >
+                {code.replace('_', ' ')}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {restrictions.messages && restrictions.messages.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm text-gray-700">Messages:</h4>
+          <div className="space-y-1">
+            {restrictions.messages.map((message: string, index: number) => (
+              <p key={index} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                {message}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="text-xs text-gray-500 pt-2 border-t">
+        ASIN: {asin} • Data from Amazon SP-API getListingsRestrictions
+      </div>
+    </div>
+  );
+}
 
 export default function AmazonAnalytics() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -501,6 +593,152 @@ export default function AmazonAnalytics() {
             ))}
           </div>
         </TabsContent>
+
+        {/* Opportunity Analysis Modal */}
+        <Dialog open={showAnalysisModal} onOpenChange={setShowAnalysisModal}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Amazon Marketplace Analysis</DialogTitle>
+              <DialogDescription>
+                Comprehensive opportunity analysis for {selectedOpportunity?.productName}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedOpportunity && (
+              <div className="space-y-6">
+                {/* Product Overview */}
+                <div className="grid grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Product Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-500">ASIN:</span>
+                          <p className="font-mono">{selectedOpportunity.asin}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500">SKU:</span>
+                          <p className="font-mono">{selectedOpportunity.sku}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500">UPC:</span>
+                          <p className="font-mono">{selectedOpportunity.upc}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500">Sales Rank:</span>
+                          <p>#{selectedOpportunity.salesRank?.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="pt-2">
+                        <span className="font-medium text-gray-500">Category:</span>
+                        <Badge variant="outline" className="ml-2">{selectedOpportunity.category}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Financial Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Our Cost</span>
+                          <p className="text-lg font-bold">${selectedOpportunity.ourCost?.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Shipping</span>
+                          <p className="text-lg font-bold">${selectedOpportunity.shippingCost?.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Amazon Commission</span>
+                          <p className="text-lg font-bold">{selectedOpportunity.amazonCommission?.toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Profit Margin</span>
+                          <p className={`text-lg font-bold ${selectedOpportunity.profitMargin > 20 ? 'text-green-600' : selectedOpportunity.profitMargin > 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {selectedOpportunity.profitMargin?.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-3 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Potential Revenue:</span>
+                          <span className="text-xl font-bold text-green-600">
+                            ${selectedOpportunity.competitorPrice.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Our Price Advantage:</span>
+                          <span className="text-xl font-bold text-blue-600">
+                            ${selectedOpportunity.potentialSavings.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Listing Restrictions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center">
+                      <AlertTriangle className="w-5 h-5 mr-2" />
+                      Amazon Listing Restrictions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ListingRestrictionsDisplay asin={selectedOpportunity.asin} />
+                  </CardContent>
+                </Card>
+
+                {/* Recommendation Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">AI Recommendation</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium text-gray-500">Opportunity Score:</span>
+                        <Badge 
+                          variant={selectedOpportunity.opportunityScore >= 90 ? 'default' : selectedOpportunity.opportunityScore >= 70 ? 'secondary' : 'outline'}
+                          className="ml-2"
+                        >
+                          {selectedOpportunity.opportunityScore}/100
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600">
+                      {selectedOpportunity.opportunityScore >= 90 && (
+                        <p className="text-green-700 font-medium">
+                          <strong>Highly Recommended:</strong> Excellent profit potential with strong market position. 
+                          Consider immediate listing if no restrictions prevent sales.
+                        </p>
+                      )}
+                      {selectedOpportunity.opportunityScore >= 70 && selectedOpportunity.opportunityScore < 90 && (
+                        <p className="text-blue-700 font-medium">
+                          <strong>Good Opportunity:</strong> Solid profit margins with competitive pricing advantage. 
+                          Monitor for any listing restrictions before proceeding.
+                        </p>
+                      )}
+                      {selectedOpportunity.opportunityScore < 70 && (
+                        <p className="text-yellow-700 font-medium">
+                          <strong>Proceed with Caution:</strong> Lower profit margins may require additional analysis. 
+                          Consider volume requirements and competition levels.
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <TabsContent value="database" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

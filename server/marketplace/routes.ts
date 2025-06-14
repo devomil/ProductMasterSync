@@ -10,6 +10,7 @@ import { fetchAmazonDataByUpc, getAmazonDataForProduct, batchSyncAmazonData } fr
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
 import { scheduler } from '../utils/scheduler';
 import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct } from './repository';
+import { amazonListingsRestrictionsService } from './amazon-listings-restrictions';
 
 const router = Router();
 
@@ -546,6 +547,95 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching pricing opportunities:', error);
     res.status(500).json({ error: 'Failed to fetch pricing opportunities' });
+  }
+});
+
+// New endpoint for Amazon listing restrictions
+router.get('/restrictions/:asin', async (req, res) => {
+  try {
+    const { asin } = req.params;
+    const sellerId = req.query.sellerId as string || process.env.AMAZON_SELLER_ID;
+    const marketplaceIds = (req.query.marketplaceIds as string)?.split(',') || ['ATVPDKIKX0DER']; // US marketplace
+    const conditionType = req.query.conditionType as string || 'new_new';
+
+    if (!sellerId) {
+      return res.status(400).json({ 
+        error: 'Seller ID is required. Provide as query parameter or set AMAZON_SELLER_ID environment variable.' 
+      });
+    }
+
+    const restrictionsData = await amazonListingsRestrictionsService.getListingsRestrictions(
+      asin,
+      sellerId,
+      marketplaceIds,
+      conditionType
+    );
+
+    const listingStatus = amazonListingsRestrictionsService.isListingAllowed(restrictionsData.restrictions);
+
+    res.json({
+      asin,
+      restrictions: restrictionsData.restrictions,
+      canList: listingStatus.allowed,
+      reasonCodes: listingStatus.reasonCodes,
+      messages: listingStatus.messages
+    });
+  } catch (error: any) {
+    console.error('Error fetching listing restrictions:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch listing restrictions',
+      details: error.message 
+    });
+  }
+});
+
+// Batch endpoint for checking multiple ASINs
+router.post('/restrictions/batch', async (req, res) => {
+  try {
+    const { asins, sellerId, marketplaceIds = ['ATVPDKIKX0DER'], conditionType = 'new_new' } = req.body;
+
+    if (!asins || !Array.isArray(asins)) {
+      return res.status(400).json({ error: 'ASINs array is required' });
+    }
+
+    if (!sellerId) {
+      return res.status(400).json({ 
+        error: 'Seller ID is required in request body or set AMAZON_SELLER_ID environment variable.' 
+      });
+    }
+
+    const asinSellerPairs = asins.map((asin: string) => ({ asin, sellerId }));
+    
+    const results = await amazonListingsRestrictionsService.batchGetListingsRestrictions(
+      asinSellerPairs,
+      marketplaceIds,
+      conditionType
+    );
+
+    const processedResults = results.map(result => {
+      const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions);
+      return {
+        asin: result.asin,
+        restrictions: result.restrictions,
+        canList: listingStatus.allowed,
+        reasonCodes: listingStatus.reasonCodes,
+        messages: listingStatus.messages,
+        error: result.error
+      };
+    });
+
+    res.json({
+      results: processedResults,
+      totalProcessed: results.length,
+      successful: results.filter(r => !r.error).length,
+      failed: results.filter(r => r.error).length
+    });
+  } catch (error: any) {
+    console.error('Error in batch restrictions check:', error);
+    res.status(500).json({ 
+      error: 'Failed to process batch listing restrictions',
+      details: error.message 
+    });
   }
 });
 
