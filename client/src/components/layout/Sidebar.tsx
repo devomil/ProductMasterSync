@@ -13,6 +13,7 @@ import {
   Database,
   FileCode,
   ShoppingCart,
+  BarChart3,
   Shield
 } from "lucide-react";
 
@@ -125,6 +126,13 @@ const Sidebar = () => {
                   active={location === "/amazon-integration"}
                 >
                   Amazon Integration
+                </SidebarLink>
+                <SidebarLink 
+                  href="/amazon-analytics" 
+                  icon={<BarChart3 size={20} />} 
+                  active={location === "/amazon-analytics"}
+                >
+                  Amazon Analytics
                 </SidebarLink>
                 <SidebarLink 
                   href="/api-configuration" 
