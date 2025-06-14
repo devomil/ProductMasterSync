@@ -243,10 +243,15 @@ export default function AmazonAnalytics() {
     enabled: true
   });
 
-  // Fetch pricing opportunities
-  const { data: pricingOpportunities, isLoading: opportunitiesLoading } = useQuery<PricingOpportunity[]>({
+  // Fetch pricing opportunities with real Amazon data
+  const { data: opportunitiesData, isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery({
     queryKey: ['/api/marketplace/analytics/opportunities', selectedCategory],
     enabled: true
+  });
+
+  // Fetch Amazon sync status
+  const { data: syncStatus, isLoading: syncStatusLoading } = useQuery({
+    queryKey: ['/api/marketplace/sync/status'],
   });
 
   // Sample data for demonstration
@@ -324,7 +329,8 @@ export default function AmazonAnalytics() {
 
   const displayAnalytics = analytics || sampleAnalytics;
   const displayTrends = marketTrends || sampleTrends;
-  const displayOpportunities = pricingOpportunities || sampleOpportunities;
+  const displayOpportunities = opportunitiesData?.opportunities || [];
+  const hasRealData = displayOpportunities.length > 0;
 
   const mappingPercentage = Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100);
 

@@ -556,12 +556,14 @@ export const amazonPriceHistory = pgTable("amazon_price_history", {
 // Link products to their Amazon ASINs
 export const productAsinMapping = pgTable("product_asin_mapping", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id),
+  productId: text("product_id").notNull().references(() => products.id),
   asin: text("asin").notNull().references(() => amazonAsins.asin),
   
   // Mapping metadata
+  mappingSource: text("mapping_source"), // "upc", "mfg_number", "manual", "ai_suggested"
   matchMethod: text("match_method"), // "upc", "mfg_number", "manual", "ai_suggested"
   matchConfidence: real("match_confidence"), // 0.0 to 1.0
+  isActive: boolean("is_active").default(true), // Active mapping
   isVerified: boolean("is_verified").default(false), // Human verified
   verifiedBy: text("verified_by"), // User who verified
   verifiedAt: timestamp("verified_at"),

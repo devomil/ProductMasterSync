@@ -589,6 +589,78 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
   }
 });
 
+// Amazon sync endpoint to populate real ASIN data
+router.post('/sync/products', async (req: Request, res: Response) => {
+  try {
+    if (!amazonSyncService.isAmazonConfigured()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amazon SP-API credentials not configured',
+        message: 'Please provide AMAZON_SP_API_ACCESS_KEY_ID, AMAZON_SP_API_SECRET_KEY, AMAZON_SP_API_REFRESH_TOKEN, AMAZON_SP_API_CLIENT_ID, and AMAZON_SP_API_CLIENT_SECRET environment variables'
+      });
+    }
+
+    const limit = parseInt(req.body.limit as string) || 10;
+    console.log(`Starting Amazon sync for ${limit} products...`);
+    
+    const results = await amazonSyncService.syncAllProductsWithoutAsins(limit);
+    
+    const totalAsins = results.reduce((sum, r) => sum + r.asinsFound, 0);
+    const totalErrors = results.reduce((sum, r) => sum + r.errors.length, 0);
+    
+    res.json({
+      success: true,
+      message: `Synced ${results.length} products and found ${totalAsins} ASINs`,
+      results,
+      summary: {
+        productsProcessed: results.length,
+        totalAsinsFound: totalAsins,
+        totalErrors,
+        hasErrors: totalErrors > 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Amazon sync failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Amazon sync failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get sync status and configuration
+router.get('/sync/status', async (req: Request, res: Response) => {
+  try {
+    const isConfigured = amazonSyncService.isAmazonConfigured();
+    
+    // Count products with and without ASIN mappings
+    const totalProducts = await db.select({ count: sql`count(*)` }).from(products);
+    const productsWithAsins = await db
+      .select({ count: sql`count(distinct ${products.id})` })
+      .from(products)
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .where(eq(productAsinMapping.isActive, true));
+
+    res.json({
+      success: true,
+      amazonConfigured: isConfigured,
+      totalProducts: totalProducts[0]?.count || 0,
+      productsWithAsins: productsWithAsins[0]?.count || 0,
+      productsNeedingSync: (totalProducts[0]?.count || 0) - (productsWithAsins[0]?.count || 0),
+      message: isConfigured ? 'Amazon SP-API configured and ready' : 'Amazon SP-API credentials required'
+    });
+
+  } catch (error) {
+    console.error('Failed to get sync status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get sync status'
+    });
+  }
+});
+
 // New endpoint for Amazon listing restrictions
 router.get('/restrictions/:asin', async (req, res) => {
   try {
