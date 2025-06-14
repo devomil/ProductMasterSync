@@ -552,11 +552,15 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
 // Amazon sync endpoint to populate real ASIN data
 router.post('/sync/products', async (req: Request, res: Response) => {
   try {
-    if (!amazonSyncService.isAmazonConfigured()) {
+    // Check configuration using the new Amazon utils
+    const config = getAmazonConfig();
+    const isValid = validateAmazonConfig(config);
+    
+    if (!isValid) {
       return res.status(400).json({
         success: false,
         error: 'Amazon SP-API credentials not configured',
-        message: 'Please provide AMAZON_SP_API_ACCESS_KEY_ID, AMAZON_SP_API_SECRET_KEY, AMAZON_SP_API_REFRESH_TOKEN, AMAZON_SP_API_CLIENT_ID, and AMAZON_SP_API_CLIENT_SECRET environment variables'
+        message: 'Please provide AMAZON_SP_API_CLIENT_ID, AMAZON_SP_API_CLIENT_SECRET, and AMAZON_SP_API_REFRESH_TOKEN environment variables'
       });
     }
 
