@@ -4,48 +4,65 @@
  */
 
 import { Router } from 'express';
-import { amazonRealPricingService } from '../services/amazon-real-pricing';
-import { db } from '../db';
-import { products, amazonAsins, productAsinMapping } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { amazonAPIClient } from '../services/amazon-api-client';
+import { pool } from '../db';
 
 const router = Router();
 
 /**
  * Verify UPC to ASIN mapping and get correct ASIN
  */
-router.post('/verify-upc-mapping', async (req, res) => {
+router.post('/verify-upc/:upc', async (req, res) => {
   try {
-    const { upc, currentAsin } = req.body;
-
-    if (!upc || !currentAsin) {
-      return res.status(400).json({
+    const { upc } = req.params;
+    
+    console.log(`Verifying UPC to ASIN mapping for: ${upc}`);
+    
+    // Search Amazon catalog for this UPC
+    const catalogResults = await amazonAPIClient.searchByUPC(upc);
+    
+    if (catalogResults.length === 0) {
+      return res.json({
         success: false,
-        error: 'UPC and current ASIN are required'
+        message: `No Amazon catalog items found for UPC: ${upc}`,
+        upc,
+        suggestedAsins: []
       });
     }
 
-    console.log(`Verifying UPC ${upc} mapping to ASIN ${currentAsin}`);
+    // Extract ASINs and product info
+    const suggestedAsins = catalogResults.map(item => ({
+      asin: item.asin,
+      title: item.summaries?.[0]?.itemName || 'Unknown',
+      brand: item.summaries?.[0]?.brand || 'Unknown',
+      upcMatches: item.identifiers?.some(id => id.identifierType === 'UPC' && id.identifier === upc) || false
+    }));
 
-    const verification = await amazonRealPricingService.verifyUPCMapping(upc, currentAsin);
-
+    // Get current mapping from database
+    const currentMappingQuery = `
+      SELECT p.id, p.name, p.upc, pam.asin as current_asin
+      FROM products p
+      LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
+      WHERE p.upc = $1
+    `;
+    
+    const currentMapping = await pool.query(currentMappingQuery, [upc]);
+    
     res.json({
       success: true,
       upc,
-      currentAsin,
-      isCorrect: verification.isCorrect,
-      correctAsin: verification.correctAsin,
-      searchResults: verification.searchResults,
-      recommendation: verification.isCorrect 
-        ? 'Current ASIN mapping is correct'
-        : `Incorrect mapping. Correct ASIN should be: ${verification.correctAsin}`
+      currentMapping: currentMapping.rows[0] || null,
+      suggestedAsins,
+      catalogResultsCount: catalogResults.length,
+      message: `Found ${catalogResults.length} Amazon catalog items for UPC ${upc}`
     });
 
   } catch (error) {
     console.error('UPC verification error:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Failed to verify UPC mapping',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -53,11 +70,11 @@ router.post('/verify-upc-mapping', async (req, res) => {
 /**
  * Get real Amazon pricing for specific ASINs
  */
-router.post('/get-real-pricing', async (req, res) => {
+router.post('/pricing', async (req, res) => {
   try {
     const { asins } = req.body;
-
-    if (!asins || !Array.isArray(asins)) {
+    
+    if (!Array.isArray(asins) || asins.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'ASINs array is required'
@@ -65,32 +82,55 @@ router.post('/get-real-pricing', async (req, res) => {
     }
 
     console.log(`Fetching real Amazon pricing for ASINs: ${asins.join(', ')}`);
+    
+    const pricingResults = new Map();
+    
+    // Fetch pricing for each ASIN
+    for (const asin of asins) {
+      try {
+        const pricingData = await amazonAPIClient.getPricingData(asin);
+        if (pricingData) {
+          pricingResults.set(asin, pricingData);
+        } else {
+          pricingResults.set(asin, {
+            asin,
+            error: 'No pricing data available',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`Error fetching pricing for ${asin}:`, error);
+        pricingResults.set(asin, {
+          asin,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
 
-    const pricingData = await amazonRealPricingService.getRealPricing(asins);
-
-    const results = Array.from(pricingData.entries()).map(([asin, data]) => ({
+    // Convert Map to array for response
+    const results = Array.from(pricingResults.entries()).map(([asin, data]) => ({
       asin,
-      buyBoxPrice: data.buyBoxPrice ? `$${data.buyBoxPrice.toFixed(2)}` : 'N/A',
-      listPrice: data.listPrice ? `$${data.listPrice.toFixed(2)}` : 'N/A',
-      offerCount: data.offerCount || 0,
-      condition: data.condition,
-      fulfillmentChannel: data.fulfillmentChannel,
-      timestamp: data.timestamp
+      ...data
     }));
 
     res.json({
       success: true,
-      message: `Retrieved real Amazon pricing for ${results.length} ASINs`,
       results,
-      totalRequested: asins.length,
-      totalRetrieved: results.length
+      processedCount: results.length,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
     console.error('Real pricing fetch error:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Failed to fetch real Amazon pricing',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -98,117 +138,78 @@ router.post('/get-real-pricing', async (req, res) => {
 /**
  * Fix incorrect UPC mapping for specific product
  */
-router.post('/fix-upc-mapping', async (req, res) => {
+router.post('/fix-mapping', async (req, res) => {
   try {
-    const { upc, productId } = req.body;
-
-    if (!upc || !productId) {
-      return res.status(400).json({
-        success: false,
-        error: 'UPC and product ID are required'
-      });
-    }
-
-    // Get current product and ASIN mapping
-    const currentMapping = await db
-      .select({
-        productId: products.id,
-        productName: products.name,
-        currentAsin: amazonAsins.asin
-      })
-      .from(products)
-      .leftJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-      .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
-      .where(eq(products.id, productId))
-      .limit(1);
-
-    if (currentMapping.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    const currentAsin = currentMapping[0].currentAsin;
+    const { productId, newAsin, realPrice } = req.body;
     
-    if (!currentAsin) {
+    if (!productId || !newAsin) {
       return res.status(400).json({
         success: false,
-        error: 'Product has no current ASIN mapping'
+        error: 'productId and newAsin are required'
       });
     }
 
-    console.log(`Fixing UPC mapping for product ${productId}: UPC ${upc}, current ASIN ${currentAsin}`);
-
-    // Verify the mapping with Amazon
-    const verification = await amazonRealPricingService.verifyUPCMapping(upc, currentAsin);
-
-    if (verification.isCorrect) {
-      return res.json({
+    console.log(`Fixing ASIN mapping for product ${productId} to ${newAsin}`);
+    
+    // Start transaction
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Check if new ASIN exists in amazon_asins table
+      const asinCheck = await client.query(
+        'SELECT asin FROM amazon_asins WHERE asin = $1',
+        [newAsin]
+      );
+      
+      // Add ASIN to amazon_asins if it doesn't exist
+      if (asinCheck.rows.length === 0) {
+        await client.query(`
+          INSERT INTO amazon_asins (asin, is_active, created_at, updated_at)
+          VALUES ($1, true, NOW(), NOW())
+        `, [newAsin]);
+      }
+      
+      // Update the ASIN mapping
+      await client.query(`
+        UPDATE product_asin_mapping 
+        SET asin = $1, updated_at = NOW()
+        WHERE product_id = $2
+      `, [newAsin, productId]);
+      
+      // Update product price if provided
+      if (realPrice && realPrice > 0) {
+        await client.query(`
+          UPDATE products 
+          SET price = $1, updated_at = NOW()
+          WHERE id = $2
+        `, [realPrice, productId]);
+      }
+      
+      await client.query('COMMIT');
+      
+      res.json({
         success: true,
-        message: 'Current ASIN mapping is already correct',
-        productName: currentMapping[0].productName,
-        upc,
-        currentAsin,
-        verified: true
+        message: `Successfully updated product ${productId} to ASIN ${newAsin}`,
+        productId,
+        newAsin,
+        priceUpdated: !!realPrice
       });
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    if (!verification.correctAsin) {
-      return res.json({
-        success: false,
-        message: 'No correct ASIN found for this UPC',
-        productName: currentMapping[0].productName,
-        upc,
-        currentAsin,
-        searchResults: verification.searchResults
-      });
-    }
-
-    // Update the ASIN mapping
-    await db
-      .update(productAsinMapping)
-      .set({ asin: verification.correctAsin })
-      .where(eq(productAsinMapping.productId, productId));
-
-    // Check if the correct ASIN exists in amazon_asins table
-    const existingAsin = await db
-      .select()
-      .from(amazonAsins)
-      .where(eq(amazonAsins.asin, verification.correctAsin))
-      .limit(1);
-
-    if (existingAsin.length === 0) {
-      // Insert the new ASIN
-      const searchResult = verification.searchResults.find(r => r.asin === verification.correctAsin);
-      await db.insert(amazonAsins).values({
-        asin: verification.correctAsin,
-        title: searchResult?.title || 'Amazon Product',
-        brand: searchResult?.brand || null,
-        imageUrl: searchResult?.imageUrl || null,
-        upc: searchResult?.upc || null,
-        partNumber: searchResult?.partNumber || null,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'ASIN mapping corrected successfully',
-      productName: currentMapping[0].productName,
-      upc,
-      oldAsin: currentAsin,
-      newAsin: verification.correctAsin,
-      searchResults: verification.searchResults
-    });
 
   } catch (error) {
-    console.error('Fix UPC mapping error:', error);
+    console.error('Mapping fix error:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Failed to fix ASIN mapping',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -216,103 +217,98 @@ router.post('/fix-upc-mapping', async (req, res) => {
 /**
  * Update product prices with real Amazon data
  */
-router.post('/update-prices-with-real-data', async (req, res) => {
+router.post('/update-prices', async (req, res) => {
   try {
-    const { asins } = req.body;
-
-    if (!asins || !Array.isArray(asins)) {
-      return res.status(400).json({
+    const { limit = 10 } = req.body;
+    
+    console.log(`Updating product prices with real Amazon data (limit: ${limit})`);
+    
+    // Get products with ASIN mappings
+    const productsQuery = `
+      SELECT p.id, p.name, p.upc, p.price as current_price, pam.asin
+      FROM products p
+      INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
+      INNER JOIN amazon_asins aa ON pam.asin = aa.asin
+      WHERE aa.is_active = true
+      LIMIT $1
+    `;
+    
+    const products = await pool.query(productsQuery, [limit]);
+    
+    if (products.rows.length === 0) {
+      return res.json({
         success: false,
-        error: 'ASINs array is required'
+        message: 'No products with ASIN mappings found'
       });
     }
-
-    console.log(`Updating prices with real Amazon data for ASINs: ${asins.join(', ')}`);
-
-    // Get real pricing from Amazon
-    const pricingData = await amazonRealPricingService.getRealPricing(asins);
-
-    const results = [];
-
-    for (const [asin, amazonData] of pricingData.entries()) {
-      // Get product associated with this ASIN
-      const productData = await db
-        .select({
-          productId: products.id,
-          productName: products.name,
-          cost: products.cost,
-          currentPrice: products.price
-        })
-        .from(products)
-        .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-        .where(eq(productAsinMapping.asin, asin))
-        .limit(1);
-
-      if (productData.length === 0) {
-        results.push({
-          asin,
-          success: false,
-          error: 'No product found for this ASIN'
+    
+    const updateResults = [];
+    
+    for (const product of products.rows) {
+      try {
+        console.log(`Fetching real pricing for product ${product.id} (ASIN: ${product.asin})`);
+        
+        const pricingData = await amazonAPIClient.getPricingData(product.asin);
+        
+        if (pricingData && pricingData.listPrice) {
+          // Update product with real Amazon price
+          await pool.query(`
+            UPDATE products 
+            SET price = $1, updated_at = NOW()
+            WHERE id = $2
+          `, [pricingData.listPrice, product.id]);
+          
+          updateResults.push({
+            productId: product.id,
+            productName: product.name,
+            asin: product.asin,
+            oldPrice: product.current_price,
+            newPrice: pricingData.listPrice,
+            updated: true
+          });
+          
+        } else {
+          updateResults.push({
+            productId: product.id,
+            productName: product.name,
+            asin: product.asin,
+            oldPrice: product.current_price,
+            error: 'No pricing data available',
+            updated: false
+          });
+        }
+        
+        // Respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`Error updating price for product ${product.id}:`, error);
+        updateResults.push({
+          productId: product.id,
+          productName: product.name,
+          asin: product.asin,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          updated: false
         });
-        continue;
       }
-
-      const product = productData[0];
-      
-      // Use buy box price if available, otherwise list price
-      const realAmazonPrice = amazonData.buyBoxPrice || amazonData.listPrice;
-      
-      if (!realAmazonPrice) {
-        results.push({
-          asin,
-          productName: product.productName,
-          success: false,
-          error: 'No pricing data available from Amazon'
-        });
-        continue;
-      }
-
-      // Update product price to match real Amazon pricing
-      await db
-        .update(products)
-        .set({
-          price: realAmazonPrice.toFixed(2),
-          updatedAt: new Date()
-        })
-        .where(eq(products.id, product.productId));
-
-      const cost = parseFloat(product.cost || '0');
-      const profitMargin = cost > 0 ? ((realAmazonPrice - cost) / realAmazonPrice * 100) : 0;
-
-      results.push({
-        asin,
-        productName: product.productName,
-        cost: `$${cost.toFixed(2)}`,
-        oldPrice: product.currentPrice || 'N/A',
-        newPrice: `$${realAmazonPrice.toFixed(2)}`,
-        profitMargin: `${profitMargin.toFixed(1)}%`,
-        source: amazonData.buyBoxPrice ? 'Amazon Buy Box' : 'Amazon List Price',
-        success: true
-      });
-
-      console.log(`Updated ${asin}: ${product.productName} to $${realAmazonPrice.toFixed(2)}`);
     }
-
-    const successful = results.filter(r => r.success).length;
-
+    
+    const successCount = updateResults.filter(r => r.updated).length;
+    
     res.json({
       success: true,
-      message: `Updated ${successful} products with real Amazon pricing`,
-      totalRequested: asins.length,
-      successful,
-      results
+      message: `Updated ${successCount} of ${updateResults.length} products with real Amazon pricing`,
+      results: updateResults,
+      successCount,
+      totalProcessed: updateResults.length
     });
 
   } catch (error) {
-    console.error('Update prices error:', error);
+    console.error('Price update error:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Failed to update prices with real Amazon data',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

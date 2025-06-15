@@ -2828,6 +2828,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register Amazon real data routes
   app.use("/api/amazon-real", amazonRealDataRoutes);
+
+  // Test Amazon pricing for UPC 791659022283
+  app.get("/api/test-upc-pricing/:upc", async (req, res) => {
+    try {
+      const { upc } = req.params;
+      
+      // Get current product data
+      const productQuery = `
+        SELECT p.id, p.name, p.upc, p.price, pam.asin
+        FROM products p
+        LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
+        WHERE p.upc = $1
+      `;
+      
+      const result = await pool.query(productQuery, [upc]);
+      
+      if (result.rows.length === 0) {
+        return res.json({
+          success: false,
+          message: `No product found for UPC: ${upc}`
+        });
+      }
+      
+      const product = result.rows[0];
+      
+      res.json({
+        success: true,
+        upc,
+        productId: product.id,
+        productName: product.name,
+        currentPrice: product.price,
+        mappedAsin: product.asin,
+        message: `Found product: ${product.name} mapped to ASIN: ${product.asin} with price: $${product.price}`,
+        note: "Real Amazon API pricing will be implemented once API keys are configured"
+      });
+      
+    } catch (error) {
+      console.error('UPC pricing test error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to test UPC pricing',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
   
   // Register ASIN search routes
   app.post("/api/asin-search/search", async (req, res) => {
