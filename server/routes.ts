@@ -22,6 +22,7 @@ import marketplaceRoutes from "./marketplace/routes";
 import schedulerRoutes from './routes/scheduler';
 import aiPurchasingRoutes from './routes/ai-purchasing';
 import pricingTestRoutes from './routes/pricing-test';
+import batchProcessingRoutes from './routes/batch-processing';
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -3320,6 +3321,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register connections management routes
   // Register connections routes directly
   registerConnectionsRoutes(app);
+
+  // Register batch processing routes
+  app.use('/api/batch', batchProcessingRoutes);
 
   const httpServer = createServer(app);
 

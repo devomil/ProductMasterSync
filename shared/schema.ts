@@ -336,20 +336,35 @@ export const amazonSyncLogs = pgTable("amazon_sync_logs", {
 export const upcAsinMappings = pgTable("upc_asin_mappings", {
   id: serial("id").primaryKey(),
   upc: text("upc").notNull(),
+  manufacturerPartNumber: text("manufacturer_part_number"),
   asin: text("asin").notNull(),
+  
+  // Listing restriction data per ASIN
+  canList: boolean("can_list").default(true),
+  hasListingRestrictions: boolean("has_listing_restrictions").default(false),
+  restrictionReasonCodes: json("restriction_reason_codes").default([]),
+  restrictionMessages: json("restriction_messages").default([]),
+  
+  // Discovery metadata
   discoveredAt: timestamp("discovered_at").defaultNow(),
   lastVerifiedAt: timestamp("last_verified_at").defaultNow(),
-  isActive: boolean("is_active").default(true), // Whether this mapping is still valid
+  isActive: boolean("is_active").default(true),
   confidence: integer("confidence").default(100), // 0-100 confidence in the mapping
   source: text("source").default("sp_api"), // How we discovered this mapping
-  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"), // Amazon marketplace ID
+  searchMethod: text("search_method"), // "upc", "manufacturer_part_number", "combined"
+  
+  // Amazon marketplace metadata
+  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
     upcAsinIdx: uniqueIndex("upc_asin_mappings_upc_asin_idx").on(table.upc, table.asin, table.marketplaceId),
-    upcIdx: uniqueIndex("upc_asin_mappings_upc_idx").on(table.upc),
-    asinIdx: uniqueIndex("upc_asin_mappings_asin_idx").on(table.asin),
+    upcIdx: index("upc_asin_mappings_upc_idx").on(table.upc),
+    mfgPartIdx: index("upc_asin_mappings_mfg_part_idx").on(table.manufacturerPartNumber),
+    asinIdx: index("upc_asin_mappings_asin_idx").on(table.asin),
+    canListIdx: index("upc_asin_mappings_can_list_idx").on(table.canList),
   };
 });
 

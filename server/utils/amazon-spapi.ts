@@ -489,3 +489,42 @@ export async function searchProductMultipleWays(upc: string, manufacturerNumber?
   
   return uniqueResults;
 }
+
+/**
+ * Get listing restrictions for an ASIN
+ */
+export async function getListingRestrictions(asin: string, marketplaceId: string = 'ATVPDKIKX0DER'): Promise<{
+  restrictions: Array<{
+    reasonCode: string;
+    message: string;
+  }>;
+}> {
+  const config = getAmazonConfig();
+  const accessToken = await getAccessToken(config);
+
+  try {
+    const response = await axios.get(`${config.endpoint}/listings/2021-08-01/restrictions`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'x-amz-access-token': accessToken,
+        'Content-Type': 'application/json'
+      },
+      params: {
+        asin: asin,
+        marketplaceIds: marketplaceId,
+        conditionType: 'new_new'
+      }
+    });
+
+    return {
+      restrictions: response.data?.restrictions || []
+    };
+  } catch (error: any) {
+    console.error(`Error fetching listing restrictions for ASIN ${asin}:`, error);
+    
+    // Return empty restrictions on error to avoid blocking batch processing
+    return {
+      restrictions: []
+    };
+  }
+}

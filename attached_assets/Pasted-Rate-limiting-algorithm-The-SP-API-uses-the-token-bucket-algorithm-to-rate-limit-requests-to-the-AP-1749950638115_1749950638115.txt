@@ -1,0 +1,25 @@
+Rate-limiting algorithm
+The SP-API uses the token bucket algorithm to rate-limit requests to the API. The algorithm is based on the analogy of a bucket that contains tokens, where you can exchange each token for a request to the API.
+
+In this analogy, the SP-API automatically adds tokens to your bucket at a set rate per second until the maximum limit of the bucket is reached. The maximum limit is also called the burst rate.
+
+When you call the SP-API, the SP-API retrieves your usage plan (rate limit and burst limit) for that operation based on the access token that identifies the caller identity in the request header. Each request that you make to the SP-API subtracts a token from the bucket. Throttling occurs when you make a request for which no token is available because your bucket is empty. A throttled request results in an error response.
+
+The following illustration shows how rate limiting works based on the token bucket algorithm and the bucket allocation criteria. The example uses an operation that has a rate limit of one and a burst limit of two.
+
+The token bucket algorithm.
+
+The bucket is initially full and holds two tokens (burst limit). At 01:00:100, an application calls an operation of the SP-API on behalf of a selling partner who operates in the EU marketplace. The request is successful. The bucket now holds a single token because the request depleted one token from the bucket.
+After 100 milliseconds, at 01:00:200, the same application calls the same operation on behalf of the same selling partner in the same region. The request is successful and uses the last token in the bucket. The bucket is now empty.
+After another 100 milliseconds, at 01:00:300, the same application calls the same operation on behalf of the same selling partner in the same region. This time, due to the depleted limits (empty bucket), the request is throttled.
+One second from the beginning of this example, at 01:01:000, the SP-API puts a token in the bucket, because the rate limit is one token per second. The application can now call the operation successfully without being throttled.
+After one more second, at 01:02:00, the SP-API adds another token to the bucket.
+At 01:03:00, the SP-API doesn't add another token to the bucket because the bucket has reached its maximum limit (burst limit).
+The factors that determine rate and burst limits mean that in some cases there is a separate token bucket. In this example, two tokens are available at 01:00:200 in the following cases:
+
+The same application triggers the same operation but on behalf of a different selling partner.
+The same application calls the same operation on behalf of the same selling partner but using the credentials from a different regional account.
+A different application triggers the same operation on behalf of the same selling partner.
+The following illustration shows these alternate scenarios.
+
+Alternate scenarios.
