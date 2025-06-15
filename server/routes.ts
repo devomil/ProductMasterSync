@@ -2826,6 +2826,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register market pricing fix routes
   app.use("/api/market-pricing", fixMarketPricingRoutes);
   
+  // Register Amazon real data routes
+  app.use("/api/amazon-real", amazonRealDataRoutes);
+  
   // Register ASIN search routes
   app.post("/api/asin-search/search", async (req, res) => {
     try {
