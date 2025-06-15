@@ -24,7 +24,7 @@ import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
 import AmazonIntegration from "@/pages/AmazonIntegration";
-import AmazonAnalytics from "@/pages/AmazonAnalytics";
+import AmazonAnalytics from "@/pages/AmazonAnalyticsFixed";
 import AIPurchasing from "@/pages/AIPurchasing";
 import MultiASINSearch from "@/pages/MultiASINSearch";
 import BatchProcessing from "@/pages/BatchProcessing";
