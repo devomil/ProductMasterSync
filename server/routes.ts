@@ -28,6 +28,7 @@ import realAmazonPricingRoutes from './routes/real-amazon-pricing';
 import fixPricingRoutes from './routes/fix-pricing';
 import testPricingFixRoutes from './routes/test-pricing-fix';
 import fixMarketPricingRoutes from './routes/fix-market-pricing';
+import amazonRealDataRoutes from './routes/amazon-real-data';
 import multer from "multer";
 import path from "path";
 import fs from "fs";
