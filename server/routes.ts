@@ -3434,6 +3434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/scheduler', schedulerRoutes);
   app.use('/api/ai-purchasing', aiPurchasingRoutes);
   app.use('/api/pricing-test', pricingTestRoutes);
+  app.use('/api/amazon-test', amazonConnectionTestRoutes);
 
   // Register connections management routes
   // Register connections routes directly
