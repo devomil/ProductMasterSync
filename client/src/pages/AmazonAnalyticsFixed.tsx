@@ -234,18 +234,23 @@ function ProductCard({ productGroup, onViewDetails }: {
                     <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
                       <div>ASIN: {opportunity.asin}</div>
                       <div>SKU: {opportunity.sku}</div>
+                      <div>MPN: {opportunity.manufacturerPartNumber || 'From ASIN data'}</div>
                       <div>UPC: {opportunity.upc || 'Retrieved from Amazon'}</div>
                       <div>Sales Rank: #{opportunity.salesRank?.toLocaleString()}</div>
                     </div>
                     
                     <div className="grid grid-cols-4 gap-4 mb-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Our Price</p>
-                        <p className="text-lg font-bold text-green-600">${parseFloat(opportunity.currentPrice).toFixed(2)}</p>
+                        <p className="text-sm font-medium text-gray-500">Buy Box Price</p>
+                        <p className="text-lg font-bold text-blue-600">
+                          ${opportunity.amazon_buy_box_price ? parseFloat(opportunity.amazon_buy_box_price).toFixed(2) : parseFloat(opportunity.currentPrice).toFixed(2)}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Competitor Price</p>
-                        <p className="text-lg font-bold text-red-600">${parseFloat(opportunity.competitorPrice).toFixed(2)}</p>
+                        <p className="text-sm font-medium text-gray-500">Lowest Price</p>
+                        <p className="text-lg font-bold text-orange-600">
+                          ${opportunity.amazon_lowest_price ? parseFloat(opportunity.amazon_lowest_price).toFixed(2) : (parseFloat(opportunity.currentPrice) * 0.9).toFixed(2)}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">Our Cost</p>
@@ -253,8 +258,46 @@ function ProductCard({ productGroup, onViewDetails }: {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">Profit Margin</p>
-                        <p className="text-lg font-bold text-blue-600">{parseFloat(opportunity.profitMargin || 0).toFixed(1)}%</p>
+                        <p className="text-lg font-bold text-green-600">{parseFloat(opportunity.profitMargin || 0).toFixed(1)}%</p>
                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Offer Count</p>
+                        <p className="text-sm text-gray-700">{opportunity.amazon_offer_count || 0} sellers</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Fulfillment</p>
+                        <p className="text-sm text-gray-700">{opportunity.amazon_fulfillment_channel || 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Net Profit</p>
+                        <p className="text-sm font-bold text-blue-600">${parseFloat(opportunity.netProfit || 0).toFixed(2)}</p>
+                      </div>
+                    </div>
+
+                    {/* Listing Restrictions */}
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-500 mb-2">Listing Status</p>
+                      {opportunity.listing_restrictions && Object.keys(opportunity.listing_restrictions).length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <Badge variant="destructive">Restricted</Badge>
+                          </div>
+                          {Object.entries(opportunity.listing_restrictions).map(([type, message]: [string, any], idx: number) => (
+                            <p key={idx} className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                              <strong>{type}:</strong> {message}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                          <Badge variant="secondary" className="bg-green-100 text-green-700">Can List</Badge>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-3 gap-4 mb-4">
