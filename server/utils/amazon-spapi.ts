@@ -295,7 +295,7 @@ export async function getPricing(asins: string[]): Promise<any[]> {
         params: {
           MarketplaceId: config.marketplaceId,
           Asins: batch.join(','),
-          ItemCondition: 'New'
+          ItemType: 'Asin'
         }
       });
 
@@ -337,7 +337,7 @@ export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
         params: {
           MarketplaceId: config.marketplaceId,
           Asins: batch.join(','),
-          ItemCondition: 'New'
+          ItemType: 'Asin'
         }
       });
 
