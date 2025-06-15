@@ -464,7 +464,8 @@ export async function searchProductMultipleWays(upc: string, manufacturerNumber?
   // Search by UPC first
   if (upc) {
     try {
-      const upcResults = await searchCatalogItemsByUPC(upc);
+      const config = getAmazonConfig();
+      const upcResults = await searchCatalogItemsByUPC(upc, config);
       results.push(...upcResults);
     } catch (error) {
       console.error(`Error searching by UPC ${upc}:`, error);

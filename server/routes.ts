@@ -3303,6 +3303,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ASIN search endpoints for finding multiple ASINs per product
+  const asinSearchModule = await import('./routes/asin-search');
+  const { searchMultipleASINs, searchByMfgNumber, searchByUPC, batchFindASINs } = asinSearchModule;
+  app.get('/api/asin-search/multiple', searchMultipleASINs);
+  app.get('/api/asin-search/by-manufacturer/:manufacturerNumber', searchByMfgNumber);
+  app.get('/api/asin-search/by-upc/:upc', searchByUPC);
+  app.post('/api/asin-search/batch', batchFindASINs);
+
   // Register additional routes
   app.use('/api/marketplace', marketplaceRoutes);
   app.use('/api/scheduler', schedulerRoutes);
