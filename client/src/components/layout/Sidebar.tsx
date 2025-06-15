@@ -135,6 +135,13 @@ const Sidebar = () => {
                   Amazon Analytics
                 </SidebarLink>
                 <SidebarLink 
+                  href="/multi-asin-search" 
+                  icon={<Package2 size={20} />} 
+                  active={location === "/multi-asin-search"}
+                >
+                  Multi-ASIN Discovery
+                </SidebarLink>
+                <SidebarLink 
                   href="/api-configuration" 
                   icon={<Settings size={20} />} 
                   active={location === "/api-configuration"}
