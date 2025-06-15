@@ -556,7 +556,7 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         amazon_offer_count: offerCount,
         amazon_fulfillment_channel: fulfillmentChannel,
         // Market data
-        opportunityScore: product.opportunityScore || (75 + Math.floor(Math.random() * 20)),
+        opportunityScore: product.opportunityScore || 0,
         category: product.categoryName || 'Marine Equipment',
         salesRank: product.salesRank || Math.floor(Math.random() * 15000) + 5000,
         categoryRank: product.categoryRank,
