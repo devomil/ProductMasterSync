@@ -407,12 +407,12 @@ export class BatchASINProcessor {
   ): Promise<void> {
     await this.db.query(`
       INSERT INTO product_amazon_lookup (
-        product_id, search_status, last_search_at, asins_found
+        product_id, lookup_status, last_lookup_at, asins_found
       ) VALUES ($1, $2, NOW(), 0)
       ON CONFLICT (product_id)
       DO UPDATE SET
-        search_status = EXCLUDED.search_status,
-        last_search_at = NOW(),
+        lookup_status = EXCLUDED.lookup_status,
+        last_lookup_at = NOW(),
         updated_at = NOW()
     `, [productId, status]);
   }
@@ -421,14 +421,20 @@ export class BatchASINProcessor {
    * Log batch completion to database
    */
   private async logBatchCompletion(): Promise<void> {
+    const status = this.stats.errors.length === 0 ? 'success' : 'partial_success';
+    const errorDetails = this.stats.errors.length > 0 ? 
+      JSON.stringify({ errors: this.stats.errors.slice(0, 10), count: this.stats.errors.length }) : 
+      null;
+
     await this.db.query(`
       INSERT INTO amazon_sync_logs (
-        batch_id, result, error_message, sync_started_at, sync_completed_at
-      ) VALUES ($1, $2, $3, NOW() - INTERVAL '${this.stats.processingTimeMs} milliseconds', NOW())
+        batch_id, sync_status, error_message, sync_started_at, sync_completed_at, result
+      ) VALUES ($1, $2, $3, NOW() - INTERVAL '${this.stats.processingTimeMs} milliseconds', NOW(), $4)
     `, [
       this.batchId,
-      this.stats.errors.length === 0 ? 'success' : 'partial_success',
-      this.stats.errors.length > 0 ? JSON.stringify(this.stats.errors.slice(0, 10)) : null
+      status,
+      errorDetails,
+      JSON.stringify(this.stats)
     ]);
   }
 
