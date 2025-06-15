@@ -774,20 +774,20 @@ export default function AmazonAnalytics() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <span className="text-sm font-medium text-gray-500">Our Cost</span>
-                          <p className="text-lg font-bold">${selectedOpportunity.ourCost?.toFixed(2)}</p>
+                          <p className="text-lg font-bold">${parseFloat(selectedOpportunity.ourCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Shipping</span>
-                          <p className="text-lg font-bold">${selectedOpportunity.shippingCost?.toFixed(2)}</p>
+                          <p className="text-lg font-bold">${parseFloat(selectedOpportunity.shippingCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Amazon Commission</span>
-                          <p className="text-lg font-bold">{selectedOpportunity.amazonCommission?.toFixed(1)}%</p>
+                          <p className="text-lg font-bold">{parseFloat(selectedOpportunity.amazonCommission || 0).toFixed(1)}%</p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-500">Profit Margin</span>
-                          <p className={`text-lg font-bold ${selectedOpportunity.profitMargin > 20 ? 'text-green-600' : selectedOpportunity.profitMargin > 10 ? 'text-yellow-600' : 'text-red-600'}`}>
-                            {selectedOpportunity.profitMargin?.toFixed(1)}%
+                          <p className={`text-lg font-bold ${parseFloat(selectedOpportunity.profitMargin || 0) > 20 ? 'text-green-600' : parseFloat(selectedOpportunity.profitMargin || 0) > 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {parseFloat(selectedOpportunity.profitMargin || 0).toFixed(1)}%
                           </p>
                         </div>
                       </div>
@@ -796,13 +796,13 @@ export default function AmazonAnalytics() {
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Potential Revenue:</span>
                           <span className="text-xl font-bold text-green-600">
-                            ${selectedOpportunity.competitorPrice.toFixed(2)}
+                            ${parseFloat(selectedOpportunity.competitorPrice || 0).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Our Price Advantage:</span>
                           <span className="text-xl font-bold text-blue-600">
-                            ${selectedOpportunity.potentialSavings.toFixed(2)}
+                            ${parseFloat(selectedOpportunity.potentialSavings || 0).toFixed(2)}
                           </span>
                         </div>
                       </div>
