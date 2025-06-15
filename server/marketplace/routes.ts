@@ -15,6 +15,7 @@ import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
 import { eq, and, isNotNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
+import { amazonPricingServiceV2022 } from '../services/amazon-pricing-v2022';
 
 const router = Router();
 
@@ -769,6 +770,97 @@ router.post('/restrictions/batch', async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to process batch listing restrictions',
       details: error.message 
+    });
+  }
+});
+
+/**
+ * POST /marketplace/amazon/refresh-pricing
+ * Refresh pricing data using Amazon SP-API Pricing service
+ */
+router.post('/amazon/refresh-pricing', async (req: Request, res: Response) => {
+  try {
+    const { asins, limit = 20 } = req.body;
+    
+    let targetAsins = asins;
+    
+    // If no ASINs provided, get ASINs from products with UPCs
+    if (!targetAsins || targetAsins.length === 0) {
+      const productsWithAsins = await db
+        .select({ asin: amazonAsins.asin })
+        .from(amazonAsins)
+        .innerJoin(productAsinMapping, eq(amazonAsins.asin, productAsinMapping.asin))
+        .innerJoin(products, eq(productAsinMapping.productId, products.id))
+        .where(isNotNull(products.upc))
+        .limit(limit);
+        
+      targetAsins = productsWithAsins.map(p => p.asin);
+    }
+
+    if (targetAsins.length === 0) {
+      return res.json({
+        success: false,
+        message: 'No ASINs found to update pricing for',
+        updated: 0
+      });
+    }
+
+    console.log(`Refreshing pricing for ${targetAsins.length} ASINs using SP-API`);
+
+    // Get competitive pricing data from Amazon SP-API
+    const pricingData = await amazonPricingServiceV2022.getCompetitiveSummaryBatch(targetAsins);
+    
+    let updated = 0;
+    const results = [];
+
+    for (const [asin, competitiveSummary] of pricingData) {
+      try {
+        const pricing = amazonPricingServiceV2022.extractPricingData(competitiveSummary);
+        
+        // Update amazon_asins table with new pricing
+        await db
+          .update(amazonAsins)
+          .set({
+            buyBoxPrice: pricing.buyBoxPrice,
+            lowestPrice: pricing.lowestPrice,
+            listPrice: pricing.listPrice,
+            offerCount: pricing.offerCount,
+            lastPriceUpdate: new Date()
+          })
+          .where(eq(amazonAsins.asin, asin));
+
+        updated++;
+        results.push({
+          asin,
+          buyBoxPrice: pricing.buyBoxPrice ? pricing.buyBoxPrice / 100 : null,
+          lowestPrice: pricing.lowestPrice ? pricing.lowestPrice / 100 : null,
+          listPrice: pricing.listPrice ? pricing.listPrice / 100 : null,
+          offerCount: pricing.offerCount
+        });
+
+      } catch (error) {
+        console.error(`Error updating pricing for ASIN ${asin}:`, error);
+        results.push({
+          asin,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Updated pricing for ${updated} ASINs`,
+      updated,
+      total: targetAsins.length,
+      results
+    });
+
+  } catch (error) {
+    console.error('Refresh pricing error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to refresh pricing data',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
