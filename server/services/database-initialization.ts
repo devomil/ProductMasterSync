@@ -6,7 +6,7 @@
 
 import { db } from '../db';
 import { productAsinMapping, amazonMarketIntelligence } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { resetAsinMappingsWithAuthenticData, getAsinMappingStatus } from './asin-mapping-fix';
 
 export async function initializeAmazonMappings() {

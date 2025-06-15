@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Package, ExternalLink, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileText, Database, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -24,11 +27,30 @@ interface SearchResult {
   searchCriteria?: {
     upc?: string;
     manufacturerNumber?: string;
+    asin?: string;
+    description?: string;
   };
   upc?: string;
   manufacturerNumber?: string;
   foundASINs: ASIN[];
   totalFound: number;
+}
+
+interface FileUploadResult {
+  totalRows: number;
+  processedRows: number;
+  successfulSearches: number;
+  failedSearches: number;
+  results: Array<{
+    row: number;
+    searchCriteria: any;
+    foundASINs: ASIN[];
+    error?: string;
+  }>;
+}
+
+interface CSVRow {
+  [key: string]: string;
 }
 
 interface Product {
@@ -40,11 +62,17 @@ interface Product {
 }
 
 export default function MultiASINSearch() {
-  const [searchType, setSearchType] = useState<'manual' | 'product'>('manual');
+  const [searchType, setSearchType] = useState<'manual' | 'product' | 'asin' | 'description' | 'file-upload'>('manual');
   const [upc, setUpc] = useState('');
   const [manufacturerNumber, setManufacturerNumber] = useState('');
+  const [asinDirect, setAsinDirect] = useState('');
+  const [description, setDescription] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
+  const [fileUploadResults, setFileUploadResults] = useState<FileUploadResult | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

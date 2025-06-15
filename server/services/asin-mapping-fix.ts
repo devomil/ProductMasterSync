@@ -9,7 +9,7 @@
 
 import { db } from '../db';
 import { products, amazonAsins, productAsinMapping, amazonMarketIntelligence } from '../../shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export interface AuthenticAsinData {
   productSku: string;
