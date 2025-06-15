@@ -173,8 +173,6 @@ export class BatchASINProcessor {
    * Process a batch of products with controlled concurrency
    */
   private async processBatch(products: Product[], maxConcurrency: number): Promise<void> {
-    const semaphore = new Array(maxConcurrency).fill(null);
-    
     const processProduct = async (product: Product): Promise<void> => {
       try {
         await this.processProduct(product);
@@ -188,32 +186,16 @@ export class BatchASINProcessor {
       }
     };
 
-    // Process products with controlled concurrency
+    // Process products with simple concurrency control
     const promises: Promise<void>[] = [];
     
-    for (const product of products) {
-      const promise = new Promise<void>(async (resolve) => {
-        // Wait for available slot
-        await Promise.race(semaphore.filter(p => p !== null));
-        
-        // Process product
-        const productPromise = processProduct(product);
-        
-        // Add to semaphore
-        const index = semaphore.findIndex(p => p === null);
-        semaphore[index] = productPromise;
-        
-        // Clean up when done
-        productPromise.finally(() => {
-          semaphore[index] = null;
-          resolve();
-        });
-      });
+    for (let i = 0; i < products.length; i += maxConcurrency) {
+      const batch = products.slice(i, i + maxConcurrency);
+      const batchPromises = batch.map(product => processProduct(product));
       
-      promises.push(promise);
+      // Wait for this batch to complete before starting the next
+      await Promise.all(batchPromises);
     }
-
-    await Promise.all(promises);
   }
 
   /**
