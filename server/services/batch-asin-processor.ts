@@ -136,7 +136,7 @@ export class BatchASINProcessor {
    */
   private async getProductsToProcess(options: any): Promise<Product[]> {
     let query = `
-      SELECT id, sku, name, upc, manufacturer_part_number
+      SELECT id, sku, name, upc, manufacturer_part_number as "manufacturerPartNumber"
       FROM products 
       WHERE status = 'active'
     `;
@@ -243,9 +243,9 @@ export class BatchASINProcessor {
       }
 
       // Search by manufacturer part number if available
-      if (product.manufacturer_part_number) {
+      if (product.manufacturerPartNumber) {
         try {
-          const mpnResults = await this.searchByManufacturerPartNumber(product.manufacturer_part_number);
+          const mpnResults = await this.searchByManufacturerPartNumber(product.manufacturerPartNumber);
           // Filter out duplicates from UPC search
           const newResults = mpnResults.filter(mpnAsin => 
             !asinsFound.some(existingAsin => existingAsin.asin === mpnAsin.asin)
@@ -253,7 +253,7 @@ export class BatchASINProcessor {
           asinsFound.push(...newResults.map(asin => ({ 
             ...asin, 
             searchMethod: 'manufacturer_part_number' as const,
-            manufacturerPartNumber: product.manufacturer_part_number 
+            manufacturerPartNumber: product.manufacturerPartNumber 
           })));
         } catch (error: any) {
           console.warn(`[BatchProcessor] MPN search failed for product ${product.id}:`, error.message);
