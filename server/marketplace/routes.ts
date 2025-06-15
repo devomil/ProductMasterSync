@@ -15,6 +15,7 @@ import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
 import { eq, and, isNotNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
+import { liveAmazonPricingService } from '../services/live-amazon-pricing.js';
 
 const router = Router();
 
@@ -537,8 +538,8 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       const netProfit = targetPrice - totalCost - amazonFees;
       const profitMargin = targetPrice > 0 ? (netProfit / targetPrice) * 100 : 0;
       
-      // Use actual Amazon data or provide defaults
-      const offerCount = 1; // Default since totalSellers field doesn't exist in current schema
+      // Use live pricing data or defaults
+      const offerCount = livePricing?.offerCount || 1;
       const fulfillmentChannel = product.fulfillmentMethod || 'FBA';
       
       return {

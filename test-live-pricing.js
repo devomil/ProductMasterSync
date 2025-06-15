@@ -2,8 +2,8 @@
  * Test live Amazon pricing data to fix pricing accuracy issues
  */
 
-const axios = require('axios');
-const crypto = require('crypto');
+import axios from 'axios';
+import crypto from 'crypto';
 
 // Amazon SP-API configuration
 const CLIENT_ID = process.env.AMAZON_SP_API_CLIENT_ID;
