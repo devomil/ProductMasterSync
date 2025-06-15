@@ -15,7 +15,6 @@ import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
 import { eq, and, isNotNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
-import { liveAmazonPricingService } from '../services/live-amazon-pricing.js';
 
 const router = Router();
 
@@ -538,8 +537,8 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       const netProfit = targetPrice - totalCost - amazonFees;
       const profitMargin = targetPrice > 0 ? (netProfit / targetPrice) * 100 : 0;
       
-      // Use live pricing data or defaults
-      const offerCount = livePricing?.offerCount || 1;
+      // Use actual Amazon data or provide defaults
+      const offerCount = 1; // Default since we don't have offer count in current schema
       const fulfillmentChannel = product.fulfillmentMethod || 'FBA';
       
       return {
@@ -566,7 +565,7 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         profitMargin: Math.round(profitMargin * 100) / 100,
         sku: product.productSku || `MARINE-${product.productId}`,
         upc: product.productUpc || product.asinUpc || 'Retrieved from Amazon',
-        manufacturerPartNumber: product.productManufacturerPartNumber || product.asinPartNumber || 'From ASIN data',
+        manufacturerPartNumber: product.productManufacturerPartNumber || product.asinManufacturerPartNumber || product.asinPartNumber || 'N/A',
         mappingSource: 'Amazon SP-API',
         estimatedSalesPerMonth: product.estimatedSalesPerMonth || Math.floor(Math.random() * 50) + 10,
         dataFetchedAt: product.updatedAt || new Date().toISOString(),
