@@ -65,10 +65,13 @@ class AmazonPricingServiceV2022 {
     }
 
     try {
+      console.log('Refreshing Amazon SP-API access token...');
+      
       const response = await fetch('https://api.amazon.com/auth/o2/token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
@@ -78,15 +81,22 @@ class AmazonPricingServiceV2022 {
         })
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Token request failed: ${response.status} - ${errorText}`);
+        throw new Error(`Token request failed: ${response.status} - ${errorText}`);
+      }
+
       const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(`Token request failed: ${data.error_description || data.error}`);
+      if (!data.access_token) {
+        throw new Error(`No access token in response: ${JSON.stringify(data)}`);
       }
 
       this.accessToken = data.access_token;
       this.tokenExpiry = new Date(Date.now() + (data.expires_in - 60) * 1000); // 60 second buffer
 
+      console.log('Amazon SP-API access token refreshed successfully');
       return this.accessToken;
     } catch (error) {
       console.error('Failed to get access token:', error);
@@ -110,33 +120,49 @@ class AmazonPricingServiceV2022 {
       }));
 
       try {
+        console.log(`Making batch pricing request for ASINs: ${batchAsins.join(', ')}`);
+        
         const response = await fetch(`${this.ENDPOINT}/batches/products/pricing/2022-05-01/competitiveSummary`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'x-amz-access-token': accessToken,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
           },
           body: JSON.stringify({ requests })
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
           console.error(`Batch pricing API failed: ${response.status} - ${response.statusText}`);
+          console.error(`Response body: ${errorText}`);
+          
+          // If 403, authentication issue - try to refresh token once
+          if (response.status === 403) {
+            console.log('Authentication failed, token may be expired or invalid');
+            this.accessToken = null; // Force token refresh on next request
+          }
           continue;
         }
 
         const data = await response.json();
+        console.log(`Batch pricing response received for ${batchAsins.length} ASINs`);
         
         if (data.responses) {
           for (const item of data.responses) {
             if (item.status?.statusCode === 200 && item.body) {
               results.set(item.body.asin, item.body);
+              console.log(`Successfully processed pricing data for ASIN: ${item.body.asin}`);
+            } else {
+              console.warn(`Failed to get pricing for ASIN in batch, status: ${item.status?.statusCode}`);
             }
           }
         }
 
         // Rate limiting: 0.033 requests per second (30 second intervals)
         if (i + 20 < asins.length) {
+          console.log('Waiting 31 seconds for rate limiting...');
           await new Promise(resolve => setTimeout(resolve, 31000));
         }
 
@@ -145,6 +171,7 @@ class AmazonPricingServiceV2022 {
       }
     }
 
+    console.log(`Batch pricing completed. Successfully processed ${results.size} ASINs`);
     return results;
   }
 

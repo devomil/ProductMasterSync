@@ -23,6 +23,7 @@ import schedulerRoutes from './routes/scheduler';
 import aiPurchasingRoutes from './routes/ai-purchasing';
 import pricingTestRoutes from './routes/pricing-test';
 import batchProcessingRoutes from './routes/batch-processing';
+import amazonTestRoutes from './routes/amazon-test';
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2804,6 +2805,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register batch processing routes
   app.use("/api/batch", batchProcessingRoutes);
+  
+  // Register Amazon test routes
+  app.use("/api/test", amazonTestRoutes);
   
   // Register ASIN search routes
   app.post("/api/asin-search/search", async (req, res) => {
