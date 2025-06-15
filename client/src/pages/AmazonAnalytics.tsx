@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { ProductCard } from "@/components/ProductCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -624,80 +625,27 @@ export default function AmazonAnalytics() {
               </div>
             </div>
           ) : (
-            <ProductOpportunityList opportunities={displayOpportunities} />
-                      
-                      <div className="grid grid-cols-4 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Our Price</p>
-                          <p className="text-lg font-bold text-green-600">${parseFloat(opportunity.currentPrice).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Competitor Price</p>
-                          <p className="text-lg font-bold text-red-600">${parseFloat(opportunity.competitorPrice).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Our Cost</p>
-                          <p className="text-lg font-bold text-gray-700">${parseFloat(opportunity.ourCost || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Profit Margin</p>
-                          <p className="text-lg font-bold text-blue-600">{parseFloat(opportunity.profitMargin || 0).toFixed(1)}%</p>
-                        </div>
-                      </div>
+            <div className="grid grid-cols-1 gap-4">
+              {(() => {
+                const groupedOpportunities = displayOpportunities.reduce((acc: any, opportunity: any) => {
+                  const key = opportunity.productName + '_' + opportunity.sku;
+                  if (!acc[key]) {
+                    acc[key] = {
+                      productName: opportunity.productName,
+                      sku: opportunity.sku,
+                      upc: opportunity.upc,
+                      category: opportunity.category,
+                      asins: []
+                    };
+                  }
+                  acc[key].asins.push(opportunity);
+                  return acc;
+                }, {});
 
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Shipping Cost</p>
-                          <p className="text-sm text-gray-700">${parseFloat(opportunity.shippingCost || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Amazon Commission</p>
-                          <p className="text-sm text-gray-700">{parseFloat(opportunity.amazonCommission || 0).toFixed(1)}%</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Net Profit</p>
-                          <p className="text-sm font-bold text-blue-600">${parseFloat(opportunity.netProfit || 0).toFixed(2)}</p>
-                        </div>
-                      </div>
-
-                      {opportunity.listingRestrictions && opportunity.listingRestrictions.length > 0 && (
-                        <div className="mb-4">
-                          <p className="text-sm font-medium text-gray-500 mb-1">Listing Restrictions</p>
-                          <div className="flex flex-wrap gap-1">
-                            {opportunity.listingRestrictions.map((restriction, idx) => (
-                              <Badge key={idx} variant="destructive" className="text-xs">
-                                <AlertTriangle className="w-3 h-3 mr-1" />
-                                {restriction}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col space-y-2 ml-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => setSelectedOpportunity(opportunity)}
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Button 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedOpportunity(opportunity);
-                          setShowAnalysisModal(true);
-                        }}
-                      >
-                        <Zap className="w-4 h-4 mr-2" />
-                        Analyze
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                return Object.values(groupedOpportunities).map((productGroup: any, index: number) => (
+                  <ProductCard key={index} productGroup={productGroup} onViewDetails={setSelectedOpportunity} />
+                ));
+              })()}
             </div>
           )}
         </TabsContent>
