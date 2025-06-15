@@ -2802,6 +2802,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register AI purchasing routes
   app.use("/api/ai-purchasing", aiPurchasingRoutes);
   
+  // Register batch processing routes
+  app.use("/api/batch", batchProcessingRoutes);
+  
+  // Register ASIN search routes
+  app.post("/api/asin-search/search", async (req, res) => {
+    try {
+      const { upc, manufacturerNumber } = req.body;
+      
+      if (!upc && !manufacturerNumber) {
+        return res.status(400).json({
+          success: false,
+          error: 'Either UPC or manufacturer number is required'
+        });
+      }
+
+      const { searchProductMultipleWays } = await import('./utils/amazon-spapi');
+      const results = await searchProductMultipleWays(upc, manufacturerNumber);
+
+      // Extract ASINs and basic product info
+      const asins = results.map((item: any) => ({
+        asin: item.asin,
+        title: item.attributes?.item_name?.[0]?.value || 'Unknown',
+        brand: item.attributes?.brand?.[0]?.value || 'Unknown',
+        imageUrl: item.images?.[0]?.images?.[0]?.link,
+        category: item.productTypes?.[0]?.displayName || 'Unknown',
+        salesRank: item.salesRanks?.[0]?.rank
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          searchCriteria: { upc, manufacturerNumber },
+          foundASINs: asins,
+          totalFound: asins.length
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Error in ASIN search:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to search for ASINs',
+        details: error.message
+      });
+    }
+  });
+  
   // Direct implementation of scheduling routes until we fix the module structure
   
   // Utility function to handle errors
