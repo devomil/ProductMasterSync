@@ -469,7 +469,7 @@ router.get('/analytics/trends', async (req: Request, res: Response) => {
 
 router.get('/analytics/opportunities', async (req: Request, res: Response) => {
   try {
-    // Query products with Amazon ASIN mappings and pricing data
+    // Query products with Amazon ASIN mappings using EDC 488270 working logic: UPC → amazon_asins → amazon_market_intelligence
     const productsWithAsins = await db
       .select({
         productId: products.id,
@@ -480,12 +480,12 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         productUpc: products.upc,
         productManufacturerPartNumber: products.manufacturerPartNumber,
         categoryName: categories.name,
-        asin: productAsinMapping.asin,
+        asin: amazonAsins.asin,
         asinTitle: amazonAsins.title,
         asinBrand: amazonAsins.brand,
         asinUpc: amazonAsins.upc,
         asinPartNumber: amazonAsins.partNumber,
-        // Real Amazon pricing data
+        // Authentic Amazon pricing data from SP-API
         currentPrice: amazonMarketIntelligence.currentPrice,
         listPrice: amazonMarketIntelligence.listPrice,
         dealPrice: amazonMarketIntelligence.dealPrice,
@@ -493,14 +493,14 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         categoryRank: amazonMarketIntelligence.categoryRank,
         fulfillmentMethod: amazonMarketIntelligence.fulfillmentMethod,
         isPrime: amazonMarketIntelligence.isPrime,
+        opportunityScore: amazonMarketIntelligence.opportunityScore,
         updatedAt: amazonMarketIntelligence.updatedAt
       })
       .from(products)
-      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-      .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
-      .leftJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
+      .innerJoin(amazonAsins, eq(products.upc, amazonAsins.upc)) // Direct UPC mapping like EDC 488270
+      .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(eq(productAsinMapping.isActive, true))
+      .where(isNotNull(products.upc))
       .limit(50);
 
     if (productsWithAsins.length === 0) {
@@ -513,30 +513,22 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       });
     }
 
-    // Transform the data into opportunities format using actual Amazon pricing data
+    // Transform the data into opportunities format using authentic Amazon pricing data
     const opportunities = productsWithAsins.map((product: any) => {
       const ourCost = parseFloat(product.productCost) || 150.00;
       const shippingCost = 15.00;
       const amazonCommission = 0.08;
       
-      // Use actual Amazon pricing data from database (stored in cents, convert to dollars)
-      const storedCurrentPrice = product.currentPrice ? product.currentPrice / 100 : null;
-      const storedListPrice = product.listPrice ? product.listPrice / 100 : null;
-      const storedDealPrice = product.dealPrice ? product.dealPrice / 100 : null;
+      // Use ONLY authentic Amazon pricing data from SP-API (stored in cents, convert to dollars)
+      const authenticCurrentPrice = product.currentPrice ? product.currentPrice / 100 : null;
+      const authenticListPrice = product.listPrice ? product.listPrice / 100 : null;
+      const authenticDealPrice = product.dealPrice ? product.dealPrice / 100 : null;
       
-      // Apply realistic market pricing adjustments based on product cost
-      const productCost = parseFloat(product.productCost) || ourCost;
-      const marketMultiplier = 2.5; // Typical marine equipment markup
-      const estimatedMarketPrice = productCost * marketMultiplier;
-      
-      // Use stored pricing if reasonable, otherwise use cost-based estimate
-      const currentPrice = (storedCurrentPrice && storedCurrentPrice < estimatedMarketPrice * 2) 
-        ? storedCurrentPrice 
-        : estimatedMarketPrice;
-      
-      const listPrice = (storedListPrice && storedListPrice < estimatedMarketPrice * 2.5) 
-        ? storedListPrice 
-        : estimatedMarketPrice * 1.2;
+      // EDC 488270 Logic: Use authentic Amazon prices without any calculations or fallbacks
+      // Following the working model: UPC 791659022283 → ASIN B0012TNXKC → $7.99
+      const currentPrice = authenticCurrentPrice || 0; // Use authentic price or 0 if no Amazon data
+      const listPrice = authenticListPrice || authenticCurrentPrice || 0;
+      const dealPrice = authenticDealPrice || authenticCurrentPrice || 0;
       
       const buyBoxPrice = currentPrice;
       const lowestPrice = currentPrice * 0.95; // Typically 5% below current price
