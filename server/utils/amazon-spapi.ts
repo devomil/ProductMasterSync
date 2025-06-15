@@ -304,6 +304,14 @@ export async function getPricing(asins: string[]): Promise<any[]> {
       }
     } catch (error) {
       console.error(`Error fetching pricing for batch:`, error);
+      // Log the full error response for debugging
+      if (error.response) {
+        console.error('Pricing API Error Response:', {
+          status: error.response.status,
+          data: error.response.data,
+          url: error.config?.url
+        });
+      }
     }
     
     // Rate limiting
@@ -344,8 +352,16 @@ export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
       if (response.data && response.data.payload) {
         results.push(...response.data.payload);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching competitive pricing for batch:`, error);
+      // Log the full error response for debugging
+      if (error.response) {
+        console.error('Competitive Pricing API Error Response:', {
+          status: error.response.status,
+          data: error.response.data,
+          url: error.config?.url
+        });
+      }
     }
     
     // Rate limiting
