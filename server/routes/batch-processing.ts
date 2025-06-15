@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
 import { getGlobalProcessor } from '../services/batch-asin-processor';
 import { rateLimiter } from '../services/rate-limiter';
+import { db } from '../db';
 
 const router = Router();
 

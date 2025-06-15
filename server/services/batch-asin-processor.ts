@@ -12,6 +12,7 @@ import { Pool } from 'pg';
 import { rateLimiter } from './rate-limiter';
 import { searchAmazonCatalog } from '../utils/amazon-spapi';
 import { getListingRestrictions } from '../utils/amazon-spapi';
+import { pool } from '../db';
 
 interface Product {
   id: number;
@@ -52,8 +53,8 @@ export class BatchASINProcessor {
   private stats: BatchProcessingStats;
   private isProcessing: boolean = false;
 
-  constructor(db: Pool) {
-    this.db = db;
+  constructor(dbPool?: Pool) {
+    this.db = dbPool || pool;
     this.batchId = `batch_${Date.now()}`;
     this.stats = {
       totalProducts: 0,

@@ -65,6 +65,14 @@ async function getAccessToken(config: SPAPIConfig): Promise<string> {
 }
 
 /**
+ * Search catalog items by UPC (alias for compatibility)
+ */
+export async function searchAmazonCatalog(upc: string): Promise<any[]> {
+  const config = getAmazonConfig();
+  return searchCatalogItemsByUPC(upc, config);
+}
+
+/**
  * Search catalog items by UPC
  */
 export async function searchCatalogItemsByUPC(
