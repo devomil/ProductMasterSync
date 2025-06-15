@@ -100,28 +100,35 @@ export class AmazonSyncService {
   }
 
   private async storeAsinData(amazonProduct: any): Promise<void> {
-    await db
-      .insert(amazonAsins)
-      .values({
-        asin: amazonProduct.asin,
-        title: amazonProduct.title,
-        brand: amazonProduct.brand,
-        manufacturer: amazonProduct.manufacturer,
-        primaryImageUrl: amazonProduct.imageUrl,
-        dataFetchedAt: new Date(),
-        lastUpdatedAt: new Date()
-      })
-      .onConflictDoUpdate({
-        target: amazonAsins.asin,
-        set: {
-          title: amazonProduct.title,
-          brand: amazonProduct.brand,
-          manufacturer: amazonProduct.manufacturer,
-          primaryImageUrl: amazonProduct.imageUrl,
-          lastUpdatedAt: new Date(),
-          updatedAt: new Date()
-        }
-      });
+    try {
+      await db
+        .insert(amazonAsins)
+        .values({
+          asin: amazonProduct.asin,
+          title: amazonProduct.title || '',
+          brand: amazonProduct.brand || null,
+          manufacturer: amazonProduct.manufacturer || null,
+          primaryImageUrl: amazonProduct.imageUrl || null,
+          dataFetchedAt: new Date(),
+          lastUpdatedAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: amazonAsins.asin,
+          set: {
+            title: amazonProduct.title || '',
+            brand: amazonProduct.brand || null,
+            manufacturer: amazonProduct.manufacturer || null,
+            primaryImageUrl: amazonProduct.imageUrl || null,
+            lastUpdatedAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      
+      console.log(`✅ Stored ASIN data for ${amazonProduct.asin}`);
+    } catch (error) {
+      console.error(`❌ Failed to store ASIN data for ${amazonProduct.asin}:`, error);
+      throw error;
+    }
   }
 
   private async syncMarketDataForAsins(asins: string[]): Promise<number> {
