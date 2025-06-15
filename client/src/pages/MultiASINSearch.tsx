@@ -152,8 +152,9 @@ export default function MultiASINSearch() {
   // ASIN direct lookup mutation
   const asinSearchMutation = useMutation({
     mutationFn: async (asin: string) => {
-      const response = await apiRequest(`/api/marketplace/asin-details/${asin}`);
-      return response;
+      const response = await fetch(`/api/marketplace/asin-details/${asin}`);
+      if (!response.ok) throw new Error('ASIN lookup failed');
+      return response.json();
     },
     onSuccess: (data) => {
       if (data.success && data.asinDetails) {
@@ -186,14 +187,18 @@ export default function MultiASINSearch() {
   // Description-based search mutation
   const descriptionSearchMutation = useMutation({
     mutationFn: async (description: string) => {
-      const response = await apiRequest('/api/marketplace/search/description', {
+      const response = await fetch('/api/marketplace/search/description', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ 
           description,
           maxResults: 20
         })
       });
-      return response;
+      if (!response.ok) throw new Error('Description search failed');
+      return response.json();
     },
     onSuccess: (data) => {
       if (data.success && data.results) {
