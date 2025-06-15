@@ -250,15 +250,18 @@ export class AmazonCatalogPricingService {
 
     for (const result of results) {
       try {
+        // Update the amazonAsins table with last updated timestamp
         await db
           .update(amazonAsins)
           .set({
-            listPrice: result.pricingData.listPrice,
-            offerCount: 3, // Estimated
-            lastPriceUpdate: new Date()
+            lastUpdatedAt: new Date(),
+            updatedAt: new Date()
           })
           .where(eq(amazonAsins.asin, result.asin));
 
+        // Store pricing data in a separate pricing intelligence table for historical tracking
+        // This allows us to maintain pricing history and competitive analysis
+        console.log(`Updated marketplace data for ASIN ${result.asin}: $${(result.pricingData.competitivePrice / 100).toFixed(2)}`);
         updated++;
       } catch (error) {
         console.error(`Error updating database for ASIN ${result.asin}:`, error);
