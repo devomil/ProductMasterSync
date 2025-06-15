@@ -1,344 +1,239 @@
-import axios from 'axios';
-import crypto from 'crypto';
+/**
+ * Amazon SP-API Service - OAuth-based authentication
+ * Focused module for testing 1-10 products with authentic Amazon data
+ */
 
-interface AmazonCredentials {
-  accessKeyId: string;
-  secretAccessKey: string;
-  refreshToken: string;
-  clientId: string;
-  clientSecret: string;
-  region: string;
-  marketplace: string;
+interface AmazonTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
 }
 
-interface AmazonProduct {
-  asin: string;
-  title: string;
-  brand?: string;
-  manufacturer?: string;
-  imageUrl?: string;
+interface AmazonPricingOffer {
+  listingPrice: { amount: number; currencyCode: string };
+  shippingPrice?: { amount: number; currencyCode: string };
+  isBuyBoxWinner: boolean;
+  itemCondition: string;
+  fulfillmentChannel: string;
 }
 
-interface AmazonPricing {
+interface AmazonCatalogResult {
   asin: string;
-  currentPrice?: number;
-  listPrice?: number;
-  currencyCode: string;
-  availability: string;
-  seller?: string;
-  fulfillmentChannel?: string;
-  isPrime: boolean;
-}
-
-interface AmazonRanking {
-  asin: string;
-  salesRank?: number;
-  categoryRank?: number;
-  category?: string;
-}
-
-interface ListingRestriction {
-  asin: string;
-  canList: boolean;
-  reasonCodes: string[];
-  messages: string[];
+  identifiers?: Array<{
+    identifierType: string;
+    identifier: string;
+  }>;
+  summaries?: Array<{
+    itemName: string;
+    brand?: string;
+  }>;
 }
 
 export class AmazonSPAPIService {
-  private credentials: AmazonCredentials;
-  private accessToken?: string;
-  private tokenExpiresAt?: Date;
+  private readonly baseUrl = 'https://sellingpartnerapi-na.amazon.com';
+  private readonly tokenUrl = 'https://api.amazon.com/auth/o2/token';
+  private readonly marketplaceId = 'ATVPDKIKX0DER'; // US marketplace
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
 
-  constructor() {
-    this.credentials = {
-      accessKeyId: process.env.AMAZON_SP_API_ACCESS_KEY_ID || '',
-      secretAccessKey: process.env.AMAZON_SP_API_SECRET_KEY || '',
-      refreshToken: process.env.AMAZON_SP_API_REFRESH_TOKEN || '',
-      clientId: process.env.AMAZON_SP_API_CLIENT_ID || '',
-      clientSecret: process.env.AMAZON_SP_API_CLIENT_SECRET || '',
-      region: process.env.AMAZON_SP_API_REGION || 'us-east-1',
-      marketplace: process.env.AMAZON_MARKETPLACE_ID || 'ATVPDKIKX0DER', // US marketplace
-    };
-  }
-
+  /**
+   * Get or refresh access token using OAuth
+   */
   private async getAccessToken(): Promise<string> {
-    if (this.accessToken && this.tokenExpiresAt && new Date() < this.tokenExpiresAt) {
+    const now = Date.now();
+    
+    // Return cached token if still valid
+    if (this.accessToken && now < this.tokenExpiry) {
       return this.accessToken;
     }
 
+    const clientId = process.env.AMAZON_SP_API_CLIENT_ID;
+    const clientSecret = process.env.AMAZON_SP_API_CLIENT_SECRET;
+    const refreshToken = process.env.AMAZON_SP_API_REFRESH_TOKEN;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+      throw new Error('Missing Amazon SP-API credentials. Required: CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN');
+    }
+
     try {
-      const response = await axios.post('https://api.amazon.com/auth/o2/token', {
-        grant_type: 'refresh_token',
-        refresh_token: this.credentials.refreshToken,
-        client_id: this.credentials.clientId,
-        client_secret: this.credentials.clientSecret,
-      }, {
+      const response = await fetch(this.tokenUrl, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
       });
 
-      this.accessToken = response.data.access_token;
-      const expiresIn = response.data.expires_in || 3600;
-      this.tokenExpiresAt = new Date(Date.now() + (expiresIn - 60) * 1000); // Refresh 1 minute early
-
-      return this.accessToken;
-    } catch (error) {
-      console.error('Failed to get Amazon SP-API access token:', error);
-      throw new Error('Amazon SP-API authentication failed');
-    }
-  }
-
-  private createSignedHeaders(method: string, path: string, payload: string = ''): Record<string, string> {
-    const timestamp = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '');
-    const date = timestamp.substr(0, 8);
-    
-    const credentialScope = `${date}/${this.credentials.region}/execute-api/aws4_request`;
-    const canonicalHeaders = `host:sellingpartnerapi-na.amazon.com\nx-amz-date:${timestamp}\n`;
-    const signedHeaders = 'host;x-amz-date';
-    
-    const canonicalRequest = `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${crypto.createHash('sha256').update(payload).digest('hex')}`;
-    
-    const stringToSign = `AWS4-HMAC-SHA256\n${timestamp}\n${credentialScope}\n${crypto.createHash('sha256').update(canonicalRequest).digest('hex')}`;
-    
-    const signingKey = this.getSignatureKey(this.credentials.secretAccessKey, date, this.credentials.region, 'execute-api');
-    const signature = crypto.createHmac('sha256', signingKey).update(stringToSign).digest('hex');
-    
-    const authorization = `AWS4-HMAC-SHA256 Credential=${this.credentials.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-    
-    return {
-      'Authorization': authorization,
-      'x-amz-date': timestamp,
-      'host': 'sellingpartnerapi-na.amazon.com',
-    };
-  }
-
-  private getSignatureKey(key: string, dateStamp: string, regionName: string, serviceName: string): Buffer {
-    const kDate = crypto.createHmac('sha256', 'AWS4' + key).update(dateStamp).digest();
-    const kRegion = crypto.createHmac('sha256', kDate).update(regionName).digest();
-    const kService = crypto.createHmac('sha256', kRegion).update(serviceName).digest();
-    return crypto.createHmac('sha256', kService).update('aws4_request').digest();
-  }
-
-  async searchProductsByUPC(upc: string): Promise<AmazonProduct[]> {
-    try {
-      const accessToken = await this.getAccessToken();
-      const path = `/catalog/2022-04-01/items`;
-      const queryParams = new URLSearchParams({
-        marketplaceIds: this.credentials.marketplace,
-        identifiers: upc,
-        identifiersType: 'UPC',
-        includedData: 'attributes,identifiers,images,productTypes,relationships,salesRanks',
-      });
-
-      const headers = {
-        ...this.createSignedHeaders('GET', `${path}?${queryParams}`),
-        'x-amz-access-token': accessToken,
-        'Content-Type': 'application/json',
-      };
-
-      const response = await axios.get(`https://sellingpartnerapi-na.amazon.com${path}?${queryParams}`, {
-        headers,
-      });
-
-      return response.data.items?.map((item: any) => ({
-        asin: item.asin,
-        title: item.attributes?.item_name?.[0]?.value || '',
-        brand: item.attributes?.brand?.[0]?.value || '',
-        manufacturer: item.attributes?.manufacturer?.[0]?.value || '',
-        imageUrl: item.images?.[0]?.images?.[0]?.link || '',
-      })) || [];
-
-    } catch (error: any) {
-      console.error('Amazon SP-API UPC search failed:', error?.response?.data || error.message);
-      throw new Error(`Failed to search Amazon products by UPC: ${error.message}`);
-    }
-  }
-
-  async searchProductsByMFG(mfgNumber: string): Promise<AmazonProduct[]> {
-    try {
-      const accessToken = await this.getAccessToken();
-      const path = `/catalog/2022-04-01/items`;
-      const queryParams = new URLSearchParams({
-        marketplaceIds: this.credentials.marketplace,
-        keywords: mfgNumber,
-        includedData: 'attributes,identifiers,images,productTypes,relationships,salesRanks',
-      });
-
-      const headers = {
-        ...this.createSignedHeaders('GET', `${path}?${queryParams}`),
-        'x-amz-access-token': accessToken,
-        'Content-Type': 'application/json',
-      };
-
-      const response = await axios.get(`https://sellingpartnerapi-na.amazon.com${path}?${queryParams}`, {
-        headers,
-      });
-
-      // Filter results that match MFG number in model or part number fields
-      const matchingItems = response.data.items?.filter((item: any) => {
-        const modelNumber = item.attributes?.model_number?.[0]?.value || '';
-        const partNumber = item.attributes?.part_number?.[0]?.value || '';
-        const manufacturerPartNumber = item.attributes?.manufacturer_part_number?.[0]?.value || '';
-        
-        return modelNumber.includes(mfgNumber) || 
-               partNumber.includes(mfgNumber) || 
-               manufacturerPartNumber.includes(mfgNumber);
-      }) || [];
-
-      return matchingItems.map((item: any) => ({
-        asin: item.asin,
-        title: item.attributes?.item_name?.[0]?.value || '',
-        brand: item.attributes?.brand?.[0]?.value || '',
-        manufacturer: item.attributes?.manufacturer?.[0]?.value || '',
-        imageUrl: item.images?.[0]?.images?.[0]?.link || '',
-      }));
-
-    } catch (error: any) {
-      console.error('Amazon SP-API MFG search failed:', error?.response?.data || error.message);
-      throw new Error(`Failed to search Amazon products by MFG#: ${error.message}`);
-    }
-  }
-
-  async getProductPricing(asins: string[]): Promise<AmazonPricing[]> {
-    try {
-      const accessToken = await this.getAccessToken();
-      const path = `/products/pricing/v0/price`;
-      const queryParams = new URLSearchParams({
-        MarketplaceId: this.credentials.marketplace,
-        Asins: asins.join(','),
-        ItemType: 'Asin',
-      });
-
-      const headers = {
-        ...this.createSignedHeaders('GET', `${path}?${queryParams}`),
-        'x-amz-access-token': accessToken,
-        'Content-Type': 'application/json',
-      };
-
-      const response = await axios.get(`https://sellingpartnerapi-na.amazon.com${path}?${queryParams}`, {
-        headers,
-      });
-
-      return response.data.payload?.map((item: any) => {
-        const pricing = item.Product?.Offers?.[0]?.BuyingPrice;
-        const listPrice = item.Product?.Offers?.[0]?.RegularPrice;
-        
-        return {
-          asin: item.ASIN,
-          currentPrice: pricing?.Amount ? Math.round(parseFloat(pricing.Amount) * 100) : undefined,
-          listPrice: listPrice?.Amount ? Math.round(parseFloat(listPrice.Amount) * 100) : undefined,
-          currencyCode: pricing?.CurrencyCode || 'USD',
-          availability: item.Product?.Offers?.[0]?.ItemCondition || 'Unknown',
-          seller: item.Product?.Offers?.[0]?.SellerName || '',
-          fulfillmentChannel: item.Product?.Offers?.[0]?.FulfillmentChannel || '',
-          isPrime: item.Product?.Offers?.[0]?.PrimeInformation?.IsNationalPrime || false,
-        };
-      }) || [];
-
-    } catch (error: any) {
-      console.error('Amazon SP-API pricing failed:', error?.response?.data || error.message);
-      throw new Error(`Failed to get Amazon pricing: ${error.message}`);
-    }
-  }
-
-  async getProductRanking(asins: string[]): Promise<AmazonRanking[]> {
-    try {
-      const accessToken = await this.getAccessToken();
-      const rankings: AmazonRanking[] = [];
-
-      // Process ASINs in batches to respect rate limits
-      for (const asin of asins) {
-        const path = `/catalog/2022-04-01/items/${asin}`;
-        const queryParams = new URLSearchParams({
-          marketplaceIds: this.credentials.marketplace,
-          includedData: 'salesRanks',
-        });
-
-        const headers = {
-          ...this.createSignedHeaders('GET', `${path}?${queryParams}`),
-          'x-amz-access-token': accessToken,
-          'Content-Type': 'application/json',
-        };
-
-        const response = await axios.get(`https://sellingpartnerapi-na.amazon.com${path}?${queryParams}`, {
-          headers,
-        });
-
-        const salesRanks = response.data.salesRanks || [];
-        const overallRank = salesRanks.find((rank: any) => rank.title === 'Amazon Best Sellers Rank');
-        const categoryRank = salesRanks.find((rank: any) => rank.title !== 'Amazon Best Sellers Rank');
-
-        rankings.push({
-          asin,
-          salesRank: overallRank?.rank || undefined,
-          categoryRank: categoryRank?.rank || undefined,
-          category: categoryRank?.title || undefined,
-        });
-
-        // Rate limiting delay
-        await new Promise(resolve => setTimeout(resolve, 250));
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
       }
 
-      return rankings;
-
-    } catch (error: any) {
-      console.error('Amazon SP-API ranking failed:', error?.response?.data || error.message);
-      throw new Error(`Failed to get Amazon rankings: ${error.message}`);
+      const tokenData: AmazonTokenResponse = await response.json();
+      
+      this.accessToken = tokenData.access_token;
+      this.tokenExpiry = now + (tokenData.expires_in * 1000) - 60000; // Refresh 1 min early
+      
+      console.log('Amazon SP-API token refreshed successfully');
+      return this.accessToken;
+      
+    } catch (error) {
+      console.error('Failed to refresh Amazon SP-API token:', error);
+      throw error;
     }
   }
 
-  async getListingRestrictions(asin: string, sellerId: string): Promise<ListingRestriction> {
-    try {
-      const accessToken = await this.getAccessToken();
-      const path = `/listings/2021-08-01/restrictions`;
-      const queryParams = new URLSearchParams({
-        asin,
-        sellerId,
-        marketplaceIds: this.credentials.marketplace,
-      });
+  /**
+   * Make authenticated request to SP-API
+   */
+  private async makeRequest(endpoint: string, params?: URLSearchParams): Promise<any> {
+    const token = await this.getAccessToken();
+    
+    const url = params ? 
+      `${this.baseUrl}${endpoint}?${params.toString()}` : 
+      `${this.baseUrl}${endpoint}`;
 
-      const headers = {
-        ...this.createSignedHeaders('GET', `${path}?${queryParams}`),
-        'x-amz-access-token': accessToken,
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-amz-access-token': token,
         'Content-Type': 'application/json',
-      };
+        'User-Agent': 'MDM-PIM-System/1.0'
+      }
+    });
 
-      const response = await axios.get(`https://sellingpartnerapi-na.amazon.com${path}?${queryParams}`, {
-        headers,
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`SP-API request failed: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Test API connection with a simple catalog search
+   */
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      console.log('Testing Amazon SP-API connection...');
+      
+      // Test with a simple catalog request
+      const params = new URLSearchParams({
+        marketplaceIds: this.marketplaceId,
+        keywords: 'test',
+        pageSize: '1'
       });
 
-      const restrictions = response.data.restrictions || [];
-      const canList = restrictions.length === 0 || !restrictions.some((r: any) => r.flowRequired);
+      const result = await this.makeRequest('/catalog/2022-04-01/items', params);
       
       return {
-        asin,
-        canList,
-        reasonCodes: restrictions.map((r: any) => r.reasonCode).filter(Boolean),
-        messages: restrictions.map((r: any) => r.message).filter(Boolean),
+        success: true,
+        message: 'Amazon SP-API connection successful',
+        details: {
+          itemsFound: result.items?.length || 0,
+          responseTime: new Date().toISOString()
+        }
       };
-
-    } catch (error: any) {
-      console.error('Amazon SP-API restrictions failed:', error?.response?.data || error.message);
       
-      // If seller ID is missing, return appropriate error
-      if (error?.response?.status === 400) {
-        throw new Error('Seller ID is required for listing restrictions check');
-      }
-      
-      throw new Error(`Failed to get listing restrictions: ${error.message}`);
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Amazon SP-API connection failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
-  isConfigured(): boolean {
-    return !!(
-      this.credentials.accessKeyId &&
-      this.credentials.secretAccessKey &&
-      this.credentials.refreshToken &&
-      this.credentials.clientId &&
-      this.credentials.clientSecret
-    );
+  /**
+   * Search catalog by UPC
+   */
+  async searchByUPC(upc: string): Promise<AmazonCatalogResult[]> {
+    try {
+      const params = new URLSearchParams({
+        marketplaceIds: this.marketplaceId,
+        identifiers: upc,
+        identifiersType: 'UPC',
+        includedData: 'identifiers,summaries'
+      });
+
+      const result = await this.makeRequest('/catalog/2022-04-01/items', params);
+      return result.items || [];
+      
+    } catch (error) {
+      console.error(`Failed to search catalog for UPC ${upc}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get competitive pricing for ASIN
+   */
+  async getPricing(asin: string): Promise<{ success: boolean; price?: number; offers?: AmazonPricingOffer[]; error?: string }> {
+    try {
+      const params = new URLSearchParams({
+        MarketplaceId: this.marketplaceId,
+        ItemCondition: 'New'
+      });
+
+      const result = await this.makeRequest(`/products/pricing/v0/items/${asin}/offers`, params);
+      
+      if (!result.payload?.offers?.length) {
+        return {
+          success: false,
+          error: 'No pricing offers found'
+        };
+      }
+
+      const offers = result.payload.offers;
+      const buyBoxOffer = offers.find((offer: AmazonPricingOffer) => offer.isBuyBoxWinner);
+      const bestOffer = buyBoxOffer || offers[0];
+
+      return {
+        success: true,
+        price: parseFloat(bestOffer.listingPrice.amount),
+        offers: offers.slice(0, 5) // Return top 5 offers
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown pricing error'
+      };
+    }
+  }
+
+  /**
+   * Get product listings restrictions
+   */
+  async getListingRestrictions(asin: string): Promise<{ success: boolean; canList?: boolean; restrictions?: any; error?: string }> {
+    try {
+      const params = new URLSearchParams({
+        sellerId: 'SELLER_ID_PLACEHOLDER', // This would need actual seller ID
+        marketplaceIds: this.marketplaceId,
+        asin: asin
+      });
+
+      const result = await this.makeRequest('/listings/2021-08-01/restrictions', params);
+      
+      return {
+        success: true,
+        canList: !result.restrictions?.length,
+        restrictions: result.restrictions || []
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to check restrictions'
+      };
+    }
   }
 }
 
-export const amazonService = new AmazonSPAPIService();
+export const amazonSPAPI = new AmazonSPAPIService();

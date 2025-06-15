@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { z } from "zod";
 import { 
   insertProductSchema, 
@@ -29,6 +29,7 @@ import fixPricingRoutes from './routes/fix-pricing';
 import testPricingFixRoutes from './routes/test-pricing-fix';
 import fixMarketPricingRoutes from './routes/fix-market-pricing';
 import amazonRealDataRoutes from './routes/amazon-real-data';
+import amazonConnectionTestRoutes from './routes/amazon-connection-test';
 import multer from "multer";
 import path from "path";
 import fs from "fs";

@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { products, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
-import { amazonService } from './amazon-sp-api';
+import { amazonSPAPI } from './amazon-sp-api';
 import { eq, inArray, and, isNull, or, isNotNull, sql } from 'drizzle-orm';
 
 interface ProductSyncResult {
