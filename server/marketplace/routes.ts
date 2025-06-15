@@ -813,55 +813,30 @@ router.post('/amazon/refresh-pricing', async (req: Request, res: Response) => {
 
     console.log(`Refreshing pricing for ${targetAsins.length} ASINs using cost-based calculations`);
 
+    console.log('Using Amazon SP-API Product Pricing service with official competitive data');
+
+    // Get competitive pricing data from Amazon SP-API
+    const pricingData = await amazonPricingServiceV2022.getCompetitiveSummaryBatch(targetAsins);
+    
+    if (pricingData.size === 0) {
+      return res.json({
+        success: false,
+        message: 'No pricing data returned from Amazon SP-API',
+        updated: 0
+      });
+    }
+
     let updated = 0;
     const results = [];
 
-    // Use cost-based pricing (SP-API requires additional permissions)
-    console.log('Using cost-based pricing calculations for realistic market estimates');
-    const pricingData = new Map(); // SP-API unavailable
-
-    for (const asin of targetAsins) {
+    for (const [asin, competitiveSummary] of pricingData) {
       try {
-        let pricing;
+        const pricing = amazonPricingServiceV2022.extractPricingData(competitiveSummary);
         
-        if (pricingData.has(asin)) {
-          // Use SP-API data if available
-          pricing = amazonPricingServiceV2022.extractPricingData(pricingData.get(asin)!);
-        } else {
-          // Fall back to cost-based pricing
-          const productData = await db
-            .select({ 
-              cost: products.cost,
-              price: products.price
-            })
-            .from(products)
-            .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-            .where(eq(productAsinMapping.asin, asin))
-            .limit(1);
-
-          if (productData.length > 0) {
-            const product = productData[0];
-            const costInCents = Math.round((parseFloat(product.cost || '0') || 0) * 100);
-            const marketPrice = costInCents * 2.5; // 2.5x markup for marine equipment
-            
-            pricing = {
-              asin,
-              buyBoxPrice: Math.round(marketPrice),
-              lowestPrice: Math.round(marketPrice * 0.95), // 5% lower
-              listPrice: Math.round(marketPrice * 1.2), // 20% higher
-              offerCount: 3, // Estimated
-              lastUpdated: new Date()
-            };
-          } else {
-            continue; // Skip if no product data
-          }
-        }
-        
-        // Update amazon_asins table with new pricing
+        // Update amazon_asins table with official Amazon pricing
         await db
           .update(amazonAsins)
           .set({
-            lowestPrice: pricing.lowestPrice,
             listPrice: pricing.listPrice,
             offerCount: pricing.offerCount,
             lastPriceUpdate: new Date()
@@ -875,7 +850,7 @@ router.post('/amazon/refresh-pricing', async (req: Request, res: Response) => {
           lowestPrice: pricing.lowestPrice ? pricing.lowestPrice / 100 : null,
           listPrice: pricing.listPrice ? pricing.listPrice / 100 : null,
           offerCount: pricing.offerCount,
-          source: pricingData.has(asin) ? 'SP-API' : 'cost-based'
+          source: 'Amazon-SP-API'
         });
 
       } catch (error) {
@@ -889,11 +864,11 @@ router.post('/amazon/refresh-pricing', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: `Updated pricing for ${updated} ASINs using ${pricingData.size > 0 ? 'hybrid SP-API/cost-based' : 'cost-based'} calculations`,
+      message: `Updated pricing for ${updated} ASINs using official Amazon SP-API competitive data`,
       updated,
       total: targetAsins.length,
       results,
-      note: pricingData.size === 0 ? 'SP-API pricing requires additional permissions. Using cost-based calculations.' : undefined
+      note: 'Using official Amazon Product Pricing API with real-time competitive market data'
     });
 
   } catch (error) {
