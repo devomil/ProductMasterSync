@@ -1,0 +1,152 @@
+What is the Product Pricing API?
+The Selling Partner API for Product Pricing (Product Pricing API) programmatically retrieves product pricing and offer information for Amazon Marketplace products.
+
+To learn more about the terms that are used on this page, refer to Terminology.
+
+Tutorial: Retrieve pricing information for seller's offer listings
+This tutorial shows you how to retrieve pricing information for a seller's offer listings based on seller SKU or ASIN.
+
+Prerequisites
+
+To successfully complete this tutorial, you must have the following:
+
+Authorization from the selling partner for whom you are making calls. Refer to Authorizing Selling Partner API applications for more information.
+The Pricing and Product Listing role assigned to your developer profile.
+The Pricing and Product Listing role selected in the App registration page for your application.
+Call getPricing operation
+You can call the getPricing operation to get pricing information based on either a list of SKUs or ASINs. This operation accepts a list of up to 20 SKUs or ASINs as a query parameter.
+
+Tutorial: Retrieve competitive pricing information for seller's offer listings
+This tutorial shows you how to retrieve competitive pricing information for a seller's offer listings based on seller SKU or ASIN.
+
+Prerequisites
+
+To successfully complete this tutorial, you must have the following:
+
+Authorization from the selling partner for whom you are making calls. Refer to Authorizing Selling Partner API applications for more information.
+The Pricing and Product Listing role assigned to your developer profile.
+The Pricing and Product Listing role selected in the App registration page for your application.
+Call the getCompetitivePricing operation
+You can call the getCompetitivePricing operation to get competitive pricing information based on either a list of SKUs or ASINs. This operation accepts a list of up to 20 SKUs or ASINs as a query parameter.
+
+Tutorial: Retrieve lowest priced offers for a single SKU listing
+This tutorial shows you how to retrieve the lowest priced offers for a single SKU listing.
+
+Prerequisites
+
+To successfully complete this tutorial, you must have the following:
+
+Authorization from the selling partner for whom you are making calls. Refer to Authorizing Selling Partner API applications for more information.
+The Pricing and Product Listing role assigned to your developer profile.
+The Pricing and Product Listing role selected in the App registration page for your application.
+Call the getListingOffers operation
+You can call the getListingOffers operation to get lowest pricing information based on a SKU. This operation accepts a SKU as a path parameter.
+
+Tutorial: Retrieve lowest priced offers for an ASIN using the getItemOffers operation
+This tutorial shows you how to retrieve the lowest priced offers for a single item based on ASIN. This is done by creating a new attribute called listingPrice in the getItemOffers response.
+
+Prerequisites
+
+To successfully complete this tutorial, you must have the following:
+
+Authorization from the selling partner for whom you are making calls. Refer to Authorizing Selling Partner API applications for more information.
+Get the item offers with the necessary parameters.
+You can call the getItemOffers operation to get the lowest pricing information based on a ASIN. This operation accepts an ASIN as a path parameter.
+
+Tutorial: Retrieve lowest priced offers Information by SKU using a batch operation
+This tutorial shows you how to retrieve information about the lowest priced offers by SKU using a batch operation.
+
+Prerequisites
+
+To successfully complete this tutorial, you must have the following:
+
+Authorization from the selling partner for whom you are making calls. Refer to Authorizing Selling Partner API applications for more information.
+The Pricing and Product Listing role assigned to your developer profile.
+The Pricing and Product Listing role selected in the App registration page for your application.
+Step 1. URL-encoding on SKU
+The URL-encoding process ensures that all URLs are valid to send over HTTP. The data can be passed on HTTP headers or included in the query portion of URL. The invalid characters are replaced by a % followed by a hexadecimal value. If you do not URL-encode the SKU, you will receive a status code 400 in the API response with the error message Item is an invalid SKU for marketplace XXXXXXXXX.
+
+Example: SKU VT-DEIT/57T1 should be URL-Encoded and passed as VT-DEIT%2F57T1.
+
+Example Java code:
+
+Java
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.io.UnsupportedEncodingException*;*
+
+ // Method to encode a SKU using `UTF-8` encoding scheme
+  private static String encodeSKU(String sSKU) {
+    try {
+      return URLEncoder.encode(sSKU, StandardCharsets.UTF_8.toString());
+    } catch (UnsupportedEncodingException ex) {
+      e*.*printStackTrace*();*
+    }
+  }
+Error example when SKU is not URL-Encoded
+
+In this request, the SKU is passed without URL-Encoding. Item\1 is used instead of Item%2F1:
+
+JSON
+
+POST https://sellingpartnerapi-na.amazon.com/batches/products/pricing/v0/listingOffers
+{
+  "requests": [
+    {
+      "uri": "/products/pricing/v0/listings/Item\1/offers",
+      "method": "GET",
+      "ItemCondition": "New",
+      "MarketplaceId": "ATVPDKIKX0DER",
+      "CustomerType": "Consumer"
+    }
+  ]
+}
+The API response received is 200 but the statusCode within the response for the specific SKU will be 400:
+
+JSON
+
+{
+  "responses": [
+    {
+      "status": {
+        "statusCode": 400,
+        "reasonPhrase": "Bad Request"
+      },
+      "body": {
+        "errors": [
+          {
+            "code": "InvalidInput",
+            "message": "Item is an invalid SKU for marketplace ATVPDKIKX0DER",
+            "details": ""
+          }
+        ]
+      },
+      "headers": {
+        "x-amzn-RequestId": "e3452685-0450-4a18-b706-431a59d36818",
+        "Date": "Fri, 22 Jul 2022 20:46:46 GMT"
+      },
+      "request": {
+        "MarketplaceId": "ATVPDKIKX0DER",
+        "SellerSKU": "Item",
+        "CustomerType": "Consumer",
+        "ItemCondition": "New"
+      }
+    }
+  ]
+}
+Step 2. Call the getListingOffersBatch operation
+The getListingOffersBatch operation allows you to fetch the lowest priced offers for a batch of listings by SKU. This operation allows up to 20 SKU requests in a single batch.
+
+Tutorial: Retrieve lowest priced offers Information by ASIN using a batch operation
+This tutorial shows you how to retrieve information about the lowest priced offers by ASIN using a batch operation.
+
+Prerequisites
+
+To successfully complete this tutorial, you must have the following:
+
+Authorization from the selling partner for whom you are making calls. Refer to Authorizing Selling Partner API applications for more information.
+The Pricing and Product Listing role assigned to your developer profile.
+The Pricing and Product Listing role selected in the App registration page for your application.
+Call the getItemsOffersBatch operation
+The getItemOffersBatch operation allows you to fetch the lowest priced offers for a batch of items by ASIN. This operation allows up to 20 ASIN requests in a single batch.

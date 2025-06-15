@@ -272,3 +272,164 @@ export function validateAmazonConfig(config: SPAPIConfig): boolean {
     config.refreshToken
   );
 }
+
+/**
+ * Get competitive pricing information for ASINs using SP-API Product Pricing API
+ */
+export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
+  const config = getAmazonConfig();
+  
+  if (!validateAmazonConfig(config)) {
+    throw new Error('Amazon SP-API configuration is invalid');
+  }
+
+  const accessToken = await getAccessToken(config);
+  const batchSize = 20; // SP-API limit for pricing requests
+  const results = [];
+
+  // Process ASINs in batches of 20
+  for (let i = 0; i < asins.length; i += batchSize) {
+    const batch = asins.slice(i, i + batchSize);
+    
+    try {
+      const response = await axios.get(`${config.endpoint}/products/pricing/v0/competitivePrice`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        },
+        params: {
+          MarketplaceId: config.marketplaceId,
+          Asins: batch.join(','),
+          ItemCondition: 'New',
+          CustomerType: 'Consumer'
+        }
+      });
+
+      if (response.data && response.data.payload) {
+        results.push(...response.data.payload);
+      }
+    } catch (error) {
+      console.error(`Error fetching competitive pricing for batch:`, error);
+      // Continue with next batch even if one fails
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Get item offers (lowest priced offers) for ASINs using SP-API
+ */
+export async function getItemOffers(asins: string[]): Promise<any[]> {
+  const config = getAmazonConfig();
+  
+  if (!validateAmazonConfig(config)) {
+    throw new Error('Amazon SP-API configuration is invalid');
+  }
+
+  const accessToken = await getAccessToken(config);
+  const results = [];
+
+  // Process each ASIN individually for item offers
+  for (const asin of asins) {
+    try {
+      const response = await axios.get(`${config.endpoint}/products/pricing/v0/items/${asin}/offers`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        },
+        params: {
+          MarketplaceId: config.marketplaceId,
+          ItemCondition: 'New',
+          CustomerType: 'Consumer'
+        }
+      });
+
+      if (response.data && response.data.payload) {
+        results.push({
+          asin,
+          offers: response.data.payload
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching item offers for ASIN ${asin}:`, error);
+      // Continue with next ASIN even if one fails
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Search for products by manufacturer number using SP-API Catalog Items API
+ */
+export async function searchByManufacturerNumber(manufacturerNumber: string): Promise<any[]> {
+  const config = getAmazonConfig();
+  
+  if (!validateAmazonConfig(config)) {
+    throw new Error('Amazon SP-API configuration is invalid');
+  }
+
+  const accessToken = await getAccessToken(config);
+  
+  try {
+    // Search using manufacturer number as keyword
+    const response = await axios.get(`${config.endpoint}/catalog/2022-04-01/items`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'x-amz-access-token': accessToken,
+        'Content-Type': 'application/json'
+      },
+      params: {
+        marketplaceIds: config.marketplaceId,
+        keywords: manufacturerNumber,
+        includedData: 'attributes,identifiers,images,productTypes,salesRanks,summaries',
+        pageSize: 20
+      }
+    });
+
+    if (response.data && response.data.items) {
+      return response.data.items;
+    }
+  } catch (error) {
+    console.error(`Error searching by manufacturer number ${manufacturerNumber}:`, error);
+  }
+
+  return [];
+}
+
+/**
+ * Enhanced product search that combines UPC and manufacturer number searches
+ */
+export async function searchProductMultipleWays(upc: string, manufacturerNumber?: string): Promise<any[]> {
+  const results = [];
+  
+  // Search by UPC first
+  if (upc) {
+    try {
+      const upcResults = await searchCatalogItemsByUPC(upc);
+      results.push(...upcResults);
+    } catch (error) {
+      console.error(`Error searching by UPC ${upc}:`, error);
+    }
+  }
+  
+  // Search by manufacturer number if provided
+  if (manufacturerNumber) {
+    try {
+      const mfgResults = await searchByManufacturerNumber(manufacturerNumber);
+      results.push(...mfgResults);
+    } catch (error) {
+      console.error(`Error searching by manufacturer number ${manufacturerNumber}:`, error);
+    }
+  }
+  
+  // Remove duplicates based on ASIN
+  const uniqueResults = results.filter((item, index, self) => 
+    index === self.findIndex(t => t.asin === item.asin)
+  );
+  
+  return uniqueResults;
+}
