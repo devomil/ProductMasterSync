@@ -297,16 +297,19 @@ export class BatchASINProcessor {
    */
   private async searchByUPC(upc: string): Promise<ASINDiscoveryResult[]> {
     return await rateLimiter.executeWithRateLimit('searchCatalogItems', async () => {
-      const results = await searchAmazonCatalog({ 
-        identifiers: [upc], 
-        identifiersType: 'UPC' 
-      });
+      const results = await searchAmazonCatalog(upc);
       
       return results.map((item: any) => ({
         asin: item.asin,
         title: item.summaries?.[0]?.itemName,
         brand: item.summaries?.[0]?.brand,
-        upc: upc
+        upc: upc,
+        manufacturerPartNumber: undefined,
+        searchMethod: 'upc' as const,
+        canList: undefined,
+        hasListingRestrictions: undefined,
+        restrictionReasonCodes: undefined,
+        restrictionMessages: undefined
       }));
     });
   }
@@ -316,16 +319,19 @@ export class BatchASINProcessor {
    */
   private async searchByManufacturerPartNumber(mpn: string): Promise<ASINDiscoveryResult[]> {
     return await rateLimiter.executeWithRateLimit('searchCatalogItems', async () => {
-      const results = await searchAmazonCatalog({ 
-        keywords: mpn,
-        brandNames: [] // Could be enhanced with brand filtering
-      });
+      const results = await searchAmazonCatalog(mpn);
       
       return results.map((item: any) => ({
         asin: item.asin,
         title: item.summaries?.[0]?.itemName,
         brand: item.summaries?.[0]?.brand,
-        manufacturerPartNumber: mpn
+        upc: undefined,
+        manufacturerPartNumber: mpn,
+        searchMethod: 'manufacturer_part_number' as const,
+        canList: undefined,
+        hasListingRestrictions: undefined,
+        restrictionReasonCodes: undefined,
+        restrictionMessages: undefined
       }));
     });
   }
