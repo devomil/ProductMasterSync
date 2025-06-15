@@ -469,7 +469,7 @@ router.get('/analytics/trends', async (req: Request, res: Response) => {
 
 router.get('/analytics/opportunities', async (req: Request, res: Response) => {
   try {
-    // Query products with Amazon ASIN mappings using EDC 488270 working logic: UPC → amazon_asins → amazon_market_intelligence
+    // Query products with Amazon ASIN mappings using productAsinMapping table (correct approach)
     const productsWithAsins = await db
       .select({
         productId: products.id,
@@ -480,7 +480,7 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         productUpc: products.upc,
         productManufacturerPartNumber: products.manufacturerPartNumber,
         categoryName: categories.name,
-        asin: amazonAsins.asin,
+        asin: productAsinMapping.asin,
         asinTitle: amazonAsins.title,
         asinBrand: amazonAsins.brand,
         asinUpc: amazonAsins.upc,
@@ -497,10 +497,11 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         updatedAt: amazonMarketIntelligence.updatedAt
       })
       .from(products)
-      .innerJoin(amazonAsins, eq(products.upc, amazonAsins.upc)) // Direct UPC mapping like EDC 488270
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(isNotNull(products.upc))
+      .where(eq(productAsinMapping.isActive, true))
       .limit(50);
 
     if (productsWithAsins.length === 0) {
