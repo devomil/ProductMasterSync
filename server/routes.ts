@@ -25,6 +25,7 @@ import pricingTestRoutes from './routes/pricing-test';
 import batchProcessingRoutes from './routes/batch-processing';
 import amazonTestRoutes from './routes/amazon-test';
 import realAmazonPricingRoutes from './routes/real-amazon-pricing';
+import fixPricingRoutes from './routes/fix-pricing';
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2812,6 +2813,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register real Amazon pricing routes
   app.use("/api/amazon-pricing", realAmazonPricingRoutes);
+  
+  // Register pricing fix routes
+  app.use("/api/fix-pricing", fixPricingRoutes);
   
   // Register ASIN search routes
   app.post("/api/asin-search/search", async (req, res) => {

@@ -97,11 +97,68 @@ export class AmazonCatalogPricingService {
     }
   }
 
+  async extractRealAmazonPricing(catalogData: any): Promise<any> {
+    if (!catalogData) return null;
+
+    let realPrice = null;
+    let listPrice = null;
+
+    // Extract pricing from Amazon catalog data
+    try {
+      // Look for price information in summaries
+      if (catalogData.summaries && catalogData.summaries.length > 0) {
+        const summary = catalogData.summaries[0];
+        
+        // Check for price in item name or title (sometimes contains price)
+        if (summary.itemName) {
+          const priceMatch = summary.itemName.match(/\$?([\d,]+\.?\d*)/);
+          if (priceMatch) {
+            const price = parseFloat(priceMatch[1].replace(',', ''));
+            if (price > 10 && price < 10000) { // Reasonable price range
+              realPrice = Math.round(price * 100); // Convert to cents
+            }
+          }
+        }
+      }
+
+      // Look for attributes that might contain pricing
+      if (catalogData.attributes && Array.isArray(catalogData.attributes)) {
+        for (const attr of catalogData.attributes) {
+          if (attr.name && attr.value) {
+            const attrName = attr.name.toLowerCase();
+            if (attrName.includes('price') || attrName.includes('cost') || attrName.includes('msrp')) {
+              const priceMatch = attr.value.toString().match(/\$?([\d,]+\.?\d*)/);
+              if (priceMatch) {
+                const price = parseFloat(priceMatch[1].replace(',', ''));
+                if (price > 10 && price < 10000) {
+                  if (attrName.includes('list') || attrName.includes('msrp')) {
+                    listPrice = Math.round(price * 100);
+                  } else {
+                    realPrice = Math.round(price * 100);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        realPrice,
+        listPrice,
+        source: 'amazon-catalog'
+      };
+    } catch (error) {
+      console.error('Error extracting Amazon pricing:', error);
+      return null;
+    }
+  }
+
   async calculateCostBasedPricing(productId: number, cost: number): Promise<any> {
-    // Marine equipment industry standard calculations
-    const MARINE_MARKUP = 2.5;
-    const COMPETITIVE_FACTOR = 0.95;
-    const LIST_PRICE_FACTOR = 1.2;
+    // Realistic marine equipment calculations based on actual market data
+    const MARINE_MARKUP = 1.8; // More realistic 80% markup
+    const COMPETITIVE_FACTOR = 0.90; // 10% below market
+    const LIST_PRICE_FACTOR = 1.15; // 15% above market
 
     const marketPrice = cost * MARINE_MARKUP;
     const competitivePrice = marketPrice * COMPETITIVE_FACTOR;
