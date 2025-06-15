@@ -488,10 +488,10 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         currentPrice: amazonMarketIntelligence.currentPrice,
         listPrice: amazonMarketIntelligence.listPrice,
         dealPrice: amazonMarketIntelligence.dealPrice,
-        lowestPrice30Day: amazonMarketIntelligence.lowestPrice30Day,
-        totalSellers: amazonMarketIntelligence.totalSellers,
         salesRank: amazonMarketIntelligence.salesRank,
         categoryRank: amazonMarketIntelligence.categoryRank,
+        fulfillmentMethod: amazonMarketIntelligence.fulfillmentMethod,
+        isPrime: amazonMarketIntelligence.isPrime,
         updatedAt: amazonMarketIntelligence.updatedAt
       })
       .from(products)
@@ -522,11 +522,10 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       const currentPrice = product.currentPrice ? product.currentPrice / 100 : null;
       const listPrice = product.listPrice ? product.listPrice / 100 : null;
       const dealPrice = product.dealPrice ? product.dealPrice / 100 : null;
-      const lowestPrice30Day = product.lowestPrice30Day ? product.lowestPrice30Day / 100 : null;
       
       // Use current price as buy box price, fall back to deal price or list price
       const buyBoxPrice = currentPrice || dealPrice || listPrice;
-      const lowestPrice = lowestPrice30Day || currentPrice || dealPrice;
+      const lowestPrice = dealPrice || currentPrice;
       
       // Fallback to product cost if no Amazon pricing data available
       const basePrice = currentPrice || parseFloat(product.productPrice) || 250.00;
@@ -539,8 +538,8 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       const profitMargin = targetPrice > 0 ? (netProfit / targetPrice) * 100 : 0;
       
       // Use actual Amazon data or provide defaults
-      const offerCount = product.totalSellers || 1;
-      const fulfillmentChannel = 'FBA'; // Default since we don't have this field in current schema
+      const offerCount = 1; // Default since totalSellers field doesn't exist in current schema
+      const fulfillmentChannel = product.fulfillmentMethod || 'FBA';
       
       return {
         asin: product.asin,
