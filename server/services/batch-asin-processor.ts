@@ -382,7 +382,7 @@ export class BatchASINProcessor {
         // Log the discovery
         await client.query(`
           INSERT INTO amazon_sync_logs (
-            product_id, batch_id, result, upc, asin,
+            product_id, batch_id, sync_status, upc, asin,
             sync_started_at, sync_completed_at
           ) VALUES ($1, $2, 'success', $3, $4, NOW(), NOW())
         `, [product.id, this.batchId, product.upc, asin.asin]);
@@ -428,8 +428,9 @@ export class BatchASINProcessor {
 
     await this.db.query(`
       INSERT INTO amazon_sync_logs (
-        batch_id, sync_status, error_message, sync_started_at, sync_completed_at, result
-      ) VALUES ($1, $2, $3, NOW() - INTERVAL '${this.stats.processingTimeMs} milliseconds', NOW(), $4)
+        batch_id, sync_status, error_message, sync_started_at, sync_completed_at, result,
+        upc, asin, product_id
+      ) VALUES ($1, $2, $3, NOW() - INTERVAL '${this.stats.processingTimeMs} milliseconds', NOW(), $4, 'batch_summary', 'batch_summary', 0)
     `, [
       this.batchId,
       status,
