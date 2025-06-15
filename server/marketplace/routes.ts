@@ -813,62 +813,35 @@ router.post('/amazon/refresh-pricing', async (req: Request, res: Response) => {
 
     console.log(`Refreshing pricing for ${targetAsins.length} ASINs using cost-based calculations`);
 
-    console.log('Using Amazon SP-API Product Pricing service with official competitive data');
+    console.log('Using comprehensive Amazon catalog and pricing integration');
 
-    // Get competitive pricing data from Amazon SP-API
-    const pricingData = await amazonPricingServiceV2022.getCompetitiveSummaryBatch(targetAsins);
+    // Import the comprehensive catalog pricing service
+    const { amazonCatalogPricingService } = await import('../services/amazon-catalog-pricing');
+
+    // Process pricing with combined SP-API catalog data and intelligent cost calculations
+    const pricingResults = await amazonCatalogPricingService.processProductPricing(targetAsins);
     
-    if (pricingData.size === 0) {
+    if (pricingResults.length === 0) {
       return res.json({
         success: false,
-        message: 'No pricing data returned from Amazon SP-API',
+        message: 'No valid product cost data found for pricing calculations',
         updated: 0
       });
     }
 
-    let updated = 0;
-    const results = [];
-
-    for (const [asin, competitiveSummary] of pricingData) {
-      try {
-        const pricing = amazonPricingServiceV2022.extractPricingData(competitiveSummary);
-        
-        // Update amazon_asins table with official Amazon pricing
-        await db
-          .update(amazonAsins)
-          .set({
-            listPrice: pricing.listPrice,
-            offerCount: pricing.offerCount,
-            lastPriceUpdate: new Date()
-          })
-          .where(eq(amazonAsins.asin, asin));
-
-        updated++;
-        results.push({
-          asin,
-          buyBoxPrice: pricing.buyBoxPrice ? pricing.buyBoxPrice / 100 : null,
-          lowestPrice: pricing.lowestPrice ? pricing.lowestPrice / 100 : null,
-          listPrice: pricing.listPrice ? pricing.listPrice / 100 : null,
-          offerCount: pricing.offerCount,
-          source: 'Amazon-SP-API'
-        });
-
-      } catch (error) {
-        console.error(`Error updating pricing for ASIN ${asin}:`, error);
-        results.push({
-          asin,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }
+    // Update database with calculated pricing
+    const updated = await amazonCatalogPricingService.updateDatabasePricing(pricingResults);
+    
+    // Format results for response
+    const results = amazonCatalogPricingService.formatResults(pricingResults);
 
     res.json({
       success: true,
-      message: `Updated pricing for ${updated} ASINs using official Amazon SP-API competitive data`,
+      message: `Updated pricing for ${updated} ASINs using Amazon catalog data and cost-based calculations`,
       updated,
       total: targetAsins.length,
       results,
-      note: 'Using official Amazon Product Pricing API with real-time competitive market data'
+      note: 'Combined Amazon SP-API catalog data with intelligent cost-based pricing using real product costs'
     });
 
   } catch (error) {

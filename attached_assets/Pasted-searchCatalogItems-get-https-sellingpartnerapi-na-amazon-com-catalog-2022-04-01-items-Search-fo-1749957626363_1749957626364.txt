@@ -1,0 +1,289 @@
+searchCatalogItems
+get
+https://sellingpartnerapi-na.amazon.com/catalog/2022-04-01/items
+Search for a list of Amazon catalog items and item-related information. You can search by identifier or by keywords.
+
+Usage Plan:
+
+Rate (requests per second)	Burst
+5	5
+The x-amzn-RateLimit-Limit response header contains the usage plan rate limits for the operation, when available. The preceding table contains the default rate and burst values for this operation. Selling partners whose business demands require higher throughput might have higher rate and burst values than those shown here. For more information, refer to Usage Plans and Rate Limits.
+
+Note: Due to technical issues, the response to this operation cannot be displayed in this reference. For this operation's response schema, refer to searchCatalogItems.
+
+Query Params
+identifiers
+array of strings
+length ≤ 20
+A comma-delimited list of product identifiers that you can use to search the Amazon catalog. Note: You cannot include identifiers and keywords in the same request.
+
+
+ADD string
+identifiersType
+string
+The type of product identifiers that you can use to search the Amazon catalog. Note: identifiersType is required when identifiers is in the request.
+
+
+ASIN
+marketplaceIds
+array of strings
+required
+length ≤ 1
+A comma-delimited list of Amazon marketplace identifiers. To find the ID for your marketplace, refer to Marketplace IDs.
+
+
+ADD string
+includedData
+array of strings
+Defaults to summaries
+A comma-delimited list of datasets to include in the response.
+
+Show Details
+attributes	A JSON object containing structured item attribute data that is keyed by attribute name. Catalog item attributes conform to the related Amazon product type definitions that you can get from the [Product Type Definitions API](https://developer-docs.amazon.com/sp-api/docs/product-type-definitions-api-v2020-09-01-reference).
+classifications	Classifications (browse nodes) for an item in the Amazon catalog.
+dimensions	Dimensions of an item in the Amazon catalog.
+identifiers	Identifiers that are associated with the item in the Amazon catalog, such as UPC and EAN.
+images	Images for an item in the Amazon catalog.
+productTypes	Product types associated with the Amazon catalog item.
+relationships	Relationship details of an Amazon catalog item (for example, variations).
+salesRanks	Sales ranks of an Amazon catalog item.
+summaries	Summary of an Amazon catalog item. For more information, refer to the `attributes` of an Amazon catalog item.
+vendorDetails	Vendor details associated with an Amazon catalog item. Vendor details are only available to vendors.
+
+string
+
+
+summaries
+
+ADD string
+locale
+string
+The locale for which you want to retrieve localized summaries. Defaults to the primary locale of the marketplace.
+
+sellerId
+string
+A selling partner identifier, such as a seller account or vendor code. Note: Required when identifiersType is SKU.
+
+keywords
+array of strings
+length ≤ 20
+A comma-delimited list of keywords that you can use to search the Amazon catalog. Note: You cannot include keywords and identifiers in the same request.
+
+
+ADD string
+brandNames
+array of strings
+A comma-delimited list of brand names that you can use to limit the search in queries based on keywords. Note: Cannot be used with identifiers.
+
+
+ADD string
+classificationIds
+array of strings
+A comma-delimited list of classification identifiers that you can use to limit the search in queries based on keywords. Note: Cannot be used with identifiers.
+
+
+ADD string
+pageSize
+integer
+≤ 20
+Defaults to 10
+The number of results to include on each page.
+
+10
+pageToken
+string
+A token that you can use to fetch a specific page when there are multiple pages of results.
+
+keywordsLocale
+string
+The language of the keywords that are included in queries based on keywords. Defaults to the primary locale of the marketplace. Note: Cannot be used with identifiers.
+
+Responses
+
+200
+Success.
+
+Response body
+Headers
+object
+x-amzn-RateLimit-Limit
+string
+Your rate limit (requests per second) for this operation.
+
+x-amzn-RequestId
+string
+Unique request reference identifier.
+
+
+400
+Request has missing or invalid parameters and cannot be parsed.
+
+
+403
+Indicates that access to the resource is forbidden. Possible reasons include Access Denied, Unauthorized, Expired Token, or Invalid Signature.
+
+
+404
+The resource specified does not exist.
+
+
+413
+The request size exceeded the maximum accepted size.
+
+
+415
+The request payload is in an unsupported format.
+
+
+429
+The frequency of requests was greater than allowed.
+
+
+500
+An unexpected condition occurred that prevented the server from fulfilling the request.
+
+
+503
+Temporary overloading or maintenance of the server.
+
+Updated 3 months ago
+
+Catalog Items v2022-04-01
+getCatalogItem
+Did this page help you?
+Language
+
+Shell
+
+Node
+
+Ruby
+
+PHP
+
+Python
+1
+curl --request GET \
+2
+     --url 'https://sellingpartnerapi-na.amazon.com/catalog/2022-04-01/items?includedData=summaries&pageSize=10' \
+3
+     --header 'accept: application/json'
+
+RESPONSE
+1
+{
+2
+  "numberOfResults": 1,
+3
+  "pagination": {
+4
+    "nextToken": "xsdflkj324lkjsdlkj3423klkjsdfkljlk2j34klj2l3k4jlksdjl234",
+5
+    "previousToken": "ilkjsdflkj234lkjds234234lkjl234lksjdflkj234234lkjsfsdflkj333d"
+6
+  },
+7
+  "refinements": {
+8
+    "brands": [
+9
+      {
+10
+        "numberOfResults": 1,
+11
+        "brandName": "SAMSUNG"
+12
+      }
+13
+    ],
+14
+    "classifications": [
+15
+      {
+16
+        "numberOfResults": 1,
+17
+        "displayName": "Electronics",
+18
+        "classificationId": "493964"
+19
+      }
+20
+    ]
+21
+  },
+22
+  "items": [
+23
+    {
+24
+      "asin": "B07N4M94X4",
+25
+      "attributes": {
+26
+        "total_hdmi_ports": [
+27
+          {
+28
+            "value": 4,
+29
+            "marketplace_id": "ATVPDKIKX0DER"
+30
+          }
+31
+        ],
+32
+        "resolution": [
+33
+          {
+34
+            "language_tag": "en_US",
+35
+            "value": "4K",
+36
+            "marketplace_id": "ATVPDKIKX0DER"
+37
+          }
+38
+        ],
+39
+        "item_weight": [
+40
+          {
+41
+            "unit": "pounds",
+42
+            "value": 107.6,
+43
+            "marketplace_id": "ATVPDKIKX0DER"
+44
+          }
+45
+        ],
+46
+        "product_subcategory": [
+47
+          {
+48
+            "value": "50400120",
+49
+            "marketplace_id": "ATVPDKIKX0DER"
+50
+          }
+51
+        ],
+52
+        "bullet_point": [
+53
+          {
+54
+            "language_tag": "en_US",
+55
+            "value": "SMART TV WITH UNIVERSAL GUIDE: Simple on-screen Guide is an easy way to find streaming content and live TV shows",
+56
+            "marketplace_id": "ATVPDKIKX0DER"
+57
+          },
+
+
+Headers

@@ -120,17 +120,25 @@ class AmazonPricingServiceV2022 {
       }));
 
       try {
-        console.log(`Making batch pricing request for ASINs: ${batchAsins.join(', ')}`);
+        console.log(`Making batch pricing request with AWS signature for ASINs: ${batchAsins.join(', ')}`);
         
-        const response = await fetch(`${this.ENDPOINT}/batches/products/pricing/2022-05-01/competitiveSummary`, {
+        const { createAWSSignature } = await import('../utils/aws-signature');
+        const awsSigner = createAWSSignature();
+        
+        const url = `${this.ENDPOINT}/batches/products/pricing/2022-05-01/competitiveSummary`;
+        const bodyString = JSON.stringify({ requests });
+        
+        // Create signed headers using AWS Signature V4
+        const signedHeaders = awsSigner.signRequest('POST', url, {
+          'Content-Type': 'application/json',
+          'x-amz-access-token': accessToken,
+          'Accept': 'application/json'
+        }, bodyString);
+        
+        const response = await fetch(url, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'x-amz-access-token': accessToken,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({ requests })
+          headers: signedHeaders,
+          body: bodyString
         });
 
         if (!response.ok) {
