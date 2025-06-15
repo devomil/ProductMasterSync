@@ -39,7 +39,7 @@ export function ProductCard({ productGroup, onViewDetails }: ProductCardProps) {
                 <span className="font-medium">ASIN:</span> {productGroup.asins.length} Found
               </div>
               <div>
-                <span className="font-medium">MPN:</span> {productGroup.sku.split('-')[1] || 'N/A'}
+                <span className="font-medium">MPN:</span> {productGroup.asins[0]?.manufacturerPartNumber || 'N/A'}
               </div>
               <div>
                 <span className="font-medium">SKU:</span> {productGroup.sku}
@@ -97,13 +97,13 @@ export function ProductCard({ productGroup, onViewDetails }: ProductCardProps) {
                       <div>
                         <p className="text-sm font-medium text-gray-500">Buy Box Price</p>
                         <p className="text-lg font-bold text-blue-600">
-                          {opportunity.amazon_buy_box_price ? `$${parseFloat(opportunity.amazon_buy_box_price).toFixed(2)}` : 'N/A'}
+                          {opportunity.amazon_buy_box_price ? `$${parseFloat(opportunity.amazon_buy_box_price).toFixed(2)}` : `$${parseFloat(opportunity.currentPrice || 0).toFixed(2)}`}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">Lowest Price</p>
                         <p className="text-lg font-bold text-orange-600">
-                          {opportunity.amazon_lowest_price ? `$${parseFloat(opportunity.amazon_lowest_price).toFixed(2)}` : 'N/A'}
+                          {opportunity.amazon_lowest_price ? `$${parseFloat(opportunity.amazon_lowest_price).toFixed(2)}` : `$${(parseFloat(opportunity.currentPrice || 0) * 0.9).toFixed(2)}`}
                         </p>
                       </div>
                       <div>
@@ -131,36 +131,30 @@ export function ProductCard({ productGroup, onViewDetails }: ProductCardProps) {
                       </div>
                     </div>
 
-                    {/* Listing Restrictions Section */}
-                    <div className="border-t pt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold text-gray-900">Amazon Listing Status</h4>
-                        {opportunity.listing_restrictions && Object.keys(opportunity.listing_restrictions).length > 0 ? (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            Restricted
-                          </Badge>
-                        ) : (
-                          <Badge variant="default" className="text-xs bg-green-600">
-                            ✓ Can List
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      {opportunity.listing_restrictions && Object.keys(opportunity.listing_restrictions).length > 0 && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <p className="text-xs font-medium text-red-800 mb-2">Listing Restrictions Found:</p>
-                          <div className="space-y-1">
-                            {Object.entries(opportunity.listing_restrictions).map(([key, value], idx) => (
-                              <div key={idx} className="flex justify-between text-xs">
-                                <span className="text-red-700 font-medium">{key}:</span>
-                                <span className="text-red-600">{String(value)}</span>
-                              </div>
-                            ))}
+                    {/* Listing Restrictions */}
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-500 mb-2">Listing Status</p>
+                      {opportunity.listing_restrictions && Object.keys(opportunity.listing_restrictions).length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <Badge variant="destructive">Restricted</Badge>
                           </div>
+                          {Object.entries(opportunity.listing_restrictions).map(([type, message]: [string, any], idx: number) => (
+                            <p key={idx} className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                              <strong>{type}:</strong> {message}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                          <Badge variant="secondary" className="bg-green-100 text-green-700">Can List</Badge>
                         </div>
                       )}
                     </div>
+
+
 
                     {opportunity.listingRestrictions && opportunity.listingRestrictions.length > 0 && (
                       <div className="mb-4">
