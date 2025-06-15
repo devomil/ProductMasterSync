@@ -19,7 +19,7 @@ interface Product {
   sku: string;
   name: string;
   upc: string | null;
-  manufacturerPartNumber: string | null;
+  manufacturer_part_number: string | null;
 }
 
 interface ASINDiscoveryResult {
@@ -136,7 +136,7 @@ export class BatchASINProcessor {
    */
   private async getProductsToProcess(options: any): Promise<Product[]> {
     let query = `
-      SELECT id, sku, name, upc, "manufacturerPartNumber"
+      SELECT id, sku, name, upc, manufacturer_part_number
       FROM products 
       WHERE status = 'active'
     `;
@@ -145,7 +145,7 @@ export class BatchASINProcessor {
     const params: any[] = [];
 
     if (options.onlyWithUPCOrMPN) {
-      conditions.push(`(upc IS NOT NULL OR "manufacturerPartNumber" IS NOT NULL)`);
+      conditions.push(`(upc IS NOT NULL OR manufacturer_part_number IS NOT NULL)`);
     }
 
     if (options.skipRecentlyProcessed) {
@@ -243,9 +243,9 @@ export class BatchASINProcessor {
       }
 
       // Search by manufacturer part number if available
-      if (product.manufacturerPartNumber) {
+      if (product.manufacturer_part_number) {
         try {
-          const mpnResults = await this.searchByManufacturerPartNumber(product.manufacturerPartNumber);
+          const mpnResults = await this.searchByManufacturerPartNumber(product.manufacturer_part_number);
           // Filter out duplicates from UPC search
           const newResults = mpnResults.filter(mpnAsin => 
             !asinsFound.some(existingAsin => existingAsin.asin === mpnAsin.asin)
@@ -253,7 +253,7 @@ export class BatchASINProcessor {
           asinsFound.push(...newResults.map(asin => ({ 
             ...asin, 
             searchMethod: 'manufacturer_part_number' as const,
-            manufacturerPartNumber: product.manufacturerPartNumber 
+            manufacturerPartNumber: product.manufacturer_part_number 
           })));
         } catch (error: any) {
           console.warn(`[BatchProcessor] MPN search failed for product ${product.id}:`, error.message);
