@@ -28,7 +28,7 @@ export async function searchMultipleASINs(req: Request, res: Response) {
     );
 
     // Extract ASINs and basic product info
-    const asins = results.map(item => ({
+    const asins = results.map((item: any) => ({
       asin: item.asin,
       title: item.attributes?.item_name?.[0]?.value || 'Unknown',
       brand: item.attributes?.brand?.[0]?.value || 'Unknown',
