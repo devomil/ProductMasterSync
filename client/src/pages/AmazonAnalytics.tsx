@@ -624,27 +624,7 @@ export default function AmazonAnalytics() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {displayOpportunities.map((opportunity: any, index: number) => (
-                <Card key={index}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h3 className="font-semibold text-lg">{opportunity.productName}</h3>
-                        <Badge variant="outline">{opportunity.category}</Badge>
-                        <Badge 
-                          variant={opportunity.opportunityScore >= 90 ? 'default' : opportunity.opportunityScore >= 70 ? 'secondary' : 'outline'}
-                        >
-                          Score: {opportunity.opportunityScore}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
-                        <div>ASIN: {opportunity.asin}</div>
-                        <div>SKU: {opportunity.sku}</div>
-                        <div>UPC: {opportunity.upc}</div>
-                        <div>Sales Rank: #{opportunity.salesRank?.toLocaleString()}</div>
-                      </div>
+            <ProductOpportunityList opportunities={displayOpportunities} />
                       
                       <div className="grid grid-cols-4 gap-4 mb-4">
                         <div>
