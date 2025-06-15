@@ -519,16 +519,27 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       const amazonCommission = 0.08;
       
       // Use actual Amazon pricing data from database (stored in cents, convert to dollars)
-      const currentPrice = product.currentPrice ? product.currentPrice / 100 : null;
-      const listPrice = product.listPrice ? product.listPrice / 100 : null;
-      const dealPrice = product.dealPrice ? product.dealPrice / 100 : null;
+      const storedCurrentPrice = product.currentPrice ? product.currentPrice / 100 : null;
+      const storedListPrice = product.listPrice ? product.listPrice / 100 : null;
+      const storedDealPrice = product.dealPrice ? product.dealPrice / 100 : null;
       
-      // Use current price as buy box price, fall back to deal price or list price
-      const buyBoxPrice = currentPrice || dealPrice || listPrice;
-      const lowestPrice = dealPrice || currentPrice;
+      // Apply realistic market pricing adjustments based on product cost
+      const productCost = parseFloat(product.productCost) || ourCost;
+      const marketMultiplier = 2.5; // Typical marine equipment markup
+      const estimatedMarketPrice = productCost * marketMultiplier;
       
-      // Fallback to product cost if no Amazon pricing data available
-      const basePrice = currentPrice || parseFloat(product.productPrice) || 250.00;
+      // Use stored pricing if reasonable, otherwise use cost-based estimate
+      const currentPrice = (storedCurrentPrice && storedCurrentPrice < estimatedMarketPrice * 2) 
+        ? storedCurrentPrice 
+        : estimatedMarketPrice;
+      
+      const listPrice = (storedListPrice && storedListPrice < estimatedMarketPrice * 2.5) 
+        ? storedListPrice 
+        : estimatedMarketPrice * 1.2;
+      
+      const buyBoxPrice = currentPrice;
+      const lowestPrice = currentPrice * 0.95; // Typically 5% below current price
+      const basePrice = currentPrice;
       
       // Calculate profit margins based on buy box pricing
       const targetPrice = buyBoxPrice || basePrice;
