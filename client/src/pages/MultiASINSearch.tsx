@@ -77,7 +77,7 @@ export default function MultiASINSearch() {
   const queryClient = useQueryClient();
 
   // Fetch products for selection
-  const { data: products } = useQuery({
+  const { data: products = [] } = useQuery({
     queryKey: ['/api/products'],
     enabled: searchType === 'product'
   });
@@ -149,6 +149,104 @@ export default function MultiASINSearch() {
     }
   });
 
+  // ASIN direct lookup mutation
+  const asinSearchMutation = useMutation({
+    mutationFn: async (asin: string) => {
+      const response = await apiRequest(`/api/marketplace/asin-details/${asin}`);
+      return response;
+    },
+    onSuccess: (data) => {
+      if (data.success && data.asinDetails) {
+        setSearchResults({
+          searchCriteria: { asin: asinDirect },
+          foundASINs: [data.asinDetails],
+          totalFound: 1
+        });
+        toast({
+          title: "ASIN Found",
+          description: `Retrieved details for ${asinDirect}`
+        });
+      } else {
+        toast({
+          title: "ASIN Not Found",
+          description: "No details found for this ASIN",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "ASIN Search Failed",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Description-based search mutation
+  const descriptionSearchMutation = useMutation({
+    mutationFn: async (description: string) => {
+      const response = await apiRequest('/api/marketplace/search/description', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          description,
+          maxResults: 20
+        })
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      if (data.success && data.results) {
+        setSearchResults({
+          searchCriteria: { description },
+          foundASINs: data.results,
+          totalFound: data.results.length
+        });
+        toast({
+          title: "Description Search Complete",
+          description: `Found ${data.results.length} matching ASINs`
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Description Search Failed",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive"
+      });
+    }
+  });
+
+  // File upload mutation
+  const fileUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/marketplace/bulk-asin-search', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) throw new Error('Upload failed');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setFileUploadResults(data);
+      toast({
+        title: "File Upload Complete",
+        description: `Processed ${data.processedRows} rows, found ASINs for ${data.successfulSearches} products`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "File Upload Failed",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleManualSearch = () => {
     if (!upc && !manufacturerNumber) {
       toast({
@@ -173,6 +271,55 @@ export default function MultiASINSearch() {
     productSearchMutation.mutate(selectedProductId);
   };
 
+  const handleAsinSearch = () => {
+    if (!asinDirect.trim()) {
+      toast({
+        title: "ASIN Required",
+        description: "Please enter an ASIN to search",
+        variant: "destructive"
+      });
+      return;
+    }
+    asinSearchMutation.mutate(asinDirect.trim());
+  };
+
+  const handleDescriptionSearch = () => {
+    if (!description.trim()) {
+      toast({
+        title: "Description Required",
+        description: "Please enter a product description to search",
+        variant: "destructive"
+      });
+      return;
+    }
+    descriptionSearchMutation.mutate(description.trim());
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a CSV or Excel file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+    fileUploadMutation.mutate(file);
+  };
+
   const selectedProduct = products?.find((p: Product) => p.id.toString() === selectedProductId);
 
   return (
@@ -185,10 +332,13 @@ export default function MultiASINSearch() {
         </div>
       </div>
 
-      <Tabs value={searchType} onValueChange={(value) => setSearchType(value as 'manual' | 'product')}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="manual">Manual Search</TabsTrigger>
-          <TabsTrigger value="product">Product Search</TabsTrigger>
+      <Tabs value={searchType} onValueChange={(value) => setSearchType(value as 'manual' | 'product' | 'asin' | 'description' | 'file-upload')}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="manual">UPC/MPN</TabsTrigger>
+          <TabsTrigger value="product">Product</TabsTrigger>
+          <TabsTrigger value="asin">ASIN</TabsTrigger>
+          <TabsTrigger value="description">Description</TabsTrigger>
+          <TabsTrigger value="file-upload">File Upload</TabsTrigger>
         </TabsList>
 
         <TabsContent value="manual" className="space-y-4">
@@ -292,6 +442,117 @@ export default function MultiASINSearch() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="asin" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Direct ASIN Lookup</CardTitle>
+              <CardDescription>
+                Enter a specific ASIN to retrieve detailed product information from Amazon
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="asin">Amazon ASIN</Label>
+                <Input
+                  id="asin"
+                  placeholder="Enter ASIN (e.g., B000THUD1A)"
+                  value={asinDirect}
+                  onChange={(e) => setAsinDirect(e.target.value)}
+                />
+              </div>
+              <Button 
+                onClick={handleAsinSearch}
+                disabled={asinSearchMutation.isPending}
+                className="w-full"
+              >
+                <Database className="w-4 h-4 mr-2" />
+                {asinSearchMutation.isPending ? 'Looking up...' : 'Lookup ASIN'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="description" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Description-Based Search</CardTitle>
+              <CardDescription>
+                Search Amazon catalog using product descriptions and keywords
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">Product Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Enter product description or keywords (e.g., 'Marine GPS chartplotter with touchscreen')"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <Button 
+                onClick={handleDescriptionSearch}
+                disabled={descriptionSearchMutation.isPending}
+                className="w-full"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                {descriptionSearchMutation.isPending ? 'Searching...' : 'Search by Description'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="file-upload" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bulk File Upload</CardTitle>
+              <CardDescription>
+                Upload CSV or Excel files to search for multiple ASINs at once
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="file-upload">Upload File</Label>
+                <div className="flex items-center gap-4">
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleFileUpload}
+                    ref={fileInputRef}
+                    disabled={isProcessing}
+                  />
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                    disabled={isProcessing}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose File
+                  </Button>
+                </div>
+              </div>
+              
+              {isProcessing && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Processing file...</span>
+                  </div>
+                  <Progress value={uploadProgress} className="w-full" />
+                </div>
+              )}
+
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p><strong>Supported formats:</strong> CSV, Excel (.xlsx, .xls)</p>
+                <p><strong>Expected columns:</strong> UPC, MPN/Part Number, ASIN, Description, Brand, Model</p>
+                <p><strong>Note:</strong> The system will automatically detect column mappings from your file</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {searchResults && (
@@ -358,6 +619,85 @@ export default function MultiASINSearch() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {fileUploadResults && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              File Upload Results
+              <Badge variant="secondary">
+                {fileUploadResults.successfulSearches}/{fileUploadResults.processedRows} Found
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Processed {fileUploadResults.totalRows} rows from uploaded file
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="font-semibold text-green-700">{fileUploadResults.successfulSearches}</div>
+                  <div className="text-green-600">Successful</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <div className="font-semibold text-red-700">{fileUploadResults.failedSearches}</div>
+                  <div className="text-red-600">Failed</div>
+                </div>
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="font-semibold text-blue-700">{fileUploadResults.processedRows}</div>
+                  <div className="text-blue-600">Total Processed</div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {fileUploadResults.results.map((result, index) => (
+                  <div key={index} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="outline">Row {result.row}</Badge>
+                      <Badge variant={result.foundASINs.length > 0 ? "default" : "destructive"}>
+                        {result.foundASINs.length} ASINs
+                      </Badge>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Search Criteria: {JSON.stringify(result.searchCriteria)}
+                    </div>
+
+                    {result.error && (
+                      <div className="text-sm text-red-600 mb-2">
+                        Error: {result.error}
+                      </div>
+                    )}
+
+                    {result.foundASINs.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {result.foundASINs.map((asin) => (
+                          <div key={asin.asin} className="flex items-center gap-2 p-2 bg-muted rounded">
+                            <Badge variant="outline" className="text-xs">{asin.asin}</Badge>
+                            <span className="text-xs truncate">{asin.title}</span>
+                            <a
+                              href={`https://amazon.com/dp/${asin.asin}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

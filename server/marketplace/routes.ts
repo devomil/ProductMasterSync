@@ -847,4 +847,322 @@ router.post('/amazon/refresh-pricing', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /marketplace/asin-details/:asin
+ * Get detailed information for a specific ASIN
+ */
+router.get('/asin-details/:asin', async (req, res) => {
+  try {
+    const { asin } = req.params;
+    
+    if (!asin || !/^[A-Z0-9]{10}$/.test(asin)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ASIN format'
+      });
+    }
+
+    // First check if we have this ASIN in our database
+    const existingAsin = await db
+      .select()
+      .from(amazonAsins)
+      .where(eq(amazonAsins.asin, asin))
+      .limit(1);
+
+    if (existingAsin.length > 0) {
+      const asinData = existingAsin[0];
+      return res.json({
+        success: true,
+        asinDetails: {
+          asin: asinData.asin,
+          title: asinData.title,
+          brand: asinData.brand,
+          imageUrl: asinData.imageUrl,
+          category: asinData.category,
+          salesRank: asinData.salesRank,
+          manufacturerNumber: asinData.manufacturerNumber
+        }
+      });
+    }
+
+    // If not in database, fetch from Amazon SP-API
+    const { searchCatalogItemsByKeywords } = await import('../utils/amazon-spapi');
+    const catalogItems = await searchCatalogItemsByKeywords(asin, getAmazonConfig());
+    
+    if (catalogItems.length === 0) {
+      return res.json({
+        success: false,
+        message: 'ASIN not found'
+      });
+    }
+
+    const item = catalogItems[0];
+    const asinDetails = {
+      asin: item.asin,
+      title: item.attributes?.item_name?.[0]?.value || 'Unknown',
+      brand: item.attributes?.brand?.[0]?.value || 'Unknown',
+      imageUrl: item.images?.[0]?.images?.[0]?.link,
+      category: item.productTypes?.[0]?.displayName || 'Unknown',
+      salesRank: item.salesRanks?.[0]?.rank,
+      manufacturerNumber: item.attributes?.part_number?.[0]?.value
+    };
+
+    // Store in database for future reference
+    await db
+      .insert(amazonAsins)
+      .values({
+        asin: asinDetails.asin,
+        title: asinDetails.title,
+        brand: asinDetails.brand,
+        imageUrl: asinDetails.imageUrl,
+        category: asinDetails.category,
+        salesRank: asinDetails.salesRank,
+        manufacturerNumber: asinDetails.manufacturerNumber,
+        isActive: true
+      })
+      .onConflictDoNothing();
+
+    res.json({
+      success: true,
+      asinDetails
+    });
+
+  } catch (error) {
+    console.error('ASIN details lookup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to lookup ASIN details',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * POST /marketplace/search/description
+ * Search Amazon catalog using product descriptions
+ */
+router.post('/search/description', async (req, res) => {
+  try {
+    const { description, maxResults = 20 } = req.body;
+    
+    if (!description || typeof description !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Description is required'
+      });
+    }
+
+    const { searchCatalogItemsByKeywords } = await import('../utils/amazon-spapi');
+    const catalogItems = await searchCatalogItemsByKeywords(description, getAmazonConfig());
+    
+    const results = catalogItems.slice(0, maxResults).map(item => ({
+      asin: item.asin,
+      title: item.attributes?.item_name?.[0]?.value || 'Unknown',
+      brand: item.attributes?.brand?.[0]?.value || 'Unknown',
+      imageUrl: item.images?.[0]?.images?.[0]?.link,
+      category: item.productTypes?.[0]?.displayName || 'Unknown',
+      salesRank: item.salesRanks?.[0]?.rank,
+      manufacturerNumber: item.attributes?.part_number?.[0]?.value
+    }));
+
+    res.json({
+      success: true,
+      results,
+      searchDescription: description,
+      totalFound: results.length
+    });
+
+  } catch (error) {
+    console.error('Description search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search by description',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * POST /marketplace/bulk-asin-search
+ * Process CSV/Excel file upload for bulk ASIN searching
+ */
+router.post('/bulk-asin-search', async (req, res) => {
+  try {
+    const multer = await import('multer');
+    const upload = multer.default({ storage: multer.default.memoryStorage() });
+    
+    // Handle file upload
+    upload.single('file')(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({
+          success: false,
+          message: 'File upload failed',
+          error: err.message
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded'
+        });
+      }
+
+      try {
+        // Process the uploaded file
+        const { processUploadedFile } = await import('../services/file-processor');
+        const fileData = await processUploadedFile(req.file);
+        
+        if (!fileData.success) {
+          return res.status(400).json({
+            success: false,
+            message: 'Failed to process file',
+            error: fileData.error
+          });
+        }
+
+        const { searchProductMultipleWays } = await import('../utils/amazon-spapi');
+        const results = [];
+        let successfulSearches = 0;
+        let failedSearches = 0;
+
+        // Process each row from the file
+        for (let i = 0; i < fileData.rows.length; i++) {
+          const row = fileData.rows[i];
+          try {
+            // Extract search criteria from row
+            const searchCriteria: any = {};
+            
+            // Map common column variations
+            const upcFields = ['upc', 'upc_code', 'barcode', 'gtin'];
+            const mpnFields = ['mpn', 'manufacturer_part_number', 'part_number', 'model', 'manufacturer_number'];
+            const asinFields = ['asin', 'amazon_asin'];
+            const descriptionFields = ['description', 'product_description', 'item_description', 'title', 'name'];
+
+            // Find UPC
+            for (const field of upcFields) {
+              if (row[field] && row[field].trim()) {
+                searchCriteria.upc = row[field].trim();
+                break;
+              }
+            }
+
+            // Find MPN
+            for (const field of mpnFields) {
+              if (row[field] && row[field].trim()) {
+                searchCriteria.manufacturerNumber = row[field].trim();
+                break;
+              }
+            }
+
+            // Find ASIN
+            for (const field of asinFields) {
+              if (row[field] && row[field].trim()) {
+                searchCriteria.asin = row[field].trim();
+                break;
+              }
+            }
+
+            // Find Description
+            for (const field of descriptionFields) {
+              if (row[field] && row[field].trim()) {
+                searchCriteria.description = row[field].trim();
+                break;
+              }
+            }
+
+            let foundASINs = [];
+
+            // Search by UPC/MPN if available
+            if (searchCriteria.upc || searchCriteria.manufacturerNumber) {
+              const amazonResults = await searchProductMultipleWays(
+                searchCriteria.upc, 
+                searchCriteria.manufacturerNumber
+              );
+              
+              foundASINs = amazonResults.map((item: any) => ({
+                asin: item.asin,
+                title: item.attributes?.item_name?.[0]?.value || 'Unknown',
+                brand: item.attributes?.brand?.[0]?.value || 'Unknown',
+                imageUrl: item.images?.[0]?.images?.[0]?.link,
+                category: item.productTypes?.[0]?.displayName || 'Unknown',
+                salesRank: item.salesRanks?.[0]?.rank,
+                manufacturerNumber: item.attributes?.part_number?.[0]?.value
+              }));
+            }
+
+            // If no results and we have description, try description search
+            if (foundASINs.length === 0 && searchCriteria.description) {
+              const { searchCatalogItemsByKeywords } = await import('../utils/amazon-spapi');
+              const catalogItems = await searchCatalogItemsByKeywords(
+                searchCriteria.description, 
+                getAmazonConfig()
+              );
+              
+              foundASINs = catalogItems.slice(0, 5).map(item => ({
+                asin: item.asin,
+                title: item.attributes?.item_name?.[0]?.value || 'Unknown',
+                brand: item.attributes?.brand?.[0]?.value || 'Unknown',
+                imageUrl: item.images?.[0]?.images?.[0]?.link,
+                category: item.productTypes?.[0]?.displayName || 'Unknown',
+                salesRank: item.salesRanks?.[0]?.rank,
+                manufacturerNumber: item.attributes?.part_number?.[0]?.value
+              }));
+            }
+
+            if (foundASINs.length > 0) {
+              successfulSearches++;
+            } else {
+              failedSearches++;
+            }
+
+            results.push({
+              row: i + 1,
+              searchCriteria,
+              foundASINs,
+              error: foundASINs.length === 0 ? 'No ASINs found' : undefined
+            });
+
+            // Rate limiting between searches
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+          } catch (error) {
+            failedSearches++;
+            results.push({
+              row: i + 1,
+              searchCriteria: {},
+              foundASINs: [],
+              error: error instanceof Error ? error.message : 'Search failed'
+            });
+          }
+        }
+
+        res.json({
+          totalRows: fileData.rows.length,
+          processedRows: results.length,
+          successfulSearches,
+          failedSearches,
+          results
+        });
+
+      } catch (processingError) {
+        console.error('File processing error:', processingError);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to process uploaded file',
+          error: processingError instanceof Error ? processingError.message : 'Unknown error'
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error('Bulk ASIN search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process bulk ASIN search',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
