@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express';
-import { getCompetitivePricing, getItemOffers } from '../utils/amazon-spapi.js';
+import { getPricing, getCompetitivePricing, getItemOffers } from '../utils/amazon-spapi.js';
 
 const router = Router();
 
@@ -16,15 +16,17 @@ router.get('/test-pricing/:asin', async (req, res) => {
     
     console.log(`Testing pricing for ASIN: ${asin}`);
     
-    // Get competitive pricing
-    const competitivePricing = await getCompetitivePricing([asin]);
-    
-    // Get item offers (lowest prices)
-    const itemOffers = await getItemOffers([asin]);
+    // Get all three types of pricing data
+    const [pricing, competitivePricing, itemOffers] = await Promise.all([
+      getPricing([asin]),
+      getCompetitivePricing([asin]),
+      getItemOffers([asin])
+    ]);
     
     res.json({
       success: true,
       asin,
+      pricing,
       competitivePricing,
       itemOffers,
       timestamp: new Date().toISOString()

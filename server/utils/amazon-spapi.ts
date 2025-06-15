@@ -274,20 +274,56 @@ export function validateAmazonConfig(config: SPAPIConfig): boolean {
 }
 
 /**
+ * Get pricing information including buy box pricing using SP-API Product Pricing API
+ */
+export async function getPricing(asins: string[]): Promise<any[]> {
+  const config = getAmazonConfig();
+  const accessToken = await getAccessToken(config);
+  const results = [];
+  const batchSize = 20;
+
+  for (let i = 0; i < asins.length; i += batchSize) {
+    const batch = asins.slice(i, i + batchSize);
+    
+    try {
+      const response = await axios.get(`${config.endpoint}/products/pricing/v0/pricing`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        },
+        params: {
+          MarketplaceId: config.marketplaceId,
+          Asins: batch.join(','),
+          ItemCondition: 'New'
+        }
+      });
+
+      if (response.data && response.data.payload) {
+        results.push(...response.data.payload);
+      }
+    } catch (error) {
+      console.error(`Error fetching pricing for batch:`, error);
+    }
+    
+    // Rate limiting
+    if (i + batchSize < asins.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  return results;
+}
+
+/**
  * Get competitive pricing information for ASINs using SP-API Product Pricing API
  */
 export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
   const config = getAmazonConfig();
-  
-  if (!validateAmazonConfig(config)) {
-    throw new Error('Amazon SP-API configuration is invalid');
-  }
-
   const accessToken = await getAccessToken(config);
-  const batchSize = 20; // SP-API limit for pricing requests
   const results = [];
+  const batchSize = 20;
 
-  // Process ASINs in batches of 20
   for (let i = 0; i < asins.length; i += batchSize) {
     const batch = asins.slice(i, i + batchSize);
     
@@ -301,8 +337,7 @@ export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
         params: {
           MarketplaceId: config.marketplaceId,
           Asins: batch.join(','),
-          ItemCondition: 'New',
-          CustomerType: 'Consumer'
+          ItemCondition: 'New'
         }
       });
 
@@ -311,7 +346,11 @@ export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
       }
     } catch (error) {
       console.error(`Error fetching competitive pricing for batch:`, error);
-      // Continue with next batch even if one fails
+    }
+    
+    // Rate limiting
+    if (i + batchSize < asins.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
