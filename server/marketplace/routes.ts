@@ -552,13 +552,6 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       message: `Found ${opportunities.length} Amazon marketplace opportunities from your stored ASIN data.`
     });
 
-    res.json({
-      success: true,
-      opportunities,
-      total: opportunities.length,
-      message: `Found ${opportunities.length} marketplace opportunities with real Amazon data`
-    });
-
   } catch (error) {
     console.error('Error fetching pricing opportunities:', error);
     res.status(500).json({ 
