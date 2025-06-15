@@ -20,11 +20,12 @@ interface PricingCalculation {
 }
 
 export class CostBasedPricingService {
-  // Marine equipment industry standards
-  private readonly MARINE_MARKUP_MULTIPLIER = 2.5;
-  private readonly COMPETITIVE_DISCOUNT = 0.95; // 5% below market
-  private readonly LIST_PRICE_PREMIUM = 1.2; // 20% above market
-  private readonly MIN_MARGIN_PERCENT = 0.25; // 25% minimum margin
+  // Realistic marine equipment pricing based on actual Amazon market analysis
+  // Example: B000K2IHAI cost $159.66, Amazon price ~$150-200 (not inflated $379)
+  private readonly MARINE_MARKUP_MULTIPLIER = 1.6; // 60% markup (realistic market rate)
+  private readonly COMPETITIVE_DISCOUNT = 0.92; // 8% below market for competitiveness
+  private readonly LIST_PRICE_PREMIUM = 1.15; // 15% above competitive price
+  private readonly MIN_MARGIN_PERCENT = 0.20; // 20% minimum margin
 
   async calculateMarketPricing(asins: string[]): Promise<Map<string, PricingCalculation>> {
     const results = new Map<string, PricingCalculation>();
