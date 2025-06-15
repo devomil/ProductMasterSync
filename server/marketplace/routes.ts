@@ -468,7 +468,7 @@ router.get('/analytics/trends', async (req: Request, res: Response) => {
 
 router.get('/analytics/opportunities', async (req: Request, res: Response) => {
   try {
-    // Query products with Amazon ASIN mappings - simplified to avoid schema issues
+    // Query products with Amazon ASIN mappings and pricing data
     const productsWithAsins = await db
       .select({
         productId: products.id,
@@ -483,11 +483,21 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         asinTitle: amazonAsins.title,
         asinBrand: amazonAsins.brand,
         asinUpc: amazonAsins.upc,
-        asinPartNumber: amazonAsins.partNumber
+        asinPartNumber: amazonAsins.partNumber,
+        // Real Amazon pricing data
+        currentPrice: amazonMarketIntelligence.currentPrice,
+        listPrice: amazonMarketIntelligence.listPrice,
+        dealPrice: amazonMarketIntelligence.dealPrice,
+        lowestPrice30Day: amazonMarketIntelligence.lowestPrice30Day,
+        totalSellers: amazonMarketIntelligence.totalSellers,
+        salesRank: amazonMarketIntelligence.salesRank,
+        categoryRank: amazonMarketIntelligence.categoryRank,
+        updatedAt: amazonMarketIntelligence.updatedAt
       })
       .from(products)
       .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
       .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
+      .leftJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(eq(productAsinMapping.isActive, true))
       .limit(50);
@@ -508,34 +518,37 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       const shippingCost = 15.00;
       const amazonCommission = 0.08;
       
-      // Convert pricing data from cents to dollars for actual Amazon data
+      // Use actual Amazon pricing data from database (stored in cents, convert to dollars)
       const currentPrice = product.currentPrice ? product.currentPrice / 100 : null;
       const listPrice = product.listPrice ? product.listPrice / 100 : null;
+      const dealPrice = product.dealPrice ? product.dealPrice / 100 : null;
+      const lowestPrice30Day = product.lowestPrice30Day ? product.lowestPrice30Day / 100 : null;
       
-      // Generate realistic buy box and lowest pricing based on current pricing
+      // Use current price as buy box price, fall back to deal price or list price
+      const buyBoxPrice = currentPrice || dealPrice || listPrice;
+      const lowestPrice = lowestPrice30Day || currentPrice || dealPrice;
+      
+      // Fallback to product cost if no Amazon pricing data available
       const basePrice = currentPrice || parseFloat(product.productPrice) || 250.00;
-      const buyBoxPrice = currentPrice ? basePrice * (0.95 + Math.random() * 0.1) : basePrice * 1.05; // 5-15% variation
-      const lowestPrice = currentPrice ? basePrice * (0.85 + Math.random() * 0.1) : basePrice * 0.9; // 10-15% lower
       
       // Calculate profit margins based on buy box pricing
-      const targetPrice = buyBoxPrice;
+      const targetPrice = buyBoxPrice || basePrice;
       const totalCost = ourCost + shippingCost;
       const amazonFees = targetPrice * amazonCommission;
       const netProfit = targetPrice - totalCost - amazonFees;
       const profitMargin = targetPrice > 0 ? (netProfit / targetPrice) * 100 : 0;
       
-      // Generate realistic offer count and fulfillment data
-      const offerCount = 3 + Math.floor(Math.random() * 12); // 3-15 sellers
-      const fulfillmentOptions = ['FBA', 'FBM', 'Prime'];
-      const fulfillmentChannel = fulfillmentOptions[Math.floor(Math.random() * fulfillmentOptions.length)];
+      // Use actual Amazon data or provide defaults
+      const offerCount = product.totalSellers || 1;
+      const fulfillmentChannel = 'FBA'; // Default since we don't have this field in current schema
       
       return {
         asin: product.asin,
         productName: product.productName || product.asinTitle || 'Unknown Product',
         currentPrice: basePrice,
         // Amazon-specific pricing fields for enhanced UI
-        amazon_buy_box_price: Math.round(buyBoxPrice * 100) / 100,
-        amazon_lowest_price: Math.round(lowestPrice * 100) / 100,
+        amazon_buy_box_price: buyBoxPrice || Math.round(basePrice * 1.05 * 100) / 100,
+        amazon_lowest_price: lowestPrice || Math.round(basePrice * 0.9 * 100) / 100,
         amazon_list_price: listPrice || Math.round(basePrice * 1.2 * 100) / 100,
         amazon_offer_count: offerCount,
         amazon_fulfillment_channel: fulfillmentChannel,
