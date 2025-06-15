@@ -3303,6 +3303,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register additional routes
+  app.use('/api/marketplace', marketplaceRoutes);
+  app.use('/api/scheduler', schedulerRoutes);
+  app.use('/api/ai-purchasing', aiPurchasingRoutes);
+  app.use('/api/pricing-test', pricingTestRoutes);
+
   // Register connections management routes
   // Register connections routes directly
   registerConnectionsRoutes(app);
