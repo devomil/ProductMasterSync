@@ -649,34 +649,34 @@ export default function AmazonAnalytics() {
                       <div className="grid grid-cols-4 gap-4 mb-4">
                         <div>
                           <p className="text-sm font-medium text-gray-500">Our Price</p>
-                          <p className="text-lg font-bold text-green-600">${opportunity.currentPrice.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-green-600">${parseFloat(opportunity.currentPrice).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-500">Competitor Price</p>
-                          <p className="text-lg font-bold text-red-600">${opportunity.competitorPrice.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-red-600">${parseFloat(opportunity.competitorPrice).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-500">Our Cost</p>
-                          <p className="text-lg font-bold text-gray-700">${opportunity.ourCost?.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-gray-700">${parseFloat(opportunity.ourCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-500">Profit Margin</p>
-                          <p className="text-lg font-bold text-blue-600">{opportunity.profitMargin?.toFixed(1)}%</p>
+                          <p className="text-lg font-bold text-blue-600">{parseFloat(opportunity.profitMargin || 0).toFixed(1)}%</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-4 mb-4">
                         <div>
                           <p className="text-sm font-medium text-gray-500">Shipping Cost</p>
-                          <p className="text-sm text-gray-700">${opportunity.shippingCost?.toFixed(2)}</p>
+                          <p className="text-sm text-gray-700">${parseFloat(opportunity.shippingCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-500">Amazon Commission</p>
-                          <p className="text-sm text-gray-700">{opportunity.amazonCommission?.toFixed(1)}%</p>
+                          <p className="text-sm text-gray-700">{parseFloat(opportunity.amazonCommission || 0).toFixed(1)}%</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Potential Savings</p>
-                          <p className="text-sm font-bold text-blue-600">${opportunity.potentialSavings.toFixed(2)}</p>
+                          <p className="text-sm font-medium text-gray-500">Net Profit</p>
+                          <p className="text-sm font-bold text-blue-600">${parseFloat(opportunity.netProfit || 0).toFixed(2)}</p>
                         </div>
                       </div>
 
