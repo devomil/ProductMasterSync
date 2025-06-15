@@ -475,18 +475,32 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         productName: products.name,
         productCost: products.cost,
         productPrice: products.price,
+        productSku: products.sku,
+        productUpc: products.upc,
+        productManufacturerPartNumber: products.manufacturerPartNumber,
+        categoryName: categories.name,
         asin: productAsinMapping.asin,
         asinTitle: amazonAsins.title,
         asinBrand: amazonAsins.brand,
+        asinUpc: amazonAsins.upc,
+        asinPartNumber: amazonAsins.partNumber,
+        // Amazon pricing data
         currentPrice: amazonMarketIntelligence.currentPrice,
         listPrice: amazonMarketIntelligence.listPrice,
+        // Market intelligence
         salesRank: amazonMarketIntelligence.salesRank,
-        categoryRank: amazonMarketIntelligence.categoryRank
+        categoryRank: amazonMarketIntelligence.categoryRank,
+        opportunityScore: amazonMarketIntelligence.opportunityScore,
+        profitMarginPercent: amazonMarketIntelligence.profitMarginPercent,
+        estimatedSalesPerMonth: amazonMarketIntelligence.estimatedSalesPerMonth,
+        totalSellers: amazonMarketIntelligence.totalSellers,
+        updatedAt: amazonMarketIntelligence.updatedAt
       })
       .from(products)
       .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
       .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .leftJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(eq(productAsinMapping.isActive, true))
       .limit(50);
 
@@ -500,47 +514,57 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       });
     }
 
-    // Transform the data into opportunities format
+    // Transform the data into opportunities format using actual Amazon pricing data
     const opportunities = productsWithAsins.map((product: any) => {
-      const ourCost = product.productCost || 150.00; // Fallback cost for marine products
-      const shippingCost = 15.00; // Marine equipment shipping
-      const amazonCommission = 0.08; // 8% for marine/automotive category
-      const estimatedPrice = product.productPrice || 250.00; // Our selling price
-      const competitorPrice = estimatedPrice * 1.2; // Estimated 20% higher competitor pricing
+      const ourCost = product.productCost || 150.00;
+      const shippingCost = 15.00;
+      const amazonCommission = 0.08;
       
+      // Use actual Amazon pricing data when available
+      const buyBoxPrice = product.buyBoxPrice ? parseFloat(product.buyBoxPrice) : null;
+      const lowestPrice = product.lowestPrice ? parseFloat(product.lowestPrice) : null;
+      const currentPrice = product.currentPrice ? parseFloat(product.currentPrice) : null;
+      const listPrice = product.listPrice ? parseFloat(product.listPrice) : null;
+      
+      // Calculate profit margins based on actual Amazon pricing
+      const targetPrice = buyBoxPrice || currentPrice || product.productPrice || 250.00;
       const totalCost = ourCost + shippingCost;
-      const amazonFees = estimatedPrice * amazonCommission;
-      const netProfit = estimatedPrice - totalCost - amazonFees;
-      const profitMargin = estimatedPrice > 0 ? netProfit / estimatedPrice : 0;
+      const amazonFees = targetPrice * amazonCommission;
+      const netProfit = targetPrice - totalCost - amazonFees;
+      const profitMargin = targetPrice > 0 ? (netProfit / targetPrice) * 100 : 0;
       
       return {
         asin: product.asin,
         productName: product.productName || product.asinTitle || 'Unknown Product',
-        currentPrice: estimatedPrice,
-        competitorPrice: competitorPrice,
-        listPrice: estimatedPrice * 1.1,
-        opportunityScore: 75 + Math.floor(Math.random() * 20), // 75-95 for marine products
-        category: 'Marine Equipment',
-        salesRank: product.salesRank || Math.floor(Math.random() * 10000) + 5000,
-        categoryRank: product.categoryRank || Math.floor(Math.random() * 1000) + 100,
-        amazonCommission: amazonCommission * 100, // Convert to percentage
+        currentPrice: currentPrice || targetPrice,
+        // Amazon-specific pricing fields for enhanced UI
+        amazon_buy_box_price: buyBoxPrice,
+        amazon_lowest_price: lowestPrice,
+        amazon_list_price: listPrice,
+        amazon_offer_count: product.offerCount || 0,
+        amazon_fulfillment_channel: product.fulfillmentChannel || 'Unknown',
+        // Market data
+        opportunityScore: product.opportunityScore || 75,
+        category: product.categoryName || 'Marine Equipment',
+        salesRank: product.salesRank,
+        categoryRank: product.categoryRank,
+        amazonCommission: amazonCommission * 100,
         ourCost,
         shippingCost,
         totalCost,
         amazonFees: Math.round(amazonFees * 100) / 100,
         netProfit: Math.round(netProfit * 100) / 100,
-        profitMargin: Math.round(profitMargin * 100),
-        sku: `MARINE-${product.productId}`,
-        upc: 'Retrieved from Amazon',
-        manufacturerPartNumber: 'From ASIN data',
+        profitMargin: Math.round(profitMargin * 100) / 100,
+        sku: product.productSku || `MARINE-${product.productId}`,
+        upc: product.productUpc || product.asinUpc || 'Retrieved from Amazon',
+        manufacturerPartNumber: product.productManufacturerPartNumber || product.asinManufacturerPartNumber || 'From ASIN data',
         mappingSource: 'Amazon SP-API',
-        inStock: true,
-        isPrime: Math.random() > 0.3,
-        competitionLevel: 'Medium',
-        estimatedSalesPerMonth: Math.floor(Math.random() * 50) + 10,
-        dataFetchedAt: new Date().toISOString(),
+        estimatedSalesPerMonth: product.estimatedSalesPerMonth,
+        dataFetchedAt: product.lastUpdated || new Date().toISOString(),
         amazonTitle: product.asinTitle,
         amazonBrand: product.asinBrand,
+        // Listing restrictions for enhanced UI
+        listing_restrictions: product.listingRestrictions ? JSON.parse(product.listingRestrictions) : {}
       };
     });
 
