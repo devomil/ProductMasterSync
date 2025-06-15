@@ -374,8 +374,8 @@ export class BatchASINProcessor {
           asin.asin,
           asin.canList || true,
           asin.hasListingRestrictions || false,
-          JSON.stringify(asin.restrictionReasonCodes || []),
-          JSON.stringify(asin.restrictionMessages || []),
+          asin.restrictionReasonCodes || [],
+          asin.restrictionMessages || [],
           asin.searchMethod
         ]);
 
