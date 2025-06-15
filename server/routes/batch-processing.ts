@@ -254,7 +254,7 @@ router.get('/history', async (req: Request, res: Response) => {
  */
 router.get('/overview', async (req: Request, res: Response) => {
   try {
-    const db = req.app.get('db') as Pool;
+    const pool = req.app.get('db') as Pool;
 
     // Get overall statistics
     const statsQuery = `
@@ -272,7 +272,7 @@ router.get('/overview', async (req: Request, res: Response) => {
       WHERE p.status = 'active'
     `;
 
-    const statsResult = await db.query(statsQuery);
+    const statsResult = await pool.query(statsQuery);
     const stats = statsResult.rows[0];
 
     // Get recent processing activity
@@ -288,7 +288,7 @@ router.get('/overview', async (req: Request, res: Response) => {
       ORDER BY date DESC
     `;
 
-    const activityResult = await db.query(recentActivityQuery);
+    const activityResult = await pool.query(recentActivityQuery);
 
     // Get top categories by ASIN count
     const categoriesQuery = `
@@ -306,7 +306,7 @@ router.get('/overview', async (req: Request, res: Response) => {
       LIMIT 10
     `;
 
-    const categoriesResult = await db.query(categoriesQuery);
+    const categoriesResult = await pool.query(categoriesQuery);
 
     res.json({
       success: true,
