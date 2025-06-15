@@ -44,6 +44,10 @@ app.use((req, res, next) => {
     log('Setting up database tables...');
     await setupDatabase();
     log('Database tables setup complete.');
+    
+    // Initialize Amazon ASIN mappings with authentic data
+    const { initializeAmazonDatabase } = await import('./services/database-initialization');
+    await initializeAmazonDatabase();
   } catch (error) {
     log('Error setting up database tables:', String(error));
     // Continue initialization even if there's an error
