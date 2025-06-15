@@ -95,12 +95,16 @@ export function ProductCard({ productGroup, onViewDetails }: ProductCardProps) {
                     
                     <div className="grid grid-cols-4 gap-4 mb-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Our Price</p>
-                        <p className="text-lg font-bold text-green-600">${parseFloat(opportunity.currentPrice).toFixed(2)}</p>
+                        <p className="text-sm font-medium text-gray-500">Buy Box Price</p>
+                        <p className="text-lg font-bold text-blue-600">
+                          {opportunity.amazon_buy_box_price ? `$${parseFloat(opportunity.amazon_buy_box_price).toFixed(2)}` : 'N/A'}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Competitor Price</p>
-                        <p className="text-lg font-bold text-red-600">${parseFloat(opportunity.competitorPrice).toFixed(2)}</p>
+                        <p className="text-sm font-medium text-gray-500">Lowest Price</p>
+                        <p className="text-lg font-bold text-orange-600">
+                          {opportunity.amazon_lowest_price ? `$${parseFloat(opportunity.amazon_lowest_price).toFixed(2)}` : 'N/A'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">Our Cost</p>
@@ -108,23 +112,54 @@ export function ProductCard({ productGroup, onViewDetails }: ProductCardProps) {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">Profit Margin</p>
-                        <p className="text-lg font-bold text-blue-600">{parseFloat(opportunity.profitMargin || 0).toFixed(1)}%</p>
+                        <p className="text-lg font-bold text-green-600">{parseFloat(opportunity.profitMargin || 0).toFixed(1)}%</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Shipping Cost</p>
-                        <p className="text-sm text-gray-700">${parseFloat(opportunity.shippingCost || 0).toFixed(2)}</p>
+                        <p className="text-sm font-medium text-gray-500">Offer Count</p>
+                        <p className="text-sm text-gray-700">{opportunity.amazon_offer_count || 0} sellers</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Amazon Commission</p>
-                        <p className="text-sm text-gray-700">{parseFloat(opportunity.amazonCommission || 0).toFixed(1)}%</p>
+                        <p className="text-sm font-medium text-gray-500">Fulfillment</p>
+                        <p className="text-sm text-gray-700">{opportunity.amazon_fulfillment_channel || 'Unknown'}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">Net Profit</p>
                         <p className="text-sm font-bold text-blue-600">${parseFloat(opportunity.netProfit || 0).toFixed(2)}</p>
                       </div>
+                    </div>
+
+                    {/* Listing Restrictions Section */}
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-gray-900">Amazon Listing Status</h4>
+                        {opportunity.listing_restrictions && Object.keys(opportunity.listing_restrictions).length > 0 ? (
+                          <Badge variant="destructive" className="text-xs">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Restricted
+                          </Badge>
+                        ) : (
+                          <Badge variant="default" className="text-xs bg-green-600">
+                            ✓ Can List
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {opportunity.listing_restrictions && Object.keys(opportunity.listing_restrictions).length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <p className="text-xs font-medium text-red-800 mb-2">Listing Restrictions Found:</p>
+                          <div className="space-y-1">
+                            {Object.entries(opportunity.listing_restrictions).map(([key, value], idx) => (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span className="text-red-700 font-medium">{key}:</span>
+                                <span className="text-red-600">{String(value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {opportunity.listingRestrictions && opportunity.listingRestrictions.length > 0 && (
