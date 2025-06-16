@@ -101,22 +101,30 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
     if (!jobId || !isPolling || jobCompleted) return;
 
     try {
+      console.log(`Fetching job status for ${jobId}...`);
       const response = await fetch(`/api/marketplace/bulk-job-status/${jobId}`);
+      
       if (response.ok) {
         const data = await response.json();
-        if (data.success) {
+        console.log('Job status response:', data);
+        
+        if (data.success && data.data) {
           setJob(data.data);
           
+          // Check if job is complete
           if (data.data.status === 'completed' || data.data.status === 'failed') {
-            // Immediately stop all polling
+            console.log(`Job ${jobId} completed with status: ${data.data.status}`);
             stopAllPolling();
             
-            // Only call onJobComplete once for completed jobs
             if (onJobComplete && data.data.status === 'completed') {
               onJobComplete(data.data);
             }
           }
+        } else {
+          console.log('Job status response indicates no success or no data');
         }
+      } else {
+        console.error(`Job status fetch failed with status: ${response.status}`);
       }
     } catch (error) {
       console.error('Error fetching job status:', error);

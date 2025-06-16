@@ -321,10 +321,10 @@ export class BulkASINProcessor extends EventEmitter {
       }
     }
 
-    // Process UPC search with database lookup for authentic Amazon data
+    // Process UPC search with rate limit handling
     if (criteria.upc) {
       try {
-        // Check if we have existing Amazon data for this UPC
+        // First check database for existing Amazon data
         const { db } = await import('../db');
         const { upcAsinMappings, amazonAsins } = await import('../../shared/schema');
         const { eq } = await import('drizzle-orm');
@@ -343,18 +343,36 @@ export class BulkASINProcessor extends EventEmitter {
             brand: mapping.amazon_asins.brand || 'Unknown Brand',
             category: mapping.amazon_asins.category || 'General',
             manufacturerNumber: criteria.upc,
-            imageUrl: mapping.amazon_asins.imageUrl
+            imageUrl: mapping.amazon_asins.primaryImageUrl || undefined
           }));
           
+          console.log(`Found ${foundASINs.length} existing Amazon mappings for UPC ${criteria.upc}`);
           return { foundASINs };
         }
         
-        // If no existing data, create a record for tracking
-        console.log(`No existing Amazon data found for UPC ${criteria.upc}`);
+        // Try Amazon SP-API search with rate limit handling
+        try {
+          const { searchProductMultipleWays } = await import('../utils/amazon-spapi');
+          const results = await searchProductMultipleWays(criteria.upc);
+          
+          if (results && results.length > 0) {
+            console.log(`Amazon API found ${results.length} results for UPC ${criteria.upc}`);
+            return { foundASINs: results };
+          }
+        } catch (apiError: any) {
+          if (apiError.message?.includes('429') || apiError.message?.includes('QuotaExceeded')) {
+            console.log(`Rate limit hit for UPC ${criteria.upc}, continuing with next item`);
+          } else {
+            console.error(`Amazon API error for UPC ${criteria.upc}:`, apiError.message);
+          }
+        }
+        
+        // Record that we processed this UPC even if no results found
+        console.log(`Processed UPC ${criteria.upc} - no Amazon matches found`);
         return { foundASINs: [] };
         
       } catch (error) {
-        console.error(`Database lookup failed for UPC ${criteria.upc}:`, error);
+        console.error(`Processing failed for UPC ${criteria.upc}:`, error);
         return { foundASINs: [] };
       }
     }
