@@ -27,6 +27,7 @@ import AmazonIntegration from "@/pages/AmazonIntegration";
 import AmazonAnalytics from "@/pages/AmazonAnalyticsFixed";
 import AIPurchasing from "@/pages/AIPurchasing";
 import MultiASINSearch from "@/pages/MultiASINSearch";
+import ASINDemo from "@/pages/ASINDemo";
 import BatchProcessing from "@/pages/BatchProcessing";
 import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/amazon-analytics" component={AmazonAnalytics} />
       <Route path="/ai-purchasing" component={AIPurchasing} />
       <Route path="/multi-asin-search" component={MultiASINSearch} />
+      <Route path="/asin-demo" component={ASINDemo} />
       <Route path="/batch-processing" component={BatchProcessing} />
       <Route path="/sample-data-test" component={SampleDataTest} />
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
