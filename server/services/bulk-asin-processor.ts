@@ -6,7 +6,7 @@
  */
 
 import { optimizedRateLimiter } from './optimized-rate-limiter';
-import { searchCatalogItemsByUPC, searchByManufacturerNumber, searchCatalogItemsByKeywords } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC, searchByManufacturerNumber, searchProductMultipleWays } from '../utils/amazon-spapi';
 import { EventEmitter } from 'events';
 
 export interface BulkProcessingJob {
@@ -292,7 +292,7 @@ export class BulkASINProcessor extends EventEmitter {
    */
   private async searchByUPCWithFallback(criteria: any): Promise<any> {
     try {
-      const results = await searchByUPC(criteria.upc);
+      const results = await searchProductMultipleWays(criteria.upc, null, null);
       if (results && results.length > 0) {
         return { foundASINs: results };
       }
@@ -300,7 +300,7 @@ export class BulkASINProcessor extends EventEmitter {
       // UPC search failed, try manufacturer number
       if (criteria.manufacturerNumber) {
         try {
-          const results = await searchByManufacturerNumber(criteria.manufacturerNumber);
+          const results = await searchProductMultipleWays(null, criteria.manufacturerNumber, null);
           if (results && results.length > 0) {
             return { foundASINs: results };
           }
@@ -313,7 +313,7 @@ export class BulkASINProcessor extends EventEmitter {
     // Final fallback to description search
     if (criteria.description) {
       try {
-        const results = await searchCatalogItems(criteria.description);
+        const results = await searchProductMultipleWays(null, null, criteria.description);
         return { foundASINs: results || [] };
       } catch (error) {
         throw error;

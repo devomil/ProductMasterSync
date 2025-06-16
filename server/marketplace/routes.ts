@@ -1075,4 +1075,85 @@ router.post('/bulk-asin-search', async (req, res) => {
   }
 });
 
+/**
+ * GET /marketplace/bulk-job-status/:jobId
+ * Get status of bulk processing job
+ */
+router.get('/bulk-job-status/:jobId', async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+    const { bulkASINProcessor } = await import('../services/bulk-asin-processor');
+    
+    const job = bulkASINProcessor.getJobStatus(jobId);
+    
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: job
+    });
+
+  } catch (error: any) {
+    console.error('Error getting job status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get job status',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /marketplace/bulk-jobs
+ * Get all bulk processing jobs
+ */
+router.get('/bulk-jobs', async (req: Request, res: Response) => {
+  try {
+    const { bulkASINProcessor } = await import('../services/bulk-asin-processor');
+    const jobs = bulkASINProcessor.getAllJobs();
+    
+    res.json({
+      success: true,
+      data: jobs
+    });
+
+  } catch (error: any) {
+    console.error('Error getting bulk jobs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get bulk jobs',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /marketplace/rate-limiter-status
+ * Get current rate limiter status
+ */
+router.get('/rate-limiter-status', async (req: Request, res: Response) => {
+  try {
+    const { optimizedRateLimiter } = await import('../services/optimized-rate-limiter');
+    const status = optimizedRateLimiter.getStatus();
+    
+    res.json({
+      success: true,
+      data: status
+    });
+
+  } catch (error: any) {
+    console.error('Error getting rate limiter status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get rate limiter status',
+      details: error.message
+    });
+  }
+});
+
 export default router;
