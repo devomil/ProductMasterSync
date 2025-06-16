@@ -44,40 +44,61 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
   const [job, setJob] = useState<BulkProcessingJob | null>(null);
   const [rateLimiterStatus, setRateLimiterStatus] = useState<RateLimiterStatus | null>(null);
   const [isPolling, setIsPolling] = useState(false);
-  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [jobStatusInterval, setJobStatusInterval] = useState<NodeJS.Timeout | null>(null);
+  const [rateLimiterInterval, setRateLimiterInterval] = useState<NodeJS.Timeout | null>(null);
+  const [jobCompleted, setJobCompleted] = useState(false);
 
   useEffect(() => {
-    if (jobId && !isPolling) {
+    if (jobId && !isPolling && !jobCompleted) {
       startPolling();
     }
 
     return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
+      if (jobStatusInterval) {
+        clearInterval(jobStatusInterval);
+      }
+      if (rateLimiterInterval) {
+        clearInterval(rateLimiterInterval);
       }
     };
-  }, [jobId]);
+  }, [jobId, jobCompleted]);
+
+  const stopAllPolling = () => {
+    setIsPolling(false);
+    setJobCompleted(true);
+    
+    if (jobStatusInterval) {
+      clearInterval(jobStatusInterval);
+      setJobStatusInterval(null);
+    }
+    if (rateLimiterInterval) {
+      clearInterval(rateLimiterInterval);
+      setRateLimiterInterval(null);
+    }
+  };
 
   const startPolling = () => {
+    if (jobCompleted) return;
+    
     setIsPolling(true);
     
     fetchJobStatus();
     fetchRateLimiterStatus();
     
-    const jobStatusInterval = setInterval(fetchJobStatus, 2000);
-    const rateLimiterInterval = setInterval(fetchRateLimiterStatus, 5000);
+    const jobInterval = setInterval(() => {
+      if (!jobCompleted) fetchJobStatus();
+    }, 2000);
     
-    setPollInterval(jobStatusInterval);
+    const limiterInterval = setInterval(() => {
+      if (!jobCompleted) fetchRateLimiterStatus();
+    }, 5000);
     
-    return () => {
-      clearInterval(jobStatusInterval);
-      clearInterval(rateLimiterInterval);
-      setIsPolling(false);
-    };
+    setJobStatusInterval(jobInterval);
+    setRateLimiterInterval(limiterInterval);
   };
 
   const fetchJobStatus = async () => {
-    if (!jobId) return;
+    if (!jobId || !isPolling || jobCompleted) return;
 
     try {
       const response = await fetch(`/api/marketplace/bulk-job-status/${jobId}`);
@@ -87,14 +108,21 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
           setJob(data.data);
           
           if (data.data.status === 'completed' || data.data.status === 'failed') {
-            // Stop polling immediately
+            // Mark job as completed and stop all polling
+            setJobCompleted(true);
             setIsPolling(false);
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              setPollInterval(null);
+            
+            if (jobStatusInterval) {
+              clearInterval(jobStatusInterval);
+              setJobStatusInterval(null);
             }
-            // Only call onJobComplete once
-            if (onJobComplete && data.data.status === 'completed') {
+            if (rateLimiterInterval) {
+              clearInterval(rateLimiterInterval);
+              setRateLimiterInterval(null);
+            }
+            
+            // Only call onJobComplete once for completed jobs
+            if (onJobComplete && data.data.status === 'completed' && !jobCompleted) {
               onJobComplete(data.data);
             }
           }
@@ -106,6 +134,8 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
   };
 
   const fetchRateLimiterStatus = async () => {
+    if (!isPolling) return;
+    
     try {
       const response = await fetch('/api/marketplace/rate-limiter-status');
       if (response.ok) {
