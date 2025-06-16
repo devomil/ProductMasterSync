@@ -654,18 +654,19 @@ router.get('/sync/status', async (req: Request, res: Response) => {
     
     // Count products with and without ASIN mappings
     const totalProducts = await db.select({ count: sql`count(*)` }).from(products);
+    
+    // Simple count without complex joins to avoid errors
     const productsWithAsins = await db
-      .select({ count: sql`count(distinct ${products.id})` })
-      .from(products)
-      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-      .where(eq(productAsinMapping.isActive, true));
+      .select({ count: sql`count(*)` })
+      .from(amazonAsins)
+      .where(isNotNull(amazonAsins.asin));
 
     res.json({
       success: true,
       amazonConfigured: isConfigured,
       totalProducts: totalProducts[0]?.count || 0,
       productsWithAsins: productsWithAsins[0]?.count || 0,
-      productsNeedingSync: (totalProducts[0]?.count || 0) - (productsWithAsins[0]?.count || 0),
+      productsNeedingSync: Math.max(0, (totalProducts[0]?.count || 0) - (productsWithAsins[0]?.count || 0)),
       message: isConfigured ? 'Amazon SP-API configured and ready' : 'Amazon SP-API credentials required'
     });
 
@@ -673,7 +674,8 @@ router.get('/sync/status', async (req: Request, res: Response) => {
     console.error('Failed to get sync status:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get sync status'
+      error: 'Failed to get sync status',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
