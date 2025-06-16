@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileText, Database, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import BulkProgressMonitor from '@/components/BulkProgressMonitor';
 
 interface ASIN {
   asin: string;
@@ -72,6 +73,8 @@ export default function MultiASINSearch() {
   const [fileUploadResults, setFileUploadResults] = useState<FileUploadResult | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [bulkJobId, setBulkJobId] = useState<string | null>(null);
+  const [showBulkProgress, setShowBulkProgress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -237,11 +240,21 @@ export default function MultiASINSearch() {
       return response.json();
     },
     onSuccess: (data) => {
-      setFileUploadResults(data);
-      toast({
-        title: "File Upload Complete",
-        description: `Processed ${data.processedRows} rows, found ASINs for ${data.successfulSearches} products`
-      });
+      if (data.success && data.jobId) {
+        setBulkJobId(data.jobId);
+        setShowBulkProgress(true);
+        setIsProcessing(false);
+        toast({
+          title: "Bulk Processing Started",
+          description: `Processing ${data.totalRows} rows with optimized rate limiting`
+        });
+      } else {
+        setFileUploadResults(data);
+        toast({
+          title: "File Upload Complete",
+          description: `Processed ${data.processedRows} rows, found ASINs for ${data.successfulSearches} products`
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -627,6 +640,20 @@ export default function MultiASINSearch() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {showBulkProgress && bulkJobId && (
+        <BulkProgressMonitor 
+          jobId={bulkJobId}
+          onJobComplete={(job) => {
+            setShowBulkProgress(false);
+            setBulkJobId(null);
+            toast({
+              title: "Bulk Processing Complete",
+              description: `Processed ${job.totalRows} rows with ${job.successfulSearches} successful searches.`,
+            });
+          }}
+        />
       )}
 
       {fileUploadResults && (
