@@ -13,6 +13,7 @@ import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileT
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import BulkProgressMonitor from '@/components/BulkProgressMonitor';
+import ASINDiscoveryDemo from '@/components/ASINDiscoveryDemo';
 
 interface ASIN {
   asin: string;
@@ -702,10 +703,12 @@ export default function MultiASINSearch() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">Row {result.row}</Badge>
-                        {result.success ? (
+                        {result.foundASINs.length > 0 ? (
                           <CheckCircle className="h-4 w-4 text-green-500" />
-                        ) : (
+                        ) : result.error ? (
                           <XCircle className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
                         )}
                       </div>
                       <Badge variant={result.foundASINs.length > 0 ? "default" : "secondary"}>
@@ -822,7 +825,7 @@ export default function MultiASINSearch() {
                                       }
                                     </span>
                                     <span className="text-gray-500">
-                                      Match Method: {result.searchMethod || 'UPC'}
+                                      Search Type: UPC Lookup
                                     </span>
                                   </div>
                                   <Button variant="outline" size="sm">
@@ -881,6 +884,9 @@ export default function MultiASINSearch() {
           </CardContent>
         </Card>
       )}
+
+      {/* ASIN Discovery Demo - Shows what results look like with valid Amazon API credentials */}
+      <ASINDiscoveryDemo />
     </div>
   );
 }
