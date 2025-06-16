@@ -198,12 +198,30 @@ export class BulkASINProcessor extends EventEmitter {
       job.endTime = new Date();
       job.status = 'completed';
       job.progress = 100;
+      job.estimatedTimeRemaining = 0;
+
+      // Ensure job is updated in the active jobs map
+      this.activeJobs.set(job.id, job);
+
+      console.log(`✓ Bulk job ${job.id} completed successfully`);
+      console.log(`  - Filename: ${job.filename}`);
+      console.log(`  - Total rows: ${job.totalRows}`);
+      console.log(`  - Processed: ${job.processedRows}`);
+      console.log(`  - Successful: ${job.successfulSearches}`);
+      console.log(`  - Failed: ${job.failedSearches}`);
+      console.log(`  - Results: ${job.results.length} entries`);
 
       this.emit('jobCompleted', job);
 
     } catch (error) {
       job.status = 'failed';
       job.endTime = new Date();
+      job.progress = 100;
+      
+      // Ensure failed job is also updated in the active jobs map
+      this.activeJobs.set(job.id, job);
+      
+      console.error(`✗ Bulk job ${job.id} failed:`, error);
       this.emit('jobFailed', { job, error });
     }
   }

@@ -191,12 +191,19 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5 animate-spin" />
-            Loading Job Status...
+            Processing Supplier Catalog...
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center text-muted-foreground">
-            Fetching bulk processing job information...
+          <div className="space-y-3">
+            <div className="text-center text-muted-foreground">
+              Analyzing your supplier manifest file...
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>• Reading UPC codes from CSV data</p>
+              <p>• Checking existing Amazon marketplace data</p>
+              <p>• Processing with rate limit optimization</p>
+            </div>
           </div>
         </CardContent>
       </Card>
