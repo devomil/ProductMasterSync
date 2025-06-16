@@ -711,7 +711,11 @@ export default function MultiASINSearch() {
 
       {fileUploadResults && (
         <SupplierManifestAnalysis
-          results={fileUploadResults.results}
+          results={fileUploadResults.results.map(result => ({
+            ...result,
+            searchMethod: 'upc',
+            success: result.foundASINs.length > 0
+          }))}
           filename={selectedFile?.name || 'Supplier Manifest'}
           totalRows={fileUploadResults.totalRows}
           successfulSearches={fileUploadResults.successfulSearches}

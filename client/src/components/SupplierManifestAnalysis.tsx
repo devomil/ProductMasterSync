@@ -110,12 +110,14 @@ export default function SupplierManifestAnalysis({
         const marginScore = Math.min(100, margin * 2);
         const overallScore = (salesRankScore + profitScore + marginScore) / 3;
 
-        const enhancedProduct = {
-          ...product,
-          profitScore: overallScore,
-          margin,
-          profit
+        const enhancedProduct = product as SupplierProduct & { 
+          profitScore: number; 
+          margin: number; 
+          profit: number 
         };
+        enhancedProduct.profitScore = overallScore;
+        enhancedProduct.margin = margin;
+        enhancedProduct.profit = profit;
 
         if (overallScore >= 60 && profit > 5) {
           opportunities.push(enhancedProduct);
@@ -321,7 +323,7 @@ export default function SupplierManifestAnalysis({
                         <h4 className="font-semibold text-lg">{product.foundASINs[0]?.title || 'Product'}</h4>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline">{product.foundASINs[0]?.asin}</Badge>
-                          <Badge variant="secondary">Score: {product.profitScore.toFixed(0)}</Badge>
+                          <Badge variant="secondary">Score: {(product as any).profitScore?.toFixed(0) || 0}</Badge>
                         </div>
                       </div>
                       {product.foundASINs[0]?.imageUrl && (
@@ -346,11 +348,11 @@ export default function SupplierManifestAnalysis({
                       </div>
                       <div>
                         <span className="font-medium text-gray-500">Profit:</span>
-                        <div className="font-bold text-green-600">${product.profit.toFixed(2)}</div>
+                        <div className="font-bold text-green-600">${(product as any).profit?.toFixed(2) || '0.00'}</div>
                       </div>
                       <div>
                         <span className="font-medium text-gray-500">Margin:</span>
-                        <div className="font-bold text-purple-600">{product.margin.toFixed(1)}%</div>
+                        <div className="font-bold text-purple-600">{(product as any).margin?.toFixed(1) || '0.0'}%</div>
                       </div>
                     </div>
 
