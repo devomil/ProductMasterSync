@@ -886,8 +886,8 @@ router.get('/asin-details/:asin', async (req, res) => {
     }
 
     // If not in database, fetch from Amazon SP-API
-    const { searchCatalogItemsByKeywords } = await import('../utils/amazon-spapi');
-    const catalogItems = await searchCatalogItemsByKeywords(asin, getAmazonConfig());
+    const { searchByUPC } = await import('../utils/amazon-spapi');
+    const catalogItems = await searchByUPC(asin);
     
     if (catalogItems.length === 0) {
       return res.json({
