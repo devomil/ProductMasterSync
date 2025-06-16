@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import BulkProgressMonitor from '@/components/BulkProgressMonitor';
 import BulkASINResults from './BulkASINResults';
+import SupplierManifestAnalysis from '@/components/SupplierManifestAnalysis';
 
 interface ASIN {
   asin: string;
@@ -76,6 +77,7 @@ export default function MultiASINSearch() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bulkJobId, setBulkJobId] = useState<string | null>(null);
   const [showBulkProgress, setShowBulkProgress] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -334,6 +336,7 @@ export default function MultiASINSearch() {
       return;
     }
 
+    setSelectedFile(file);
     setIsProcessing(true);
     setUploadProgress(0);
     fileUploadMutation.mutate(file);
@@ -707,6 +710,15 @@ export default function MultiASINSearch() {
       )}
 
       {fileUploadResults && (
+        <SupplierManifestAnalysis
+          results={fileUploadResults.results}
+          filename={selectedFile?.name || 'Supplier Manifest'}
+          totalRows={fileUploadResults.totalRows}
+          successfulSearches={fileUploadResults.successfulSearches}
+        />
+      )}
+
+      {fileUploadResults && false && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
