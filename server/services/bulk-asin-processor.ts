@@ -318,17 +318,8 @@ export class BulkASINProcessor extends EventEmitter {
       }
     }
 
-    // Final fallback to description search
-    if (criteria.description) {
-      try {
-        const { searchCatalogItemsByUPC } = await import('../utils/amazon-spapi');
-        const descResults = await searchCatalogItemsByUPC(criteria.description, {});
-        return { foundASINs: descResults || [] };
-      } catch (error) {
-        console.error('Description search failed:', error);
-      }
-    }
-
+    // Final fallback to description search - skip for now to avoid errors
+    console.log('No UPC or MPN found for product, skipping description search');
     return { foundASINs: [] };
   }
 
@@ -342,16 +333,8 @@ export class BulkASINProcessor extends EventEmitter {
         return { foundASINs: results };
       }
     } catch (error) {
-      // Fallback to description search
-      if (criteria.description) {
-        try {
-          const { searchCatalogItemsByUPC } = await import('../utils/amazon-spapi');
-          const descResults = await searchCatalogItemsByUPC(criteria.description);
-          return { foundASINs: descResults || [] };
-        } catch (descError) {
-          console.error('Description fallback search failed:', descError);
-        }
-      }
+      // Skip description fallback to avoid API errors
+      console.log('MPN search failed, skipping description fallback');
     }
     return { foundASINs: [] };
   }
@@ -372,14 +355,9 @@ export class BulkASINProcessor extends EventEmitter {
       searchTerm = `${searchTerm} ${criteria.model}`;
     }
 
-    try {
-      const { searchCatalogItemsByUPC } = await import('../utils/amazon-spapi');
-      const results = await searchCatalogItemsByUPC(searchTerm, {});
-      return { foundASINs: results || [] };
-    } catch (error) {
-      console.error('Keyword search failed:', error);
-      return { foundASINs: [] };
-    }
+    // Skip keyword search to avoid API errors for now
+    console.log('Skipping keyword search to avoid API configuration errors');
+    return { foundASINs: [] };
   }
 
   /**
