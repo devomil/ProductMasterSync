@@ -108,21 +108,11 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
           setJob(data.data);
           
           if (data.data.status === 'completed' || data.data.status === 'failed') {
-            // Mark job as completed and stop all polling
-            setJobCompleted(true);
-            setIsPolling(false);
-            
-            if (jobStatusInterval) {
-              clearInterval(jobStatusInterval);
-              setJobStatusInterval(null);
-            }
-            if (rateLimiterInterval) {
-              clearInterval(rateLimiterInterval);
-              setRateLimiterInterval(null);
-            }
+            // Immediately stop all polling
+            stopAllPolling();
             
             // Only call onJobComplete once for completed jobs
-            if (onJobComplete && data.data.status === 'completed' && !jobCompleted) {
+            if (onJobComplete && data.data.status === 'completed') {
               onJobComplete(data.data);
             }
           }
