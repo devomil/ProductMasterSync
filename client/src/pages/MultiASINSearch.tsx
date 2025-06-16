@@ -13,7 +13,6 @@ import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileT
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import BulkProgressMonitor from '@/components/BulkProgressMonitor';
-import ASINDiscoveryDemo from '@/components/ASINDiscoveryDemo';
 
 interface ASIN {
   asin: string;
@@ -885,8 +884,7 @@ export default function MultiASINSearch() {
         </Card>
       )}
 
-      {/* ASIN Discovery Demo - Shows what results look like with valid Amazon API credentials */}
-      <ASINDiscoveryDemo />
+
     </div>
   );
 }
