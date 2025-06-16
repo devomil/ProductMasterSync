@@ -1026,123 +1026,33 @@ router.post('/bulk-asin-search', async (req, res) => {
         let successfulSearches = 0;
         let failedSearches = 0;
 
-        // Process each row from the file
-        for (let i = 0; i < fileData.rows.length; i++) {
-          const row = fileData.rows[i];
-          try {
-            // Extract search criteria from row
-            const searchCriteria: any = {};
-            
-            // Map common column variations
-            const upcFields = ['upc', 'upc_code', 'barcode', 'gtin'];
-            const mpnFields = ['mpn', 'manufacturer_part_number', 'part_number', 'model', 'manufacturer_number'];
-            const asinFields = ['asin', 'amazon_asin'];
-            const descriptionFields = ['description', 'product_description', 'item_description', 'title', 'name'];
-
-            // Find UPC
-            for (const field of upcFields) {
-              if (row[field] && row[field].trim()) {
-                searchCriteria.upc = row[field].trim();
-                break;
-              }
-            }
-
-            // Find MPN
-            for (const field of mpnFields) {
-              if (row[field] && row[field].trim()) {
-                searchCriteria.manufacturerNumber = row[field].trim();
-                break;
-              }
-            }
-
-            // Find ASIN
-            for (const field of asinFields) {
-              if (row[field] && row[field].trim()) {
-                searchCriteria.asin = row[field].trim();
-                break;
-              }
-            }
-
-            // Find Description
-            for (const field of descriptionFields) {
-              if (row[field] && row[field].trim()) {
-                searchCriteria.description = row[field].trim();
-                break;
-              }
-            }
-
-            let foundASINs = [];
-
-            // Search by UPC/MPN if available
-            if (searchCriteria.upc || searchCriteria.manufacturerNumber) {
-              const amazonResults = await searchProductMultipleWays(
-                searchCriteria.upc, 
-                searchCriteria.manufacturerNumber
-              );
-              
-              foundASINs = amazonResults.map((item: any) => ({
-                asin: item.asin,
-                title: item.attributes?.item_name?.[0]?.value || 'Unknown',
-                brand: item.attributes?.brand?.[0]?.value || 'Unknown',
-                imageUrl: item.images?.[0]?.images?.[0]?.link,
-                category: item.productTypes?.[0]?.displayName || 'Unknown',
-                salesRank: item.salesRanks?.[0]?.rank,
-                manufacturerNumber: item.attributes?.part_number?.[0]?.value
-              }));
-            }
-
-            // If no results and we have description, try description search
-            if (foundASINs.length === 0 && searchCriteria.description) {
-              const { searchCatalogItemsByKeywords } = await import('../utils/amazon-spapi');
-              const catalogItems = await searchCatalogItemsByKeywords(
-                searchCriteria.description, 
-                getAmazonConfig()
-              );
-              
-              foundASINs = catalogItems.slice(0, 5).map(item => ({
-                asin: item.asin,
-                title: item.attributes?.item_name?.[0]?.value || 'Unknown',
-                brand: item.attributes?.brand?.[0]?.value || 'Unknown',
-                imageUrl: item.images?.[0]?.images?.[0]?.link,
-                category: item.productTypes?.[0]?.displayName || 'Unknown',
-                salesRank: item.salesRanks?.[0]?.rank,
-                manufacturerNumber: item.attributes?.part_number?.[0]?.value
-              }));
-            }
-
-            if (foundASINs.length > 0) {
-              successfulSearches++;
-            } else {
-              failedSearches++;
-            }
-
-            results.push({
-              row: i + 1,
-              searchCriteria,
-              foundASINs,
-              error: foundASINs.length === 0 ? 'No ASINs found' : undefined
-            });
-
-            // Rate limiting between searches
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-          } catch (error) {
-            failedSearches++;
-            results.push({
-              row: i + 1,
-              searchCriteria: {},
-              foundASINs: [],
-              error: error instanceof Error ? error.message : 'Search failed'
-            });
+        // Use optimized bulk processor for efficient rate-limited processing
+        const { bulkASINProcessor } = await import('../services/bulk-asin-processor');
+        
+        const job = await bulkASINProcessor.processBulkData(
+          fileData.rows,
+          req.file.originalname,
+          {
+            batchSize: 5,
+            maxConcurrentRequests: 2,
+            retryFailedRows: true,
+            prioritizeUPC: true,
+            fallbackToDescription: true
           }
-        }
+        );
 
+        // Return job ID for progress tracking
         res.json({
-          totalRows: fileData.rows.length,
-          processedRows: results.length,
-          successfulSearches,
-          failedSearches,
-          results
+          success: true,
+          jobId: job.id,
+          totalRows: job.totalRows,
+          processedRows: job.processedRows,
+          successfulSearches: job.successfulSearches,
+          failedSearches: job.failedSearches,
+          status: job.status,
+          progress: job.progress,
+          estimatedTimeRemaining: job.estimatedTimeRemaining,
+          results: job.results.slice(0, 5) // Preview first 5 results
         });
 
       } catch (processingError) {
