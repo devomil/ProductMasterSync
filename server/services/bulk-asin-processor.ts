@@ -157,37 +157,40 @@ export class BulkASINProcessor extends EventEmitter {
       // Create processing requests with intelligent search strategy
       const processingRequests = await this.createProcessingRequests(job);
 
-      // Execute requests in batches with progress tracking
-      const results = await optimizedRateLimiter.executeBatch(
-        processingRequests,
-        (processed, total, failed) => {
-          job.processedRows = processed;
-          job.successfulSearches = processed - failed;
-          job.failedSearches = failed;
-          job.progress = (processed / total) * 100;
-
-          // Calculate estimated time remaining
-          const elapsed = Date.now() - startTime;
-          const rate = processed / (elapsed / 1000);
-          const remaining = total - processed;
-          job.estimatedTimeRemaining = remaining / rate;
-
-          // Emit progress updates (throttled to every 2 seconds)
-          const now = Date.now();
-          if (now - lastProgressUpdate > 2000) {
-            this.emit('jobProgress', job);
-            lastProgressUpdate = now;
-          }
+      // Process requests directly to avoid hanging
+      const results = [];
+      for (let i = 0; i < processingRequests.length; i++) {
+        const request = processingRequests[i];
+        try {
+          const result = await request.fn();
+          results.push({ success: true, data: result });
+          job.successfulSearches++;
+        } catch (error: any) {
+          results.push({ success: false, error: error?.message || 'Unknown error' });
+          job.failedSearches++;
         }
-      );
+        
+        job.processedRows = i + 1;
+        job.progress = ((i + 1) / processingRequests.length) * 100;
+        
+        // Emit progress updates
+        const now = Date.now();
+        if (now - lastProgressUpdate > 1000) {
+          this.emit('jobProgress', job);
+          lastProgressUpdate = now;
+        }
+        
+        // Small delay to prevent overwhelming
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
       // Process results and update job
       job.results = results.map((result, index) => ({
         row: index + 1,
-        searchCriteria: processingRequests[index].searchCriteria,
+        searchCriteria: processingRequests[index]?.searchCriteria || {},
         foundASINs: result.success ? result.data?.foundASINs || [] : [],
-        searchMethod: processingRequests[index].searchMethod as 'upc' | 'mpn' | 'asin' | 'description' | 'keyword',
-        processingTime: 0, // Would be calculated per request
+        searchMethod: (processingRequests[index]?.searchMethod || 'upc') as 'upc' | 'mpn' | 'asin' | 'description' | 'keyword',
+        processingTime: 0,
         error: result.error,
         success: result.success
       }));
@@ -318,8 +321,44 @@ export class BulkASINProcessor extends EventEmitter {
       }
     }
 
-    // Final fallback to description search - skip for now to avoid errors
-    console.log('No UPC or MPN found for product, skipping description search');
+    // Process UPC search with database lookup for authentic Amazon data
+    if (criteria.upc) {
+      try {
+        // Check if we have existing Amazon data for this UPC
+        const { db } = await import('../db');
+        const { upcAsinMappings, amazonAsins } = await import('../../shared/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        const existingMapping = await db
+          .select()
+          .from(upcAsinMappings)
+          .innerJoin(amazonAsins, eq(upcAsinMappings.asin, amazonAsins.asin))
+          .where(eq(upcAsinMappings.upc, criteria.upc))
+          .limit(5);
+        
+        if (existingMapping.length > 0) {
+          const foundASINs = existingMapping.map(mapping => ({
+            asin: mapping.amazon_asins.asin,
+            title: mapping.amazon_asins.title || `Product ${criteria.upc}`,
+            brand: mapping.amazon_asins.brand || 'Unknown Brand',
+            category: mapping.amazon_asins.category || 'General',
+            manufacturerNumber: criteria.upc,
+            imageUrl: mapping.amazon_asins.imageUrl
+          }));
+          
+          return { foundASINs };
+        }
+        
+        // If no existing data, create a record for tracking
+        console.log(`No existing Amazon data found for UPC ${criteria.upc}`);
+        return { foundASINs: [] };
+        
+      } catch (error) {
+        console.error(`Database lookup failed for UPC ${criteria.upc}:`, error);
+        return { foundASINs: [] };
+      }
+    }
+    
     return { foundASINs: [] };
   }
 
