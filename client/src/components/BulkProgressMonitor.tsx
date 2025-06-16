@@ -87,11 +87,14 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
           setJob(data.data);
           
           if (data.data.status === 'completed' || data.data.status === 'failed') {
+            // Stop polling immediately
             setIsPolling(false);
             if (pollInterval) {
               clearInterval(pollInterval);
+              setPollInterval(null);
             }
-            if (onJobComplete) {
+            // Only call onJobComplete once
+            if (onJobComplete && data.data.status === 'completed') {
               onJobComplete(data.data);
             }
           }

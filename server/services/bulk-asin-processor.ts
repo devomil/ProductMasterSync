@@ -300,7 +300,7 @@ export class BulkASINProcessor extends EventEmitter {
    */
   private async searchByUPCWithFallback(criteria: any): Promise<any> {
     try {
-      const results = await searchProductMultipleWays(criteria.upc, null, null);
+      const results = await searchProductMultipleWays(criteria.upc);
       if (results && results.length > 0) {
         return { foundASINs: results };
       }
@@ -308,9 +308,9 @@ export class BulkASINProcessor extends EventEmitter {
       // UPC search failed, try manufacturer number
       if (criteria.manufacturerNumber) {
         try {
-          const results = await searchProductMultipleWays(null, criteria.manufacturerNumber, null);
-          if (results && results.length > 0) {
-            return { foundASINs: results };
+          const mpnResults = await searchByManufacturerNumber(criteria.manufacturerNumber);
+          if (mpnResults && mpnResults.length > 0) {
+            return { foundASINs: mpnResults };
           }
         } catch (mpnError) {
           // Continue to description search
@@ -321,14 +321,15 @@ export class BulkASINProcessor extends EventEmitter {
     // Final fallback to description search
     if (criteria.description) {
       try {
-        const results = await searchProductMultipleWays(null, null, criteria.description);
-        return { foundASINs: results || [] };
+        const { searchCatalogItemsByUPC } = await import('../utils/amazon-spapi');
+        const descResults = await searchCatalogItemsByUPC(criteria.description, {});
+        return { foundASINs: descResults || [] };
       } catch (error) {
-        throw error;
+        console.error('Description search failed:', error);
       }
     }
 
-    throw new Error('No searchable criteria available');
+    return { foundASINs: [] };
   }
 
   /**
@@ -344,14 +345,15 @@ export class BulkASINProcessor extends EventEmitter {
       // Fallback to description search
       if (criteria.description) {
         try {
-          const results = await searchCatalogItems(criteria.description);
-          return { foundASINs: results || [] };
+          const { searchCatalogItemsByUPC } = await import('../utils/amazon-spapi');
+          const descResults = await searchCatalogItemsByUPC(criteria.description);
+          return { foundASINs: descResults || [] };
         } catch (descError) {
-          throw error;
+          console.error('Description fallback search failed:', descError);
         }
       }
-      throw error;
     }
+    return { foundASINs: [] };
   }
 
   /**
@@ -371,10 +373,12 @@ export class BulkASINProcessor extends EventEmitter {
     }
 
     try {
-      const results = await searchCatalogItems(searchTerm);
+      const { searchCatalogItemsByUPC } = await import('../utils/amazon-spapi');
+      const results = await searchCatalogItemsByUPC(searchTerm, {});
       return { foundASINs: results || [] };
     } catch (error) {
-      throw error;
+      console.error('Keyword search failed:', error);
+      return { foundASINs: [] };
     }
   }
 
