@@ -217,28 +217,90 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               {getStatusIcon(job.status)}
-              Bulk Processing: {job.filename}
+              Supplier Catalog Analysis: {job.filename}
             </CardTitle>
             <Badge className={getStatusColor(job.status)}>
               {job.status.toUpperCase()}
             </Badge>
           </div>
           <CardDescription>
-            Processing {job.totalRows} rows with optimized rate limiting
+            Processing {job.totalRows} products with Amazon marketplace intelligence
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Progress: {job.processedRows} / {job.totalRows}</span>
-              <span>{job.progress.toFixed(1)}%</span>
+        <CardContent className="space-y-6">
+          {/* Main Progress Bar */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold">Overall Progress</span>
+              <span className="text-2xl font-bold text-primary">{job.progress.toFixed(1)}%</span>
             </div>
-            <Progress value={job.progress} className="h-2" />
+            <Progress value={job.progress} className="h-4" />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{job.processedRows} of {job.totalRows} products analyzed</span>
+              <span>{job.totalRows - job.processedRows} remaining</span>
+            </div>
           </div>
 
+          {/* Detailed Statistics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            <div className="text-center p-3 bg-green-50 rounded-lg border">
+              <div className="text-2xl font-bold text-green-600">{job.successfulSearches}</div>
+              <div className="text-sm text-green-700">Amazon Matches</div>
+            </div>
+            <div className="text-center p-3 bg-red-50 rounded-lg border">
+              <div className="text-2xl font-bold text-red-600">{job.failedSearches}</div>
+              <div className="text-sm text-red-700">No Matches</div>
+            </div>
+            <div className="text-center p-3 bg-blue-50 rounded-lg border">
+              <div className="text-2xl font-bold text-blue-600">{job.processedRows}</div>
+              <div className="text-sm text-blue-700">Processed</div>
+            </div>
+            <div className="text-center p-3 bg-purple-50 rounded-lg border">
+              <div className="text-2xl font-bold text-purple-600">
+                {job.successfulSearches > 0 ? ((job.successfulSearches / job.processedRows) * 100).toFixed(1) : '0'}%
+              </div>
+              <div className="text-sm text-purple-700">Match Rate</div>
+            </div>
+          </div>
+
+          {/* Processing Speed & Time Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-3 bg-blue-50 rounded-lg border">
+              <div className="text-lg font-bold text-blue-600">
+                {job.estimatedTimeRemaining ? formatTimeRemaining(job.estimatedTimeRemaining) : 'Calculating...'}
+              </div>
+              <div className="text-sm text-blue-700">Time Remaining</div>
+            </div>
+            <div className="text-center p-3 bg-orange-50 rounded-lg border">
+              <div className="text-lg font-bold text-orange-600">
+                {job.processedRows > 0 ? ((Date.now() - new Date(job.startTime).getTime()) / job.processedRows / 1000).toFixed(1) : '0'}s
+              </div>
+              <div className="text-sm text-orange-700">Avg per Product</div>
+            </div>
+            <div className="text-center p-3 bg-indigo-50 rounded-lg border">
+              <div className="text-lg font-bold text-indigo-600">
+                {job.processedRows > 0 ? (job.processedRows / ((Date.now() - new Date(job.startTime).getTime()) / 60000)).toFixed(1) : '0'}
+              </div>
+              <div className="text-sm text-indigo-700">Products/Min</div>
+            </div>
+          </div>
+
+          {/* Current Processing Status */}
+          {job.status === 'processing' && (
+            <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="font-medium text-blue-800">Currently Processing...</span>
+              </div>
+              <div className="text-sm text-blue-700 mt-1">
+                Reading UPC codes from supplier manifest and checking Amazon marketplace data
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
                 {job.successfulSearches}
               </div>
               <div className="text-sm text-green-600 dark:text-green-400">
