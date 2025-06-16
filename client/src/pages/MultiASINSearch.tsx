@@ -644,24 +644,66 @@ export default function MultiASINSearch() {
       )}
 
       {showBulkProgress && bulkJobId && (
-        <BulkProgressMonitor 
-          jobId={bulkJobId}
-          onJobComplete={(job) => {
-            setShowBulkProgress(false);
-            setBulkJobId(null);
-            setFileUploadResults({
-              totalRows: job.totalRows,
-              processedRows: job.processedRows,
-              successfulSearches: job.successfulSearches,
-              failedSearches: job.failedSearches,
-              results: job.results
-            });
-            toast({
-              title: "Bulk Processing Complete",
-              description: `Processed ${job.totalRows} rows with ${job.successfulSearches} successful searches.`,
-            });
-          }}
-        />
+        <div className="space-y-4">
+          <BulkProgressMonitor 
+            jobId={bulkJobId}
+            onJobComplete={(job) => {
+              console.log('Job completed, hiding progress monitor');
+              setShowBulkProgress(false);
+              setBulkJobId(null);
+              setFileUploadResults({
+                totalRows: job.totalRows,
+                processedRows: job.processedRows,
+                successfulSearches: job.successfulSearches,
+                failedSearches: job.failedSearches,
+                results: job.results
+              });
+              toast({
+                title: "Supplier Catalog Analysis Complete",
+                description: `Processed ${job.totalRows} products with ${job.successfulSearches} Amazon matches found.`,
+              });
+            }}
+          />
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                try {
+                  const response = await fetch(`/api/marketplace/bulk-job-status/${bulkJobId}`);
+                  const data = await response.json();
+                  if (data.success && data.data.status === 'completed') {
+                    setShowBulkProgress(false);
+                    setBulkJobId(null);
+                    setFileUploadResults({
+                      totalRows: data.data.totalRows,
+                      processedRows: data.data.processedRows,
+                      successfulSearches: data.data.successfulSearches,
+                      failedSearches: data.data.failedSearches,
+                      results: data.data.results
+                    });
+                    toast({
+                      title: "Results Retrieved",
+                      description: `Found completed analysis for ${data.data.totalRows} products.`,
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error checking job status:', error);
+                }
+              }}
+            >
+              Check Results
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                setShowBulkProgress(false);
+                setBulkJobId(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
 
       {fileUploadResults && (
