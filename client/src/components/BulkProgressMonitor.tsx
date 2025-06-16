@@ -87,7 +87,7 @@ export default function BulkProgressMonitor({ jobId, onJobComplete }: BulkProgre
     
     const jobInterval = setInterval(() => {
       if (!jobCompleted) fetchJobStatus();
-    }, 2000);
+    }, 1000);
     
     const limiterInterval = setInterval(() => {
       if (!jobCompleted) fetchRateLimiterStatus();
