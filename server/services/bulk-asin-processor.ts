@@ -103,6 +103,9 @@ export class BulkASINProcessor extends EventEmitter {
       progress: 0
     };
 
+    // Store the actual CSV data with the job for processing
+    (job as any).csvData = csvData;
+
     this.activeJobs.set(jobId, job);
     this.jobQueue.push(jobId);
     
@@ -183,7 +186,7 @@ export class BulkASINProcessor extends EventEmitter {
         row: index + 1,
         searchCriteria: processingRequests[index].searchCriteria,
         foundASINs: result.success ? result.data?.foundASINs || [] : [],
-        searchMethod: processingRequests[index].searchMethod,
+        searchMethod: processingRequests[index].searchMethod as 'upc' | 'mpn' | 'asin' | 'description' | 'keyword',
         processingTime: 0, // Would be calculated per request
         error: result.error,
         success: result.success
@@ -212,21 +215,26 @@ export class BulkASINProcessor extends EventEmitter {
     searchCriteria: any;
     searchMethod: string;
   }>> {
-    // This is a simplified version - in real implementation,
-    // you'd parse the actual CSV data stored with the job
     const requests = [];
+    const csvData = (job as any).csvData || [];
 
-    for (let i = 0; i < job.totalRows; i++) {
-      // Mock row data - replace with actual CSV parsing
-      const rowData = {
-        upc: `mock_upc_${i}`,
-        asin: `mock_asin_${i}`,
-        description: `Mock product ${i}`,
-        brand: `Brand ${i}`,
-        model: `Model ${i}`
+    for (let i = 0; i < csvData.length; i++) {
+      const rowData = csvData[i];
+      
+      // Clean UPC value - remove quotes and whitespace
+      const cleanUpc = rowData.upc ? rowData.upc.replace(/[",\s]/g, '') : '';
+      
+      // Extract actual data from CSV row
+      const searchData = {
+        upc: cleanUpc,
+        asin: rowData.asin || '',
+        description: rowData.item_description || rowData.description || rowData.title || rowData.name || '',
+        brand: rowData.brand || rowData.manufacturer || '',
+        model: rowData.model || rowData.model_number || '',
+        manufacturerPartNumber: rowData.model || rowData.mpn || rowData.manufacturer_part_number || ''
       };
 
-      const request = this.createSearchRequest(rowData, i);
+      const request = this.createSearchRequest(searchData, i);
       if (request) {
         requests.push(request);
       }
