@@ -142,6 +142,13 @@ const Sidebar = () => {
                   Multi-ASIN Discovery
                 </SidebarLink>
                 <SidebarLink 
+                  href="/asin-demo" 
+                  icon={<ShoppingCart size={20} />} 
+                  active={location === "/asin-demo"}
+                >
+                  ASIN Demo
+                </SidebarLink>
+                <SidebarLink 
                   href="/api-configuration" 
                   icon={<Settings size={20} />} 
                   active={location === "/api-configuration"}
