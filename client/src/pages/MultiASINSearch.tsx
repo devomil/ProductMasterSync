@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileText, Database, Loader2 } from 'lucide-react';
+import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileText, Database, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import BulkProgressMonitor from '@/components/BulkProgressMonitor';
@@ -648,6 +648,13 @@ export default function MultiASINSearch() {
           onJobComplete={(job) => {
             setShowBulkProgress(false);
             setBulkJobId(null);
+            setFileUploadResults({
+              totalRows: job.totalRows,
+              processedRows: job.processedRows,
+              successfulSearches: job.successfulSearches,
+              failedSearches: job.failedSearches,
+              results: job.results
+            });
             toast({
               title: "Bulk Processing Complete",
               description: `Processed ${job.totalRows} rows with ${job.successfulSearches} successful searches.`,
@@ -689,19 +696,159 @@ export default function MultiASINSearch() {
 
               <Separator />
 
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-96 overflow-y-auto">
                 {fileUploadResults.results.map((result, index) => (
-                  <div key={index} className="border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline">Row {result.row}</Badge>
-                      <Badge variant={result.foundASINs.length > 0 ? "default" : "destructive"}>
-                        {result.foundASINs.length} ASINs
+                  <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Row {result.row}</Badge>
+                        {result.success ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                      </div>
+                      <Badge variant={result.foundASINs.length > 0 ? "default" : "secondary"}>
+                        {result.foundASINs.length} ASINs Found
                       </Badge>
                     </div>
                     
-                    <div className="text-sm text-muted-foreground mb-2">
-                      Search Criteria: {JSON.stringify(result.searchCriteria)}
+                    {/* Product Information */}
+                    <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-900 rounded">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        {result.searchCriteria?.upc && (
+                          <div>
+                            <span className="font-medium text-gray-600 dark:text-gray-400">UPC:</span>
+                            <div className="font-mono">{result.searchCriteria.upc}</div>
+                          </div>
+                        )}
+                        {result.searchCriteria?.manufacturerNumber && (
+                          <div>
+                            <span className="font-medium text-gray-600 dark:text-gray-400">MPN:</span>
+                            <div className="font-mono">{result.searchCriteria.manufacturerNumber}</div>
+                          </div>
+                        )}
+                        {result.searchCriteria?.brand && (
+                          <div>
+                            <span className="font-medium text-gray-600 dark:text-gray-400">Brand:</span>
+                            <div>{result.searchCriteria.brand}</div>
+                          </div>
+                        )}
+                        {result.searchCriteria?.model && (
+                          <div>
+                            <span className="font-medium text-gray-600 dark:text-gray-400">Model:</span>
+                            <div>{result.searchCriteria.model}</div>
+                          </div>
+                        )}
+                      </div>
+                      {result.searchCriteria?.description && (
+                        <div className="mt-2">
+                          <span className="font-medium text-gray-600 dark:text-gray-400">Description:</span>
+                          <div className="text-sm mt-1">{result.searchCriteria.description}</div>
+                        </div>
+                      )}
                     </div>
+                    
+                    {/* ASIN Results */}
+                    {result.foundASINs.length > 0 ? (
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Found {result.foundASINs.length} Matching ASIN{result.foundASINs.length > 1 ? 's' : ''}
+                        </h4>
+                        <div className="grid gap-3">
+                          {result.foundASINs.map((asin: any, asinIndex: number) => (
+                            <div key={asinIndex} className="border rounded p-3 bg-white dark:bg-gray-800">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="font-mono">{asin.asin}</Badge>
+                                  <a
+                                    href={`https://amazon.com/dp/${asin.asin}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    Rank: {asin.salesRank?.toLocaleString() || 'N/A'}
+                                  </Badge>
+                                  {asin.price && (
+                                    <Badge variant="default" className="text-xs">
+                                      ${asin.price}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex gap-3">
+                                {asin.imageUrl && (
+                                  <img 
+                                    src={asin.imageUrl} 
+                                    alt={asin.title}
+                                    className="w-16 h-16 object-cover rounded"
+                                  />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-medium text-sm line-clamp-2 mb-1">{asin.title}</h5>
+                                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                    <div><span className="font-medium">Brand:</span> {asin.brand}</div>
+                                    <div><span className="font-medium">Category:</span> {asin.category}</div>
+                                    {asin.manufacturerNumber && (
+                                      <div><span className="font-medium">MPN:</span> {asin.manufacturerNumber}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Purchasing Decision Indicators */}
+                              <div className="mt-3 pt-2 border-t">
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex gap-3">
+                                    <span className={`px-2 py-1 rounded ${
+                                      asin.salesRank && asin.salesRank < 100000 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : asin.salesRank && asin.salesRank < 500000
+                                        ? 'bg-yellow-100 text-yellow-700'
+                                        : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {asin.salesRank && asin.salesRank < 100000 
+                                        ? '🟢 High Demand' 
+                                        : asin.salesRank && asin.salesRank < 500000
+                                        ? '🟡 Medium Demand'
+                                        : '🔴 Low Demand'
+                                      }
+                                    </span>
+                                    <span className="text-gray-500">
+                                      Match Method: {result.searchMethod || 'UPC'}
+                                    </span>
+                                  </div>
+                                  <Button variant="outline" size="sm">
+                                    Analyze Profitability
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                        {result.error ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                            <span>Error: {result.error}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            <Search className="h-4 w-4" />
+                            <span>No ASINs found for this product</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {result.error && (
                       <div className="text-sm text-red-600 mb-2">
