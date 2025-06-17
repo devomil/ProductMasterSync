@@ -5,8 +5,8 @@
 
 import { Router } from 'express';
 import { db } from '../db';
-import { products, categories, suppliers, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
-import { eq, and, isNotNull, sql, desc, asc } from 'drizzle-orm';
+import { products, categories, suppliers, amazonAsins, amazonMarketIntelligence, productAsinMapping, multiAsinOpportunities, supplierAsinPerformance } from '../../shared/schema';
+import { eq, and, isNotNull, sql, desc, asc, gt } from 'drizzle-orm';
 
 const router = Router();
 
@@ -26,17 +26,17 @@ router.get('/analytics/overview', async (req, res) => {
       .select({ count: sql<number>`count(*)` })
       .from(amazonMarketIntelligence);
     
-    // Get price history entries count
-    const [priceHistoryCount] = await db
+    // Get market intelligence entries count
+    const [marketCount] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(amazonAsins)
-      .where(isNotNull(amazonAsins.currentPrice));
+      .from(amazonMarketIntelligence)
+      .where(isNotNull(amazonMarketIntelligence.currentPrice));
 
     const analytics = {
       totalProducts: productCount.count || 0,
       amazonMappedProducts: mappedCount.count || 0,
       competitiveAnalysisCount: analysisCount.count || 0,
-      priceHistoryEntries: priceHistoryCount.count || 0,
+      priceHistoryEntries: marketCount.count || 0,
       marketIntelligenceRecords: analysisCount.count || 0,
       lastSyncTime: new Date().toISOString(),
       syncStatus: 'active' as const
@@ -293,6 +293,147 @@ router.get('/sync/status', async (req, res) => {
   } catch (error) {
     console.error('Error getting sync status:', error);
     res.status(500).json({ error: 'Failed to get sync status' });
+  }
+});
+
+// Multi-ASIN Opportunities endpoint - AI-driven strategic insights
+router.get('/analytics/multi-asin-opportunities', async (req, res) => {
+  try {
+    const { limit = 20, minScore = 0.7 } = req.query;
+    
+    const opportunities = await db
+      .select({
+        id: multiAsinOpportunities.id,
+        productId: multiAsinOpportunities.productId,
+        upc: multiAsinOpportunities.upc,
+        manufacturerPartNumber: multiAsinOpportunities.manufacturerPartNumber,
+        discoveredAsins: multiAsinOpportunities.discoveredAsins,
+        primaryAsin: multiAsinOpportunities.primaryAsin,
+        secondaryAsins: multiAsinOpportunities.secondaryAsins,
+        opportunityScore: multiAsinOpportunities.opportunityScore,
+        strategyType: multiAsinOpportunities.strategyType,
+        profitAnalysis: multiAsinOpportunities.profitAnalysis,
+        supplierRecommendations: multiAsinOpportunities.supplierRecommendations,
+        competitiveAnalysis: multiAsinOpportunities.competitiveAnalysis,
+        seasonalForecast: multiAsinOpportunities.seasonalForecast,
+        updatedAt: multiAsinOpportunities.updatedAt
+      })
+      .from(multiAsinOpportunities)
+      .where(gt(multiAsinOpportunities.opportunityScore, Number(minScore)))
+      .orderBy(desc(multiAsinOpportunities.opportunityScore))
+      .limit(Number(limit));
+
+    res.json({
+      opportunities,
+      metadata: {
+        totalCount: opportunities.length,
+        minScoreFilter: Number(minScore),
+        generatedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching multi-ASIN opportunities:', error);
+    res.status(500).json({ error: 'Failed to fetch multi-ASIN opportunities' });
+  }
+});
+
+// Supplier Performance Analytics endpoint
+router.get('/analytics/supplier-performance', async (req, res) => {
+  try {
+    const { supplierId } = req.query;
+    
+    let query = db
+      .select({
+        id: supplierAsinPerformance.id,
+        supplierId: supplierAsinPerformance.supplierId,
+        asin: supplierAsinPerformance.asin,
+        successRate: supplierAsinPerformance.successRate,
+        avgProfitMargin: supplierAsinPerformance.avgProfitMargin,
+        marketDominanceScore: supplierAsinPerformance.marketDominanceScore,
+        negotiationOpportunities: supplierAsinPerformance.negotiationOpportunities,
+        performanceTrends: supplierAsinPerformance.performanceTrends,
+        lastUpdated: supplierAsinPerformance.lastUpdated
+      })
+      .from(supplierAsinPerformance);
+    
+    if (supplierId) {
+      query = query.where(eq(supplierAsinPerformance.supplierId, Number(supplierId)));
+    }
+    
+    const performance = await query.orderBy(desc(supplierAsinPerformance.avgProfitMargin));
+    
+    // Calculate summary statistics
+    const totalRecords = performance.length;
+    const avgSuccessRate = totalRecords > 0 
+      ? performance.reduce((sum, p) => sum + (p.successRate || 0), 0) / totalRecords 
+      : 0;
+    const avgProfitMargin = totalRecords > 0
+      ? performance.reduce((sum, p) => sum + (p.avgProfitMargin || 0), 0) / totalRecords
+      : 0;
+
+    res.json({
+      performance,
+      summary: {
+        totalSupplierAsins: totalRecords,
+        averageSuccessRate: Math.round(avgSuccessRate * 100) / 100,
+        averageProfitMargin: Math.round(avgProfitMargin * 100) / 100,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching supplier performance:', error);
+    res.status(500).json({ error: 'Failed to fetch supplier performance data' });
+  }
+});
+
+// AI Intelligence Summary endpoint
+router.get('/analytics/ai-intelligence', async (req, res) => {
+  try {
+    // Get opportunity insights
+    const [totalOpportunities] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(multiAsinOpportunities);
+    
+    const [highScoreOpportunities] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(multiAsinOpportunities)
+      .where(gt(multiAsinOpportunities.opportunityScore, 0.8));
+    
+    // Get supplier performance insights
+    const [totalSupplierMappings] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(supplierAsinPerformance);
+    
+    const [highPerformingSuppliers] = await db
+      .select({ count: sql<number>`count(distinct ${supplierAsinPerformance.supplierId})` })
+      .from(supplierAsinPerformance)
+      .where(gt(supplierAsinPerformance.avgProfitMargin, 0.15));
+    
+    // Get strategy distribution
+    const strategyDistribution = await db
+      .select({
+        strategy: multiAsinOpportunities.strategyType,
+        count: sql<number>`count(*)`
+      })
+      .from(multiAsinOpportunities)
+      .groupBy(multiAsinOpportunities.strategyType);
+
+    res.json({
+      opportunities: {
+        total: totalOpportunities.count || 0,
+        highScore: highScoreOpportunities.count || 0,
+        strategies: strategyDistribution
+      },
+      suppliers: {
+        totalMappings: totalSupplierMappings.count || 0,
+        highPerforming: highPerformingSuppliers.count || 0
+      },
+      lastAnalyzed: new Date().toISOString(),
+      aiStatus: 'active'
+    });
+  } catch (error) {
+    console.error('Error fetching AI intelligence summary:', error);
+    res.status(500).json({ error: 'Failed to fetch AI intelligence data' });
   }
 });
 

@@ -800,3 +800,5 @@ export type ProductAmazonLookup = typeof productAmazonLookup.$inferSelect;
 export type ProductAsinMapping = typeof productAsinMapping.$inferSelect;
 export type AmazonPriceHistory = typeof amazonPriceHistory.$inferSelect;
 export type AmazonCompetitiveAnalysis = typeof amazonCompetitiveAnalysis.$inferSelect;
+export type MultiAsinOpportunity = typeof multiAsinOpportunities.$inferSelect;
+export type SupplierAsinPerformance = typeof supplierAsinPerformance.$inferSelect;
