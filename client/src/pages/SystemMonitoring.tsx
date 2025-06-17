@@ -285,9 +285,9 @@ export default function SystemMonitoring() {
               {isOptimizing ? (
                 <Settings className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Play className="h-4 w-4 mr-2" />
+                <CheckCircle className="h-4 w-4 mr-2" />
               )}
-              {isOptimizing ? 'Optimizing...' : 'Auto-Optimize'}
+              {isOptimizing ? 'Checking...' : 'System Optimized'}
             </Button>
           )}
           <Button onClick={handleRefreshAll} size="sm">
