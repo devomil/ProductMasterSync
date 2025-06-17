@@ -118,6 +118,10 @@ export default function AmazonAnalyticsEnhanced() {
     queryKey: ['/api/marketplace/analytics/opportunities']
   });
 
+  // Safe data handling with null checks
+  const safeOpportunities = opportunities?.opportunities || [];
+  const safeTrends = trends || [];
+
   const { data: syncStatus } = useQuery({
     queryKey: ['/api/marketplace/sync/status']
   });
@@ -721,24 +725,27 @@ export default function AmazonAnalyticsEnhanced() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {displayTrends.map((trend, index) => (
+                {displayTrends.map((trend: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg">{trend.category}</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm text-gray-600">
                         <div>
-                          <span className="font-medium">Avg Price:</span> ${trend.averagePrice.toFixed(2)}
+                          <span className="font-medium">Avg Price:</span> ${trend.averagePrice ? trend.averagePrice.toFixed(2) : '0.00'}
                         </div>
                         <div>
                           <span className="font-medium">Competitors:</span> {trend.competitorCount}
                         </div>
                         <div>
-                          <span className="font-medium">Sales Rank:</span> {trend.salesRank.toLocaleString()}
+                          <span className="font-medium">Sales Rank:</span> {trend.salesRank ? trend.salesRank.toLocaleString() : 'N/A'}
                         </div>
                         <div>
                           <span className="font-medium">Price Change:</span> 
-                          <span className={trend.priceChange >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            {trend.priceChange >= 0 ? '+' : ''}{trend.priceChange.toFixed(1)}%
+                          <span className={trend.priceChange && trend.priceChange >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {trend.priceChange !== undefined && trend.priceChange !== null ? 
+                              `${trend.priceChange >= 0 ? '+' : ''}${trend.priceChange.toFixed(1)}%` : 
+                              'N/A'
+                            }
                           </span>
                         </div>
                       </div>
