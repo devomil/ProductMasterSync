@@ -108,22 +108,23 @@ router.get('/analytics/opportunities', async (req, res) => {
         categoryName: categories.name,
         supplierName: suppliers.name,
         asin: amazonAsins.asin,
-        currentPrice: amazonAsins.price,
-        listPrice: amazonAsins.listPrice,
-        condition: amazonAsins.condition,
-        fulfillmentChannel: amazonAsins.fulfillmentType,
-        offerCount: amazonAsins.sellers,
-        buyboxWinner: amazonAsins.buyboxWinner,
-        lastUpdated: amazonAsins.lastUpdatedAt
+        currentPrice: amazonMarketIntelligence.currentPrice,
+        listPrice: amazonMarketIntelligence.listPrice,
+        condition: amazonAsins.itemCondition,
+        fulfillmentChannel: amazonMarketIntelligence.fulfillmentMethod,
+        offerCount: amazonMarketIntelligence.totalSellers,
+        buyboxWinner: amazonMarketIntelligence.buyBoxSeller,
+        lastUpdated: amazonMarketIntelligence.lastPriceCheck
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
       .leftJoin(productAsinMapping, eq(productAsinMapping.productId, products.id))
       .leftJoin(amazonAsins, eq(amazonAsins.asin, productAsinMapping.asin))
+      .leftJoin(amazonMarketIntelligence, eq(amazonMarketIntelligence.asin, amazonAsins.asin))
       .where(and(
         isNotNull(amazonAsins.asin),
-        isNotNull(amazonAsins.price)
+        isNotNull(amazonMarketIntelligence.currentPrice)
       ));
 
     if (category !== 'all') {
@@ -244,12 +245,12 @@ router.post('/map-asin', async (req, res) => {
 
     // Create new mapping
     await db.insert(productAsinMapping).values({
-      product_id: product.id,
+      productId: product.id,
       asin: asin,
-      mapping_type: 'manual',
-      confidence: 100,
-      mapped_at: new Date(),
-      mapped_by: 'user'
+      mappingSource: 'manual',
+      matchConfidence: 1.0,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
     res.json({ success: true, message: 'ASIN mapped successfully' });
@@ -272,10 +273,10 @@ router.get('/sync/status', async (req, res) => {
     // Get recent sync activity
     const [recentSync] = await db
       .select({ 
-        lastSync: sql<string>`MAX(${amazonAsins.lastUpdatedAt})`,
+        lastSync: sql<string>`MAX(${amazonMarketIntelligence.lastPriceCheck})`,
         totalAsins: sql<number>`COUNT(*)`
       })
-      .from(amazonAsins);
+      .from(amazonMarketIntelligence);
 
     res.json({
       success: true,
