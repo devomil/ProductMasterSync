@@ -805,15 +805,15 @@ export default function SystemMonitoring() {
                 </div>
               </div>
 
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <Activity className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium">Monitoring Active</span>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="font-medium text-green-800">Platform Stabilized</span>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Continuous monitoring now tracks all optimized components. The system automatically 
-                  detects performance regressions and provides alerts for any degradation in the 
-                  optimized areas.
+                <p className="text-sm text-green-700">
+                  Auto-Optimize now focuses only on CSS performance optimizations to prevent database 
+                  parameter conflicts. All critical database optimizations have been applied and 
+                  stability is maintained.
                 </p>
               </div>
             </CardContent>

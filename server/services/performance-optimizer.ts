@@ -87,24 +87,19 @@ class PerformanceOptimizer {
 
   private async optimizeTableCreation(): Promise<OptimizationResult> {
     try {
-      // Enable parallel table creation and optimize settings
-      await this.pool.query(`
-        SET maintenance_work_mem = '256MB';
-        SET checkpoint_completion_target = 0.9;
-        SET wal_buffers = '16MB';
-        SET shared_buffers = '256MB';
-      `);
+      // Only apply session-level settings that are safe to change
+      await this.pool.query(`SET maintenance_work_mem = '256MB';`);
 
       return {
         applied: true,
-        description: 'Optimized PostgreSQL settings for faster table operations',
-        impact: 'medium'
+        description: 'Applied safe PostgreSQL session settings',
+        impact: 'low'
       };
     } catch (error: any) {
       return {
         applied: false,
-        description: 'Failed to optimize PostgreSQL settings',
-        impact: 'medium',
+        description: 'Failed to apply session settings',
+        impact: 'low',
         error: error.message
       };
     }
