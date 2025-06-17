@@ -126,96 +126,10 @@ export default function AmazonAnalyticsEnhanced() {
     queryKey: ['/api/marketplace/sync/status']
   });
 
-  // Sample data for enhanced UI demonstration
-  const sampleAnalytics: AmazonAnalytics = {
-    totalProducts: 1247,
-    amazonMappedProducts: 892,
-    competitiveAnalysisCount: 756,
-    priceHistoryEntries: 12450,
-    marketIntelligenceRecords: 8934,
-    lastSyncTime: new Date().toISOString(),
-    syncStatus: 'active'
-  };
-
-  const sampleOpportunities: ProductOpportunity[] = [
-    {
-      sku: "139229",
-      productName: "Philips LED Bulb A19 60W Daylight",
-      upc: "791659060018",
-      category: "Bulbs",
-      supplierName: "CWR",
-      image: "https://images-na.ssl-images-amazon.com/images/I/61ZjlKoOpvL._AC_SL1500_.jpg",
-      strategicTags: ["Growth ASIN", "Low Competition"],
-      asinMatches: [
-        {
-          asin: "B09XY123AB",
-          score: 85,
-          price: 27.99,
-          listPrice: 32.99,
-          sellers: 4,
-          buyboxHolder: "Amazon",
-          isBuyboxEligible: true,
-          condition: "New",
-          priceHistory: [
-            { date: "2024-06-01", price: 29.99 },
-            { date: "2024-06-08", price: 28.99 },
-            { date: "2024-06-15", price: 27.99 }
-          ]
-        },
-        {
-          asin: "B08ZY456CD",
-          score: 72,
-          price: 24.99,
-          listPrice: 29.99,
-          sellers: 8,
-          buyboxHolder: "Third Party",
-          isBuyboxEligible: false,
-          condition: "New",
-          priceHistory: [
-            { date: "2024-06-01", price: 26.99 },
-            { date: "2024-06-08", price: 25.99 },
-            { date: "2024-06-15", price: 24.99 }
-          ]
-        }
-      ]
-    },
-    {
-      sku: "248901",
-      productName: "Marine Safety Flare Kit Emergency",
-      upc: "889542001234",
-      category: "Safety Equipment",
-      supplierName: "CWR",
-      image: "https://images-na.ssl-images-amazon.com/images/I/71ABC123DEF._AC_SL1500_.jpg",
-      strategicTags: ["Defensive ASIN", "Underpriced"],
-      asinMatches: [
-        {
-          asin: "B07ABC789EF",
-          score: 91,
-          price: 89.99,
-          listPrice: 109.99,
-          sellers: 3,
-          buyboxHolder: "Amazon",
-          isBuyboxEligible: true,
-          condition: "New",
-          priceHistory: [
-            { date: "2024-06-01", price: 94.99 },
-            { date: "2024-06-08", price: 92.99 },
-            { date: "2024-06-15", price: 89.99 }
-          ]
-        }
-      ]
-    }
-  ];
-
-  const sampleTrends: MarketTrend[] = [
-    { category: "Bulbs", averagePrice: 24.67, competitorCount: 12, salesRank: 8450, trend: 'up', priceChange: 5.2 },
-    { category: "Safety Equipment", averagePrice: 89.34, competitorCount: 8, salesRank: 12300, trend: 'stable', priceChange: 0.8 },
-    { category: "Marine Electronics", averagePrice: 567.89, competitorCount: 15, salesRank: 5600, trend: 'down', priceChange: -12.3 }
-  ];
-
-  const displayAnalytics = analytics || sampleAnalytics;
-  const displayTrends = trends || sampleTrends;
-  const displayOpportunities = opportunities?.opportunities || sampleOpportunities;
+  // Use only authentic API data - no fallback synthetic data
+  const displayAnalytics = analytics;
+  const displayTrends = safeTrends;
+  const displayOpportunities = safeOpportunities;
 
   // Enhanced filtering and sorting
   const filteredAndSortedOpportunities = useMemo(() => {
@@ -577,7 +491,7 @@ export default function AmazonAnalyticsEnhanced() {
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <Badge variant="outline">{opportunity.category}</Badge>
-                                    {opportunity.strategicTags.map(tag => (
+                                    {opportunity.strategicTags && opportunity.strategicTags.map(tag => (
                                       <Badge key={tag} className={`text-xs ${getStrategyTagColor(tag)}`}>
                                         {tag}
                                       </Badge>
@@ -887,9 +801,9 @@ export default function AmazonAnalyticsEnhanced() {
 
               {/* ASIN Details */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Amazon ASIN Matches ({selectedProduct.asinMatches.length})</h3>
+                <h3 className="font-semibold">Amazon ASIN Matches ({selectedProduct.asinMatches ? selectedProduct.asinMatches.length : 0})</h3>
                 
-                {selectedProduct.asinMatches.map((asin, index) => (
+                {selectedProduct.asinMatches && selectedProduct.asinMatches.map((asin, index) => (
                   <Card key={index} className="border">
                     <CardContent className="p-4">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
