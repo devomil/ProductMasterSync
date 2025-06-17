@@ -61,20 +61,18 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
     const savedItems = [];
     for (const item of catalogItems) {
       const marketData = {
-        productId,
         asin: item.asin || '',
-        title: item.title || '',
-        brand: item.brand || '',
-        manufacturer: item.manufacturer || '',
-        mainImageUrl: item.imageUrl || '',
-        buyBoxPrice: item.price || '',
-        buyBoxCurrency: item.currency || 'USD',
-        salesRank: item.salesRank || 0,
-        salesRankCategory: item.salesRankCategory || '',
-        fulfillmentOptions: [],
-        productType: item.productType || '',
-        marketplace: 'US',
-        rawData: item
+        currentPrice: item.price ? Math.round(parseFloat(item.price) * 100) : null, // Convert to cents
+        listPrice: item.listPrice ? Math.round(parseFloat(item.listPrice) * 100) : null,
+        salesRank: item.salesRank || null,
+        categoryRank: item.categoryRank || null,
+        inStock: item.inStock !== false,
+        fulfillmentMethod: item.fulfillmentMethod || 'FBA',
+        isPrime: item.isPrime || false,
+        profitMarginPercent: null, // Will be calculated
+        opportunityScore: Math.floor(Math.random() * 100) + 1, // Placeholder scoring
+        competitionLevel: 'medium',
+        estimatedSalesPerMonth: null
       };
       
       const savedData = await saveAmazonMarketData(marketData);

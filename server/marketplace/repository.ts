@@ -33,12 +33,25 @@ export async function getAmazonDataForProduct(productId: number): Promise<any[]>
  */
 export async function saveAmazonMarketData(data: any): Promise<any> {
   try {
+    // Filter data to only include fields that exist in the actual table schema
+    const filteredData = {
+      asin: data.asin,
+      currentPrice: data.currentPrice,
+      listPrice: data.listPrice,
+      salesRank: data.salesRank,
+      categoryRank: data.categoryRank,
+      inStock: data.inStock,
+      fulfillmentMethod: data.fulfillmentMethod,
+      isPrime: data.isPrime,
+      profitMarginPercent: data.profitMarginPercent,
+      opportunityScore: data.opportunityScore,
+      competitionLevel: data.competitionLevel,
+      estimatedSalesPerMonth: data.estimatedSalesPerMonth
+    };
+    
     const [savedData] = await db
       .insert(amazonMarketIntelligence)
-      .values({
-        ...data,
-        updatedAt: new Date()
-      })
+      .values(filteredData)
       .returning();
     return savedData;
   } catch (error: any) {
