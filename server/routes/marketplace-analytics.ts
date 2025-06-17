@@ -127,8 +127,13 @@ router.get('/analytics/opportunities', async (req, res) => {
         isNotNull(amazonMarketIntelligence.currentPrice)
       ));
 
+    // Apply category filter if specified
     if (category !== 'all') {
-      query = query.where(eq(categories.name, category as string));
+      query = query.where(and(
+        isNotNull(amazonAsins.asin),
+        isNotNull(amazonMarketIntelligence.currentPrice),
+        eq(categories.name, category as string)
+      ));
     }
 
     const results = await query.limit(Number(limit));
