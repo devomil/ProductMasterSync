@@ -218,9 +218,9 @@ class DatabaseMonitor {
     const suggestions: string[] = [];
     
     try {
-      // Get table statistics
+      // Get table statistics - use correct PostgreSQL column names
       const tableStats = await this.pool.query(`
-        SELECT schemaname, tablename, n_tup_ins, n_tup_upd, n_tup_del, seq_scan, seq_tup_read
+        SELECT schemaname, relname as tablename, n_tup_ins, n_tup_upd, n_tup_del, seq_scan, seq_tup_read
         FROM pg_stat_user_tables
         WHERE seq_scan > 100 AND seq_tup_read > seq_scan * 1000
       `);
@@ -233,7 +233,7 @@ class DatabaseMonitor {
       
       // Check for unused indexes
       const unusedIndexes = await this.pool.query(`
-        SELECT schemaname, tablename, indexname, idx_scan
+        SELECT schemaname, relname as tablename, indexrelname as indexname, idx_scan
         FROM pg_stat_user_indexes
         WHERE idx_scan < 10
       `);
@@ -243,6 +243,19 @@ class DatabaseMonitor {
           suggestions.push(`Index ${row.indexname} on ${row.tablename} is never used - consider dropping`);
         }
       });
+
+      // Add general optimization suggestions based on common patterns
+      if (this.queryMetrics.length > 0) {
+        const slowQueryCount = this.queryMetrics.filter(m => m.duration > 1000).length;
+        if (slowQueryCount > 5) {
+          suggestions.push('Multiple slow queries detected - review WHERE clause indexing');
+        }
+
+        const errorQueries = this.queryMetrics.filter(m => m.error).length;
+        if (errorQueries > 0) {
+          suggestions.push('Database errors detected - check connection pool settings and query syntax');
+        }
+      }
       
     } catch (error: any) {
       await errorLogger.logError({
@@ -250,6 +263,11 @@ class DatabaseMonitor {
         source: 'database',
         message: `Failed to analyze database statistics: ${error.message}`
       });
+
+      // Provide fallback suggestions based on observed patterns
+      suggestions.push('Unable to fetch detailed statistics - ensure pg_stat_statements extension is enabled');
+      suggestions.push('Consider adding indexes for frequently queried columns');
+      suggestions.push('Monitor connection pool usage and query execution plans');
     }
     
     return suggestions;

@@ -22,7 +22,9 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  Play
 } from 'lucide-react';
 
 interface SystemHealth {
@@ -130,6 +132,7 @@ interface ErrorAnalysis {
 export default function SystemMonitoring() {
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // Real-time system health monitoring
   const { data: healthData, refetch: refetchHealth } = useQuery<SystemHealth>({
@@ -191,6 +194,29 @@ export default function SystemMonitoring() {
     refetchErrors();
   };
 
+  const handleAutoOptimize = async () => {
+    setIsOptimizing(true);
+    try {
+      const response = await fetch('/api/monitoring/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Optimization applied:', result);
+        // Refresh all data after optimization
+        setTimeout(() => {
+          handleRefreshAll();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Auto-optimization failed:', error);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -212,6 +238,19 @@ export default function SystemMonitoring() {
               {autoRefresh ? 'Enabled' : 'Disabled'}
             </Button>
           </div>
+          <Button 
+            onClick={handleAutoOptimize} 
+            size="sm" 
+            variant="outline"
+            disabled={isOptimizing}
+          >
+            {isOptimizing ? (
+              <Settings className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            {isOptimizing ? 'Optimizing...' : 'Auto-Optimize'}
+          </Button>
           <Button onClick={handleRefreshAll} size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh All

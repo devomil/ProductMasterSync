@@ -6,12 +6,14 @@
 import { Router, Request, Response } from 'express';
 import { errorLogger } from '../services/error-logger';
 import { createDatabaseMonitor } from '../services/database-monitor';
+import { createPerformanceOptimizer } from '../services/performance-optimizer';
 import { pool } from '../db';
 
 const router = Router();
 
-// Initialize database monitor
+// Initialize monitoring services
 const dbMonitor = createDatabaseMonitor(pool);
+const perfOptimizer = createPerformanceOptimizer(pool);
 
 // Frontend metrics endpoint
 router.post('/frontend-metrics', async (req: Request, res: Response) => {
@@ -393,6 +395,101 @@ function generateAlerts(errorSummary: any[], performanceStats: any, dbStats: any
   }
   
   return alerts;
+}
+
+// Auto-optimization endpoint
+router.post('/optimize', async (req: Request, res: Response) => {
+  try {
+    const optimizations = await perfOptimizer.applyDatabaseOptimizations();
+    const recommendations = await perfOptimizer.getOptimizationRecommendations();
+    
+    const appliedOptimizations = optimizations.filter(opt => opt.applied);
+    const failedOptimizations = optimizations.filter(opt => !opt.applied);
+
+    await errorLogger.logError({
+      level: 'info',
+      source: 'backend',
+      message: `Applied ${appliedOptimizations.length} performance optimizations`,
+      context: { optimizations, recommendations }
+    });
+
+    res.json({
+      success: true,
+      applied: appliedOptimizations,
+      failed: failedOptimizations,
+      recommendations,
+      summary: {
+        totalOptimizations: optimizations.length,
+        appliedCount: appliedOptimizations.length,
+        failedCount: failedOptimizations.length
+      }
+    });
+  } catch (error: any) {
+    await errorLogger.logError({
+      level: 'error',
+      source: 'backend',
+      message: `Performance optimization failed: ${error.message}`,
+      stack: error.stack,
+      endpoint: req.path
+    });
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Query analysis endpoint
+router.get('/queries', async (req: Request, res: Response) => {
+  try {
+    const slowQueries = await perfOptimizer.analyzeSlowQueries();
+    const queryAnalysis = dbMonitor.analyzeQueries();
+    
+    res.json({
+      slowQueries,
+      patterns: queryAnalysis.slice(0, 20),
+      insights: generateQueryInsights(slowQueries, queryAnalysis)
+    });
+  } catch (error: any) {
+    await errorLogger.logError({
+      level: 'error',
+      source: 'backend',
+      message: `Query analysis failed: ${error.message}`,
+      stack: error.stack,
+      endpoint: req.path
+    });
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+function generateQueryInsights(slowQueries: any[], queryAnalysis: any[]): string[] {
+  const insights: string[] = [];
+  
+  if (slowQueries.length > 0) {
+    insights.push(`Found ${slowQueries.length} slow queries requiring optimization`);
+    
+    const mostCommonIssue = slowQueries
+      .map(q => q.optimization)
+      .reduce((acc, opt) => {
+        acc[opt] = (acc[opt] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+    
+    const topIssue = Object.entries(mostCommonIssue)
+      .sort(([,a], [,b]) => b - a)[0];
+    
+    if (topIssue) {
+      insights.push(`Most common optimization needed: ${topIssue[0]}`);
+    }
+  }
+  
+  if (queryAnalysis.length > 0) {
+    const highImpactQueries = queryAnalysis.filter(q => q.avgDuration > 1000 && q.callCount > 10);
+    if (highImpactQueries.length > 0) {
+      insights.push(`${highImpactQueries.length} high-impact query patterns need immediate attention`);
+    }
+  }
+  
+  return insights;
 }
 
 export default router;
