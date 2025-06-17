@@ -16,6 +16,31 @@ import {
 } from '@shared/schema';
 
 /**
+ * Create an ASIN record in the amazon_asins table
+ * @param asinData 
+ */
+export async function createAsinRecord(asinData: any): Promise<void> {
+  try {
+    await db.insert(amazonAsins).values({
+      asin: asinData.asin,
+      title: asinData.title || '',
+      brand: asinData.brand || '',
+      manufacturer: asinData.manufacturer || '',
+      upc: asinData.upc || '',
+      partNumber: asinData.partNumber || '',
+      model: asinData.model || '',
+      category: asinData.category || '',
+      subcategory: asinData.subcategory || '',
+      mainImageUrl: asinData.imageUrl || '',
+      productType: asinData.productType || '',
+      marketplace: 'US'
+    }).onConflictDoNothing();
+  } catch (error) {
+    console.log(`ASIN ${asinData.asin} already exists or error inserting:`, error);
+  }
+}
+
+/**
  * Get Amazon marketplace data for a product
  * @param productId 
  */

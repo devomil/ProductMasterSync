@@ -9,7 +9,8 @@ import {
   getProductsForAmazonSync,
   updateProductAmazonSyncStatus,
   createSyncLog,
-  generateBatchId
+  generateBatchId,
+  createAsinRecord
 } from './repository';
 import { amazonRateLimiter } from '../utils/rate-limiter';
 import { searchCatalogItemsByUPC, getAmazonConfig } from '../utils/amazon-spapi';
