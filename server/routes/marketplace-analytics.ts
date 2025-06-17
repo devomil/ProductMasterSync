@@ -114,12 +114,12 @@ router.get('/analytics/opportunities', async (req, res) => {
         supplierName: suppliers.name,
         // Amazon marketplace data
         asin: amazonMarketIntelligence.asin,
-        amazonTitle: amazonMarketIntelligence.amazonTitle,
-        amazonBrand: amazonMarketIntelligence.amazonBrand,
+        amazonTitle: amazonAsins.title,
+        amazonBrand: amazonAsins.brand,
         amazonCurrentPrice: amazonMarketIntelligence.currentPrice,
         amazonListPrice: amazonMarketIntelligence.listPrice,
-        amazonFulfillmentChannel: amazonMarketIntelligence.fulfillmentChannel,
-        amazonOfferCount: amazonMarketIntelligence.offerCount,
+        amazonFulfillmentChannel: amazonMarketIntelligence.fulfillmentMethod,
+        amazonOfferCount: amazonMarketIntelligence.totalSellers,
         salesRank: amazonMarketIntelligence.salesRank,
         categoryRank: amazonMarketIntelligence.categoryRank,
         opportunityScore: amazonMarketIntelligence.opportunityScore,
@@ -129,7 +129,8 @@ router.get('/analytics/opportunities', async (req, res) => {
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
-      .innerJoin(amazonMarketIntelligence, eq(products.sku, amazonMarketIntelligence.sku))
+      .innerJoin(amazonAsins, eq(products.usin, amazonAsins.upc))
+      .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .where(isNotNull(amazonMarketIntelligence.asin))
       .limit(Number(limit) * 2);
 
