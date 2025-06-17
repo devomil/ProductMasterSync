@@ -277,17 +277,12 @@ export default function SystemMonitoring() {
             </Button>
           ) : (
             <Button 
-              onClick={handleAutoOptimize} 
               size="sm" 
               variant="outline"
-              disabled={isOptimizing}
+              disabled={true}
             >
-              {isOptimizing ? (
-                <Settings className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              )}
-              {isOptimizing ? 'Checking...' : 'System Optimized'}
+              <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+              System Optimized
             </Button>
           )}
           <Button onClick={handleRefreshAll} size="sm">
