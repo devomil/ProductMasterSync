@@ -14,7 +14,8 @@ import {
   FileCode,
   ShoppingCart,
   BarChart3,
-  Shield
+  Shield,
+  Activity
 } from "lucide-react";
 
 interface SidebarLinkProps {
@@ -133,6 +134,13 @@ const Sidebar = () => {
                   active={location === "/amazon-analytics"}
                 >
                   Amazon Analytics
+                </SidebarLink>
+                <SidebarLink 
+                  href="/system-monitoring" 
+                  icon={<Activity size={20} />} 
+                  active={location === "/system-monitoring"}
+                >
+                  System Monitoring
                 </SidebarLink>
                 <SidebarLink 
                   href="/multi-asin-search" 

@@ -667,7 +667,7 @@ export default function SystemMonitoring() {
                 <div>
                   <h4 className="font-medium mb-2">Immediate Actions</h4>
                   <div className="space-y-2">
-                    {healthData?.database.errorRate > 10 && (
+                    {healthData?.database?.errorRate && healthData.database.errorRate > 10 && (
                       <Alert>
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription>
@@ -675,7 +675,7 @@ export default function SystemMonitoring() {
                         </AlertDescription>
                       </Alert>
                     )}
-                    {healthData?.performance.avgDuration > 3000 && (
+                    {healthData?.performance?.avgDuration && healthData.performance.avgDuration > 3000 && (
                       <Alert>
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription>

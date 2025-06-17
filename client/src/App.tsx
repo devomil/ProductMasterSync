@@ -28,6 +28,7 @@ import AmazonAnalytics from "@/pages/AmazonAnalyticsFixed";
 import AIPurchasing from "@/pages/AIPurchasing";
 import MultiASINSearch from "@/pages/MultiASINSearch";
 import ASINDemo from "@/pages/ASINDemo";
+import SystemMonitoring from "@/pages/SystemMonitoring";
 import BatchProcessing from "@/pages/BatchProcessing";
 import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
@@ -65,6 +66,7 @@ function Router() {
       <Route path="/sample-data-test" component={SampleDataTest} />
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
       <Route path="/gamified-mapping" component={GamifiedMapping} />
+      <Route path="/system-monitoring" component={SystemMonitoring} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
