@@ -475,7 +475,7 @@ function generateQueryInsights(slowQueries: any[], queryAnalysis: any[]): string
       }, {} as Record<string, number>);
     
     const topIssue = Object.entries(mostCommonIssue)
-      .sort(([,a], [,b]) => b - a)[0];
+      .sort(([,a], [,b]) => (b as number) - (a as number))[0];
     
     if (topIssue) {
       insights.push(`Most common optimization needed: ${topIssue[0]}`);
