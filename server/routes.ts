@@ -2804,9 +2804,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Register marketplace routes
-  app.use("/api/marketplace", marketplaceRoutes);
+  // Register marketplace routes (analytics first for correct endpoint precedence)
   app.use("/api/marketplace", marketplaceAnalyticsRoutes);
+  app.use("/api/marketplace", marketplaceRoutes);
   
   // Register AI purchasing routes
   app.use("/api/ai-purchasing", aiPurchasingRoutes);
