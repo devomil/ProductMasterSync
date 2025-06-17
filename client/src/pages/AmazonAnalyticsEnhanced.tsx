@@ -382,7 +382,7 @@ export default function AmazonAnalyticsEnhanced() {
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{displayAnalytics.marketIntelligenceRecords.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{displayAnalytics.marketIntelligenceRecords?.toLocaleString() || '0'}</div>
             <p className="text-xs text-muted-foreground">Records analyzed</p>
           </CardContent>
         </Card>
@@ -393,7 +393,7 @@ export default function AmazonAnalyticsEnhanced() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{displayAnalytics.priceHistoryEntries.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{displayAnalytics.priceHistoryEntries?.toLocaleString() || '0'}</div>
             <p className="text-xs text-muted-foreground">Historical data points</p>
           </CardContent>
         </Card>
