@@ -33,7 +33,9 @@ export async function getAmazonDataForProduct(productId: number): Promise<any[]>
  */
 export async function saveAmazonMarketData(data: any): Promise<any> {
   try {
-    // Map data to match actual database schema with snake_case column names
+    console.log('Repository received data:', JSON.stringify(data, null, 2));
+    
+    // Map only the core fields that we know exist in the database
     const filteredData = {
       asin: data.asin,
       current_price: data.currentPrice,
@@ -48,6 +50,8 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
       competition_level: data.competitionLevel,
       estimated_sales_per_month: data.estimatedSalesPerMonth
     };
+    
+    console.log('Filtered data for DB insert:', JSON.stringify(filteredData, null, 2));
     
     const [savedData] = await db
       .insert(amazonMarketIntelligence)

@@ -60,6 +60,26 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
     // Map and save each catalog item to our marketplace data schema
     const savedItems = [];
     for (const item of catalogItems) {
+      // First, ensure the ASIN exists in the amazon_asins table
+      try {
+        await db.insert(amazonAsins).values({
+          asin: item.asin,
+          title: item.title || '',
+          brand: item.brand || '',
+          manufacturer: item.manufacturer || '',
+          upc: upc || '',
+          partNumber: item.partNumber || '',
+          model: item.model || '',
+          category: item.category || '',
+          subcategory: item.subcategory || '',
+          mainImageUrl: item.imageUrl || '',
+          productType: item.productType || '',
+          marketplace: 'US'
+        }).onConflictDoNothing();
+      } catch (asinError) {
+        console.log(`ASIN ${item.asin} already exists or error inserting:`, asinError);
+      }
+
       const marketData = {
         asin: item.asin || '',
         currentPrice: item.price ? Math.round(parseFloat(item.price) * 100) : null, // Convert to cents
