@@ -45,6 +45,70 @@ import {
   AlertTriangle
 } from "lucide-react";
 
+interface MultiAsinOpportunity {
+  id: number;
+  productId: number;
+  upc: string;
+  manufacturerPartNumber: string;
+  discoveredAsins: string[];
+  primaryAsin: string;
+  secondaryAsins: string[];
+  opportunityScore: number;
+  strategyType: 'DOMINATE_ALL' | 'SELECTIVE_TARGET' | 'TEST_AND_EXPAND';
+  profitAnalysis: {
+    estimatedMargin: number;
+    competitionLevel: string;
+    marketPotential: number;
+  };
+  supplierRecommendations: {
+    recommendedAction: string;
+    priorityLevel: string;
+  };
+  competitiveAnalysis: {
+    priceRange: { min: number; max: number };
+    avgReviews: number;
+    topCompetitors: string[];
+  };
+  seasonalForecast: {
+    peakMonths: string[];
+    demandTrend: string;
+  };
+  updatedAt: string;
+}
+
+interface SupplierPerformance {
+  id: number;
+  supplierId: number;
+  asin: string;
+  successRate: number;
+  avgProfitMargin: number;
+  marketDominanceScore: number;
+  negotiationOpportunities: {
+    volumeDiscount: boolean;
+    exclusivity: boolean;
+    paymentTerms: boolean;
+  };
+  performanceTrends: {
+    quarterlyGrowth: number;
+    marketShare: number;
+  };
+  lastUpdated: string;
+}
+
+interface AIIntelligenceSummary {
+  opportunities: {
+    total: number;
+    highScore: number;
+    strategies: Array<{ strategy: string; count: number }>;
+  };
+  suppliers: {
+    totalMappings: number;
+    highPerforming: number;
+  };
+  lastAnalyzed: string;
+  aiStatus: string;
+}
+
 interface ProductOpportunity {
   sku: string;
   productName: string;
@@ -113,6 +177,32 @@ export default function AmazonAnalyticsEnhanced() {
 
   const { data: trends, isLoading: trendsLoading } = useQuery<MarketTrend[]>({
     queryKey: ['/api/marketplace/analytics/trends']
+  });
+
+  const { data: multiAsinData, isLoading: multiAsinLoading } = useQuery<{
+    opportunities: MultiAsinOpportunity[];
+    metadata: { totalCount: number; minScoreFilter: number; generatedAt: string };
+  }>({
+    queryKey: ['/api/marketplace/analytics/multi-asin-opportunities'],
+    refetchInterval: 300000 // Refresh every 5 minutes
+  });
+
+  const { data: supplierPerformanceData, isLoading: supplierPerformanceLoading } = useQuery<{
+    performance: SupplierPerformance[];
+    summary: {
+      totalSupplierAsins: number;
+      averageSuccessRate: number;
+      averageProfitMargin: number;
+      lastUpdated: string;
+    };
+  }>({
+    queryKey: ['/api/marketplace/analytics/supplier-performance'],
+    refetchInterval: 300000 // Refresh every 5 minutes
+  });
+
+  const { data: aiIntelligence, isLoading: aiIntelligenceLoading } = useQuery<AIIntelligenceSummary>({
+    queryKey: ['/api/marketplace/analytics/ai-intelligence'],
+    refetchInterval: 300000 // Refresh every 5 minutes
   });
 
   const { data: opportunities, isLoading: opportunitiesLoading } = useQuery<{opportunities: ProductOpportunity[]}>({
@@ -338,10 +428,11 @@ export default function AmazonAnalyticsEnhanced() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="opportunities" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Market Trends</TabsTrigger>
           <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+          <TabsTrigger value="ai-intelligence">AI Intelligence</TabsTrigger>
           <TabsTrigger value="database">Database Status</TabsTrigger>
         </TabsList>
 
@@ -758,6 +849,290 @@ export default function AmazonAnalyticsEnhanced() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-intelligence" className="space-y-6">
+          {/* AI Intelligence Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Multi-ASIN Opportunities</CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{aiIntelligence?.opportunities?.total || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {aiIntelligence?.opportunities?.highScore || 0} high-score opportunities
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Supplier Performance</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{supplierPerformanceData?.summary?.totalSupplierAsins || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {Math.round(supplierPerformanceData?.summary?.averageSuccessRate || 0)}% avg success rate
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Average Profit Margin</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {Math.round(supplierPerformanceData?.summary?.averageProfitMargin || 0)}%
+                </div>
+                <p className="text-xs text-muted-foreground">Across all supplier ASINs</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">AI Status</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  <Badge variant={aiIntelligence?.aiStatus === 'active' ? 'default' : 'secondary'}>
+                    {aiIntelligence?.aiStatus || 'Unknown'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Last analyzed: {aiIntelligence?.lastAnalyzed ? new Date(aiIntelligence.lastAnalyzed).toLocaleDateString() : 'Never'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Multi-ASIN Opportunities Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Multi-ASIN Opportunities</CardTitle>
+              <CardDescription>
+                Products with multiple ASIN possibilities and strategic recommendations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {multiAsinLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                  Loading multi-ASIN opportunities...
+                </div>
+              ) : multiAsinData?.opportunities?.length ? (
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600 mb-4">
+                    Showing {multiAsinData.opportunities.length} opportunities 
+                    (Generated: {new Date(multiAsinData.metadata.generatedAt).toLocaleString()})
+                  </div>
+                  
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>ASINs Found</TableHead>
+                        <TableHead>Strategy</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Profit Analysis</TableHead>
+                        <TableHead>Recommendations</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {multiAsinData.opportunities.slice(0, 20).map((opportunity) => (
+                        <TableRow key={opportunity.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-medium">{opportunity.upc}</div>
+                              <div className="text-sm text-gray-600">{opportunity.manufacturerPartNumber}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge variant="outline">{opportunity.discoveredAsins.length} ASINs</Badge>
+                              <div className="text-xs text-gray-600">
+                                Primary: {opportunity.primaryAsin}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              opportunity.strategyType === 'DOMINATE_ALL' ? 'default' :
+                              opportunity.strategyType === 'SELECTIVE_TARGET' ? 'secondary' : 'outline'
+                            }>
+                              {opportunity.strategyType.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-lg font-bold">{opportunity.opportunityScore}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium">
+                                {opportunity.profitAnalysis.estimatedMargin}% margin
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {opportunity.profitAnalysis.competitionLevel} competition
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Badge variant={
+                                opportunity.supplierRecommendations.priorityLevel === 'HIGH' ? 'destructive' :
+                                opportunity.supplierRecommendations.priorityLevel === 'MEDIUM' ? 'default' : 'secondary'
+                              }>
+                                {opportunity.supplierRecommendations.priorityLevel}
+                              </Badge>
+                              <div className="text-xs text-gray-600">
+                                {opportunity.supplierRecommendations.recommendedAction}
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Multi-ASIN Opportunities</h3>
+                  <p className="text-gray-600">
+                    Multi-ASIN opportunity analysis requires authentic Amazon SP-API data.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Supplier Performance Analytics */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Supplier Performance Analytics</CardTitle>
+              <CardDescription>
+                Performance metrics and negotiation opportunities by supplier
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {supplierPerformanceLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                  Loading supplier performance data...
+                </div>
+              ) : supplierPerformanceData?.performance?.length ? (
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600 mb-4">
+                    Last updated: {new Date(supplierPerformanceData.summary.lastUpdated).toLocaleString()}
+                  </div>
+                  
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>ASIN</TableHead>
+                        <TableHead>Success Rate</TableHead>
+                        <TableHead>Profit Margin</TableHead>
+                        <TableHead>Market Dominance</TableHead>
+                        <TableHead>Negotiation Opportunities</TableHead>
+                        <TableHead>Growth Trend</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {supplierPerformanceData.performance.slice(0, 15).map((perf) => (
+                        <TableRow key={perf.id}>
+                          <TableCell>
+                            <div className="font-medium">Supplier #{perf.supplierId}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-mono text-sm">{perf.asin}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Progress value={perf.successRate} className="w-16" />
+                              <span className="text-sm font-medium">{Math.round(perf.successRate)}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-lg font-bold text-green-600">
+                              {Math.round(perf.avgProfitMargin)}%
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Progress value={perf.marketDominanceScore} className="w-16" />
+                              <span className="text-sm">{Math.round(perf.marketDominanceScore)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {perf.negotiationOpportunities.volumeDiscount && (
+                                <Badge variant="outline" className="text-xs">Volume</Badge>
+                              )}
+                              {perf.negotiationOpportunities.exclusivity && (
+                                <Badge variant="outline" className="text-xs">Exclusivity</Badge>
+                              )}
+                              {perf.negotiationOpportunities.paymentTerms && (
+                                <Badge variant="outline" className="text-xs">Payment</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              {perf.performanceTrends.quarterlyGrowth > 0 ? (
+                                <TrendingUp className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <TrendingDown className="h-4 w-4 text-red-500" />
+                              )}
+                              <span className="text-sm font-medium">
+                                {Math.round(perf.performanceTrends.quarterlyGrowth)}%
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Supplier Performance Data</h3>
+                  <p className="text-gray-600">
+                    Supplier performance analytics requires authentic Amazon marketplace data.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Strategy Distribution Chart */}
+          {aiIntelligence?.opportunities?.strategies?.length ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Strategy Distribution</CardTitle>
+                <CardDescription>
+                  Distribution of recommended strategies across opportunities
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={aiIntelligence.opportunities.strategies}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="strategy" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ) : null}
         </TabsContent>
       </Tabs>
 
