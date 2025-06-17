@@ -3,9 +3,9 @@
  * This ensures the opportunities endpoint has proper ASIN associations
  */
 
-const { db } = require('./server/db.js');
-const { products, productAsinMapping, amazonAsins } = require('./shared/schema.js');
-const { eq, and, isNotNull, notExists } = require('drizzle-orm');
+import { db } from './server/db.ts';
+import { products, productAsinMapping, amazonAsins } from './shared/schema.ts';
+import { eq, and, isNotNull, notExists } from 'drizzle-orm';
 
 async function syncAsinMappings() {
   try {
