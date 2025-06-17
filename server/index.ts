@@ -5,6 +5,7 @@ import { scheduler } from "./utils/temporary-scheduler";
 import setupDatabase from "./db-setup";
 import { errorLogger } from "./services/error-logger";
 import monitoringRoutes from "./routes/monitoring";
+import { staticOptimization } from "./services/static-optimization";
 
 const app = express();
 app.use(express.json());
@@ -12,6 +13,9 @@ app.use(express.urlencoded({ extended: false }));
 
 // Performance monitoring middleware
 app.use(errorLogger.performanceMiddleware());
+
+// Static asset optimization middleware
+app.use(staticOptimization.middleware());
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -7,6 +7,8 @@ import { Router, Request, Response } from 'express';
 import { errorLogger } from '../services/error-logger';
 import { createDatabaseMonitor } from '../services/database-monitor';
 import { createPerformanceOptimizer } from '../services/performance-optimizer';
+import { createPostgreSQLOptimizer } from '../services/postgresql-optimizer';
+import { cssOptimizer } from '../services/css-optimization';
 import { pool } from '../db';
 
 const router = Router();
@@ -14,6 +16,7 @@ const router = Router();
 // Initialize monitoring services
 const dbMonitor = createDatabaseMonitor(pool);
 const perfOptimizer = createPerformanceOptimizer(pool);
+const pgOptimizer = createPostgreSQLOptimizer(pool);
 
 // Frontend metrics endpoint
 router.post('/frontend-metrics', async (req: Request, res: Response) => {
@@ -400,28 +403,53 @@ function generateAlerts(errorSummary: any[], performanceStats: any, dbStats: any
 // Auto-optimization endpoint
 router.post('/optimize', async (req: Request, res: Response) => {
   try {
-    const optimizations = await perfOptimizer.applyDatabaseOptimizations();
-    const recommendations = await perfOptimizer.getOptimizationRecommendations();
+    // Apply database optimizations
+    const dbOptimizations = await perfOptimizer.applyDatabaseOptimizations();
     
-    const appliedOptimizations = optimizations.filter(opt => opt.applied);
-    const failedOptimizations = optimizations.filter(opt => !opt.applied);
+    // Apply CSS and frontend optimizations
+    const cssOptimization = await cssOptimizer.optimizeStaticAssets();
+    
+    // Apply PostgreSQL settings that don't require restart
+    const pgSettings = await pgOptimizer.applyNonRestartSettings();
+    
+    // Get additional recommendations
+    const dbRecommendations = await perfOptimizer.getOptimizationRecommendations();
+    const pgRecommendations = await pgOptimizer.getOptimizationRecommendations();
+    const cssStatus = cssOptimizer.getOptimizationStatus();
+    
+    const allOptimizations = [...dbOptimizations, cssOptimization];
+    const appliedOptimizations = allOptimizations.filter(opt => opt.applied);
+    const failedOptimizations = allOptimizations.filter(opt => !opt.applied);
 
     await errorLogger.logError({
       level: 'info',
       source: 'backend',
-      message: `Applied ${appliedOptimizations.length} performance optimizations`,
-      context: { optimizations, recommendations }
+      message: `Applied ${appliedOptimizations.length} comprehensive optimizations`,
+      context: { 
+        database: dbOptimizations,
+        css: cssOptimization,
+        postgresql: pgSettings,
+        recommendations: [...dbRecommendations, ...pgRecommendations, ...cssStatus.recommendations]
+      }
     });
 
     res.json({
       success: true,
       applied: appliedOptimizations,
       failed: failedOptimizations,
-      recommendations,
+      postgresql: {
+        appliedSettings: pgSettings.applied,
+        failedSettings: pgSettings.failed,
+        recommendations: pgRecommendations
+      },
+      css: cssStatus,
+      recommendations: [...dbRecommendations, ...pgRecommendations, ...cssStatus.recommendations],
       summary: {
-        totalOptimizations: optimizations.length,
+        totalOptimizations: allOptimizations.length,
         appliedCount: appliedOptimizations.length,
-        failedCount: failedOptimizations.length
+        failedCount: failedOptimizations.length,
+        postgresqlSettings: pgSettings.applied.length,
+        cssOptimized: cssOptimization.applied
       }
     });
   } catch (error: any) {
@@ -491,5 +519,74 @@ function generateQueryInsights(slowQueries: any[], queryAnalysis: any[]): string
   
   return insights;
 }
+
+// PostgreSQL configuration optimization endpoint
+router.post('/optimize-postgresql', async (req: Request, res: Response) => {
+  try {
+    const configFile = await pgOptimizer.generateConfigurationFile();
+    const currentConfig = await pgOptimizer.analyzeConfiguration();
+    const connectionPool = await pgOptimizer.optimizeConnectionPool();
+    const recommendations = await pgOptimizer.getOptimizationRecommendations();
+
+    await errorLogger.logError({
+      level: 'info',
+      source: 'database',
+      message: 'PostgreSQL optimization configuration generated',
+      context: { configFile, recommendations }
+    });
+
+    res.json({
+      success: true,
+      configFile,
+      currentConfig,
+      connectionPool,
+      recommendations,
+      restartRequired: currentConfig.some(c => c.requiresRestart && c.currentValue !== c.recommendedValue),
+      instructions: [
+        '1. Review the generated postgresql-optimization.conf file',
+        '2. Apply settings that require restart to your PostgreSQL configuration',
+        '3. Restart PostgreSQL service for restart-required settings',
+        '4. Runtime settings have been applied automatically',
+        '5. Monitor performance improvements after applying changes'
+      ]
+    });
+  } catch (error: any) {
+    await errorLogger.logError({
+      level: 'error',
+      source: 'database',
+      message: `PostgreSQL optimization failed: ${error.message}`,
+      stack: error.stack,
+      endpoint: req.path
+    });
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// CSS optimization status endpoint
+router.get('/css-status', async (req: Request, res: Response) => {
+  try {
+    const status = cssOptimizer.getOptimizationStatus();
+    
+    res.json({
+      success: true,
+      optimization: status,
+      issues: [
+        'CSS files loading slowly due to lack of caching headers',
+        'Large CSS bundles should be split for better loading performance',
+        'Consider implementing critical CSS inlining',
+        'Static assets need proper compression and CDN setup'
+      ],
+      solutions: [
+        'Enable CSS caching with proper ETags and Cache-Control headers',
+        'Implement CSS code splitting in Vite configuration',
+        'Use CSS minification and compression',
+        'Set up asset preloading for critical resources'
+      ]
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 export default router;
