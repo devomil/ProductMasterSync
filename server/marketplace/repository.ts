@@ -33,20 +33,20 @@ export async function getAmazonDataForProduct(productId: number): Promise<any[]>
  */
 export async function saveAmazonMarketData(data: any): Promise<any> {
   try {
-    // Filter data to only include fields that exist in the actual table schema
+    // Map data to match actual database schema with snake_case column names
     const filteredData = {
       asin: data.asin,
-      currentPrice: data.currentPrice,
-      listPrice: data.listPrice,
-      salesRank: data.salesRank,
-      categoryRank: data.categoryRank,
-      inStock: data.inStock,
-      fulfillmentMethod: data.fulfillmentMethod,
-      isPrime: data.isPrime,
-      profitMarginPercent: data.profitMarginPercent,
-      opportunityScore: data.opportunityScore,
-      competitionLevel: data.competitionLevel,
-      estimatedSalesPerMonth: data.estimatedSalesPerMonth
+      current_price: data.currentPrice,
+      list_price: data.listPrice,
+      sales_rank: data.salesRank,
+      category_rank: data.categoryRank,
+      in_stock: data.inStock,
+      fulfillment_method: data.fulfillmentMethod,
+      is_prime: data.isPrime,
+      profit_margin_percent: data.profitMarginPercent,
+      opportunity_score: data.opportunityScore,
+      competition_level: data.competitionLevel,
+      estimated_sales_per_month: data.estimatedSalesPerMonth
     };
     
     const [savedData] = await db
@@ -60,12 +60,7 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
       const [existingData] = await db
         .select()
         .from(amazonMarketIntelligence)
-        .where(
-          and(
-            eq(amazonMarketIntelligence.asin, data.asin),
-            eq(amazonMarketIntelligence.marketplaceId, data.marketplaceId || 'ATVPDKIKX0DER')
-          )
-        );
+        .where(eq(amazonMarketIntelligence.asin, data.asin));
       return existingData;
     }
     throw error;
