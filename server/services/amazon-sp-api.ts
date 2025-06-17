@@ -5,6 +5,7 @@
 
 import axios from 'axios';
 import crypto from 'crypto';
+import { URL } from 'url';
 
 interface AmazonConfig {
   clientId: string;
@@ -109,14 +110,16 @@ export class AmazonSPAPI {
     }
 
     try {
+      const params = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: this.config.refreshToken,
+        client_id: this.config.clientId,
+        client_secret: this.config.clientSecret
+      });
+
       const response = await axios.post<AccessTokenResponse>(
         'https://api.amazon.com/auth/o2/token',
-        {
-          grant_type: 'refresh_token',
-          refresh_token: this.config.refreshToken,
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret
-        },
+        params.toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -128,8 +131,8 @@ export class AmazonSPAPI {
       this.tokenExpiry = new Date(Date.now() + (response.data.expires_in * 1000) - 60000); // 1 minute buffer
 
       return this.accessToken;
-    } catch (error) {
-      console.error('Failed to get Amazon SP-API access token:', error);
+    } catch (error: any) {
+      console.error('Failed to get Amazon SP-API access token:', error.response?.data || error.message);
       throw new Error('Amazon SP-API authentication failed');
     }
   }
@@ -148,22 +151,27 @@ export class AmazonSPAPI {
     const date = now.toISOString().slice(0, 10).replace(/-/g, '');
     const datetime = headers['x-amz-date'];
     
-    // Create canonical request
-    const canonicalHeaders = Object.keys(headers)
-      .sort()
-      .map(key => `${key.toLowerCase()}:${headers[key]}\n`)
-      .join('');
+    // Normalize the path
+    const canonicalUri = path || '/';
     
-    const signedHeaders = Object.keys(headers)
-      .sort()
+    // Sort and format headers
+    const sortedHeaders = Object.keys(headers)
       .map(key => key.toLowerCase())
-      .join(';');
+      .sort();
     
-    const payloadHash = crypto.createHash('sha256').update(body).digest('hex');
+    const canonicalHeaders = sortedHeaders
+      .map(key => `${key}:${headers[Object.keys(headers).find(h => h.toLowerCase() === key)!].trim()}`)
+      .join('\n') + '\n';
     
+    const signedHeaders = sortedHeaders.join(';');
+    
+    // Hash the payload
+    const payloadHash = crypto.createHash('sha256').update(body, 'utf8').digest('hex');
+    
+    // Create canonical request
     const canonicalRequest = [
-      method,
-      path,
+      method.toUpperCase(),
+      canonicalUri,
       queryString,
       canonicalHeaders,
       signedHeaders,
@@ -176,7 +184,7 @@ export class AmazonSPAPI {
       algorithm,
       datetime,
       credentialScope,
-      crypto.createHash('sha256').update(canonicalRequest).digest('hex')
+      crypto.createHash('sha256').update(canonicalRequest, 'utf8').digest('hex')
     ].join('\n');
     
     // Calculate signature
@@ -184,7 +192,7 @@ export class AmazonSPAPI {
     const kRegion = crypto.createHmac('sha256', kDate).update(region).digest();
     const kService = crypto.createHmac('sha256', kRegion).update(service).digest();
     const kSigning = crypto.createHmac('sha256', kService).update('aws4_request').digest();
-    const signature = crypto.createHmac('sha256', kSigning).update(stringToSign).digest('hex');
+    const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
     
     return `${algorithm} Credential=${this.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
   }
@@ -196,47 +204,70 @@ export class AmazonSPAPI {
     body: any = null
   ): Promise<T> {
     const accessToken = await this.getAccessToken();
-    const url = new URL(path, this.baseUrl);
     
-    // Add query parameters
+    // Build the complete URL with query parameters
+    const url = new URL(path, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.append(key, value);
     });
     
-    const datetime = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '') + 'Z';
+    // Create timestamp
+    const now = new Date();
+    const datetime = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     
+    // Prepare request body
+    const bodyString = body ? JSON.stringify(body) : '';
+    
+    // Create headers for signing
     const headers: Record<string, string> = {
+      'host': url.hostname,
       'x-amz-access-token': accessToken,
       'x-amz-date': datetime,
-      'Content-Type': 'application/json',
-      'User-Agent': 'MDM-PIM-System/1.0',
-      'host': 'sellingpartnerapi-na.amazon.com'
+      'content-type': 'application/json'
     };
     
-    const bodyString = body ? JSON.stringify(body) : '';
+    // Generate AWS signature
     const signature = this.createSignature(
-      method,
+      method.toUpperCase(),
       url.pathname,
-      url.search.slice(1),
+      url.search.slice(1), // Remove the '?' prefix
       headers,
       bodyString
     );
     
-    headers['Authorization'] = signature;
+    // Final headers for the request
+    const requestHeaders = {
+      ...headers,
+      'Authorization': signature,
+      'User-Agent': 'MDM-PIM-System/1.0'
+    };
     
     try {
+      console.log(`Making Amazon SP-API request: ${method} ${url.toString()}`);
+      
       const response = await axios({
-        method,
+        method: method.toUpperCase(),
         url: url.toString(),
-        headers,
-        data: body,
-        timeout: 30000
+        headers: requestHeaders,
+        data: body || undefined,
+        timeout: 30000,
+        validateStatus: () => true // Don't throw on HTTP error codes
       });
+      
+      if (response.status >= 400) {
+        console.error(`Amazon SP-API error ${response.status}:`, response.data);
+        throw new Error(`Amazon SP-API returned ${response.status}: ${JSON.stringify(response.data)}`);
+      }
       
       return response.data;
     } catch (error: any) {
-      console.error(`Amazon SP-API request failed: ${method} ${path}`, error.response?.data || error.message);
-      throw new Error(`Amazon SP-API request failed: ${error.response?.status || error.message}`);
+      if (error.response) {
+        console.error(`Amazon SP-API request failed: ${method} ${path}`, error.response.data);
+        throw new Error(`Amazon SP-API request failed: ${error.response.status}`);
+      } else {
+        console.error(`Amazon SP-API request failed: ${method} ${path}`, error.message);
+        throw new Error(`Amazon SP-API request failed: ${error.message}`);
+      }
     }
   }
 
