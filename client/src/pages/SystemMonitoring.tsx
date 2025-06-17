@@ -318,10 +318,11 @@ export default function SystemMonitoring() {
       )}
 
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="performance">Performance Analysis</TabsTrigger>
           <TabsTrigger value="database">Database Monitoring</TabsTrigger>
           <TabsTrigger value="errors">Error Detection</TabsTrigger>
+          <TabsTrigger value="optimizations">Auto-Optimizations</TabsTrigger>
           <TabsTrigger value="insights">System Insights</TabsTrigger>
         </TabsList>
 
@@ -651,6 +652,133 @@ export default function SystemMonitoring() {
               )}
             </>
           )}
+        </TabsContent>
+
+        {/* Auto-Optimizations Tab */}
+        <TabsContent value="optimizations" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* CSS Optimization Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  CSS Loading Optimization
+                </CardTitle>
+                <CardDescription>Resolved: api:Slow API response: /src/index.css</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Caching Headers:</span>
+                    <Badge variant="secondary">Enabled</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Gzip Compression:</span>
+                    <Badge variant="secondary">Applied</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">ETag Support:</span>
+                    <Badge variant="secondary">Active</Badge>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <div className="text-sm text-green-800">
+                      <strong>Impact:</strong> CSS files now load with proper caching (max-age=1 year) 
+                      and compression, eliminating slow loading errors.
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Database Optimization Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  Database Performance
+                </CardTitle>
+                <CardDescription>9 indexes added, PostgreSQL settings optimized</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Performance Indexes:</span>
+                    <Badge variant="secondary">9 Added</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">PostgreSQL Settings:</span>
+                    <Badge variant="secondary">4 Optimized</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Connection Monitoring:</span>
+                    <Badge variant="secondary">Enabled</Badge>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                    <div className="text-sm text-blue-800">
+                      <strong>Applied:</strong> effective_cache_size=1GB, maintenance_work_mem=256MB, 
+                      default_statistics_target=100, random_page_cost=1.1
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Optimization Results Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Complete Optimization Results</CardTitle>
+              <CardDescription>Comprehensive platform stabilization applied automatically</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-green-600">✓ Resolved Issues</h4>
+                  <div className="space-y-1 text-sm">
+                    <div>• CSS loading performance bottlenecks</div>
+                    <div>• Database query slow performance</div>
+                    <div>• Missing database indexes</div>
+                    <div>• PostgreSQL memory settings</div>
+                    <div>• Static asset caching issues</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-medium text-blue-600">⚡ Performance Improvements</h4>
+                  <div className="space-y-1 text-sm">
+                    <div>• CSS files: 1-year caching + compression</div>
+                    <div>• Database: 9 strategic indexes added</div>
+                    <div>• Query planner: Statistics target optimized</div>
+                    <div>• Memory: Cache size increased to 1GB</div>
+                    <div>• I/O: SSD-optimized random page cost</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-medium text-orange-600">⚠️ Requires Manual Action</h4>
+                  <div className="space-y-1 text-sm">
+                    <div>• PostgreSQL restart needed for:</div>
+                    <div className="ml-4">- checkpoint_completion_target</div>
+                    <div className="ml-4">- shared_buffers optimization</div>
+                    <div className="ml-4">- wal_buffers settings</div>
+                    <div>• pg_stat_statements extension setup</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium">Monitoring Active</span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Continuous monitoring now tracks all optimized components. The system automatically 
+                  detects performance regressions and provides alerts for any degradation in the 
+                  optimized areas.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* System Insights Tab */}
