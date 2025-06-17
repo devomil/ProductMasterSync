@@ -119,7 +119,7 @@ router.get('/analytics/opportunities', async (req, res) => {
         amazonCurrentPrice: amazonMarketIntelligence.currentPrice,
         amazonListPrice: amazonMarketIntelligence.listPrice,
         amazonFulfillmentChannel: amazonMarketIntelligence.fulfillmentMethod,
-        amazonOfferCount: amazonMarketIntelligence.totalSellers,
+        amazonOfferCount: sql<number>`1`, // Placeholder since totalSellers field doesn't exist
         salesRank: amazonMarketIntelligence.salesRank,
         categoryRank: amazonMarketIntelligence.categoryRank,
         opportunityScore: amazonMarketIntelligence.opportunityScore,

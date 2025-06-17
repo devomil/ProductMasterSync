@@ -435,11 +435,12 @@ export async function calculateProfitabilityMetrics(
   const profitMarginPercent = ourPrice ? ((ourPrice - ourCost) / ourPrice) * 100 : 0;
   const roiPercent = ourCost ? ((ourPrice - ourCost) / ourCost) * 100 : 0;
   
-  // Determine competition level based on total sellers and price competitiveness
+  // Determine competition level based on price competitiveness (totalSellers field doesn't exist)
   let competitionLevel: 'low' | 'medium' | 'high' = 'medium';
-  if (intelligence.totalSellers && intelligence.totalSellers < 5) {
+  // Competition level determined by other market factors since totalSellers field unavailable
+  if (intelligence.opportunityScore && intelligence.opportunityScore > 70) {
     competitionLevel = 'low';
-  } else if (intelligence.totalSellers && intelligence.totalSellers > 20) {
+  } else if (intelligence.opportunityScore && intelligence.opportunityScore < 30) {
     competitionLevel = 'high';
   }
   
