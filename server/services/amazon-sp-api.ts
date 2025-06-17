@@ -11,9 +11,6 @@ interface AmazonConfig {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  region: string;
   marketplaceId: string;
 }
 
@@ -91,9 +88,6 @@ export class AmazonSPAPI {
       clientId: process.env.AMAZON_SP_API_CLIENT_ID || '',
       clientSecret: process.env.AMAZON_SP_API_CLIENT_SECRET || '',
       refreshToken: process.env.AMAZON_SP_API_REFRESH_TOKEN || '',
-      accessKeyId: process.env.AMAZON_SP_API_ACCESS_KEY_ID || '',
-      secretAccessKey: process.env.AMAZON_SP_API_SECRET_KEY || '',
-      region: 'us-east-1',
       marketplaceId: 'ATVPDKIKX0DER' // US marketplace
     };
     
@@ -137,65 +131,7 @@ export class AmazonSPAPI {
     }
   }
 
-  private createSignature(
-    method: string,
-    path: string,
-    queryString: string,
-    headers: Record<string, string>,
-    body: string
-  ): string {
-    const algorithm = 'AWS4-HMAC-SHA256';
-    const service = 'execute-api';
-    const region = this.config.region;
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const datetime = headers['x-amz-date'];
-    
-    // Normalize the path
-    const canonicalUri = path || '/';
-    
-    // Sort and format headers
-    const sortedHeaders = Object.keys(headers)
-      .map(key => key.toLowerCase())
-      .sort();
-    
-    const canonicalHeaders = sortedHeaders
-      .map(key => `${key}:${headers[Object.keys(headers).find(h => h.toLowerCase() === key)!].trim()}`)
-      .join('\n') + '\n';
-    
-    const signedHeaders = sortedHeaders.join(';');
-    
-    // Hash the payload
-    const payloadHash = crypto.createHash('sha256').update(body, 'utf8').digest('hex');
-    
-    // Create canonical request
-    const canonicalRequest = [
-      method.toUpperCase(),
-      canonicalUri,
-      queryString,
-      canonicalHeaders,
-      signedHeaders,
-      payloadHash
-    ].join('\n');
-    
-    // Create string to sign
-    const credentialScope = `${date}/${region}/${service}/aws4_request`;
-    const stringToSign = [
-      algorithm,
-      datetime,
-      credentialScope,
-      crypto.createHash('sha256').update(canonicalRequest, 'utf8').digest('hex')
-    ].join('\n');
-    
-    // Calculate signature
-    const kDate = crypto.createHmac('sha256', `AWS4${this.config.secretAccessKey}`).update(date).digest();
-    const kRegion = crypto.createHmac('sha256', kDate).update(region).digest();
-    const kService = crypto.createHmac('sha256', kRegion).update(service).digest();
-    const kSigning = crypto.createHmac('sha256', kService).update('aws4_request').digest();
-    const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
-    
-    return `${algorithm} Credential=${this.config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-  }
+
 
   private async makeRequest<T>(
     method: string,
@@ -211,35 +147,11 @@ export class AmazonSPAPI {
       url.searchParams.append(key, value);
     });
     
-    // Create timestamp
-    const now = new Date();
-    const datetime = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-    
-    // Prepare request body
-    const bodyString = body ? JSON.stringify(body) : '';
-    
-    // Create headers for signing
+    // Simple OAuth-based headers (no AWS signature required)
     const headers: Record<string, string> = {
-      'host': url.hostname,
       'x-amz-access-token': accessToken,
-      'x-amz-date': datetime,
-      'content-type': 'application/json'
-    };
-    
-    // Generate AWS signature
-    const signature = this.createSignature(
-      method.toUpperCase(),
-      url.pathname,
-      url.search.slice(1), // Remove the '?' prefix
-      headers,
-      bodyString
-    );
-    
-    // Final headers for the request
-    const requestHeaders = {
-      ...headers,
-      'Authorization': signature,
-      'User-Agent': 'MDM-PIM-System/1.0'
+      'Content-Type': 'application/json',
+      'User-Agent': 'MDM-PIM-System/1.0 (Language=JavaScript)'
     };
     
     try {
@@ -248,11 +160,13 @@ export class AmazonSPAPI {
       const response = await axios({
         method: method.toUpperCase(),
         url: url.toString(),
-        headers: requestHeaders,
+        headers,
         data: body || undefined,
         timeout: 30000,
         validateStatus: () => true // Don't throw on HTTP error codes
       });
+      
+      console.log(`Amazon SP-API response status: ${response.status}`);
       
       if (response.status >= 400) {
         console.error(`Amazon SP-API error ${response.status}:`, response.data);

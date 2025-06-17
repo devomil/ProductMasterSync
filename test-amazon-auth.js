@@ -3,8 +3,8 @@
  * Tests OAuth and AWS signature separately to isolate the issue
  */
 
-const axios = require('axios');
-const crypto = require('crypto');
+import axios from 'axios';
+import crypto from 'crypto';
 
 async function testOAuthToken() {
   console.log('Testing Amazon SP-API OAuth token generation...');
@@ -93,45 +93,23 @@ function createAWSSignature(method, path, queryString, headers, body, accessKeyI
 }
 
 async function testAmazonAPICall(accessToken) {
-  console.log('\nTesting Amazon SP-API call with authentication...');
+  console.log('\nTesting Amazon SP-API call with OAuth-only authentication...');
   
   const url = 'https://sellingpartnerapi-na.amazon.com/catalog/2022-04-01/items';
-  const method = 'GET';
-  const path = '/catalog/2022-04-01/items';
   const queryString = 'marketplaceIds=ATVPDKIKX0DER&keywords=test&pageSize=1';
-  const body = '';
   
-  const now = new Date();
-  const datetime = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  
+  // Simple OAuth-only headers (no AWS signature required)
   const headers = {
-    'host': 'sellingpartnerapi-na.amazon.com',
     'x-amz-access-token': accessToken,
-    'x-amz-date': datetime,
-    'content-type': 'application/json'
-  };
-  
-  const signature = createAWSSignature(
-    method,
-    path,
-    queryString,
-    headers,
-    body,
-    process.env.AMAZON_SP_API_ACCESS_KEY_ID,
-    process.env.AMAZON_SP_API_SECRET_KEY
-  );
-  
-  const requestHeaders = {
-    ...headers,
-    'Authorization': signature,
-    'User-Agent': 'MDM-PIM-System/1.0'
+    'Content-Type': 'application/json',
+    'User-Agent': 'MDM-PIM-System/1.0 (Language=JavaScript)'
   };
   
   try {
     const response = await axios({
-      method,
+      method: 'GET',
       url: `${url}?${queryString}`,
-      headers: requestHeaders,
+      headers,
       timeout: 30000,
       validateStatus: () => true
     });
@@ -143,6 +121,9 @@ async function testAmazonAPICall(accessToken) {
       console.log('✓ Amazon SP-API call successful');
       console.log('Response data type:', typeof response.data);
       console.log('Has items:', !!response.data?.items);
+      if (response.data?.items) {
+        console.log('Number of items:', response.data.items.length);
+      }
     } else {
       console.log('✗ Amazon SP-API call failed');
       console.log('Response data:', response.data);
