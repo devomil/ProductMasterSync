@@ -169,6 +169,7 @@ export default function AmazonAnalyticsEnhanced() {
   const [sortOrder, setSortOrder] = useState("desc");
   const [selectedProduct, setSelectedProduct] = useState<ProductOpportunity | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Data fetching
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AmazonAnalytics>({
@@ -300,6 +301,41 @@ export default function AmazonAnalyticsEnhanced() {
     }
   };
 
+  const syncAmazonData = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/marketplace/sync/search-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Amazon Sync Completed",
+          description: `Searched ${data.results.searched} products, found ${data.results.found} matches, stored ${data.results.stored} ASINs`
+        });
+        // Refresh data
+        window.location.reload();
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: data.message || "Failed to sync with Amazon",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to connect to Amazon SP-API",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const mapAsin = async (asin: string, sku: string) => {
     try {
       const response = await fetch('/api/marketplace/map-asin', {
@@ -359,17 +395,35 @@ export default function AmazonAnalyticsEnhanced() {
           <h1 className="text-3xl font-bold text-gray-900">Amazon Marketplace Analytics</h1>
           <p className="text-gray-600 mt-2">Enhanced competitive intelligence and product evaluation</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          <Button
+            onClick={syncAmazonData}
+            disabled={isSyncing}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+          >
+            {isSyncing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Syncing...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                Sync Active
+              </>
+            )}
+          </Button>
+          
           <Badge variant={displayAnalytics?.syncStatus === 'active' ? 'default' : 'destructive'}>
             {displayAnalytics?.syncStatus === 'active' ? (
               <>
                 <CheckCircle className="w-3 h-3 mr-1" />
-                Sync Active
+                Live Data
               </>
             ) : (
               <>
                 <AlertTriangle className="w-3 h-3 mr-1" />
-                Sync Error
+                No Amazon Data
               </>
             )}
           </Badge>

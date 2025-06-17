@@ -5,8 +5,9 @@
 
 import { Router } from 'express';
 import { db } from '../db';
-import { products, categories, suppliers, amazonAsins, amazonMarketIntelligence, productAsinMapping, multiAsinOpportunities, supplierAsinPerformance } from '../../shared/schema';
+import { products, categories, suppliers, amazonAsins, amazonMarketIntelligence, productAsinMapping, multiAsinOpportunities, supplierAsinPerformance, upcAsinMappings } from '../../shared/schema';
 import { eq, and, isNotNull, sql, desc, asc, gt } from 'drizzle-orm';
+import { amazonAPI } from '../services/amazon-sp-api';
 
 const router = Router();
 
@@ -434,6 +435,206 @@ router.get('/analytics/ai-intelligence', async (req, res) => {
   } catch (error) {
     console.error('Error fetching AI intelligence summary:', error);
     res.status(500).json({ error: 'Failed to fetch AI intelligence data' });
+  }
+});
+
+// Live Amazon product search and sync endpoint
+router.post('/sync/search-products', async (req, res) => {
+  try {
+    if (!amazonAPI.isConfigured()) {
+      return res.status(400).json({ 
+        error: 'Amazon SP-API not configured',
+        message: 'Please configure Amazon SP-API credentials'
+      });
+    }
+
+    console.log('Starting Amazon product search and sync...');
+    
+    // Get products that need Amazon lookup (no existing mappings)
+    const productsToSearch = await db
+      .select({
+        id: products.id,
+        sku: products.sku,
+        name: products.name,
+        upc: products.upc,
+        manufacturerPartNumber: products.manufacturerPartNumber,
+        categoryName: categories.name
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .where(and(
+        isNotNull(products.upc),
+        sql`${productAsinMapping.productId} IS NULL`
+      ))
+      .limit(10); // Start with 10 products
+
+    console.log(`Found ${productsToSearch.length} products to search on Amazon`);
+
+    const results = {
+      searched: 0,
+      found: 0,
+      stored: 0,
+      errors: []
+    };
+
+    for (const product of productsToSearch) {
+      try {
+        console.log(`Searching Amazon for product: ${product.sku} (${product.name})`);
+        
+        let amazonResults = [];
+        
+        // Search by UPC first (most accurate)
+        if (product.upc) {
+          console.log(`  Searching by UPC: ${product.upc}`);
+          amazonResults = await amazonAPI.searchByUPC(product.upc);
+        }
+        
+        // If no results, try manufacturer part number
+        if (amazonResults.length === 0 && product.manufacturerPartNumber) {
+          console.log(`  Searching by part number: ${product.manufacturerPartNumber}`);
+          amazonResults = await amazonAPI.searchByPartNumber(product.manufacturerPartNumber);
+        }
+        
+        // If still no results, try product name keywords
+        if (amazonResults.length === 0) {
+          console.log(`  Searching by product name: ${product.name}`);
+          amazonResults = await amazonAPI.searchCatalogItems(product.name, 3);
+        }
+
+        results.searched++;
+        
+        if (amazonResults.length > 0) {
+          console.log(`  Found ${amazonResults.length} Amazon matches`);
+          results.found++;
+
+          // Store each ASIN found
+          for (const item of amazonResults) {
+            try {
+              // Check if ASIN already exists
+              const [existingAsin] = await db
+                .select()
+                .from(amazonAsins)
+                .where(eq(amazonAsins.asin, item.asin))
+                .limit(1);
+
+              let asinId;
+              if (!existingAsin) {
+                // Insert new ASIN
+                const [newAsin] = await db
+                  .insert(amazonAsins)
+                  .values({
+                    asin: item.asin,
+                    title: item.summaries?.[0]?.itemName || `Product for ${product.name}`,
+                    brand: item.summaries?.[0]?.brandName || '',
+                    category: product.categoryName || '',
+                    currentPrice: item.attributes?.list_price?.[0]?.amount?.toString() || '0',
+                    listPrice: item.attributes?.list_price?.[0]?.amount?.toString() || null,
+                    availability: 'InStock',
+                    sellerCount: 1,
+                    buyboxHolder: 'Amazon',
+                    isBuyboxEligible: true,
+                    condition: 'New',
+                    score: 85,
+                    marketplace: 'US',
+                    productUrl: `https://amazon.com/dp/${item.asin}`,
+                    imageUrl: null,
+                    features: [],
+                    dimensions: null,
+                    weight: null,
+                    salesRank: null,
+                    reviewCount: 0,
+                    averageRating: null,
+                    lastPriceUpdate: new Date(),
+                    isActive: true
+                  })
+                  .returning();
+                asinId = newAsin.id;
+                console.log(`    Stored new ASIN: ${item.asin}`);
+              } else {
+                asinId = existingAsin.id;
+                console.log(`    ASIN already exists: ${item.asin}`);
+              }
+
+              // Create product-ASIN mapping
+              await db
+                .insert(productAsinMapping)
+                .values({
+                  productId: product.id,
+                  asinId: asinId,
+                  confidence: 0.85,
+                  matchType: product.upc ? 'upc' : 'keyword',
+                  verificationStatus: 'pending'
+                })
+                .onConflictDoNothing();
+
+              results.stored++;
+
+            } catch (storeError) {
+              console.error(`Error storing ASIN ${item.asin}:`, storeError);
+              results.errors.push(`Failed to store ASIN ${item.asin}: ${storeError.message}`);
+            }
+          }
+        } else {
+          console.log(`  No Amazon matches found for ${product.sku}`);
+        }
+
+        // Rate limiting to respect Amazon's limits (5 requests/second max)
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+      } catch (productError) {
+        console.error(`Error processing product ${product.sku}:`, productError);
+        results.errors.push(`Failed to process ${product.sku}: ${productError.message}`);
+      }
+    }
+
+    console.log('Amazon search and sync completed:', results);
+
+    res.json({
+      success: true,
+      message: 'Amazon product search completed',
+      results
+    });
+
+  } catch (error) {
+    console.error('Error in Amazon product sync:', error);
+    res.status(500).json({ 
+      error: 'Amazon sync failed',
+      message: error.message 
+    });
+  }
+});
+
+// Check sync status endpoint
+router.get('/sync/status', async (req, res) => {
+  try {
+    // Get mapping statistics
+    const [mappedCount] = await db
+      .select({ count: sql<number>`count(distinct ${productAsinMapping.productId})` })
+      .from(productAsinMapping);
+
+    const [totalProducts] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(products)
+      .where(isNotNull(products.upc));
+
+    const [asinCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(amazonAsins);
+
+    res.json({
+      amazonConfigured: amazonAPI.isConfigured(),
+      totalProductsWithUPC: totalProducts.count,
+      productsWithAmazonMapping: mappedCount.count,
+      totalAsinsStored: asinCount.count,
+      coveragePercentage: totalProducts.count > 0 ? 
+        Math.round((mappedCount.count / totalProducts.count) * 100) : 0,
+      lastSync: new Date().toISOString(),
+      status: 'ready'
+    });
+  } catch (error) {
+    console.error('Error checking sync status:', error);
+    res.status(500).json({ error: 'Failed to check sync status' });
   }
 });
 

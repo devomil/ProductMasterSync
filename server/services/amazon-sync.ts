@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { products, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
-import { amazonSPAPI } from './amazon-sp-api';
+import { amazonAPI } from './amazon-sp-api';
 import { eq, inArray, and, isNull, or, isNotNull, sql } from 'drizzle-orm';
 
 interface ProductSyncResult {
@@ -39,7 +39,7 @@ export class AmazonSyncService {
       if (product.upc) {
         try {
           console.log(`Searching Amazon for UPC: ${product.upc}`);
-          const upcProducts = await amazonSPAPI.searchByUPC(product.upc);
+          const upcProducts = await amazonAPI.searchByUPC(product.upc);
           foundAsins.push(...upcProducts.map(p => p.asin));
           
           // Store ASIN data
