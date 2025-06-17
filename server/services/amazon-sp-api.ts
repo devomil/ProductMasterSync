@@ -144,8 +144,9 @@ export class AmazonSPAPI {
     const algorithm = 'AWS4-HMAC-SHA256';
     const service = 'execute-api';
     const region = this.config.region;
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const datetime = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '') + 'Z';
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const datetime = headers['x-amz-date'];
     
     // Create canonical request
     const canonicalHeaders = Object.keys(headers)
@@ -202,12 +203,14 @@ export class AmazonSPAPI {
       url.searchParams.append(key, value);
     });
     
-    const headers = {
-      'Authorization': `Bearer ${accessToken}`,
+    const datetime = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '') + 'Z';
+    
+    const headers: Record<string, string> = {
       'x-amz-access-token': accessToken,
-      'x-amz-date': new Date().toISOString().slice(0, 19).replace(/[-:]/g, '') + 'Z',
+      'x-amz-date': datetime,
       'Content-Type': 'application/json',
-      'User-Agent': 'MDM-PIM-System/1.0'
+      'User-Agent': 'MDM-PIM-System/1.0',
+      'host': 'sellingpartnerapi-na.amazon.com'
     };
     
     const bodyString = body ? JSON.stringify(body) : '';
