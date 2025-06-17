@@ -94,124 +94,173 @@ router.get('/analytics/trends', async (req, res) => {
   }
 });
 
-// Enhanced opportunities with detailed ASIN matching and strategy tags
+// Live marketplace opportunities with authentic Amazon data
 router.get('/analytics/opportunities', async (req, res) => {
   try {
-    const { category = 'all', limit = 50 } = req.query;
+    const { category = 'all', limit = 20 } = req.query;
+    
+    console.log('Generating live marketplace opportunities...');
 
-    // Build query with enhanced ASIN data
-    let query = db
+    if (!amazonAPI.isConfigured()) {
+      return res.json({
+        success: false,
+        message: 'Amazon SP-API configuration required for live opportunities',
+        opportunities: [],
+        summary: { total: 0, highValue: 0, categories: [] }
+      });
+    }
+
+    // Get products with existing Amazon mappings for live analysis
+    const productsForAnalysis = await db
       .select({
         productId: products.id,
         sku: products.sku,
-        productName: products.name,
+        name: products.name,
         upc: products.usin,
+        currentPrice: products.price,
+        cost: products.cost,
         categoryName: categories.name,
         supplierName: suppliers.name,
-        asin: amazonAsins.asin,
-        currentPrice: amazonMarketIntelligence.currentPrice,
-        listPrice: amazonMarketIntelligence.listPrice,
-        condition: amazonAsins.itemCondition,
-        fulfillmentChannel: amazonMarketIntelligence.fulfillmentMethod,
-        offerCount: amazonMarketIntelligence.totalSellers,
-        buyboxWinner: amazonMarketIntelligence.buyBoxSeller,
-        lastUpdated: amazonMarketIntelligence.lastPriceCheck
+        asin: productAsinMapping.asin
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
-      .leftJoin(productAsinMapping, eq(productAsinMapping.productId, products.id))
-      .leftJoin(amazonAsins, eq(amazonAsins.asin, productAsinMapping.asin))
-      .leftJoin(amazonMarketIntelligence, eq(amazonMarketIntelligence.asin, amazonAsins.asin))
-      .where(and(
-        isNotNull(amazonAsins.asin),
-        isNotNull(amazonMarketIntelligence.currentPrice)
-      ));
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .where(isNotNull(productAsinMapping.asin))
+      .limit(Number(limit));
 
-    // Apply category filter if specified
-    if (category !== 'all') {
-      query = query.where(and(
-        isNotNull(amazonAsins.asin),
-        isNotNull(amazonMarketIntelligence.currentPrice),
-        eq(categories.name, category as string)
-      ));
+    console.log(`Analyzing ${productsForAnalysis.length} products for live opportunities`);
+
+    const liveOpportunities = [];
+    const categoryMap = new Map();
+
+    // Analyze each product with live Amazon data
+    for (const product of productsForAnalysis) {
+      try {
+        // Get live Amazon catalog data
+        let catalogData = [];
+        if (product.upc) {
+          catalogData = await amazonAPI.searchByUPC(product.upc);
+        }
+
+        if (catalogData.length > 0) {
+          const amazonProduct = catalogData[0];
+          const currentPrice = parseFloat(product.currentPrice || '0');
+          const cost = parseFloat(product.cost || '0');
+          
+          // Extract Amazon pricing information
+          const amazonListPrice = amazonProduct.attributes?.list_price?.[0]?.amount || 0;
+          const brandName = amazonProduct.summaries?.[0]?.brandName || 'Unknown';
+          const amazonTitle = amazonProduct.summaries?.[0]?.itemName || product.name;
+          
+          // Calculate profitability metrics
+          const margin = cost > 0 && currentPrice > 0 ? ((currentPrice - cost) / currentPrice * 100) : 0;
+          const priceDifference = amazonListPrice > 0 ? ((amazonListPrice - currentPrice) / currentPrice * 100) : 0;
+          
+          // Generate opportunity score
+          let opportunityScore = 0;
+          const opportunities = [];
+          
+          // Pricing opportunity analysis
+          if (priceDifference > 15) {
+            opportunityScore += 30;
+            opportunities.push({
+              type: 'pricing_optimization',
+              description: `Market price ${Math.round(priceDifference)}% higher than current price`,
+              impact: 'high',
+              action: 'Consider price increase to match market positioning',
+              potentialIncrease: `$${(amazonListPrice - currentPrice).toFixed(2)}`
+            });
+          }
+          
+          // Margin opportunity analysis
+          if (margin > 25) {
+            opportunityScore += 25;
+            opportunities.push({
+              type: 'high_margin',
+              description: `High profit margin of ${Math.round(margin)}%`,
+              impact: 'medium',
+              action: 'Expand inventory and increase marketing focus',
+              potentialIncrease: 'Scale opportunity'
+            });
+          }
+          
+          // Brand matching opportunity
+          if (brandName !== 'Unknown' && brandName.toLowerCase() !== product.supplierName?.toLowerCase()) {
+            opportunityScore += 20;
+            opportunities.push({
+              type: 'brand_positioning',
+              description: `Amazon shows brand as "${brandName}"`,
+              impact: 'medium',
+              action: 'Verify brand alignment and optimize listing',
+              potentialIncrease: 'Brand visibility'
+            });
+          }
+
+          // Category tracking
+          const category = product.categoryName || 'Uncategorized';
+          if (!categoryMap.has(category)) {
+            categoryMap.set(category, { count: 0, avgScore: 0, totalScore: 0 });
+          }
+          const catData = categoryMap.get(category);
+          catData.count++;
+          catData.totalScore += opportunityScore;
+          catData.avgScore = catData.totalScore / catData.count;
+
+          if (opportunities.length > 0) {
+            liveOpportunities.push({
+              sku: product.sku,
+              productName: product.name,
+              asin: product.asin,
+              category: category,
+              supplier: product.supplierName || 'Unknown',
+              currentPrice: currentPrice,
+              amazonPrice: amazonListPrice,
+              margin: Math.round(margin),
+              opportunityScore: Math.min(opportunityScore, 100),
+              opportunities: opportunities,
+              amazonBrand: brandName,
+              amazonTitle: amazonTitle,
+              lastAnalyzed: new Date().toISOString()
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error analyzing product ${product.sku}:`, error);
+      }
     }
 
-    const results = await query.limit(Number(limit));
+    // Sort by opportunity score
+    liveOpportunities.sort((a, b) => b.opportunityScore - a.opportunityScore);
 
-    // Group by product and format opportunities
-    const productMap = new Map();
-    
-    results.forEach(row => {
-      const productKey = row.productId;
-      
-      if (!productMap.has(productKey)) {
-        productMap.set(productKey, {
-          sku: row.sku,
-          productName: row.productName || 'Unknown Product',
-          upc: row.upc || '',
-          category: row.categoryName || 'Uncategorized',
-          supplierName: row.supplierName || 'Unknown Supplier',
-          asinMatches: [],
-          strategicTags: []
-        });
-      }
+    // Generate summary statistics
+    const highValueCount = liveOpportunities.filter(o => o.opportunityScore >= 60).length;
+    const categories = Array.from(categoryMap.entries()).map(([name, data]) => ({
+      name,
+      count: data.count,
+      avgScore: Math.round(data.avgScore)
+    }));
 
-      if (row.asin) {
-        const price = Number(row.currentPrice) || 0;
-        const listPrice = Number(row.listPrice) || price;
-        const offerCount = Number(row.offerCount) || 1;
-        
-        // Calculate ASIN score based on multiple factors
-        const priceScore = listPrice > 0 ? Math.min((listPrice - price) / listPrice * 100, 50) : 0;
-        const competitionScore = Math.max(30 - offerCount * 2, 0);
-        const fulfillmentScore = row.fulfillmentChannel === 'FBA' ? 20 : 10;
-        const asinScore = Math.round(priceScore + competitionScore + fulfillmentScore);
-
-        const asinMatch = {
-          asin: row.asin,
-          score: Math.min(asinScore, 100),
-          price: price,
-          listPrice: listPrice > price ? listPrice : undefined,
-          sellers: offerCount,
-          buyboxHolder: row.buyboxWinner || 'Unknown',
-          isBuyboxEligible: row.fulfillmentChannel === 'FBA',
-          condition: row.condition || 'New',
-          priceHistory: [
-            { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: price * 1.05 },
-            { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: price * 1.02 },
-            { date: new Date().toISOString().split('T')[0], price: price }
-          ]
-        };
-
-        productMap.get(productKey).asinMatches.push(asinMatch);
+    res.json({
+      success: true,
+      opportunities: liveOpportunities,
+      summary: {
+        total: liveOpportunities.length,
+        highValue: highValueCount,
+        categories: categories,
+        lastUpdated: new Date().toISOString(),
+        dataSource: 'live_amazon_api'
       }
     });
-
-    // Add strategic tags based on ASIN analysis
-    const opportunities = Array.from(productMap.values()).map(product => {
-      const tags = [];
-      const maxScore = Math.max(...product.asinMatches.map(a => a.score));
-      const minSellers = Math.min(...product.asinMatches.map(a => a.sellers));
-      const avgPrice = product.asinMatches.reduce((sum, a) => sum + a.price, 0) / product.asinMatches.length;
-
-      if (maxScore >= 80) tags.push('Growth ASIN');
-      if (minSellers <= 3) tags.push('Low Competition');
-      if (avgPrice > 100) tags.push('Defensive ASIN');
-      if (product.asinMatches.some(a => a.listPrice && a.price < a.listPrice * 0.8)) tags.push('Underpriced');
-
-      product.strategicTags = tags;
-      
-      // Add sample images for demonstration
-      product.image = `https://images-na.ssl-images-amazon.com/images/I/61${Math.random().toString(36).substr(2, 8)}._AC_SL1500_.jpg`;
-
-      return product;
-    }).filter(p => p.asinMatches.length > 0);
-
-    res.json({ opportunities });
   } catch (error) {
-    console.error('Error fetching opportunities:', error);
-    res.status(500).json({ error: 'Failed to fetch opportunities' });
+    console.error('Error generating marketplace opportunities:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to generate marketplace opportunities',
+      opportunities: [],
+      summary: { total: 0, highValue: 0, categories: [] }
+    });
   }
 });
 
@@ -387,54 +436,139 @@ router.get('/analytics/supplier-performance', async (req, res) => {
   }
 });
 
-// AI Intelligence Summary endpoint
+// AI Intelligence Summary endpoint with live Amazon data
 router.get('/analytics/ai-intelligence', async (req, res) => {
   try {
-    // Get opportunity insights
-    const [totalOpportunities] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(multiAsinOpportunities);
+    console.log('Generating AI intelligence with live Amazon data...');
     
-    const [highScoreOpportunities] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(multiAsinOpportunities)
-      .where(gt(multiAsinOpportunities.opportunityScore, 0.8));
-    
-    // Get supplier performance insights
-    const [totalSupplierMappings] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(supplierAsinPerformance);
-    
-    const [highPerformingSuppliers] = await db
-      .select({ count: sql<number>`count(distinct ${supplierAsinPerformance.supplierId})` })
-      .from(supplierAsinPerformance)
-      .where(gt(supplierAsinPerformance.avgProfitMargin, 0.15));
-    
-    // Get strategy distribution
-    const strategyDistribution = await db
+    if (!amazonAPI.isConfigured()) {
+      return res.json({
+        opportunities: { total: 0, highScore: 0, strategies: [] },
+        suppliers: { totalMappings: 0, highPerforming: 0 },
+        lastAnalyzed: new Date().toISOString(),
+        aiStatus: 'configuration_required',
+        message: 'Amazon SP-API configuration required for live intelligence'
+      });
+    }
+
+    // Get products with Amazon mappings for live analysis
+    const productsWithAsins = await db
       .select({
-        strategy: multiAsinOpportunities.strategyType,
-        count: sql<number>`count(*)`
+        productId: products.id,
+        sku: products.sku,
+        name: products.name,
+        upc: products.usin,
+        categoryName: categories.name,
+        supplierName: suppliers.name,
+        asin: productAsinMapping.asin,
+        currentPrice: products.price,
+        cost: products.cost
       })
-      .from(multiAsinOpportunities)
-      .groupBy(multiAsinOpportunities.strategyType);
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .where(isNotNull(productAsinMapping.asin))
+      .limit(10);
+
+    console.log(`Analyzing ${productsWithAsins.length} products with Amazon mappings`);
+
+    const liveIntelligence = {
+      opportunities: [],
+      marketInsights: [],
+      profitabilityAnalysis: [],
+      competitivePositioning: []
+    };
+
+    // Analyze each product with live Amazon data
+    for (const product of productsWithAsins) {
+      try {
+        // Get live Amazon catalog data
+        let catalogData = [];
+        if (product.upc) {
+          catalogData = await amazonAPI.searchByUPC(product.upc);
+        }
+
+        if (catalogData.length > 0) {
+          const amazonProduct = catalogData[0];
+          const currentPrice = parseFloat(product.currentPrice || '0');
+          const cost = parseFloat(product.cost || '0');
+          
+          // Extract Amazon pricing if available
+          const amazonPrice = amazonProduct.attributes?.list_price?.[0]?.amount || 0;
+          const margin = cost > 0 ? ((currentPrice - cost) / currentPrice * 100) : 0;
+          
+          // Generate intelligence insights
+          if (amazonPrice > currentPrice * 1.2) {
+            liveIntelligence.opportunities.push({
+              type: 'pricing_opportunity',
+              product: product.name,
+              sku: product.sku,
+              asin: product.asin,
+              currentPrice: currentPrice,
+              amazonPrice: amazonPrice,
+              potentialUplift: `${Math.round((amazonPrice / currentPrice - 1) * 100)}%`,
+              confidence: 'high',
+              action: 'Consider price increase to match market positioning'
+            });
+          }
+
+          if (margin > 30) {
+            liveIntelligence.profitabilityAnalysis.push({
+              product: product.name,
+              sku: product.sku,
+              margin: `${Math.round(margin)}%`,
+              category: product.categoryName,
+              status: 'high_margin',
+              recommendation: 'Expand inventory and marketing for this high-margin product'
+            });
+          }
+
+          liveIntelligence.marketInsights.push({
+            product: product.name,
+            asin: product.asin,
+            brand: amazonProduct.summaries?.[0]?.brandName || 'Unknown',
+            category: amazonProduct.summaries?.[0]?.itemName || product.categoryName,
+            marketPosition: amazonPrice > currentPrice ? 'underpriced' : 'competitive',
+            lastAnalyzed: new Date().toISOString()
+          });
+        }
+      } catch (error) {
+        console.error(`Error analyzing product ${product.sku}:`, error);
+      }
+    }
+
+    // Calculate performance metrics
+    const totalOpportunities = liveIntelligence.opportunities.length;
+    const highValueOpportunities = liveIntelligence.opportunities.filter(o => 
+      parseFloat(o.potentialUplift) > 20
+    ).length;
+    
+    const highMarginProducts = liveIntelligence.profitabilityAnalysis.filter(p => 
+      parseFloat(p.margin) > 25
+    ).length;
 
     res.json({
       opportunities: {
-        total: totalOpportunities.count || 0,
-        highScore: highScoreOpportunities.count || 0,
-        strategies: strategyDistribution
+        total: totalOpportunities,
+        highValue: highValueOpportunities,
+        details: liveIntelligence.opportunities.slice(0, 5)
       },
-      suppliers: {
-        totalMappings: totalSupplierMappings.count || 0,
-        highPerforming: highPerformingSuppliers.count || 0
+      marketIntelligence: {
+        totalProducts: liveIntelligence.marketInsights.length,
+        insights: liveIntelligence.marketInsights.slice(0, 5)
+      },
+      profitability: {
+        highMarginProducts: highMarginProducts,
+        analysis: liveIntelligence.profitabilityAnalysis.slice(0, 5)
       },
       lastAnalyzed: new Date().toISOString(),
-      aiStatus: 'active'
+      aiStatus: 'active',
+      dataSource: 'live_amazon_api'
     });
   } catch (error) {
-    console.error('Error fetching AI intelligence summary:', error);
-    res.status(500).json({ error: 'Failed to fetch AI intelligence data' });
+    console.error('Error generating AI intelligence:', error);
+    res.status(500).json({ error: 'Failed to generate AI intelligence data' });
   }
 });
 
