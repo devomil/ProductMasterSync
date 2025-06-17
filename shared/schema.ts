@@ -568,7 +568,7 @@ export const amazonPriceHistory = pgTable("amazon_price_history", {
   };
 });
 
-// Link products to their Amazon ASINs
+// Link products to their Amazon ASINs with AI intelligence tracking
 export const productAsinMapping = pgTable("product_asin_mapping", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").notNull().references(() => products.id),
@@ -583,6 +583,13 @@ export const productAsinMapping = pgTable("product_asin_mapping", {
   verifiedBy: text("verified_by"), // User who verified
   verifiedAt: timestamp("verified_at"),
   
+  // AI Intelligence Tracking
+  opportunityScore: real("opportunity_score"), // AI-calculated opportunity score
+  recommendedStrategy: text("recommended_strategy"), // Strategy recommendation
+  profitPotential: json("profit_potential"), // Profit analysis data
+  marketIntelligence: json("market_intelligence"), // AI market insights
+  lastAnalyzed: timestamp("last_analyzed"), // Last AI analysis timestamp
+  
   // Competitive analysis
   isDirectCompetitor: boolean("is_direct_competitor").default(true),
   isSimilarProduct: boolean("is_similar_product").default(false),
@@ -595,6 +602,53 @@ export const productAsinMapping = pgTable("product_asin_mapping", {
     productIdx: index("product_asin_mapping_product_idx").on(table.productId),
     asinIdx: index("product_asin_mapping_asin_idx").on(table.asin),
     productAsinIdx: uniqueIndex("product_asin_mapping_product_asin_idx").on(table.productId, table.asin),
+    opportunityIdx: index("product_asin_mapping_opportunity_idx").on(table.opportunityScore),
+  };
+});
+
+// Multi-ASIN opportunities for strategic product placement
+export const multiAsinOpportunities = pgTable("multi_asin_opportunities", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  upc: text("upc"),
+  manufacturerPartNumber: text("manufacturer_part_number"),
+  discoveredAsins: json("discovered_asins"), // Array of all found ASINs
+  primaryAsin: text("primary_asin"),
+  secondaryAsins: json("secondary_asins"), // Strategic secondary ASINs
+  opportunityScore: real("opportunity_score"),
+  strategyType: text("strategy_type"), // 'DOMINATE_ALL', 'SELECTIVE_TARGET', 'TEST_AND_EXPAND'
+  profitAnalysis: json("profit_analysis"),
+  supplierRecommendations: json("supplier_recommendations"),
+  competitiveAnalysis: json("competitive_analysis"),
+  seasonalForecast: json("seasonal_forecast"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("multi_asin_opportunities_product_idx").on(table.productId),
+    upcIdx: index("multi_asin_opportunities_upc_idx").on(table.upc),
+    opportunityIdx: index("multi_asin_opportunities_opportunity_idx").on(table.opportunityScore),
+    strategyIdx: index("multi_asin_opportunities_strategy_idx").on(table.strategyType),
+  };
+});
+
+// Supplier ASIN performance tracking
+export const supplierAsinPerformance = pgTable("supplier_asin_performance", {
+  id: serial("id").primaryKey(),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  asin: text("asin").notNull(),
+  successRate: real("success_rate"),
+  avgProfitMargin: real("avg_profit_margin"),
+  marketDominanceScore: real("market_dominance_score"),
+  negotiationOpportunities: json("negotiation_opportunities"),
+  performanceTrends: json("performance_trends"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => {
+  return {
+    supplierIdx: index("supplier_asin_performance_supplier_idx").on(table.supplierId),
+    asinIdx: index("supplier_asin_performance_asin_idx").on(table.asin),
+    performanceIdx: index("supplier_asin_performance_performance_idx").on(table.avgProfitMargin),
+    dominanceIdx: index("supplier_asin_performance_dominance_idx").on(table.marketDominanceScore),
   };
 });
 
@@ -684,6 +738,8 @@ export const insertProductAmazonLookupSchema = createInsertSchema(productAmazonL
 export const insertProductAsinMappingSchema = createInsertSchema(productAsinMapping).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAmazonPriceHistorySchema = createInsertSchema(amazonPriceHistory).omit({ id: true, createdAt: true });
 export const insertAmazonCompetitiveAnalysisSchema = createInsertSchema(amazonCompetitiveAnalysis).omit({ id: true, createdAt: true, updatedAt: true, analysisDate: true });
+export const insertMultiAsinOpportunitySchema = createInsertSchema(multiAsinOpportunities).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSupplierAsinPerformanceSchema = createInsertSchema(supplierAsinPerformance).omit({ id: true, lastUpdated: true });
 
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -713,6 +769,8 @@ export type InsertProductAmazonLookup = z.infer<typeof insertProductAmazonLookup
 export type InsertProductAsinMapping = z.infer<typeof insertProductAsinMappingSchema>;
 export type InsertAmazonPriceHistory = z.infer<typeof insertAmazonPriceHistorySchema>;
 export type InsertAmazonCompetitiveAnalysis = z.infer<typeof insertAmazonCompetitiveAnalysisSchema>;
+export type InsertMultiAsinOpportunity = z.infer<typeof insertMultiAsinOpportunitySchema>;
+export type InsertSupplierAsinPerformance = z.infer<typeof insertSupplierAsinPerformanceSchema>;
 
 // Types for selects
 export type User = typeof users.$inferSelect;
