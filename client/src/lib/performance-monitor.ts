@@ -85,7 +85,7 @@ class PerformanceMonitor {
             this.logMetric({
               type: 'navigation',
               name: 'Page Load',
-              duration: navEntry.loadEventEnd - navEntry.navigationStart,
+              duration: navEntry.loadEventEnd - navEntry.fetchStart,
               url: window.location.href
             });
           }
@@ -123,13 +123,13 @@ class PerformanceMonitor {
           this.logMetric({
             type: 'navigation',
             name: 'DOM Content Loaded',
-            duration: navigation.domContentLoadedEventEnd - navigation.navigationStart
+            duration: navigation.domContentLoadedEventEnd - navigation.fetchStart
           });
 
           this.logMetric({
             type: 'navigation',
             name: 'First Paint',
-            duration: navigation.responseEnd - navigation.navigationStart
+            duration: navigation.responseEnd - navigation.fetchStart
           });
         }
 
