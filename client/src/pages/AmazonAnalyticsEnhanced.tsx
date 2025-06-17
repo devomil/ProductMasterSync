@@ -224,15 +224,15 @@ export default function AmazonAnalyticsEnhanced() {
         opportunity.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         opportunity.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
         opportunity.upc.includes(searchTerm) ||
-        opportunity.asinMatches.some(asin => asin.asin.toLowerCase().includes(searchTerm.toLowerCase()));
+        (opportunity.asinMatches && opportunity.asinMatches.some(asin => asin.asin.toLowerCase().includes(searchTerm.toLowerCase())));
       
       const matchesCategory = selectedCategory === "all" || opportunity.category === selectedCategory;
       const matchesSupplier = selectedSupplier === "all" || opportunity.supplierName === selectedSupplier;
       
-      const maxScore = opportunity.asinMatches.length > 0 ? Math.max(...opportunity.asinMatches.map(a => a.score)) : 0;
+      const maxScore = (opportunity.asinMatches && opportunity.asinMatches.length > 0) ? Math.max(...opportunity.asinMatches.map(a => a.score)) : 0;
       const matchesScore = maxScore >= scoreRange[0] && maxScore <= scoreRange[1];
       
-      const hasBuyboxEligible = opportunity.asinMatches.some(a => a.isBuyboxEligible);
+      const hasBuyboxEligible = opportunity.asinMatches && opportunity.asinMatches.some(a => a.isBuyboxEligible);
       const matchesBuybox = buyboxEligible === "all" || 
         (buyboxEligible === "eligible" && hasBuyboxEligible) ||
         (buyboxEligible === "not-eligible" && !hasBuyboxEligible);
@@ -246,8 +246,8 @@ export default function AmazonAnalyticsEnhanced() {
       
       switch (sortBy) {
         case "score":
-          aValue = a.asinMatches.length > 0 ? Math.max(...a.asinMatches.map(asin => asin.score)) : 0;
-          bValue = b.asinMatches.length > 0 ? Math.max(...b.asinMatches.map(asin => asin.score)) : 0;
+          aValue = (a.asinMatches && a.asinMatches.length > 0) ? Math.max(...a.asinMatches.map(asin => asin.score)) : 0;
+          bValue = (b.asinMatches && b.asinMatches.length > 0) ? Math.max(...b.asinMatches.map(asin => asin.score)) : 0;
           break;
         case "category":
           aValue = a.category;
@@ -258,12 +258,12 @@ export default function AmazonAnalyticsEnhanced() {
           bValue = b.supplierName;
           break;
         case "price":
-          aValue = a.asinMatches.length > 0 ? Math.min(...a.asinMatches.map(asin => asin.price)) : 0;
-          bValue = b.asinMatches.length > 0 ? Math.min(...b.asinMatches.map(asin => asin.price)) : 0;
+          aValue = (a.asinMatches && a.asinMatches.length > 0) ? Math.min(...a.asinMatches.map(asin => asin.price)) : 0;
+          bValue = (b.asinMatches && b.asinMatches.length > 0) ? Math.min(...b.asinMatches.map(asin => asin.price)) : 0;
           break;
         case "sellers":
-          aValue = a.asinMatches.length > 0 ? Math.min(...a.asinMatches.map(asin => asin.sellers)) : 0;
-          bValue = b.asinMatches.length > 0 ? Math.min(...b.asinMatches.map(asin => asin.sellers)) : 0;
+          aValue = (a.asinMatches && a.asinMatches.length > 0) ? Math.min(...a.asinMatches.map(asin => asin.sellers)) : 0;
+          bValue = (b.asinMatches && b.asinMatches.length > 0) ? Math.min(...b.asinMatches.map(asin => asin.sellers)) : 0;
           break;
         default:
           aValue = a.productName;
@@ -282,8 +282,8 @@ export default function AmazonAnalyticsEnhanced() {
     return filtered;
   }, [displayOpportunities, searchTerm, selectedCategory, selectedSupplier, scoreRange, buyboxEligible, sortBy, sortOrder]);
 
-  const categories = Array.from(new Set(displayOpportunities.map(o => o.category)));
-  const suppliers = Array.from(new Set(displayOpportunities.map(o => o.supplierName)));
+  const categories = Array.from(new Set(displayOpportunities.map((o: ProductOpportunity) => o.category).filter(Boolean)));
+  const suppliers = Array.from(new Set(displayOpportunities.map((o: ProductOpportunity) => o.supplierName).filter(Boolean)));
 
   const getStrategyTagColor = (tag: string) => {
     switch (tag) {
@@ -600,9 +600,9 @@ export default function AmazonAnalyticsEnhanced() {
 
                               {/* ASIN Matches */}
                               <div className="mt-4 space-y-2">
-                                <h4 className="font-medium text-sm text-gray-700">ASIN Matches ({opportunity.asinMatches.length})</h4>
+                                <h4 className="font-medium text-sm text-gray-700">ASIN Matches ({opportunity.asinMatches ? opportunity.asinMatches.length : 0})</h4>
                                 <div className="grid gap-2">
-                                  {opportunity.asinMatches.map((asin, asinIndex) => (
+                                  {opportunity.asinMatches && opportunity.asinMatches.map((asin, asinIndex) => (
                                     <div key={asinIndex} className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
                                       <div className="flex items-center space-x-4">
                                         <div className="space-y-1">
@@ -865,7 +865,7 @@ export default function AmazonAnalyticsEnhanced() {
                   <div>
                     <h3 className="font-semibold mb-2">Strategic Tags</h3>
                     <div className="flex flex-wrap gap-2">
-                      {selectedProduct.strategicTags.map(tag => (
+                      {selectedProduct.strategicTags && selectedProduct.strategicTags.map(tag => (
                         <Badge key={tag} className={getStrategyTagColor(tag)}>
                           {tag}
                         </Badge>
