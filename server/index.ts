@@ -3,10 +3,15 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./utils/temporary-scheduler";
 import setupDatabase from "./db-setup";
+import { errorLogger } from "./services/error-logger";
+import monitoringRoutes from "./routes/monitoring";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Performance monitoring middleware
+app.use(errorLogger.performanceMiddleware());
 
 app.use((req, res, next) => {
   const start = Date.now();
