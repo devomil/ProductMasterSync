@@ -19,6 +19,7 @@ import {
 } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import marketplaceRoutes from "./marketplace/routes";
+import marketplaceAnalyticsRoutes from "./routes/marketplace-analytics";
 import schedulerRoutes from './routes/scheduler';
 import aiPurchasingRoutes from './routes/ai-purchasing';
 import pricingTestRoutes from './routes/pricing-test';
@@ -2805,6 +2806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register marketplace routes
   app.use("/api/marketplace", marketplaceRoutes);
+  app.use("/api/marketplace", marketplaceAnalyticsRoutes);
   
   // Register AI purchasing routes
   app.use("/api/ai-purchasing", aiPurchasingRoutes);
