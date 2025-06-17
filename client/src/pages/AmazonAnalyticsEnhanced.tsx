@@ -28,6 +28,7 @@ import {
   TrendingDown, 
   Search, 
   Filter,
+  RefreshCcw,
   Eye,
   ExternalLink,
   MapPin,
@@ -238,6 +239,28 @@ export default function AmazonAnalyticsEnhanced() {
     }
   };
 
+  // Display error state when authentic data is not available
+  if (!displayAnalytics && !displayOpportunities.length && !displayTrends.length) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="text-center py-12">
+          <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Amazon Data Not Available</h2>
+          <p className="text-gray-600 mb-6">
+            No authentic Amazon marketplace data is currently available. Please ensure your Amazon SP-API credentials are properly configured.
+          </p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Retry Connection
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -247,8 +270,8 @@ export default function AmazonAnalyticsEnhanced() {
           <p className="text-gray-600 mt-2">Enhanced competitive intelligence and product evaluation</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Badge variant={displayAnalytics.syncStatus === 'active' ? 'default' : 'destructive'}>
-            {displayAnalytics.syncStatus === 'active' ? (
+          <Badge variant={displayAnalytics?.syncStatus === 'active' ? 'default' : 'destructive'}>
+            {displayAnalytics?.syncStatus === 'active' ? (
               <>
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Sync Active
@@ -271,7 +294,7 @@ export default function AmazonAnalyticsEnhanced() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{displayAnalytics.totalProducts.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{displayAnalytics?.totalProducts?.toLocaleString() || '0'}</div>
             <p className="text-xs text-muted-foreground">In database</p>
           </CardContent>
         </Card>
@@ -282,10 +305,10 @@ export default function AmazonAnalyticsEnhanced() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{displayAnalytics.amazonMappedProducts.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{displayAnalytics?.amazonMappedProducts?.toLocaleString() || '0'}</div>
             <div className="flex items-center space-x-2 mt-1">
-              <Progress value={Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100)} className="flex-1" />
-              <span className="text-sm font-medium">{Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100)}%</span>
+              <Progress value={displayAnalytics ? Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100) : 0} className="flex-1" />
+              <span className="text-sm font-medium">{displayAnalytics ? Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100) : 0}%</span>
             </div>
           </CardContent>
         </Card>
@@ -296,7 +319,7 @@ export default function AmazonAnalyticsEnhanced() {
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{displayAnalytics.marketIntelligenceRecords?.toLocaleString() || '0'}</div>
+            <div className="text-2xl font-bold">{displayAnalytics?.marketIntelligenceRecords?.toLocaleString() || '0'}</div>
             <p className="text-xs text-muted-foreground">Records analyzed</p>
           </CardContent>
         </Card>
@@ -307,7 +330,7 @@ export default function AmazonAnalyticsEnhanced() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{displayAnalytics.priceHistoryEntries?.toLocaleString() || '0'}</div>
+            <div className="text-2xl font-bold">{displayAnalytics?.priceHistoryEntries?.toLocaleString() || '0'}</div>
             <p className="text-xs text-muted-foreground">Historical data points</p>
           </CardContent>
         </Card>
