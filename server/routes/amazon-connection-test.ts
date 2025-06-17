@@ -121,12 +121,10 @@ router.post('/test-products', async (req, res) => {
       
       // Test 3: Listing Restrictions
       try {
-        const restrictionsResult = await amazonSPAPI.getListingRestrictions(product.asin);
+        const restrictionsResult = await amazonAPI.getListingRestrictions(product.asin);
         productResult.tests.restrictions = {
-          success: restrictionsResult.success,
-          message: restrictionsResult.success ? 
-            (restrictionsResult.canList ? 'Can list' : 'Has restrictions') : 
-            restrictionsResult.error || 'Restrictions check failed',
+          success: !!restrictionsResult,
+          message: restrictionsResult ? 'Restrictions data retrieved' : 'Restrictions check failed',
           data: restrictionsResult
         };
       } catch (error) {
@@ -227,14 +225,14 @@ router.post('/fix-asin-mapping', async (req, res) => {
       `, [newAsin, productId]);
       
       // Get fresh pricing data
-      const pricingResult = await amazonSPAPI.getPricing(newAsin);
+      const pricingResult = await amazonAPI.getProductPricing(newAsin);
       
-      if (pricingResult.success && pricingResult.price) {
+      if (pricingResult && pricingResult.product?.offers?.[0]?.buyingPrice?.listingPrice?.amount) {
         await client.query(`
           UPDATE products 
           SET price = $1, updated_at = NOW()
           WHERE id = $2
-        `, [pricingResult.price, productId]);
+        `, [pricingResult.product.offers[0].buyingPrice.listingPrice.amount, productId]);
       }
       
       await client.query('COMMIT');
@@ -315,22 +313,24 @@ router.post('/update-prices', async (req, res) => {
         const product = productQuery.rows[0];
         
         // Get real Amazon pricing
-        const pricingResult = await amazonSPAPI.getPricing(product.asin);
+        const pricingResult = await amazonAPI.getProductPricing(product.asin);
         
-        if (pricingResult.success && pricingResult.price) {
+        if (pricingResult && pricingResult.product?.offers?.[0]?.buyingPrice?.listingPrice?.amount) {
+          const newPrice = pricingResult.product.offers[0].buyingPrice.listingPrice.amount;
+          
           // Update product price
           await pool.query(`
             UPDATE products 
             SET price = $1, updated_at = NOW()
             WHERE id = $2
-          `, [pricingResult.price, productId]);
+          `, [newPrice, productId]);
           
           updateResults.push({
             productId,
             productName: product.name,
             asin: product.asin,
             oldPrice: product.price,
-            newPrice: pricingResult.price,
+            newPrice: newPrice,
             success: true
           });
         } else {
@@ -339,7 +339,7 @@ router.post('/update-prices', async (req, res) => {
             productName: product.name,
             asin: product.asin,
             success: false,
-            error: pricingResult.error || 'No pricing data available'
+            error: 'No pricing data available'
           });
         }
         
