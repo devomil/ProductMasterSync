@@ -218,31 +218,41 @@ class DatabaseMonitor {
     const suggestions: string[] = [];
     
     try {
-      // Get table statistics - use correct PostgreSQL column names
-      const tableStats = await this.pool.query(`
-        SELECT schemaname, relname as tablename, n_tup_ins, n_tup_upd, n_tup_del, seq_scan, seq_tup_read
-        FROM pg_stat_user_tables
-        WHERE seq_scan > 100 AND seq_tup_read > seq_scan * 1000
-      `);
+      // Safely check for table statistics - handle cases where pg_stat views might not be accessible
+      try {
+        const tableStats = await this.pool.query(`
+          SELECT schemaname, relname as tablename, n_tup_ins, n_tup_upd, n_tup_del, seq_scan, seq_tup_read
+          FROM pg_stat_user_tables
+          WHERE seq_scan > 100 AND seq_tup_read > seq_scan * 1000
+        `);
+        
+        tableStats.rows.forEach(row => {
+          suggestions.push(
+            `Table ${row.tablename} has high sequential scan ratio (${row.seq_scan} scans, ${row.seq_tup_read} rows) - consider adding indexes`
+          );
+        });
+      } catch (statError: any) {
+        // pg_stat_user_tables might not be accessible
+        suggestions.push('Unable to access table statistics - ensure proper PostgreSQL permissions');
+      }
       
-      tableStats.rows.forEach(row => {
-        suggestions.push(
-          `Table ${row.tablename} has high sequential scan ratio (${row.seq_scan} scans, ${row.seq_tup_read} rows) - consider adding indexes`
-        );
-      });
-      
-      // Check for unused indexes
-      const unusedIndexes = await this.pool.query(`
-        SELECT schemaname, relname as tablename, indexrelname as indexname, idx_scan
-        FROM pg_stat_user_indexes
-        WHERE idx_scan < 10
-      `);
-      
-      unusedIndexes.rows.forEach(row => {
-        if (row.idx_scan === 0) {
-          suggestions.push(`Index ${row.indexname} on ${row.tablename} is never used - consider dropping`);
-        }
-      });
+      // Check for unused indexes - handle gracefully if stats are not available
+      try {
+        const unusedIndexes = await this.pool.query(`
+          SELECT schemaname, relname as tablename, indexrelname as indexname, idx_scan
+          FROM pg_stat_user_indexes
+          WHERE idx_scan < 10
+        `);
+        
+        unusedIndexes.rows.forEach(row => {
+          if (row.idx_scan === 0) {
+            suggestions.push(`Index ${row.indexname} on ${row.tablename} is never used - consider dropping`);
+          }
+        });
+      } catch (indexError: any) {
+        // pg_stat_user_indexes might not be accessible
+        suggestions.push('Index usage statistics unavailable - consider enabling pg_stat_statements');
+      }
 
       // Add general optimization suggestions based on common patterns
       if (this.queryMetrics.length > 0) {

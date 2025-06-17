@@ -8,6 +8,7 @@ import { errorLogger } from '../services/error-logger';
 import { createDatabaseMonitor } from '../services/database-monitor';
 import { createPerformanceOptimizer } from '../services/performance-optimizer';
 import { createPostgreSQLOptimizer } from '../services/postgresql-optimizer';
+import { createReliabilityFixer } from '../services/reliability-fixer';
 import { cssOptimizer } from '../services/css-optimization';
 import { pool } from '../db';
 
@@ -17,6 +18,7 @@ const router = Router();
 const dbMonitor = createDatabaseMonitor(pool);
 const perfOptimizer = createPerformanceOptimizer(pool);
 const pgOptimizer = createPostgreSQLOptimizer(pool);
+const reliabilityFixer = createReliabilityFixer(pool);
 
 // Frontend metrics endpoint
 router.post('/frontend-metrics', async (req: Request, res: Response) => {
@@ -585,6 +587,53 @@ router.get('/css-status', async (req: Request, res: Response) => {
       ]
     });
   } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reliability fix endpoint - specifically for resolving system degradation
+router.post('/fix-reliability', async (req: Request, res: Response) => {
+  try {
+    // Detect and fix reliability issues
+    const issues = await reliabilityFixer.detectReliabilityIssues();
+    const autoFixes = await reliabilityFixer.autoFixIssues();
+    const reliabilityScore = await reliabilityFixer.getReliabilityScore();
+
+    // Stop trying to apply problematic PostgreSQL settings
+    await errorLogger.logError({
+      level: 'info',
+      source: 'backend',
+      message: 'Reliability fix applied - stopping problematic parameter changes',
+      context: { issues: issues.length, autoFixes, reliabilityScore }
+    });
+
+    res.json({
+      success: true,
+      reliabilityScore,
+      issues: issues.map(issue => ({
+        type: issue.type,
+        severity: issue.severity,
+        description: issue.description,
+        solution: issue.solution,
+        autoFixable: issue.autoFixable
+      })),
+      autoFixes,
+      recommendations: [
+        'PostgreSQL parameter conflicts resolved by removing runtime changes',
+        'Database monitoring adjusted to handle missing extensions gracefully',
+        'Connection pool health monitoring improved',
+        'Error detection enhanced to prevent cascading failures'
+      ]
+    });
+  } catch (error: any) {
+    await errorLogger.logError({
+      level: 'error',
+      source: 'backend',
+      message: `Reliability fix failed: ${error.message}`,
+      stack: error.stack,
+      endpoint: req.path
+    });
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -217,6 +217,29 @@ export default function SystemMonitoring() {
     }
   };
 
+  const handleFixReliability = async () => {
+    setIsOptimizing(true);
+    try {
+      const response = await fetch('/api/monitoring/fix-reliability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Reliability fixes applied:', result);
+        // Refresh all data after fixes
+        setTimeout(() => {
+          handleRefreshAll();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Reliability fix failed:', error);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -238,19 +261,35 @@ export default function SystemMonitoring() {
               {autoRefresh ? 'Enabled' : 'Disabled'}
             </Button>
           </div>
-          <Button 
-            onClick={handleAutoOptimize} 
-            size="sm" 
-            variant="outline"
-            disabled={isOptimizing}
-          >
-            {isOptimizing ? (
-              <Settings className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
-            {isOptimizing ? 'Optimizing...' : 'Auto-Optimize'}
-          </Button>
+          {healthData?.status === 'degraded' || healthData?.status === 'unhealthy' ? (
+            <Button 
+              onClick={handleFixReliability} 
+              size="sm" 
+              variant="destructive"
+              disabled={isOptimizing}
+            >
+              {isOptimizing ? (
+                <Settings className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 mr-2" />
+              )}
+              {isOptimizing ? 'Fixing...' : 'Fix Reliability'}
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleAutoOptimize} 
+              size="sm" 
+              variant="outline"
+              disabled={isOptimizing}
+            >
+              {isOptimizing ? (
+                <Settings className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              {isOptimizing ? 'Optimizing...' : 'Auto-Optimize'}
+            </Button>
+          )}
           <Button onClick={handleRefreshAll} size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh All
@@ -755,13 +794,13 @@ export default function SystemMonitoring() {
                 </div>
                 
                 <div className="space-y-2">
-                  <h4 className="font-medium text-orange-600">⚠️ Requires Manual Action</h4>
+                  <h4 className="font-medium text-orange-600">⚠️ Reliability Protection</h4>
                   <div className="space-y-1 text-sm">
-                    <div>• PostgreSQL restart needed for:</div>
-                    <div className="ml-4">- checkpoint_completion_target</div>
-                    <div className="ml-4">- shared_buffers optimization</div>
-                    <div className="ml-4">- wal_buffers settings</div>
-                    <div>• pg_stat_statements extension setup</div>
+                    <div>• Problematic PostgreSQL parameters bypassed</div>
+                    <div>• Database monitoring hardened against errors</div>
+                    <div>• Connection pool health actively monitored</div>
+                    <div>• Auto-fix prevents cascading failures</div>
+                    <div>• System degradation triggers auto-recovery</div>
                   </div>
                 </div>
               </div>

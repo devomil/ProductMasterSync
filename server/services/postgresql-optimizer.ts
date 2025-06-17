@@ -86,12 +86,13 @@ class PostgreSQLOptimizer {
     const applied: string[] = [];
     const failed: string[] = [];
 
+    // Only apply settings that can be changed at runtime and won't cause errors
     const nonRestartSettings = [
       { parameter: 'effective_cache_size', value: '1GB' },
       { parameter: 'maintenance_work_mem', value: '256MB' },
-      { parameter: 'checkpoint_completion_target', value: '0.9' },
       { parameter: 'default_statistics_target', value: '100' },
       { parameter: 'random_page_cost', value: '1.1' }
+      // Removed checkpoint_completion_target as it requires restart
     ];
 
     for (const setting of nonRestartSettings) {
