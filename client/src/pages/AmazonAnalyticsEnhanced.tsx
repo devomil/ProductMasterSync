@@ -225,7 +225,7 @@ export default function AmazonAnalyticsEnhanced() {
       const matchesCategory = selectedCategory === "all" || opportunity.category === selectedCategory;
       const matchesSupplier = selectedSupplier === "all" || opportunity.supplierName === selectedSupplier;
       
-      const maxScore = Math.max(...opportunity.asinMatches.map(a => a.score));
+      const maxScore = opportunity.asinMatches.length > 0 ? Math.max(...opportunity.asinMatches.map(a => a.score)) : 0;
       const matchesScore = maxScore >= scoreRange[0] && maxScore <= scoreRange[1];
       
       const hasBuyboxEligible = opportunity.asinMatches.some(a => a.isBuyboxEligible);
@@ -242,8 +242,8 @@ export default function AmazonAnalyticsEnhanced() {
       
       switch (sortBy) {
         case "score":
-          aValue = Math.max(...a.asinMatches.map(asin => asin.score));
-          bValue = Math.max(...b.asinMatches.map(asin => asin.score));
+          aValue = a.asinMatches.length > 0 ? Math.max(...a.asinMatches.map(asin => asin.score)) : 0;
+          bValue = b.asinMatches.length > 0 ? Math.max(...b.asinMatches.map(asin => asin.score)) : 0;
           break;
         case "category":
           aValue = a.category;
@@ -254,12 +254,12 @@ export default function AmazonAnalyticsEnhanced() {
           bValue = b.supplierName;
           break;
         case "price":
-          aValue = Math.min(...a.asinMatches.map(asin => asin.price));
-          bValue = Math.min(...b.asinMatches.map(asin => asin.price));
+          aValue = a.asinMatches.length > 0 ? Math.min(...a.asinMatches.map(asin => asin.price)) : 0;
+          bValue = b.asinMatches.length > 0 ? Math.min(...b.asinMatches.map(asin => asin.price)) : 0;
           break;
         case "sellers":
-          aValue = Math.min(...a.asinMatches.map(asin => asin.sellers));
-          bValue = Math.min(...b.asinMatches.map(asin => asin.sellers));
+          aValue = a.asinMatches.length > 0 ? Math.min(...a.asinMatches.map(asin => asin.sellers)) : 0;
+          bValue = b.asinMatches.length > 0 ? Math.min(...b.asinMatches.map(asin => asin.sellers)) : 0;
           break;
         default:
           aValue = a.productName;
@@ -270,14 +270,16 @@ export default function AmazonAnalyticsEnhanced() {
         return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
       }
       
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      const numA = Number(aValue) || 0;
+      const numB = Number(bValue) || 0;
+      return sortOrder === 'asc' ? numA - numB : numB - numA;
     });
 
     return filtered;
   }, [displayOpportunities, searchTerm, selectedCategory, selectedSupplier, scoreRange, buyboxEligible, sortBy, sortOrder]);
 
-  const categories = [...new Set(displayOpportunities.map(o => o.category))];
-  const suppliers = [...new Set(displayOpportunities.map(o => o.supplierName))];
+  const categories = Array.from(new Set(displayOpportunities.map(o => o.category)));
+  const suppliers = Array.from(new Set(displayOpportunities.map(o => o.supplierName)));
 
   const getStrategyTagColor = (tag: string) => {
     switch (tag) {

@@ -57,7 +57,7 @@ router.get('/analytics/trends', async (req, res) => {
       .select({
         category: categories.name,
         productCount: sql<number>`COUNT(DISTINCT ${products.id})`,
-        avgPrice: sql<number>`AVG(CASE WHEN ${amazonAsins.currentPrice} > 0 THEN ${amazonAsins.currentPrice} END)`,
+        avgPrice: sql<number>`AVG(CASE WHEN ${amazonAsins.price} > 0 THEN ${amazonAsins.price} END)`,
         competitorCount: sql<number>`COUNT(DISTINCT ${amazonAsins.asin})`
       })
       .from(categories)
@@ -108,22 +108,22 @@ router.get('/analytics/opportunities', async (req, res) => {
         categoryName: categories.name,
         supplierName: suppliers.name,
         asin: amazonAsins.asin,
-        currentPrice: amazonAsins.currentPrice,
+        currentPrice: amazonAsins.price,
         listPrice: amazonAsins.listPrice,
         condition: amazonAsins.condition,
-        fulfillmentChannel: amazonAsins.fulfillmentChannel,
-        offerCount: amazonAsins.offerCount,
+        fulfillmentChannel: amazonAsins.fulfillmentType,
+        offerCount: amazonAsins.sellers,
         buyboxWinner: amazonAsins.buyboxWinner,
-        lastUpdated: amazonAsins.lastUpdated
+        lastUpdated: amazonAsins.lastUpdatedAt
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
+      .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
       .leftJoin(productAsinMapping, eq(productAsinMapping.productId, products.id))
       .leftJoin(amazonAsins, eq(amazonAsins.asin, productAsinMapping.asin))
       .where(and(
         isNotNull(amazonAsins.asin),
-        isNotNull(amazonAsins.currentPrice)
+        isNotNull(amazonAsins.price)
       ));
 
     if (category !== 'all') {
@@ -158,7 +158,7 @@ router.get('/analytics/opportunities', async (req, res) => {
         // Calculate ASIN score based on multiple factors
         const priceScore = listPrice > 0 ? Math.min((listPrice - price) / listPrice * 100, 50) : 0;
         const competitionScore = Math.max(30 - offerCount * 2, 0);
-        const fulfillmentScore = row.fulfillmentChannel === 'Amazon' ? 20 : 10;
+        const fulfillmentScore = row.fulfillmentChannel === 'FBA' ? 20 : 10;
         const asinScore = Math.round(priceScore + competitionScore + fulfillmentScore);
 
         const asinMatch = {
@@ -168,7 +168,7 @@ router.get('/analytics/opportunities', async (req, res) => {
           listPrice: listPrice > price ? listPrice : undefined,
           sellers: offerCount,
           buyboxHolder: row.buyboxWinner || 'Unknown',
-          isBuyboxEligible: row.fulfillmentChannel === 'Amazon',
+          isBuyboxEligible: row.fulfillmentChannel === 'FBA',
           condition: row.condition || 'New',
           priceHistory: [
             { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: price * 1.05 },
@@ -244,12 +244,12 @@ router.post('/map-asin', async (req, res) => {
 
     // Create new mapping
     await db.insert(productAsinMapping).values({
-      productId: product.id,
+      product_id: product.id,
       asin: asin,
-      mappingType: 'manual',
+      mapping_type: 'manual',
       confidence: 100,
-      mappedAt: new Date(),
-      mappedBy: 'user'
+      mapped_at: new Date(),
+      mapped_by: 'user'
     });
 
     res.json({ success: true, message: 'ASIN mapped successfully' });
@@ -272,7 +272,7 @@ router.get('/sync/status', async (req, res) => {
     // Get recent sync activity
     const [recentSync] = await db
       .select({ 
-        lastSync: sql<string>`MAX(${amazonAsins.lastUpdated})`,
+        lastSync: sql<string>`MAX(${amazonAsins.lastUpdatedAt})`,
         totalAsins: sql<number>`COUNT(*)`
       })
       .from(amazonAsins);
