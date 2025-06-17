@@ -58,7 +58,7 @@ export class AmazonSyncService {
         try {
           console.log(`Searching Amazon for MFG#: ${product.manufacturerPartNumber}`);
           // Using catalog search as manufacturer-specific search isn't available in current API
-          const mfgProducts = await amazonSPAPI.searchByUPC(product.manufacturerPartNumber);
+          const mfgProducts = await amazonAPI.searchByPartNumber(product.manufacturerPartNumber);
           const newAsins = mfgProducts.filter(p => !foundAsins.includes(p.asin));
           foundAsins.push(...newAsins.map(p => p.asin));
           
@@ -141,7 +141,7 @@ export class AmazonSyncService {
       // Get pricing data for each ASIN individually due to API limitations
       const pricingData = [];
       for (const asin of asins) {
-        const pricing = await amazonSPAPI.getPricing(asin);
+        const pricing = await amazonAPI.getProductPricing(asin);
         if (pricing.success) {
           pricingData.push({ asin, price: pricing.price, offers: pricing.offers });
         }
@@ -279,7 +279,7 @@ export class AmazonSyncService {
   }
 
   isAmazonConfigured(): boolean {
-    return amazonService.isConfigured();
+    return amazonAPI.isConfigured();
   }
 }
 

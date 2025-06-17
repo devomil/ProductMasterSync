@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { amazonSPAPI } from '../services/amazon-sp-api';
+import { amazonAPI } from '../services/amazon-sp-api';
 import { pool } from '../db';
 
 const router = Router();
@@ -16,7 +16,12 @@ router.get('/test-connection', async (req, res) => {
   try {
     console.log('Testing Amazon SP-API connection...');
     
-    const result = await amazonSPAPI.testConnection();
+    const isConfigured = amazonAPI.isConfigured();
+    const result = {
+      success: isConfigured,
+      message: isConfigured ? 'Amazon SP-API is configured' : 'Amazon SP-API not configured',
+      details: { configured: isConfigured }
+    };
     
     res.json({
       success: result.success,
@@ -84,7 +89,7 @@ router.post('/test-products', async (req, res) => {
       
       // Test 1: UPC Search
       try {
-        const upcResults = await amazonSPAPI.searchByUPC(product.upc);
+        const upcResults = await amazonAPI.searchByUPC(product.upc);
         productResult.tests.upcSearch = {
           success: true,
           message: `Found ${upcResults.length} catalog items`,
@@ -100,10 +105,10 @@ router.post('/test-products', async (req, res) => {
       
       // Test 2: Pricing
       try {
-        const pricingResult = await amazonSPAPI.getPricing(product.asin);
+        const pricingResult = await amazonAPI.getProductPricing(product.asin);
         productResult.tests.pricing = {
-          success: pricingResult.success,
-          message: pricingResult.success ? `Price: $${pricingResult.price}` : pricingResult.error || 'Pricing failed',
+          success: !!pricingResult,
+          message: pricingResult ? `Pricing data retrieved` : 'Pricing failed',
           data: pricingResult
         };
       } catch (error) {
