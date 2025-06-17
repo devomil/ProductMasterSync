@@ -247,12 +247,14 @@ export class AmazonSPAPI {
 
   async getProductPricing(asin: string): Promise<ProductPricing | null> {
     try {
-      const response = await this.makeRequest<ProductPricing>(
+      // Use the correct pricing API endpoint
+      const response = await this.makeRequest<any>(
         'GET',
-        '/products/pricing/v0/price',
+        '/products/pricing/v0/items',
         {
           MarketplaceId: this.config.marketplaceId,
-          Asins: asin
+          Asins: asin,
+          ItemType: 'Asin'
         }
       );
       
@@ -265,12 +267,15 @@ export class AmazonSPAPI {
 
   async getCompetitivePricing(asin: string): Promise<any> {
     try {
+      // Use the correct competitive pricing endpoint
       const response = await this.makeRequest(
         'GET',
-        '/products/pricing/v0/competitivePrice',
+        '/products/pricing/v0/items',
         {
           MarketplaceId: this.config.marketplaceId,
-          Asins: asin
+          Asins: asin,
+          ItemType: 'Asin',
+          OfferType: 'BuyBox'
         }
       );
       
