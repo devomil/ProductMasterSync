@@ -628,22 +628,22 @@ export default function AmazonAnalyticsEnhanced() {
                 <div className="space-y-4">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600">
-                      {Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100)}%
+                      {displayAnalytics ? Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100) : 0}%
                     </div>
                     <p className="text-sm text-gray-600">Products Mapped to Amazon</p>
                   </div>
                   <Progress 
-                    value={Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100)} 
+                    value={displayAnalytics ? Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100) : 0} 
                     className="h-3"
                   />
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="text-center">
-                      <div className="font-semibold text-green-600">{displayAnalytics.amazonMappedProducts.toLocaleString()}</div>
+                      <div className="font-semibold text-green-600">{displayAnalytics?.amazonMappedProducts?.toLocaleString() || '0'}</div>
                       <div className="text-gray-600">Mapped</div>
                     </div>
                     <div className="text-center">
                       <div className="font-semibold text-orange-600">
-                        {(displayAnalytics.totalProducts - displayAnalytics.amazonMappedProducts).toLocaleString()}
+                        {displayAnalytics ? (displayAnalytics.totalProducts - displayAnalytics.amazonMappedProducts).toLocaleString() : '0'}
                       </div>
                       <div className="text-gray-600">Pending</div>
                     </div>
@@ -713,43 +713,45 @@ export default function AmazonAnalyticsEnhanced() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Sync Status</span>
-                    <Badge variant={displayAnalytics.syncStatus === 'active' ? 'default' : 'destructive'}>
-                      {displayAnalytics.syncStatus}
+                    <Badge variant={displayAnalytics?.syncStatus === 'active' ? 'default' : 'destructive'}>
+                      {displayAnalytics?.syncStatus || 'Unknown'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Last Sync</span>
                     <span className="text-sm text-gray-600">
-                      {new Date(displayAnalytics.lastSyncTime).toLocaleString()}
+                      {displayAnalytics?.lastSyncTime ? new Date(displayAnalytics.lastSyncTime).toLocaleString() : 'Never'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Price History Entries</span>
-                    <span className="font-mono">{displayAnalytics.priceHistoryEntries.toLocaleString()}</span>
+                    <span className="font-mono">{displayAnalytics?.priceHistoryEntries?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Competitive Analysis</span>
-                    <span className="font-mono">{displayAnalytics.competitiveAnalysisCount.toLocaleString()}</span>
+                    <span className="font-mono">{displayAnalytics?.competitiveAnalysisCount?.toLocaleString() || '0'}</span>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Total Products</span>
-                    <span className="font-mono">{displayAnalytics.totalProducts.toLocaleString()}</span>
+                    <span className="font-mono">{displayAnalytics?.totalProducts?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Amazon Mapped</span>
-                    <span className="font-mono">{displayAnalytics.amazonMappedProducts.toLocaleString()}</span>
+                    <span className="font-mono">{displayAnalytics?.amazonMappedProducts?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Market Intelligence</span>
-                    <span className="font-mono">{displayAnalytics.marketIntelligenceRecords.toLocaleString()}</span>
+                    <span className="font-mono">{displayAnalytics?.marketIntelligenceRecords?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">Coverage Rate</span>
                     <span className="font-mono">
-                      {Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100)}%
+                      {displayAnalytics && displayAnalytics.totalProducts > 0 
+                        ? Math.round((displayAnalytics.amazonMappedProducts / displayAnalytics.totalProducts) * 100) 
+                        : 0}%
                     </span>
                   </div>
                 </div>
