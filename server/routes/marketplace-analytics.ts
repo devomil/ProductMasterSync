@@ -183,8 +183,9 @@ router.get('/analytics/opportunities', async (req, res) => {
         salesRank: product.salesRank,
         categoryRank: product.categoryRank,
         estimatedSales: product.estimatedSales,
-        // Enhanced UI fields - use real Amazon images or null
-        imageUrl: product.primaryImageUrl || null,
+        // Enhanced UI fields - use real Amazon images
+        imageUrl: product.amazonImageUrl,
+        supplierImageUrl: product.supplierImageUrl,
         canList: product.canList !== false,
         hasListingRestrictions: product.hasListingRestrictions || false,
         restrictionMessages: product.restrictionMessages || [],
