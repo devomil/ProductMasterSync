@@ -96,7 +96,7 @@ router.get('/analytics/trends', async (req, res) => {
 });
 
 // Live marketplace opportunities with authentic Amazon data - uses stored ASIN data for frontend compatibility
-router.get('/analytics/opportunities', async (req, res) => {
+router.get('/opportunities', async (req, res) => {
   try {
     const { category = 'all', limit = 20 } = req.query;
     
