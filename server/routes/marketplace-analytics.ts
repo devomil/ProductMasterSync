@@ -108,7 +108,7 @@ router.get('/analytics/opportunities', async (req, res) => {
         productId: products.id,
         sku: products.sku,
         name: products.name,
-        upc: products.usin,
+        upc: products.upc,
         currentPrice: products.price,
         cost: products.cost,
         categoryName: categories.name,
@@ -162,8 +162,8 @@ router.get('/analytics/opportunities', async (req, res) => {
       const asinMatch = {
         asin: product.asin,
         score: product.opportunityScore || 50,
-        price: parseFloat(product.amazonCurrentPrice || product.currentPrice || '0'),
-        listPrice: product.amazonListPrice ? parseFloat(product.amazonListPrice) : undefined,
+        price: parseFloat(String(product.amazonCurrentPrice || product.currentPrice || '0')) / 100,
+        listPrice: product.amazonListPrice ? parseFloat(String(product.amazonListPrice)) / 100 : undefined,
         sellers: product.amazonOfferCount || 1,
         buyboxHolder: product.amazonFulfillmentChannel === 'AMAZON' ? 'Amazon' : 'Available',
         isBuyboxEligible: true,
@@ -174,9 +174,9 @@ router.get('/analytics/opportunities', async (req, res) => {
         categoryRank: product.categoryRank,
         estimatedSales: product.estimatedSales,
         priceHistory: [
-          { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: parseFloat(product.amazonCurrentPrice || '0') * 1.02 },
-          { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: parseFloat(product.amazonCurrentPrice || '0') * 1.01 },
-          { date: new Date().toISOString().split('T')[0], price: parseFloat(product.amazonCurrentPrice || '0') }
+          { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (parseFloat(String(product.amazonCurrentPrice || '0')) / 100) * 1.02 },
+          { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (parseFloat(String(product.amazonCurrentPrice || '0')) / 100) * 1.01 },
+          { date: new Date().toISOString().split('T')[0], price: parseFloat(String(product.amazonCurrentPrice || '0')) / 100 }
         ]
       };
 
