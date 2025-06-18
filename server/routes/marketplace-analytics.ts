@@ -121,8 +121,8 @@ router.get('/opportunities', async (req, res) => {
         aa.can_list,
         aa.has_listing_restrictions,
         aa.restriction_messages,
-        COALESCE(aa.current_price, 0) as amazon_current_price,
-        COALESCE(aa.list_price, 0) as amazon_list_price,
+        COALESCE(aa.price, 0) as amazon_current_price,
+        COALESCE(aa.price, 0) as amazon_list_price,
         COALESCE(aa.sales_rank, 0) as sales_rank,
         50 as opportunity_score,
         0 as estimated_sales
@@ -135,7 +135,11 @@ router.get('/opportunities', async (req, res) => {
       LIMIT $1
     `;
     
-    const result = await pool.query(query, [Number(limit) * 2]);
+    // Import pool from db module
+    const { Pool } = require('pg');
+    const dbPool = new Pool({ connectionString: process.env.DATABASE_URL });
+    
+    const result = await dbPool.query(query, [Number(limit) * 2]);
     const productsWithData = result.rows;
 
     console.log(`Found ${productsWithData.length} products with Amazon marketplace data`);
