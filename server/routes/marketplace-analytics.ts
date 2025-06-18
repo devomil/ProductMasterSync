@@ -130,7 +130,8 @@ router.get('/analytics/opportunities', async (req, res) => {
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
-      .innerJoin(amazonAsins, eq(products.usin, amazonAsins.upc))
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .where(isNotNull(amazonMarketIntelligence.asin))
       .limit(Number(limit) * 2);
@@ -423,7 +424,7 @@ router.get('/analytics/ai-intelligence', async (req, res) => {
         productId: products.id,
         sku: products.sku,
         name: products.name,
-        upc: products.usin,
+        upc: products.upc,
         categoryName: categories.name,
         supplierName: suppliers.name,
         asin: productAsinMapping.asin,
