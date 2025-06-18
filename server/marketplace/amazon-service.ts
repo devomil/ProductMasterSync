@@ -62,24 +62,19 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
     const savedItems = [];
     for (const item of catalogItems) {
       // First, ensure the ASIN exists in the amazon_asins table
-      try {
-        await db.insert(amazonAsins).values({
-          asin: item.asin,
-          title: item.title || '',
-          brand: item.brand || '',
-          manufacturer: item.manufacturer || '',
-          upc: upc || '',
-          partNumber: item.partNumber || '',
-          model: item.model || '',
-          category: item.category || '',
-          subcategory: item.subcategory || '',
-          mainImageUrl: item.imageUrl || '',
-          productType: item.productType || '',
-          marketplace: 'US'
-        }).onConflictDoNothing();
-      } catch (asinError) {
-        console.log(`ASIN ${item.asin} already exists or error inserting:`, asinError);
-      }
+      await createAsinRecord({
+        asin: item.asin,
+        title: item.title || '',
+        brand: item.brand || '',
+        manufacturer: item.manufacturer || '',
+        upc: upc || '',
+        partNumber: item.partNumber || '',
+        model: item.model || '',
+        category: item.category || '',
+        subcategory: item.subcategory || '',
+        imageUrl: item.imageUrl || '',
+        productType: item.productType || ''
+      });
 
       const marketData = {
         asin: item.asin || '',
