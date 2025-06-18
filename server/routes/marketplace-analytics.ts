@@ -125,7 +125,17 @@ router.get('/analytics/opportunities', async (req, res) => {
         categoryRank: amazonMarketIntelligence.categoryRank,
         opportunityScore: amazonMarketIntelligence.opportunityScore,
         profitMargin: amazonMarketIntelligence.profitMarginPercent,
-        estimatedSales: amazonMarketIntelligence.estimatedSalesPerMonth
+        estimatedSales: amazonMarketIntelligence.estimatedSalesPerMonth,
+        // Enhanced UI data
+        primaryImageUrl: amazonAsins.primaryImageUrl,
+        canList: amazonAsins.canList,
+        hasListingRestrictions: amazonAsins.hasListingRestrictions,
+        restrictionMessages: amazonAsins.restrictionMessages,
+        // Placeholder cost data - will be enhanced with real supplier data
+        supplierCost: sql<number>`0`,
+        shippingCost: sql<number>`0`,
+        amazonFees: sql<number>`0`,
+        netProfit: sql<number>`0`
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -158,7 +168,7 @@ router.get('/analytics/opportunities', async (req, res) => {
         });
       }
 
-      // Create ASIN match from stored Amazon data
+      // Create ASIN match from stored Amazon data with enhanced UI data
       const asinMatch = {
         asin: product.asin,
         score: product.opportunityScore || 50,
@@ -173,6 +183,16 @@ router.get('/analytics/opportunities', async (req, res) => {
         salesRank: product.salesRank,
         categoryRank: product.categoryRank,
         estimatedSales: product.estimatedSales,
+        // Enhanced UI fields
+        imageUrl: product.primaryImageUrl || `https://images-na.ssl-images-amazon.com/images/I/placeholder${product.sku}.jpg`,
+        canList: product.canList !== false,
+        hasListingRestrictions: product.hasListingRestrictions || false,
+        restrictionMessages: product.restrictionMessages || [],
+        // Cost breakdown for accurate scoring
+        supplierCost: product.supplierCost ? Number(product.supplierCost) / 100 : 0,
+        shippingCost: product.shippingCost ? Number(product.shippingCost) / 100 : 0,
+        amazonFees: product.amazonFees ? Number(product.amazonFees) / 100 : 0,
+        netProfit: product.netProfit ? Number(product.netProfit) / 100 : 0,
         priceHistory: [
           { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (Number(product.amazonCurrentPrice || 0) / 100) * 1.02 },
           { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (Number(product.amazonCurrentPrice || 0) / 100) * 1.01 },

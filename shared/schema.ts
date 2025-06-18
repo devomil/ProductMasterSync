@@ -428,6 +428,13 @@ export const amazonAsins = pgTable("amazon_asins", {
   additionalImages: json("additional_images").default([]),
   videoUrls: json("video_urls").default([]),
   
+  // Listing restrictions and eligibility
+  canList: boolean("can_list").default(true),
+  hasListingRestrictions: boolean("has_listing_restrictions").default(false),
+  restrictionReasonCodes: json("restriction_reason_codes").default([]),
+  restrictionMessages: json("restriction_messages").default([]),
+  lastRestrictionsCheck: timestamp("last_restrictions_check"),
+  
   // Product details
   features: json("features").default([]), // Bullet points array
   description: text("description"),

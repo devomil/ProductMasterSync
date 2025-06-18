@@ -42,6 +42,15 @@ interface CatalogItem {
       amount: number;
     }[];
   };
+  images?: {
+    marketplaceId: string;
+    images: {
+      variant: string;
+      link: string;
+      height?: number;
+      width?: number;
+    }[];
+  }[];
 }
 
 interface ProductPricing {
@@ -286,7 +295,12 @@ export class AmazonSPAPI {
     }
   }
 
-  async getListingRestrictions(asin: string): Promise<any> {
+  async getListingRestrictions(asin: string): Promise<{
+    canList: boolean;
+    restrictions: any[];
+    reasonCodes: string[];
+    messages: string[];
+  }> {
     try {
       const response = await this.makeRequest(
         'GET',
@@ -297,7 +311,13 @@ export class AmazonSPAPI {
         }
       );
       
-      return response;
+      const restrictions = response?.restrictions || [];
+      return {
+        canList: restrictions.length === 0,
+        restrictions,
+        reasonCodes: restrictions.map((r: any) => r.reasonCode).filter(Boolean),
+        messages: restrictions.map((r: any) => r.message).filter(Boolean)
+      };
     } catch (error) {
       console.error('Error getting listing restrictions:', error);
       return null;
