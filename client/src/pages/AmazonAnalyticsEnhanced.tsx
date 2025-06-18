@@ -120,6 +120,9 @@ interface ProductOpportunity {
   asinMatches: AsinMatch[];
   image?: string;
   strategicTags: string[];
+  // Image URLs for comparison
+  supplierImageUrl?: string;
+  masterImageUrl?: string;
 }
 
 interface AsinMatch {
@@ -955,8 +958,8 @@ export default function AmazonAnalyticsEnhanced() {
                   amazonImage={bestAsin.imageUrl}
                   amazonTitle={bestAsin.amazonTitle}
                   amazonBrand={bestAsin.amazonBrand}
-                  supplierImage={opportunity.supplierImageUrl}
-                  masterCatalogImage={opportunity.masterImageUrl}
+                  supplierImage={opportunity.supplierImageUrl || opportunity.image}
+                  masterCatalogImage={opportunity.masterImageUrl || opportunity.image}
                   productName={opportunity.productName}
                   sku={opportunity.sku}
                   asin={bestAsin.asin}
