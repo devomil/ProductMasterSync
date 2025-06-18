@@ -6,7 +6,7 @@
 import { amazonAPI } from './amazon-sp-api';
 import { db } from '../db';
 import { amazonAsins, amazonMarketIntelligence } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 interface AmazonImageData {
   asin: string;

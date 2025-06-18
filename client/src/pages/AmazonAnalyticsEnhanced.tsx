@@ -23,6 +23,7 @@ import {
   Line,
   ResponsiveContainer 
 } from "recharts";
+import { ImageComparison } from "@/components/marketplace/ImageComparison";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -42,7 +43,8 @@ import {
   RefreshCw,
   Database,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Image as ImageIcon
 } from "lucide-react";
 
 interface MultiAsinOpportunity {
@@ -130,6 +132,20 @@ interface AsinMatch {
   priceHistory: PriceHistoryPoint[];
   isBuyboxEligible: boolean;
   condition: string;
+  amazonTitle?: string;
+  amazonBrand?: string;
+  salesRank?: number;
+  categoryRank?: number;
+  estimatedSales?: number;
+  // Enhanced UI fields for image comparison
+  imageUrl?: string;
+  canList?: boolean;
+  hasListingRestrictions?: boolean;
+  restrictionMessages?: string[];
+  supplierCost?: number;
+  shippingCost?: number;
+  amazonFees?: number;
+  netProfit?: number;
 }
 
 interface PriceHistoryPoint {
@@ -170,6 +186,7 @@ export default function AmazonAnalyticsEnhanced() {
   const [selectedProduct, setSelectedProduct] = useState<ProductOpportunity | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showImageComparison, setShowImageComparison] = useState<boolean>(false);
 
   // Data fetching
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AmazonAnalytics>({
