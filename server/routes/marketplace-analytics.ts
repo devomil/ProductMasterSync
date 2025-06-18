@@ -102,57 +102,48 @@ router.get('/analytics/opportunities', async (req, res) => {
     
     console.log('Generating live marketplace opportunities from stored Amazon data...');
 
-    // Get products with Amazon data directly from the stored marketplace intelligence
-    const productsWithData = await db
-      .select({
-        productId: products.id,
-        sku: products.sku,
-        name: products.name,
-        upc: products.upc,
-        currentPrice: products.price,
-        cost: products.cost,
-        categoryName: categories.name,
-        supplierName: suppliers.name,
-        // Amazon marketplace data
-        asin: amazonMarketIntelligence.asin,
-        amazonTitle: amazonAsins.title,
-        amazonBrand: amazonAsins.brand,
-        amazonCurrentPrice: amazonMarketIntelligence.currentPrice,
-        amazonListPrice: amazonMarketIntelligence.listPrice,
-        amazonFulfillmentChannel: amazonMarketIntelligence.fulfillmentMethod,
-        amazonOfferCount: sql<number>`1`, // Placeholder since totalSellers field doesn't exist
-        salesRank: amazonMarketIntelligence.salesRank,
-        categoryRank: amazonMarketIntelligence.categoryRank,
-        opportunityScore: amazonMarketIntelligence.opportunityScore,
-        profitMargin: amazonMarketIntelligence.profitMarginPercent,
-        estimatedSales: amazonMarketIntelligence.estimatedSalesPerMonth,
-        // Enhanced UI data - get actual image URLs  
-        supplierImageUrl: products.imageUrl,
-        amazonImageUrl: amazonAsins.imageUrl,
-        canList: amazonAsins.canList,
-        hasListingRestrictions: amazonAsins.hasListingRestrictions,
-        restrictionMessages: amazonAsins.restrictionMessages,
-        // Placeholder cost data - will be enhanced with real supplier data
-        supplierCost: sql<number>`0`,
-        shippingCost: sql<number>`0`,
-        amazonFees: sql<number>`0`,
-        netProfit: sql<number>`0`
-      })
-      .from(products)
-      .leftJoin(categories, eq(products.categoryId, categories.id))
-      .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
-      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-      .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
-      .leftJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
-      .where(isNotNull(amazonMarketIntelligence.asin))
-      .limit(Number(limit) * 2);
+    // Get products with Amazon ASIN mappings using raw SQL for reliable image URL retrieval
+    const productsWithData = await db.execute(sql`
+      SELECT 
+        p.id as "productId",
+        p.sku,
+        p.name,
+        p.upc,
+        p.price as "currentPrice",
+        p.cost,
+        p.image_url as "supplierImageUrl",
+        c.name as "categoryName",
+        s.name as "supplierName",
+        pam.asin,
+        aa.title as "amazonTitle",
+        aa.brand as "amazonBrand", 
+        aa.image_url as "amazonImageUrl",
+        aa.primary_image_url as "amazonPrimaryImageUrl",
+        aa.can_list as "canList",
+        aa.has_listing_restrictions as "hasListingRestrictions",
+        aa.restriction_messages as "restrictionMessages",
+        COALESCE(ami.current_price, aa.current_price, 0) as "amazonCurrentPrice",
+        COALESCE(ami.list_price, aa.list_price, 0) as "amazonListPrice",
+        COALESCE(ami.sales_rank, 0) as "salesRank",
+        COALESCE(ami.category_rank, 0) as "categoryRank",
+        COALESCE(ami.opportunity_score, aa.score, 50) as "opportunityScore",
+        COALESCE(ami.estimated_sales_per_month, 0) as "estimatedSales"
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN suppliers s ON p.manufacturer_id = s.id
+      INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
+      INNER JOIN amazon_asins aa ON pam.asin = aa.asin
+      LEFT JOIN amazon_market_intelligence ami ON aa.asin = ami.asin
+      WHERE pam.asin IS NOT NULL
+      LIMIT ${Number(limit) * 2}
+    `);
 
-    console.log(`Found ${productsWithData.length} products with Amazon marketplace data`);
+    console.log(`Found ${productsWithData.rows.length} products with Amazon marketplace data`);
 
     // Group by product and create ASIN matches structure expected by frontend
     const productMap = new Map();
     
-    for (const product of productsWithData) {
+    for (const product of productsWithData.rows) {
       const productKey = product.productId;
       
       if (!productMap.has(productKey)) {
@@ -184,8 +175,8 @@ router.get('/analytics/opportunities', async (req, res) => {
         salesRank: product.salesRank,
         categoryRank: product.categoryRank,
         estimatedSales: product.estimatedSales,
-        // Enhanced UI fields - use real Amazon images
-        imageUrl: product.amazonImageUrl,
+        // Enhanced UI fields - use real Amazon images with fallback
+        imageUrl: product.amazonImageUrl || product.amazonPrimaryImageUrl,
         supplierImageUrl: product.supplierImageUrl,
         canList: product.canList !== false,
         hasListingRestrictions: product.hasListingRestrictions || false,
