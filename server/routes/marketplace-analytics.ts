@@ -102,61 +102,63 @@ router.get('/analytics/opportunities', async (req, res) => {
     
     console.log('Generating live marketplace opportunities from stored Amazon data...');
 
-    // Get products with Amazon ASIN mappings using raw SQL for reliable image URL retrieval
-    const productsWithData = await db.execute(sql`
+    // Use raw SQL query to avoid schema field mapping issues
+    const result = await db.execute(sql`
       SELECT 
-        p.id as "productId",
+        p.id as product_id,
         p.sku,
         p.name,
         p.upc,
-        p.price as "currentPrice",
+        p.price as current_price,
         p.cost,
-        p.image_url as "supplierImageUrl",
-        c.name as "categoryName",
-        s.name as "supplierName",
+        p.image_url as supplier_image_url,
+        c.name as category_name,
+        s.name as supplier_name,
         pam.asin,
-        aa.title as "amazonTitle",
-        aa.brand as "amazonBrand", 
-        aa.image_url as "amazonImageUrl",
-        aa.primary_image_url as "amazonPrimaryImageUrl",
-        aa.can_list as "canList",
-        aa.has_listing_restrictions as "hasListingRestrictions",
-        aa.restriction_messages as "restrictionMessages",
-        COALESCE(ami.current_price, aa.current_price, 0) as "amazonCurrentPrice",
-        COALESCE(ami.list_price, aa.list_price, 0) as "amazonListPrice",
-        COALESCE(ami.sales_rank, 0) as "salesRank",
-        COALESCE(ami.category_rank, 0) as "categoryRank",
-        COALESCE(ami.opportunity_score, aa.score, 50) as "opportunityScore",
-        COALESCE(ami.estimated_sales_per_month, 0) as "estimatedSales"
+        aa.title as amazon_title,
+        aa.brand as amazon_brand,
+        COALESCE(aa.image_url, aa.primary_image_url) as amazon_image_url,
+        aa.can_list,
+        aa.has_listing_restrictions,
+        aa.restriction_messages,
+        COALESCE(aa.current_price, 0) as amazon_current_price,
+        COALESCE(aa.list_price, 0) as amazon_list_price,
+        COALESCE(aa.sales_rank, 0) as sales_rank,
+        50 as opportunity_score,
+        0 as estimated_sales
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN suppliers s ON p.manufacturer_id = s.id
       INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
       INNER JOIN amazon_asins aa ON pam.asin = aa.asin
-      LEFT JOIN amazon_market_intelligence ami ON aa.asin = ami.asin
       WHERE pam.asin IS NOT NULL
       LIMIT ${Number(limit) * 2}
     `);
+    
+    const productsWithData = result.rows;
 
-    console.log(`Found ${productsWithData.rows.length} products with Amazon marketplace data`);
+    console.log(`Found ${productsWithData.length} products with Amazon marketplace data`);
 
     // Group by product and create ASIN matches structure expected by frontend
     const productMap = new Map();
     
-    for (const product of productsWithData.rows) {
-      const productKey = product.productId;
+    for (const product of productsWithData) {
+      const productKey = product.product_id;
       
       if (!productMap.has(productKey)) {
         productMap.set(productKey, {
           sku: product.sku,
           productName: product.name || 'Unknown Product',
           upc: product.upc || '',
-          category: product.categoryName || 'Uncategorized',
-          supplierName: product.supplierName || 'Unknown Supplier',
-          currentPrice: parseFloat(product.currentPrice || '0'),
+          category: product.category_name || 'Uncategorized',
+          supplierName: product.supplier_name || 'Unknown Supplier',
+          currentPrice: parseFloat(product.current_price || '0'),
           cost: parseFloat(product.cost || '0'),
           asinMatches: [],
-          strategicTags: []
+          strategicTags: [],
+          // Include image URLs at product level
+          supplierImageUrl: product.supplier_image_url,
+          image: product.supplier_image_url
         });
       }
 
