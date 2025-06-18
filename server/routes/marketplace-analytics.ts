@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { db } from '../db';
+import { db, pool } from '../db';
 import { products, categories, suppliers, amazonAsins, amazonMarketIntelligence, productAsinMapping, multiAsinOpportunities, supplierAsinPerformance, upcAsinMappings } from '../../shared/schema';
 import { eq, and, isNotNull, sql, desc, asc, gt } from 'drizzle-orm';
 import { amazonAPI } from '../services/amazon-sp-api';
@@ -102,8 +102,8 @@ router.get('/opportunities', async (req, res) => {
     
     console.log('Generating live marketplace opportunities from stored Amazon data...');
 
-    // Use raw SQL query to avoid schema field mapping issues
-    const result = await db.execute(sql`
+    // Direct PostgreSQL query to retrieve image URLs correctly
+    const query = `
       SELECT 
         p.id as product_id,
         p.sku,
@@ -132,9 +132,10 @@ router.get('/opportunities', async (req, res) => {
       INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
       INNER JOIN amazon_asins aa ON pam.asin = aa.asin
       WHERE pam.asin IS NOT NULL
-      LIMIT ${Number(limit) * 2}
-    `);
+      LIMIT $1
+    `;
     
+    const result = await pool.query(query, [Number(limit) * 2]);
     const productsWithData = result.rows;
 
     console.log(`Found ${productsWithData.length} products with Amazon marketplace data`);
