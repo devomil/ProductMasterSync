@@ -320,7 +320,12 @@ export class AmazonSPAPI {
       };
     } catch (error) {
       console.error('Error getting listing restrictions:', error);
-      return null;
+      return {
+        canList: true,
+        restrictions: [],
+        reasonCodes: [],
+        messages: []
+      };
     }
   }
 
