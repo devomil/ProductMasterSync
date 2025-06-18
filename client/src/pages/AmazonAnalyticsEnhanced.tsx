@@ -959,7 +959,7 @@ export default function AmazonAnalyticsEnhanced() {
                   amazonImage={bestAsin.imageUrl}
                   amazonTitle={bestAsin.amazonTitle}
                   amazonBrand={bestAsin.amazonBrand}
-                  supplierImage={opportunity.supplierImageUrl || opportunity.image}
+                  supplierImage={bestAsin.supplierImageUrl || opportunity.supplierImageUrl || opportunity.image}
                   masterCatalogImage={opportunity.masterImageUrl || opportunity.image}
                   productName={opportunity.productName}
                   sku={opportunity.sku}
