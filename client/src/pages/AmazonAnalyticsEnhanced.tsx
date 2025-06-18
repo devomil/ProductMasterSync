@@ -44,7 +44,8 @@ import {
   Database,
   CheckCircle,
   AlertTriangle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Copy
 } from "lucide-react";
 
 interface MultiAsinOpportunity {
@@ -1351,6 +1352,82 @@ export default function AmazonAnalyticsEnhanced() {
                               Score: {asin.score}
                             </Badge>
                           </div>
+
+                          {/* Image Comparison Section */}
+                          <div className="space-y-3">
+                            <h5 className="font-medium text-sm">Image Comparison</h5>
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* Amazon Image */}
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-gray-600">Amazon Image</div>
+                                {asin.imageUrl ? (
+                                  <div className="relative group">
+                                    <img 
+                                      src={asin.imageUrl} 
+                                      alt={`Amazon ${asin.asin}`}
+                                      className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(asin.imageUrl, '_blank')}
+                                    />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 rounded flex items-center justify-center">
+                                      <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-32 bg-gray-100 rounded border flex items-center justify-center">
+                                    <span className="text-xs text-gray-500">No Amazon image</span>
+                                  </div>
+                                )}
+                                {asin.amazonTitle && (
+                                  <div className="text-xs text-gray-600 line-clamp-2">{asin.amazonTitle}</div>
+                                )}
+                              </div>
+
+                              {/* Supplier Image */}
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-gray-600">Supplier Image</div>
+                                {selectedProduct.supplierImageUrl || selectedProduct.image ? (
+                                  <div className="relative group">
+                                    <img 
+                                      src={selectedProduct.supplierImageUrl || selectedProduct.image} 
+                                      alt={`Supplier ${selectedProduct.sku}`}
+                                      className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(selectedProduct.supplierImageUrl || selectedProduct.image, '_blank')}
+                                    />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 rounded flex items-center justify-center">
+                                      <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-32 bg-gray-100 rounded border flex items-center justify-center">
+                                    <span className="text-xs text-gray-500">No supplier image</span>
+                                  </div>
+                                )}
+                                <div className="text-xs text-gray-600 line-clamp-2">{selectedProduct.productName}</div>
+                              </div>
+                            </div>
+
+                            {/* Listing Restrictions */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-600">Listing Status</span>
+                                <div className="flex items-center space-x-1">
+                                  {asin.canList !== false ? (
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                                  )}
+                                  <Badge variant={asin.canList !== false ? 'default' : 'destructive'} className="text-xs">
+                                    {asin.canList !== false ? 'Can List' : 'Restricted'}
+                                  </Badge>
+                                </div>
+                              </div>
+                              {asin.restrictionMessages && asin.restrictionMessages.length > 0 && (
+                                <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                                  {asin.restrictionMessages.join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                           
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
@@ -1398,6 +1475,20 @@ export default function AmazonAnalyticsEnhanced() {
                             >
                               <ExternalLink className="h-4 w-4 mr-1" />
                               View Listing
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(asin.asin);
+                                toast({
+                                  description: `ASIN ${asin.asin} copied to clipboard`
+                                });
+                              }}
+                              className="flex-1"
+                            >
+                              <Copy className="h-4 w-4 mr-1" />
+                              Copy ASIN
                             </Button>
                           </div>
                         </div>
