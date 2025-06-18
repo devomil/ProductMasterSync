@@ -183,8 +183,8 @@ router.get('/analytics/opportunities', async (req, res) => {
         salesRank: product.salesRank,
         categoryRank: product.categoryRank,
         estimatedSales: product.estimatedSales,
-        // Enhanced UI fields
-        imageUrl: product.primaryImageUrl || `https://images-na.ssl-images-amazon.com/images/I/placeholder${product.sku}.jpg`,
+        // Enhanced UI fields - use real Amazon images or null
+        imageUrl: product.primaryImageUrl || null,
         canList: product.canList !== false,
         hasListingRestrictions: product.hasListingRestrictions || false,
         restrictionMessages: product.restrictionMessages || [],
@@ -659,7 +659,9 @@ router.post('/sync/search-products', async (req, res) => {
                     score: 85,
                     marketplace: 'US',
                     productUrl: `https://amazon.com/dp/${item.asin}`,
-                    imageUrl: null,
+                    imageUrl: item.images?.[0]?.images?.[0]?.link || 
+                             item.summaries?.[0]?.mainImage?.link ||
+                             `https://images-na.ssl-images-amazon.com/images/P/${item.asin}.01.L.jpg`,
                     features: [],
                     dimensions: null,
                     weight: null,
