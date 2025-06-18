@@ -29,6 +29,7 @@ import realAmazonPricingRoutes from './routes/real-amazon-pricing';
 import fixPricingRoutes from './routes/fix-pricing';
 import testPricingFixRoutes from './routes/test-pricing-fix';
 import imageTest from './routes/image-test';
+import imageOpportunities from './routes/image-opportunities';
 import fixMarketPricingRoutes from './routes/fix-market-pricing';
 import amazonRealDataRoutes from './routes/amazon-real-data';
 import amazonConnectionTestRoutes from './routes/amazon-connection-test';
@@ -3438,6 +3439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/ai-purchasing', aiPurchasingRoutes);
   app.use('/api/pricing-test', pricingTestRoutes);
   app.use('/api/amazon-test', amazonConnectionTestRoutes);
+  app.use('/api/marketplace', imageOpportunities);
 
   // Register connections management routes
   // Register connections routes directly
