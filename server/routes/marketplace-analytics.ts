@@ -58,13 +58,14 @@ router.get('/analytics/trends', async (req, res) => {
       .select({
         category: categories.name,
         productCount: sql<number>`COUNT(DISTINCT ${products.id})`,
-        avgPrice: sql<number>`AVG(CASE WHEN ${amazonAsins.price} > 0 THEN ${amazonAsins.price} END)`,
+        avgPrice: sql<number>`AVG(CASE WHEN ${amazonMarketIntelligence.currentPrice} > 0 THEN ${amazonMarketIntelligence.currentPrice}::numeric / 100 END)`,
         competitorCount: sql<number>`COUNT(DISTINCT ${amazonAsins.asin})`
       })
       .from(categories)
       .leftJoin(products, eq(products.categoryId, categories.id))
       .leftJoin(productAsinMapping, eq(productAsinMapping.productId, products.id))
       .leftJoin(amazonAsins, eq(amazonAsins.asin, productAsinMapping.asin))
+      .leftJoin(amazonMarketIntelligence, eq(amazonMarketIntelligence.asin, amazonAsins.asin))
       .where(isNotNull(categories.name))
       .groupBy(categories.id, categories.name)
       .having(sql`COUNT(DISTINCT ${products.id}) > 0`)
