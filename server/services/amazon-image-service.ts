@@ -27,7 +27,7 @@ export class AmazonImageService {
     for (const asin of asins) {
       try {
         // Get catalog data with images
-        const catalogItems = await amazonAPI.searchCatalogItems('', { asin });
+        const catalogItems = await amazonAPI.searchCatalogItems(asin, 10);
         let imageData: AmazonImageData = {
           asin,
           primaryImageUrl: null,
@@ -129,7 +129,7 @@ export class AmazonImageService {
           restrictionMessages: amazonAsins.restrictionMessages
         })
         .from(amazonAsins)
-        .where(amazonAsins.asin);
+        .where(sql`${amazonAsins.asin} = ANY(${asins})`);
       
       for (const result of results) {
         if (asins.includes(result.asin)) {

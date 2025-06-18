@@ -482,10 +482,11 @@ export default function AmazonAnalyticsEnhanced() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="opportunities" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Market Trends</TabsTrigger>
           <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+          <TabsTrigger value="image-comparison">Image Comparison</TabsTrigger>
           <TabsTrigger value="ai-intelligence">AI Intelligence</TabsTrigger>
           <TabsTrigger value="database">Database Status</TabsTrigger>
         </TabsList>
@@ -903,6 +904,67 @@ export default function AmazonAnalyticsEnhanced() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="image-comparison" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium">Image Comparison for Listing</h3>
+              <p className="text-sm text-gray-600">Compare Amazon authentic images with supplier and master catalog images for accurate product matching</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImageComparison(!showImageComparison)}
+              className="flex items-center gap-2"
+            >
+              <ImageIcon className="w-4 h-4" />
+              {showImageComparison ? 'Hide Images' : 'Show Images'}
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {filteredAndSortedOpportunities.slice(0, 10).map((opportunity, index) => {
+              // Get the best ASIN match for comparison
+              const bestAsin = opportunity.asinMatches?.reduce((best, current) => 
+                (current.score > (best?.score || 0)) ? current : best
+              ) || null;
+
+              if (!bestAsin) return null;
+
+              return (
+                <ImageComparison
+                  key={`${opportunity.sku}-${index}`}
+                  amazonImage={bestAsin.imageUrl}
+                  amazonTitle={bestAsin.amazonTitle}
+                  amazonBrand={bestAsin.amazonBrand}
+                  supplierImage={opportunity.supplierImageUrl}
+                  masterCatalogImage={opportunity.masterImageUrl}
+                  productName={opportunity.productName}
+                  sku={opportunity.sku}
+                  asin={bestAsin.asin}
+                  canList={bestAsin.canList !== false}
+                  restrictionMessages={bestAsin.restrictionMessages || []}
+                  onListingAction={(asin) => {
+                    // Future: Handle listing creation
+                    console.log('Create listing for ASIN:', asin);
+                  }}
+                />
+              );
+            })}
+            
+            {filteredAndSortedOpportunities.length === 0 && (
+              <Card>
+                <CardContent className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-600">No products with Amazon matches found for image comparison.</p>
+                    <p className="text-sm text-gray-500 mt-1">Products need Amazon ASIN mappings to display image comparisons.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="ai-intelligence" className="space-y-6">
