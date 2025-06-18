@@ -126,8 +126,9 @@ router.get('/analytics/opportunities', async (req, res) => {
         opportunityScore: amazonMarketIntelligence.opportunityScore,
         profitMargin: amazonMarketIntelligence.profitMarginPercent,
         estimatedSales: amazonMarketIntelligence.estimatedSalesPerMonth,
-        // Enhanced UI data
-        primaryImageUrl: amazonAsins.primaryImageUrl,
+        // Enhanced UI data - get actual image URLs  
+        supplierImageUrl: products.imageUrl,
+        amazonImageUrl: amazonAsins.imageUrl,
         canList: amazonAsins.canList,
         hasListingRestrictions: amazonAsins.hasListingRestrictions,
         restrictionMessages: amazonAsins.restrictionMessages,
@@ -142,7 +143,7 @@ router.get('/analytics/opportunities', async (req, res) => {
       .leftJoin(suppliers, eq(products.manufacturerId, suppliers.id))
       .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
       .innerJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
-      .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
+      .leftJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .where(isNotNull(amazonMarketIntelligence.asin))
       .limit(Number(limit) * 2);
 
