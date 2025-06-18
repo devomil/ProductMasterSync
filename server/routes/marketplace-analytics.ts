@@ -162,8 +162,8 @@ router.get('/analytics/opportunities', async (req, res) => {
       const asinMatch = {
         asin: product.asin,
         score: product.opportunityScore || 50,
-        price: parseFloat(String(product.amazonCurrentPrice || product.currentPrice || '0')) / 100,
-        listPrice: product.amazonListPrice ? parseFloat(String(product.amazonListPrice)) / 100 : undefined,
+        price: Number(product.amazonCurrentPrice || product.currentPrice || 0) / 100,
+        listPrice: product.amazonListPrice ? Number(product.amazonListPrice) / 100 : undefined,
         sellers: product.amazonOfferCount || 1,
         buyboxHolder: product.amazonFulfillmentChannel === 'AMAZON' ? 'Amazon' : 'Available',
         isBuyboxEligible: true,
@@ -174,9 +174,9 @@ router.get('/analytics/opportunities', async (req, res) => {
         categoryRank: product.categoryRank,
         estimatedSales: product.estimatedSales,
         priceHistory: [
-          { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (parseFloat(String(product.amazonCurrentPrice || '0')) / 100) * 1.02 },
-          { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (parseFloat(String(product.amazonCurrentPrice || '0')) / 100) * 1.01 },
-          { date: new Date().toISOString().split('T')[0], price: parseFloat(String(product.amazonCurrentPrice || '0')) / 100 }
+          { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (Number(product.amazonCurrentPrice || 0) / 100) * 1.02 },
+          { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: (Number(product.amazonCurrentPrice || 0) / 100) * 1.01 },
+          { date: new Date().toISOString().split('T')[0], price: Number(product.amazonCurrentPrice || 0) / 100 }
         ]
       };
 
