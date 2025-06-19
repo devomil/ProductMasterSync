@@ -617,6 +617,22 @@ export default function AmazonAnalyticsEnhanced() {
                   className="pl-8"
                 />
               </div>
+              
+              {/* Multi-ASIN Filter Toggle */}
+              <Button
+                variant={selectedCategory === "multi-asin" ? "default" : "outline"}
+                onClick={() => setSelectedCategory(selectedCategory === "multi-asin" ? "all" : "multi-asin")}
+                className="flex items-center gap-2"
+              >
+                <ListTree className="h-4 w-4" />
+                Multi-ASIN Only
+                {multiAsinProducts && multiAsinProducts.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {multiAsinProducts.length}
+                  </Badge>
+                )}
+              </Button>
+              
               <Button 
                 variant="outline" 
                 onClick={() => setShowFilters(!showFilters)}
