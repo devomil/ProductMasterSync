@@ -2838,6 +2838,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register comprehensive search routes
   app.use("/api/comprehensive-search", comprehensiveSearchRouter);
 
+  // Register validation routes
+  const validationRoutes = await import("./routes/validation");
+  app.use("/api/validation", validationRoutes.default);
+
+  // Register enhanced validation routes
+  const enhancedValidationRoutes = await import("./routes/enhanced-validation");
+  app.use("/api/enhanced-validation", enhancedValidationRoutes.default);
+
   // Test Amazon pricing for UPC 791659022283
   app.get("/api/test-upc-pricing/:upc", async (req, res) => {
     try {
