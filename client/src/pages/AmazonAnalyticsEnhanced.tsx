@@ -231,6 +231,12 @@ export default function AmazonAnalyticsEnhanced() {
     queryKey: ['/api/marketplace/analytics/opportunities']
   });
 
+  // Image comparison data query
+  const { data: opportunitiesData, isLoading: imageOpportunitiesLoading, error: imageError } = useQuery({
+    queryKey: ['/api/marketplace/image-opportunities'],
+    enabled: showImageComparison,
+  });
+
   // Safe data handling with null checks
   const safeOpportunities = opportunities?.opportunities || [];
   const safeTrends = trends || [];
@@ -945,7 +951,14 @@ export default function AmazonAnalyticsEnhanced() {
           </div>
 
           <div className="space-y-4">
-            {filteredAndSortedOpportunities.slice(0, 10).map((opportunity, index) => {
+            {imageOpportunitiesLoading && (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="text-sm text-gray-600 mt-2">Loading image comparison data...</p>
+              </div>
+            )}
+            
+            {opportunitiesData?.opportunities?.map((opportunity, index) => {
               // Get the best ASIN match for comparison
               const bestAsin = opportunity.asinMatches?.reduce((best, current) => 
                 (current.score > (best?.score || 0)) ? current : best
@@ -974,7 +987,7 @@ export default function AmazonAnalyticsEnhanced() {
               );
             })}
             
-            {filteredAndSortedOpportunities.length === 0 && (
+            {!imageOpportunitiesLoading && (!opportunitiesData?.opportunities || opportunitiesData.opportunities.length === 0) && (
               <Card>
                 <CardContent className="flex items-center justify-center py-8">
                   <div className="text-center">
