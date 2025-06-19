@@ -124,19 +124,18 @@ router.get('/opportunities', async (req, res) => {
       LIMIT 20
     `;
     
-    console.log(`Found ${opportunityData.length} opportunity records`);
-    if (opportunityData.length > 0) {
+    console.log(`Found ${result.rows.length} opportunity records`);
+    if (result.rows.length > 0) {
       console.log(`Sample opportunity:`, {
-        sku: opportunityData[0].sku,
-        supplier_image_url: opportunityData[0].supplier_image_url,
-        amazon_image_url: opportunityData[0].amazon_image_url,
-        asin: opportunityData[0].asin
+        sku: result.rows[0].sku,
+        supplier_image_url: result.rows[0].supplier_image_url,
+        amazon_image_url: result.rows[0].amazon_image_url,
+        asin: result.rows[0].asin
       });
     }
     
     // Transform each record into the expected format with authentic images
-    const opportunities = opportunityData.map((row: any) => {
-      const pricing = row.pricing ? JSON.parse(row.pricing) : {};
+    const opportunities = result.rows.map((row: any) => {
       
       return {
         sku: row.sku,
@@ -153,16 +152,16 @@ router.get('/opportunities', async (req, res) => {
         asinMatches: [{
           asin: row.asin,
           score: 85,
-          price: pricing.currentPrice ? pricing.currentPrice / 100 : parseFloat(row.current_price || '0'),
-          listPrice: pricing.listPrice ? pricing.listPrice / 100 : undefined,
+          price: parseFloat(row.current_price || '0'),
+          listPrice: undefined,
           sellers: 1,
-          buyboxHolder: row.fulfillment_method === 'AMAZON' ? 'Amazon' : 'Available',
+          buyboxHolder: 'Available',
           isBuyboxEligible: true,
           condition: 'New',
           amazonTitle: row.amazon_title,
           amazonBrand: row.amazon_brand,
-          salesRank: row.sales_rank,
-          categoryRank: row.category_rank,
+          salesRank: null,
+          categoryRank: null,
           estimatedSales: null,
           // Use authentic Amazon images from dedicated table
           imageUrl: row.amazon_image_url,
