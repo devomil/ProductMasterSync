@@ -59,7 +59,7 @@ router.get('/products-with-candidates', async (req, res) => {
             'hasAmazonData', CASE WHEN acd.asin IS NOT NULL THEN true ELSE false END,
             'amazonUpc', acd.upc,
             'amazonMpn', acd.part_number,
-            'amazonDescription', acd.description,
+            'amazonDescription', acd.title,
             'score', CASE 
               WHEN acd.asin IS NOT NULL AND acd.sales_rank IS NOT NULL THEN
                 GREATEST(0, 100 - (acd.sales_rank / 1000))
@@ -96,7 +96,7 @@ router.get('/products-with-candidates', async (req, res) => {
         upc: candidate.amazonUpc,
         manufacturerPartNumber: candidate.amazonMpn,
         title: candidate.amazonTitle,
-        description: candidate.amazonDescription,
+        description: candidate.amazonTitle,
         brand: candidate.amazonBrand,
         imageUrl: candidate.imageUrl
       }));
