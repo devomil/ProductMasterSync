@@ -204,7 +204,7 @@ export default function AmazonAnalyticsEnhanced() {
     queryKey: ['/api/marketplace/analytics/trends']
   });
 
-  const { data: multiAsinData, isLoading: multiAsinLoading } = useQuery<{
+  const { data: multiAsinData, isLoading: multiAsinDataLoading } = useQuery<{
     opportunities: MultiAsinOpportunity[];
     metadata: { totalCount: number; minScoreFilter: number; generatedAt: string };
   }>({
