@@ -811,7 +811,7 @@ export default function AmazonAnalyticsEnhanced() {
                         </CardContent>
                       </Card>
                       );
-                    })}
+                    })}  
                   </div>
                 )}
               </div>
