@@ -1155,7 +1155,7 @@ export default function AmazonAnalyticsEnhanced() {
             </Card>
 
             {/* Processing Status */}
-            {multiAsinProducts?.products && (
+            {multiAsinProducts.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Processing Status</CardTitle>
@@ -1164,15 +1164,15 @@ export default function AmazonAnalyticsEnhanced() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {(multiAsinProducts?.products || []).length}
+                        {multiAsinProducts.length}
                       </div>
                       <div className="text-sm text-muted-foreground">Products Found</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {multiAsinProducts.products?.filter((p: any) => 
-                          p.asin_candidates.some((a: any) => a.isPrimary)
-                        ).length || 0}
+                        {multiAsinProducts.filter((p: MultiAsinProduct) => 
+                          (p.asin_candidates || []).some((a: MultiAsinCandidate) => a.isPrimary)
+                        ).length}
                       </div>
                       <div className="text-sm text-muted-foreground">Processed</div>
                     </div>
@@ -1198,18 +1198,18 @@ export default function AmazonAnalyticsEnhanced() {
                     <div className="flex justify-between text-sm mb-2">
                       <span>Processing Progress</span>
                       <span>
-                        {(multiAsinProducts?.products || []).length > 0 ? 
-                          Math.round(((multiAsinProducts?.products || []).filter((p: MultiAsinProduct) => 
+                        {multiAsinProducts.length > 0 ? 
+                          Math.round((multiAsinProducts.filter((p: MultiAsinProduct) => 
                             (p.asin_candidates || []).some((a: MultiAsinCandidate) => a.isPrimary)
-                          ).length / (multiAsinProducts?.products || []).length) * 100) : 0
+                          ).length / multiAsinProducts.length) * 100) : 0
                         }%
                       </span>
                     </div>
                     <Progress 
-                      value={(multiAsinProducts?.products || []).length > 0 ? 
-                        ((multiAsinProducts?.products || []).filter((p: MultiAsinProduct) => 
+                      value={multiAsinProducts.length > 0 ? 
+                        (multiAsinProducts.filter((p: MultiAsinProduct) => 
                           (p.asin_candidates || []).some((a: MultiAsinCandidate) => a.isPrimary)
-                        ).length / (multiAsinProducts?.products || []).length) * 100 : 0
+                        ).length / multiAsinProducts.length) * 100 : 0
                       } 
                       className="h-2"
                     />
