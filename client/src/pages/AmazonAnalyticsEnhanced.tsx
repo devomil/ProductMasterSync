@@ -258,6 +258,12 @@ export default function AmazonAnalyticsEnhanced() {
   const [sortOrder, setSortOrder] = useState("desc");
   const [selectedProduct, setSelectedProduct] = useState<ProductOpportunity | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAllCandidates, setShowAllCandidates] = useState(false);
+  const [selectedMultiAsinProduct, setSelectedMultiAsinProduct] = useState<MultiAsinProduct | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageData, setSelectedImageData] = useState<any>(null);
+  const [showConfidenceOverride, setShowConfidenceOverride] = useState(false);
+  const [selectedAsinForOverride, setSelectedAsinForOverride] = useState<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showImageComparison, setShowImageComparison] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState("opportunities");
@@ -2225,6 +2231,20 @@ export default function AmazonAnalyticsEnhanced() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confidence Override Dialog */}
+      {selectedAsinForOverride && (
+        <ConfidenceOverrideDialog
+          open={showConfidenceOverride}
+          onOpenChange={setShowConfidenceOverride}
+          productId={selectedAsinForOverride.productId}
+          asin={selectedAsinForOverride.asin}
+          currentConfidence={selectedAsinForOverride.currentConfidence}
+          productName={selectedAsinForOverride.productName}
+          amazonTitle={selectedAsinForOverride.amazonTitle}
+          validationIssues={selectedAsinForOverride.validationIssues}
+        />
+      )}
     </div>
   );
 }
