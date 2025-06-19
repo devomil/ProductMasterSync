@@ -259,6 +259,8 @@ export default function AmazonAnalyticsEnhanced() {
     refetchInterval: 60000, // 1 minute
   });
 
+  console.log('Multi-ASIN products data:', multiAsinProducts);
+
   const { data: productCandidates } = useQuery({
     queryKey: ['/api/multi-asin-display/product', selectedProduct, 'all-candidates'],
     enabled: !!selectedProduct,
@@ -1020,7 +1022,7 @@ export default function AmazonAnalyticsEnhanced() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {multiAsinProducts?.products?.map((product: any) => (
+                    {(multiAsinProducts?.products || []).map((product: any) => (
                       <div key={product.sku} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div>
