@@ -425,7 +425,7 @@ router.get('/analytics/ai-intelligence', async (req, res) => {
     for (const product of productsWithAsins) {
       try {
         // Get live Amazon catalog data
-        let catalogData = [];
+        let catalogData: any[] = [];
         if (product.upc) {
           catalogData = await amazonAPI.searchByUPC(product.upc);
         }
@@ -557,7 +557,7 @@ router.post('/sync/search-products', async (req, res) => {
       try {
         console.log(`Searching Amazon for product: ${product.sku} (${product.name})`);
         
-        let amazonResults = [];
+        let amazonResults: any[] = [];
         
         // Search by UPC first (most accurate)
         if (product.upc) {

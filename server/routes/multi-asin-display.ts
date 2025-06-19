@@ -140,8 +140,8 @@ router.get('/products-with-candidates', async (req, res) => {
         const categoryFlags = generateCategoryValidationFlags(categoryResult);
         const allValidationIssues = [
           ...validationIssues,
-          ...(categoryResult.issues || []),
-          ...imageFlags
+          ...(Array.isArray(categoryResult.issues) ? categoryResult.issues : []),
+          ...(Array.isArray(imageFlags) ? imageFlags : [])
         ];
 
         return {
