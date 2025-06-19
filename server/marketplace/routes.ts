@@ -478,11 +478,13 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         productPrice: products.price,
         productSku: products.sku,
         productUpc: products.upc,
+        productImageUrl: products.imageUrl,
         productManufacturerPartNumber: products.manufacturerPartNumber,
         categoryName: categories.name,
         asin: productAsinMapping.asin,
         asinTitle: amazonAsins.title,
         asinBrand: amazonAsins.brand,
+        asinImageUrl: amazonAsins.primaryImageUrl,
         asinUpc: amazonAsins.upc,
         asinPartNumber: amazonAsins.partNumber,
         // Authentic Amazon pricing data from SP-API
@@ -526,11 +528,14 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
           productName: product.productName || 'Unknown Product',
           upc: product.productUpc || '',
           category: product.categoryName || 'Uncategorized',
-          supplierName: 'Amazon Supplier', // Default since we don't have supplier mapping
+          supplierName: 'Amazon Supplier',
           currentPrice: parseFloat(product.productPrice || '0'),
           cost: parseFloat(product.productCost || '0'),
           asinMatches: [],
-          strategicTags: []
+          strategicTags: [],
+          // Use authentic supplier images from database
+          supplierImageUrl: product.productImageUrl,
+          image: product.productImageUrl
         });
       }
 
@@ -551,6 +556,9 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
         amazonBrand: product.asinBrand,
         salesRank: product.salesRank,
         categoryRank: product.categoryRank,
+        // Add authentic Amazon images to ASIN matches
+        imageUrl: product.asinImageUrl,
+        supplierImageUrl: product.productImageUrl,
         priceHistory: [
           { 
             date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
@@ -585,7 +593,8 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
       }
 
       product.strategicTags = tags;
-      product.image = `https://images-na.ssl-images-amazon.com/images/I/placeholder${product.sku}.jpg`;
+      // Use authentic product image from database - no placeholders
+      product.image = product.supplierImageUrl;
 
       return product;
     }).filter(p => p.asinMatches.length > 0);
