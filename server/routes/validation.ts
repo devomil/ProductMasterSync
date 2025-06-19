@@ -125,7 +125,8 @@ router.get('/alerts', async (req, res) => {
     query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
-    const result = await db.query(query, params);
+    const { pool } = await import('../db');
+    const result = await pool.query(query, params);
     
     res.json({
       success: true,
@@ -154,7 +155,8 @@ router.patch('/alerts/:alertId/resolve', async (req, res) => {
     const { alertId } = req.params;
     const { resolvedBy, notes } = req.body;
 
-    await db.query(`
+    const { pool } = await import('../db');
+    await pool.query(`
       UPDATE validation_alerts 
       SET resolved = true, resolved_at = $1, resolved_by = $2, resolution_notes = $3
       WHERE id = $4
@@ -182,7 +184,8 @@ router.get('/stats', async (req, res) => {
     const stats = asinValidator.getValidationStats();
     
     // Get database stats
-    const dbStats = await db.query(`
+    const { pool } = await import('../db');
+    const dbStats = await pool.query(`
       SELECT 
         COUNT(*) as total_alerts,
         COUNT(CASE WHEN severity = 'critical' THEN 1 END) as critical_alerts,

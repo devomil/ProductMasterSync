@@ -168,19 +168,20 @@ export class ASINValidator {
   }> {
     try {
       // Check Amazon product data table
-      const amazonResult = await db.query(`
+      const { pool } = await import('../db');
+      const amazonResult = await pool.query(`
         SELECT COUNT(*) as count FROM amazon_product_data WHERE asin = $1
       `, [asin]);
       const amazonExists = parseInt(amazonResult.rows[0].count) > 0;
 
       // Check product ASIN mappings
-      const catalogResult = await db.query(`
+      const catalogResult = await pool.query(`
         SELECT COUNT(*) as count FROM product_asin_mapping WHERE asin = $1
       `, [asin]);
       const catalogExists = parseInt(catalogResult.rows[0].count) > 0;
 
       // Check supplier data (if ASIN appears in supplier files)
-      const supplierResult = await db.query(`
+      const supplierResult = await pool.query(`
         SELECT COUNT(*) as count FROM import_data 
         WHERE data_json::text ILIKE '%${asin}%'
       `);
@@ -247,7 +248,8 @@ export class ASINValidator {
     
     if (criticalErrors.length > 0) {
       // Store alert in database
-      await db.query(`
+      const { pool } = await import('../db');
+      await pool.query(`
         INSERT INTO validation_alerts (asin, severity, error_count, message, created_at)
         VALUES ($1, $2, $3, $4, $5)
       `, [
@@ -263,7 +265,8 @@ export class ASINValidator {
     }
 
     if (validation.confidence < 0.7) {
-      await db.query(`
+      const { pool } = await import('../db');
+      await pool.query(`
         INSERT INTO validation_alerts (asin, severity, error_count, message, created_at)
         VALUES ($1, $2, $3, $4, $5)
       `, [

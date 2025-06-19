@@ -100,7 +100,8 @@ router.post('/batch-validate-products', async (req, res) => {
 router.post('/validate-fixed-products', async (req, res) => {
   try {
     // Get product IDs for our test SKUs
-    const testProducts = await db.query(`
+    const { pool } = await import('../db');
+    const testProducts = await pool.query(`
       SELECT id, sku, name 
       FROM products 
       WHERE sku IN ('165731', '370129')
@@ -146,7 +147,8 @@ router.post('/validate-fixed-products', async (req, res) => {
  */
 router.get('/alerts-summary', async (req, res) => {
   try {
-    const alertsResult = await db.query(`
+    const { pool } = await import('../db');
+    const alertsResult = await pool.query(`
       SELECT 
         severity,
         COUNT(*) as count,
@@ -163,7 +165,7 @@ router.get('/alerts-summary', async (req, res) => {
         END
     `);
 
-    const recentAlertsResult = await db.query(`
+    const recentAlertsResult = await pool.query(`
       SELECT asin, severity, message, created_at
       FROM validation_alerts
       WHERE created_at > NOW() - INTERVAL '24 hours'
@@ -194,7 +196,8 @@ router.post('/performance-test', async (req, res) => {
     const { sampleSize = 10 } = req.body;
     
     // Get random sample of products
-    const sampleProducts = await db.query(`
+    const { pool } = await import('../db');
+    const sampleProducts = await pool.query(`
       SELECT id FROM products 
       WHERE upc IS NOT NULL 
       ORDER BY RANDOM() 

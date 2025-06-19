@@ -33,7 +33,8 @@ export class EnhancedAmazonValidator {
   async validateProductComprehensively(productId: number): Promise<ProductValidationReport> {
     try {
       // Get product data from catalog
-      const productResult = await db.query(`
+      const { pool } = await import('../db');
+      const productResult = await pool.query(`
         SELECT p.*, STRING_AGG(pam.asin, ',') as current_asins
         FROM products p
         LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
