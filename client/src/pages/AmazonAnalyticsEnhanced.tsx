@@ -692,42 +692,56 @@ export default function AmazonAnalyticsEnhanced() {
                                 {/* Supplier Image */}
                                 <div className="space-y-1">
                                   <p className="text-xs text-gray-500 text-center">Supplier</p>
-                                  {(opportunity.supplierImageUrl || opportunity.image) ? (
-                                    <img 
-                                      src={opportunity.supplierImageUrl || opportunity.image} 
-                                      alt={opportunity.productName}
-                                      className="w-14 h-14 object-contain rounded border bg-gray-50"
-                                      onLoad={() => console.log('Supplier image loaded:', opportunity.supplierImageUrl || opportunity.image)}
-                                      onError={(e) => {
-                                        console.error('Supplier image failed:', opportunity.supplierImageUrl || opportunity.image);
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`w-14 h-14 bg-gray-100 rounded border flex items-center justify-center ${(opportunity.supplierImageUrl || opportunity.image) ? 'hidden' : ''}`}>
-                                    <Package className="w-4 h-4 text-gray-400" />
+                                  <div className="w-14 h-14 relative">
+                                    {(opportunity.supplierImageUrl || opportunity.image) ? (
+                                      <img 
+                                        src={opportunity.supplierImageUrl || opportunity.image} 
+                                        alt={opportunity.productName}
+                                        className="w-14 h-14 object-contain rounded border bg-gray-50"
+                                        onLoad={() => console.log('Supplier image loaded:', opportunity.supplierImageUrl || opportunity.image)}
+                                        onError={(e) => {
+                                          console.error('Supplier image failed:', opportunity.supplierImageUrl || opportunity.image);
+                                          const target = e.currentTarget as HTMLImageElement;
+                                          target.style.display = 'none';
+                                          const fallback = target.nextElementSibling as HTMLElement;
+                                          if (fallback) fallback.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div 
+                                      className="w-14 h-14 bg-gray-100 rounded border flex items-center justify-center"
+                                      style={{ display: (opportunity.supplierImageUrl || opportunity.image) ? 'none' : 'flex' }}
+                                    >
+                                      <Package className="w-4 h-4 text-gray-400" />
+                                    </div>
                                   </div>
                                 </div>
                                 
                                 {/* Amazon Image */}
                                 <div className="space-y-1">
                                   <p className="text-xs text-gray-500 text-center">Amazon</p>
-                                  {bestAsin?.imageUrl ? (
-                                    <img 
-                                      src={bestAsin.imageUrl} 
-                                      alt={bestAsin.amazonTitle || 'Amazon Product'}
-                                      className="w-14 h-14 object-contain rounded border bg-gray-50"
-                                      onLoad={() => console.log('Amazon image loaded:', bestAsin.imageUrl)}
-                                      onError={(e) => {
-                                        console.error('Amazon image failed:', bestAsin.imageUrl);
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
-                                    />
-                                  ) : null}
-                                  <div className={`w-14 h-14 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-400 ${bestAsin?.imageUrl ? 'hidden' : ''}`}>
-                                    No image
+                                  <div className="w-14 h-14 relative">
+                                    {bestAsin?.imageUrl ? (
+                                      <img 
+                                        src={bestAsin.imageUrl} 
+                                        alt={bestAsin.amazonTitle || 'Amazon Product'}
+                                        className="w-14 h-14 object-contain rounded border bg-gray-50"
+                                        onLoad={() => console.log('Amazon image loaded:', bestAsin.imageUrl)}
+                                        onError={(e) => {
+                                          console.error('Amazon image failed:', bestAsin.imageUrl);
+                                          const target = e.currentTarget as HTMLImageElement;
+                                          target.style.display = 'none';
+                                          const fallback = target.nextElementSibling as HTMLElement;
+                                          if (fallback) fallback.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div 
+                                      className="w-14 h-14 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-400"
+                                      style={{ display: bestAsin?.imageUrl ? 'none' : 'flex' }}
+                                    >
+                                      No image
+                                    </div>
                                   </div>
                                 </div>
                               </div>
