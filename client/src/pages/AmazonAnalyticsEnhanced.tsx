@@ -233,13 +233,14 @@ export default function AmazonAnalyticsEnhanced() {
   });
 
   // Image comparison data query
-  const { data: opportunitiesData, isLoading: imageOpportunitiesLoading, error: imageError } = useQuery<{
+  const { data: opportunitiesData, isLoading: imageOpportunitiesLoading, error: imageError, refetch } = useQuery<{
     success: boolean;
     opportunities: ProductOpportunity[];
     totalCount: number;
   }>({
     queryKey: ['/api/marketplace/image-opportunities'],
     enabled: showImageComparison,
+    refetchOnWindowFocus: false,
   });
 
   // Safe data handling with null checks
@@ -947,7 +948,13 @@ export default function AmazonAnalyticsEnhanced() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowImageComparison(!showImageComparison)}
+              onClick={() => {
+                setShowImageComparison(!showImageComparison);
+                if (!showImageComparison) {
+                  // Force refresh of image data
+                  refetch();
+                }
+              }}
               className="flex items-center gap-2"
             >
               <ImageIcon className="w-4 h-4" />

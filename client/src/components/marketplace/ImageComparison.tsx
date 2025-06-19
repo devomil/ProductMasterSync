@@ -34,6 +34,15 @@ export function ImageComparison({
 }: ImageComparisonProps) {
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
+  // Debug logging
+  console.log('ImageComparison props:', {
+    amazonImage,
+    supplierImage,
+    productName,
+    sku,
+    asin
+  });
 
   const handleImageError = (imageType: string) => {
     setImageLoadErrors(prev => ({ ...prev, [imageType]: true }));
