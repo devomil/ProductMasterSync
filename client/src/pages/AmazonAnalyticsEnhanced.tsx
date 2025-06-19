@@ -670,6 +670,13 @@ export default function AmazonAnalyticsEnhanced() {
                         (current.score > (best?.score || 0)) ? current : best
                       ) || null;
 
+                      // Debug logging to check Amazon images
+                      console.log(`Product ${opportunity.sku}:`, {
+                        asinMatches: opportunity.asinMatches,
+                        bestAsin: bestAsin,
+                        amazonImageUrl: bestAsin?.imageUrl
+                      });
+
                       return (
                       <Card key={index} className="border border-gray-200 hover:border-gray-300 transition-colors">
                         <CardContent className="p-6">
