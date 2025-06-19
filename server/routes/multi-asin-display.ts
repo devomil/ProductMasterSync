@@ -121,7 +121,7 @@ router.get('/products-with-candidates', async (req, res) => {
           {
             mainCategory: original.amazonTitle?.split(' ')[0] || '',
             title: original.amazonTitle || '',
-            description: original.amazonTitle || '' // Use title as description fallback
+            description: original.amazonTitle || ''
           }
         );
 
@@ -140,8 +140,8 @@ router.get('/products-with-candidates', async (req, res) => {
         const categoryFlags = generateCategoryValidationFlags(categoryResult);
         const allValidationIssues = [
           ...validationIssues,
-          ...categoryResult.issues,
-          ...(imageValidation ? imageValidation.warnings : [])
+          ...(categoryResult.issues || []),
+          ...imageFlags
         ];
 
         return {
