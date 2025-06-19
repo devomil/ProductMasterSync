@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,9 @@ import {
   CheckCircle,
   AlertTriangle,
   Image as ImageIcon,
-  Copy
+  Copy,
+  ListTree,
+  Play
 } from "lucide-react";
 
 interface MultiAsinOpportunity {
@@ -249,6 +251,36 @@ export default function AmazonAnalyticsEnhanced() {
 
   const { data: syncStatus } = useQuery({
     queryKey: ['/api/marketplace/sync/status']
+  });
+
+  // Multi-ASIN data queries
+  const { data: multiAsinProducts, isLoading: multiAsinLoading } = useQuery({
+    queryKey: ['/api/multi-asin-display/products-with-candidates'],
+    refetchInterval: 60000, // 1 minute
+  });
+
+  const { data: productCandidates } = useQuery({
+    queryKey: ['/api/multi-asin-display/product', selectedProduct, 'all-candidates'],
+    enabled: !!selectedProduct,
+  });
+
+  // Batch processing mutation
+  const batchProcessMutation = useMutation({
+    mutationFn: async (limit: number = 20) => {
+      const response = await fetch('/api/asin-selection/batch-select-best-asins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit })
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/multi-asin-display/products-with-candidates'] });
+      toast({
+        title: "Processing Complete",
+        description: "Multi-ASIN batch processing completed successfully"
+      });
+    }
   });
 
   // Use only authentic API data - no fallback synthetic data
@@ -948,6 +980,196 @@ export default function AmazonAnalyticsEnhanced() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Multi-ASIN Processing Tab */}
+        <TabsContent value="multi-asin" className="space-y-6">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <ListTree className="h-5 w-5" />
+                      Multi-ASIN Processing System
+                    </CardTitle>
+                    <CardDescription>
+                      Products with multiple ASIN candidates - select optimal ASINs for best performance
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => batchProcessMutation.mutate(20)}
+                    disabled={batchProcessMutation.isPending}
+                    className="flex items-center gap-2"
+                  >
+                    {batchProcessMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    Process Batch
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {multiAsinLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="animate-pulse bg-gray-100 h-16 rounded"></div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {multiAsinProducts?.products?.map((product: any) => (
+                      <div key={product.sku} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-lg">{product.product_name}</h3>
+                            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                            {product.upc && (
+                              <p className="text-sm text-muted-foreground">UPC: {product.upc}</p>
+                            )}
+                            {product.cost && (
+                              <p className="text-sm font-medium">Cost: ${product.cost} | Price: ${product.price}</p>
+                            )}
+                          </div>
+                          <div className="text-right space-y-1">
+                            <Badge variant={product.asin_candidates.some((a: any) => a.isPrimary) ? "default" : "secondary"}>
+                              {product.asin_candidates.length} Candidates
+                            </Badge>
+                            <div className="text-sm text-muted-foreground">
+                              {product.asin_candidates.filter((a: any) => a.hasAmazonData).length} with data
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {product.asin_candidates.slice(0, 3).map((candidate: any, idx: number) => (
+                            <div key={candidate.asin} className={`border rounded p-3 ${candidate.isPrimary ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <Badge variant={candidate.isPrimary ? "default" : "outline"} className="text-xs">
+                                  {candidate.isPrimary ? 'PRIMARY' : `RANK ${idx + 1}`}
+                                </Badge>
+                                <div className="text-xs text-muted-foreground">
+                                  Score: {candidate.score?.toFixed(0) || 'N/A'}
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-1 text-sm">
+                                <p className="font-mono text-xs">{candidate.asin}</p>
+                                {candidate.amazonTitle && (
+                                  <p className="text-muted-foreground line-clamp-2">
+                                    {candidate.amazonTitle}
+                                  </p>
+                                )}
+                                {candidate.currentPrice && (
+                                  <p className="font-semibold">${candidate.currentPrice}</p>
+                                )}
+                                {candidate.salesRank && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Rank: #{candidate.salesRank.toLocaleString()}
+                                  </p>
+                                )}
+                                {candidate.isBuyboxEligible && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Buybox Eligible
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {product.asin_candidates.length > 3 && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedProduct(product.sku)}
+                            className="w-full"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View All {product.asin_candidates.length} Candidates
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {(!multiAsinProducts?.products || multiAsinProducts.products.length === 0) && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <ListTree className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No products with multiple ASINs found</p>
+                        <p className="text-sm">Import products to see multi-ASIN analysis</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Processing Status */}
+            {multiAsinProducts?.products && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Processing Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {multiAsinProducts.products?.length || 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Products Found</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {multiAsinProducts.products?.filter((p: any) => 
+                          p.asin_candidates.some((a: any) => a.isPrimary)
+                        ).length || 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Processed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {multiAsinProducts.products?.reduce((sum: number, p: any) => 
+                          sum + p.asin_candidates.length, 0
+                        ) || 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Total Candidates</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {multiAsinProducts.products?.reduce((sum: number, p: any) => 
+                          sum + p.asin_candidates.filter((a: any) => a.hasAmazonData).length, 0
+                        ) || 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">With Amazon Data</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Processing Progress</span>
+                      <span>
+                        {multiAsinProducts.products ? 
+                          Math.round((multiAsinProducts.products.filter((p: any) => 
+                            p.asin_candidates.some((a: any) => a.isPrimary)
+                          ).length / multiAsinProducts.products.length) * 100) : 0
+                        }%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={multiAsinProducts.products ? 
+                        (multiAsinProducts.products.filter((p: any) => 
+                          p.asin_candidates.some((a: any) => a.isPrimary)
+                        ).length / multiAsinProducts.products.length) * 100 : 0
+                      } 
+                      className="h-2"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="database" className="space-y-6">
