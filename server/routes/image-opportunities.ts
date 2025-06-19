@@ -25,7 +25,7 @@ router.get('/image-opportunities', async (req, res) => {
         aa.can_list,
         aa.has_listing_restrictions,
         aa.restriction_messages,
-        COALESCE(aa.price, 0) as amazon_price,
+        0 as amazon_price,
         COALESCE(aa.sales_rank, 999999) as sales_rank
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
