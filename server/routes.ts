@@ -2846,6 +2846,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const enhancedValidationRoutes = await import("./routes/enhanced-validation");
   app.use("/api/enhanced-validation", enhancedValidationRoutes.default);
 
+  // Register ASIN correction routes
+  const asinCorrectionRoutes = await import("./routes/asin-correction");
+  app.use("/api/asin-correction", asinCorrectionRoutes.default);
+
   // Test Amazon pricing for UPC 791659022283
   app.get("/api/test-upc-pricing/:upc", async (req, res) => {
     try {
