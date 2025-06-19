@@ -332,9 +332,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products API
   app.get("/api/products", async (req, res) => {
     try {
-      const products = await storage.getProducts();
+      // Get products with ASIN mappings joined
+      const productsQuery = `
+        SELECT p.*, pam.asin as asin, c.name as categoryName
+        FROM products p
+        LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
+        LEFT JOIN categories c ON p."categoryId" = c.id
+        ORDER BY p.id
+      `;
       
-      // Enhance products with category information
+      const result = await pool.query(productsQuery);
+      const products = result.rows;
+      
+      // Skip the old storage.getProducts() call since we're now using direct SQL
+      // const products = await storage.getProducts();
       const categories = await storage.getCategories();
 
       
