@@ -1,0 +1,100 @@
+ASIN Matching Process:
+
+For each product, we need to match the ASIN candidates from the Amazon Marketplace to our internal catalog data. Use the following matching priority:
+
+Priority 1 (Confidence Score: 100): If UPC, MPN, and Product Description are an exact match between Amazon and our internal catalog data, then assign a confidence score of 100 and consider this the primary ASIN.
+
+Priority 2 (Confidence Score: 90-99): If UPC and MPN match, but the Description does not match exactly, then assign a lower confidence score (around 90 to 99).
+
+Priority 3 (Confidence Score: 75-89): If only the UPC matches between Amazon and the catalog, assign a confidence score between 75-89.
+
+Priority 4 (Confidence Score: 60-74): If only the MPN matches, assign a confidence score between 60-74.
+
+Priority 5 (Confidence Score: 50-59): If only the Product Description matches, assign a score between 50 and 59.
+
+Image Matching:
+
+Implement a mechanism to also verify if the product image is available for the ASIN. If there is no image available for the ASIN, mark it as "No image available" and flag it for manual review.
+
+Feedback Loop:
+
+If the confidence score is below a certain threshold (e.g., below 60), log it as a potential mismatch and suggest manual review or adjustment.
+
+Ensure that ASIN candidates with a high confidence score are automatically selected as the primary ASIN. Lower-scored ASINs should be flagged for review.
+
+UI Enhancements:
+
+Display the confidence score next to each ASIN candidate in the UI to help users identify the best match quickly. Also, provide a clear visual indicator of the confidence level (e.g., green for 90-100, yellow for 75-89, etc.).
+
+Ensure that the "Set Primary ASIN" button is only available for the ASIN with the highest confidence score. Other candidates should be reviewed manually.
+
+Example Workflow:
+Match Process:
+
+For each product in the Amazon Marketplace, the ASIN candidates will be compared based on the above matching criteria. The product's details (UPC, MPN, and Description) will be checked against our catalog data.
+
+Assign Confidence Score:
+
+Each ASIN candidate will be assigned a confidence score based on the degree of match with the product information. For instance:
+
+ASIN with 100 confidence: Exact match for UPC, MPN, and Description.
+
+ASIN with 90-99 confidence: Match for UPC and MPN but not the Description.
+
+ASIN with 60-89 confidence: Match for UPC only, MPN only, or Description only.
+
+UI Display:
+
+Display the ASIN candidates in the UI with the confidence score clearly visible.
+
+Allow users to easily identify the highest confidence ASIN to set as primary.
+
+Flag and display lower-confidence matches with an option for manual review.
+
+Example Output:
+json
+Copy
+Edit
+{
+  "ASIN_Candidate_1": {
+    "ASIN": "B08VNRZQ8R",
+    "Confidence_Score": 100,
+    "Match_Reason": "UPC, MPN, and Description match",
+    "Image_Url": "https://example.com/product-image.jpg",
+    "Status": "Primary ASIN"
+  },
+  "ASIN_Candidate_2": {
+    "ASIN": "B087BZLZN3",
+    "Confidence_Score": 80,
+    "Match_Reason": "UPC and MPN match",
+    "Image_Url": "https://example.com/product-image2.jpg",
+    "Status": "Flagged for review"
+  },
+  "ASIN_Candidate_3": {
+    "ASIN": "B001447J5C",
+    "Confidence_Score": 65,
+    "Match_Reason": "MPN match",
+    "Image_Url": "https://example.com/product-image3.jpg",
+    "Status": "Flagged for review"
+  }
+}
+Technical Recommendations:
+Matching Function:
+
+Write a matching function to compare the UPC, MPN, and Description. Return a confidence score based on the matches.
+
+javascript
+Copy
+Edit
+function calculateMatchConfidence(upcAmazon, upcCatalog, mpnAmazon, mpnCatalog, descriptionAmazon, descriptionCatalog) {
+  let score = 0;
+  if (upcAmazon === upcCatalog) score += 40;
+  if (mpnAmazon === mpnCatalog) score += 30;
+  if (descriptionAmazon === descriptionCatalog) score += 30;
+  return score;
+}
+Displaying Confidence:
+
+Create a UI element that shows the confidence score for each ASIN, using color coding (green, yellow, red) for quick identification.
+
+By using this prompt, you should be able to better ensure that the ASINs are properly matched based on the most important product details, increasing the accuracy of your product listing and improving the overall user experience in mapping and setting ASINs.

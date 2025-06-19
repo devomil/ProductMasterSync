@@ -181,7 +181,7 @@ interface MarketTrend {
 
 interface MultiAsinCandidate {
   asin: string;
-  rank: number;
+  rank?: number;
   score: number;
   hasAmazonData: boolean;
   isPrimary: boolean;
@@ -189,8 +189,8 @@ interface MultiAsinCandidate {
   price?: number;
   imageUrl?: string;
   salesRank?: number;
-  confidence: number;
-  searchMethod: string;
+  confidence?: number;
+  searchMethod?: string;
   currentPrice?: number;
   amazonTitle?: string;
   amazonBrand?: string;
@@ -199,6 +199,20 @@ interface MultiAsinCandidate {
   condition?: string;
   sellerCount?: number;
   matchConfidence?: number;
+  // New confidence scoring fields
+  confidenceScore: number;
+  matchReason: string;
+  matchDetails: {
+    upcMatch: boolean;
+    mpnMatch: boolean;
+    descriptionMatch: boolean;
+    imageAvailable: boolean;
+  };
+  confidenceLevel: string;
+  confidenceColor: string;
+  confidenceDescription: string;
+  validationIssues: string[];
+  needsReview: boolean;
 }
 
 interface MultiAsinProduct {
@@ -839,10 +853,21 @@ export default function AmazonAnalyticsEnhanced() {
                               <h5 className="font-medium">Top ASIN Candidates</h5>
                               <div className="grid gap-2">
                                 {product.asin_candidates?.slice(0, 3).map((candidate: MultiAsinCandidate) => (
-                                  <div key={candidate.asin} className={`flex items-center justify-between p-2 rounded border text-xs ${candidate.isPrimary ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
+                                  <div key={candidate.asin} className={`flex items-center justify-between p-2 rounded border text-xs ${candidate.isPrimary ? 'bg-blue-50 border-blue-200' : candidate.needsReview ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50'}`}>
                                     <div className="flex items-center space-x-2">
                                       {candidate.isPrimary && <Badge variant="default" className="text-xs">PRIMARY</Badge>}
+                                      {candidate.needsReview && <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">REVIEW</Badge>}
                                       <span className="font-mono">{candidate.asin}</span>
+                                      <ConfidenceIndicator
+                                        score={candidate.confidenceScore}
+                                        level={candidate.confidenceLevel}
+                                        color={candidate.confidenceColor}
+                                        description={candidate.confidenceDescription}
+                                        matchReason={candidate.matchReason}
+                                        matchDetails={candidate.matchDetails}
+                                        validationIssues={candidate.validationIssues}
+                                        size="sm"
+                                      />
                                     </div>
                                     <div className="text-right">
                                       {candidate.hasAmazonData && (
