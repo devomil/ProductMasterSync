@@ -3,7 +3,7 @@ import { pool } from '../db';
 
 const router = Router();
 
-// Image comparison opportunities endpoint - properly retrieves image URLs
+// Image comparison opportunities endpoint - retrieves products with both supplier and Amazon images
 router.get('/image-opportunities', async (req, res) => {
   try {
     const { limit = 20 } = req.query;
@@ -61,27 +61,23 @@ router.get('/image-opportunities', async (req, res) => {
       const amazonPrice = 25.99; // Default price for demonstration
       const currentPrice = Number(row.current_price || 0) / 100;
       const cost = Number(row.cost || 0) / 100;
-      
-      // Calculate profitability
-      const shippingCost = 5.99;
-      const amazonFees = amazonPrice * 0.15;
-      const netProfit = amazonPrice - cost - shippingCost - amazonFees;
-      
+
       return {
         sku: row.sku,
         productName: row.product_name,
-        image: row.supplier_image_url,
+        upc: '', // Not available in current schema
+        category: row.category_name || 'Uncategorized',
+        supplierName: 'Current Supplier',
         supplierImageUrl: row.supplier_image_url,
-        categoryName: row.category_name,
         currentPrice: currentPrice,
         cost: cost,
+        score: score,
         asinMatches: [{
           asin: row.asin,
-          amazonTitle: row.amazon_title || row.product_name,
-          amazonBrand: row.amazon_brand || 'Unknown',
+          amazonTitle: row.amazon_title,
+          amazonBrand: row.amazon_brand,
           imageUrl: row.amazon_image_url,
-          supplierImageUrl: row.supplier_image_url,
-          score: score,
+          supplierImageUrl: row.supplier_image_url, // Include for comparison
           price: amazonPrice,
           listPrice: amazonPrice * 1.1,
           sellers: sellers,
@@ -91,47 +87,38 @@ router.get('/image-opportunities', async (req, res) => {
           condition: 'New',
           canList: row.can_list !== false,
           hasListingRestrictions: row.has_listing_restrictions || false,
-          restrictionMessages: row.restriction_messages ? 
-            (Array.isArray(row.restriction_messages) ? row.restriction_messages : []) : [],
-          supplierCost: cost,
-          shippingCost: shippingCost,
-          amazonFees: amazonFees,
-          netProfit: netProfit,
-          priceHistory: [
-            { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: amazonPrice * 1.02 },
-            { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], price: amazonPrice * 1.01 },
-            { date: new Date().toISOString().split('T')[0], price: amazonPrice }
-          ]
+          restrictionMessages: row.restriction_messages || [],
+          opportunity: {
+            score: score,
+            reason: score > 80 ? 'High demand, low competition' : 
+                   score > 60 ? 'Moderate opportunity' : 'Limited potential',
+            potentialProfit: currentPrice > 0 ? (amazonPrice - currentPrice).toFixed(2) : '0.00',
+            marginPercent: currentPrice > 0 ? (((amazonPrice - currentPrice) / amazonPrice) * 100).toFixed(1) : '0.0'
+          }
         }],
-        strategicTags: []
+        totalAsins: 1,
+        bestScore: score,
+        avgMargin: currentPrice > 0 ? (((amazonPrice - currentPrice) / amazonPrice) * 100).toFixed(1) : '0.0',
+        tags: ['High Opportunity', 'Popular'].slice(0, score > 75 ? 2 : 1),
+        lastAnalyzed: new Date().toISOString()
       };
     });
-
-    // Add strategic tags based on data
-    opportunities.forEach(opportunity => {
-      const bestAsin = opportunity.asinMatches[0];
-      const tags = [];
-      
-      if (bestAsin.score >= 80) tags.push('High Opportunity');
-      if (bestAsin.sellers <= 3) tags.push('Low Competition');
-      if (bestAsin.price > 100) tags.push('Premium Product');
-      if (bestAsin.netProfit > 20) tags.push('High Profit');
-      if (bestAsin.salesRank < 50000) tags.push('Popular');
-      if (bestAsin.imageUrl && opportunity.supplierImageUrl) tags.push('Image Match Available');
-      
-      opportunity.strategicTags = tags;
-    });
-
-    console.log(`Generated ${opportunities.length} image comparison opportunities`);
 
     res.json({
       success: true,
       opportunities,
       totalCount: opportunities.length,
-      timestamp: new Date().toISOString()
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        imageComparison: true,
+        supplierProductsWithImages: opportunities.length,
+        amazonProductsWithImages: opportunities.filter(op => 
+          op.asinMatches.some(match => match.imageUrl)
+        ).length
+      }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching image opportunities:', error);
     res.status(500).json({
       success: false,
