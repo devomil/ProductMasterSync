@@ -3,9 +3,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import AppLayout from "@/components/layout/AppLayout";
-import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
 import Dashboard from "@/pages/Dashboard";
+import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
 import ProductDetails from "@/pages/ProductDetails";
 import DataImports from "@/pages/DataImports";
@@ -38,7 +37,8 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={SimpleTest} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/products" component={Products} />
       <Route path="/products/:id" component={ProductDetails} />
       <Route path="/categories" component={Categories} />
@@ -78,11 +78,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <OnboardingManager>
-          <AppLayout>
+        <div className="min-h-screen bg-background">
+          <header className="border-b">
+            <div className="container mx-auto px-4 py-3">
+              <h1 className="text-2xl font-bold">MDM/PIM System</h1>
+            </div>
+          </header>
+          <main className="container mx-auto px-4 py-6">
             <Router />
-          </AppLayout>
-        </OnboardingManager>
+          </main>
+        </div>
       </TooltipProvider>
     </QueryClientProvider>
   );
