@@ -147,7 +147,7 @@ router.get('/opportunities', async (req, res) => {
       supplierName: 'Amazon Supplier',
       currentPrice: parseFloat(row.current_price || '0'),
       cost: parseFloat(row.cost || '0'),
-      // Use authentic supplier images from database
+      // Use authentic supplier images from database - no placeholders
       supplierImageUrl: row.supplier_image_url,
       image: row.supplier_image_url,
       strategicTags: ['High Opportunity', 'Popular'],
@@ -189,7 +189,8 @@ router.get('/opportunities', async (req, res) => {
     });
 
     res.json({ 
-      opportunities: opportunities.slice(0, Number(limit)),
+      success: true,
+      opportunities: opportunities.slice(0, 20),
       totalCount: opportunities.length,
       hasData: opportunities.length > 0,
       dataSource: 'stored_amazon_marketplace_data'
