@@ -116,21 +116,29 @@ export function ImageComparison({
           <div className="space-y-2">
             <h4 className="font-medium text-center">Amazon Image</h4>
             {amazonImage ? (
-              <img 
-                src={amazonImage} 
-                alt={amazonTitle || 'Amazon Product'}
-                className="w-full h-48 object-contain bg-gray-50 rounded border"
-                onError={(e) => {
-                  console.error('Amazon image failed to load:', amazonImage);
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                }}
-              />
-            ) : null}
-            <div className={`w-full h-48 bg-gray-100 rounded border flex flex-col items-center justify-center text-gray-500 ${amazonImage ? 'hidden' : ''}`}>
-              <span>No Amazon image</span>
-              <span className="text-xs mt-1">URL: {amazonImage || 'null'}</span>
-            </div>
+              <div>
+                <img 
+                  src={amazonImage} 
+                  alt={amazonTitle || 'Amazon Product'}
+                  className="w-full h-48 object-contain bg-gray-50 rounded border"
+                  onLoad={() => console.log('Amazon image loaded successfully:', amazonImage)}
+                  onError={(e) => {
+                    console.error('Amazon image failed to load:', amazonImage);
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <div className="hidden w-full h-48 bg-red-100 rounded border flex flex-col items-center justify-center text-red-500">
+                  <span>Amazon image failed to load</span>
+                  <span className="text-xs mt-1">{amazonImage}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-48 bg-gray-100 rounded border flex flex-col items-center justify-center text-gray-500">
+                <span>No Amazon image</span>
+                <span className="text-xs mt-1">URL: {amazonImage || 'null'}</span>
+              </div>
+            )}
             <p className="text-xs text-center text-gray-600">{amazonTitle}</p>
           </div>
           
