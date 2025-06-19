@@ -595,17 +595,15 @@ export default function AmazonAnalyticsEnhanced() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="opportunities" className="space-y-6">
-        <div className="overflow-x-auto">
-          <TabsList className="grid w-full grid-cols-7 min-w-fit">
-            <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
-            <TabsTrigger value="trends" className="whitespace-nowrap">Trends</TabsTrigger>
-            <TabsTrigger value="opportunities" className="whitespace-nowrap">Opportunities</TabsTrigger>
-            <TabsTrigger value="image-comparison" className="whitespace-nowrap">Images</TabsTrigger>
-            <TabsTrigger value="ai-intelligence" className="whitespace-nowrap">AI Intel</TabsTrigger>
-            <TabsTrigger value="multi-asin" className="whitespace-nowrap">Multi-ASIN</TabsTrigger>
-            <TabsTrigger value="database" className="whitespace-nowrap">Database</TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 gap-1">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="trends">Trends</TabsTrigger>
+          <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+          <TabsTrigger value="image-comparison">Images</TabsTrigger>
+          <TabsTrigger value="ai-intelligence">AI Intel</TabsTrigger>
+          <TabsTrigger value="multi-asin">Multi-ASIN</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="opportunities" className="space-y-6">
           {/* Enhanced Search and Filters */}
