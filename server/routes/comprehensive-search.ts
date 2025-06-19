@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import { comprehensiveAmazonSearch, updateProductASINMappings } from '../utils/comprehensive-amazon-search';
 import { db } from '../db';
-import { products, productAsinMapping, amazonProductData } from '../../shared/schema';
+import { products, productAsinMapping } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 
 const router = Router();
@@ -126,21 +126,19 @@ router.post('/fix-invalid-mappings', async (req, res) => {
             });
         }
 
-        // Store Amazon product data if not exists
-        const [existingData] = await db
-          .select()
-          .from(amazonProductData)
-          .where(eq(amazonProductData.asin, bestMatch.asin));
-
-        if (!existingData) {
-          await db
-            .insert(amazonProductData)
-            .values({
-              asin: bestMatch.asin,
-              title: bestMatch.title,
-              brand: bestMatch.brand,
-              primaryImageUrl: bestMatch.imageUrl
-            });
+        // Store Amazon product data via SQL to handle the missing schema export
+        try {
+          const { pool } = await import('../db');
+          await pool.query(`
+            INSERT INTO amazon_product_data (asin, title, brand, primary_image_url)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (asin) DO UPDATE SET
+              title = EXCLUDED.title,
+              brand = EXCLUDED.brand,
+              primary_image_url = EXCLUDED.primary_image_url
+          `, [bestMatch.asin, bestMatch.title, bestMatch.brand, bestMatch.imageUrl]);
+        } catch (error) {
+          console.log('Error storing Amazon product data:', error.message);
         }
       }
 

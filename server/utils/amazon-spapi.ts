@@ -281,50 +281,7 @@ export function validateAmazonConfig(config: SPAPIConfig): boolean {
   );
 }
 
-/**
- * Search catalog items by UPC
- */
-export async function searchCatalogItemsByUPC(upc: string): Promise<any> {
-  const config = getAmazonConfig();
-  
-  if (!validateAmazonConfig(config)) {
-    throw new Error('Invalid Amazon SP-API configuration');
-  }
 
-  try {
-    const accessToken = await getAccessToken(config);
-    const endpoint = config.endpoint;
-    const path = '/catalog/2022-04-01/items';
-    
-    const queryParams = {
-      marketplaceIds: config.marketplaceId,
-      identifiers: upc,
-      identifiersType: 'UPC',
-      includedData: 'identifiers,summaries,attributes'
-    };
-
-    const queryString = Object.keys(queryParams)
-      .map(key => `${key}=${encodeURIComponent(queryParams[key as keyof typeof queryParams])}`)
-      .join('&');
-
-    console.log(`Making Amazon SP-API request: GET ${endpoint}${path}?${queryString}`);
-
-    const response = await axios({
-      method: 'GET',
-      url: `${endpoint}${path}?${queryString}`,
-      headers: {
-        'x-amz-access-token': accessToken,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log(`Amazon SP-API response status: ${response.status}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error searching catalog items by UPC:', error);
-    throw new Error(`Failed to search Amazon catalog by UPC: ${(error as Error).message}`);
-  }
-}
 
 /**
  * Search catalog items by keywords
@@ -370,6 +327,9 @@ export async function searchCatalogItemsByKeywords(keywords: string): Promise<an
   }
 }
 
+/**
+ * Get pricing information including buy box pricing using SP-API Product Pricing API
+ */
 export async function getPricing(asins: string[]): Promise<any[]> {
   const config = getAmazonConfig();
   const accessToken = await getAccessToken(config);

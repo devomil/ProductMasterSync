@@ -2835,6 +2835,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register Amazon real data routes
   app.use("/api/amazon-real", amazonRealDataRoutes);
 
+  // Register comprehensive search routes
+  app.use("/api/comprehensive-search", comprehensiveSearchRouter);
+
   // Test Amazon pricing for UPC 791659022283
   app.get("/api/test-upc-pricing/:upc", async (req, res) => {
     try {
