@@ -267,8 +267,6 @@ export default function AmazonAnalyticsEnhanced() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showImageComparison, setShowImageComparison] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState("opportunities");
-  const [selectedMultiAsinProduct, setSelectedMultiAsinProduct] = useState<MultiAsinProduct | null>(null);
-  const [showAllCandidates, setShowAllCandidates] = useState(false);
 
   // Data fetching
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AmazonAnalytics>({
