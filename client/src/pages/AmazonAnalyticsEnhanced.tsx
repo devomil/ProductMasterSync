@@ -181,6 +181,7 @@ interface MarketTrend {
 
 export default function AmazonAnalyticsEnhanced() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // State management
   const [searchTerm, setSearchTerm] = useState("");
@@ -194,6 +195,7 @@ export default function AmazonAnalyticsEnhanced() {
   const [showFilters, setShowFilters] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showImageComparison, setShowImageComparison] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState("opportunities");
 
   // Data fetching
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AmazonAnalytics>({
@@ -1118,7 +1120,7 @@ export default function AmazonAnalyticsEnhanced() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {multiAsinProducts.products?.length || 0}
+                        {(multiAsinProducts?.products || []).length}
                       </div>
                       <div className="text-sm text-muted-foreground">Products Found</div>
                     </div>
@@ -1132,17 +1134,17 @@ export default function AmazonAnalyticsEnhanced() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">
-                        {multiAsinProducts.products?.reduce((sum: number, p: any) => 
-                          sum + p.asin_candidates.length, 0
-                        ) || 0}
+                        {(multiAsinProducts?.products || []).reduce((sum: number, p: any) => 
+                          sum + (p.asin_candidates?.length || 0), 0
+                        )}
                       </div>
                       <div className="text-sm text-muted-foreground">Total Candidates</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {multiAsinProducts.products?.reduce((sum: number, p: any) => 
-                          sum + p.asin_candidates.filter((a: any) => a.hasAmazonData).length, 0
-                        ) || 0}
+                        {(multiAsinProducts?.products || []).reduce((sum: number, p: any) => 
+                          sum + (p.asin_candidates?.filter((a: any) => a.hasAmazonData).length || 0), 0
+                        )}
                       </div>
                       <div className="text-sm text-muted-foreground">With Amazon Data</div>
                     </div>
@@ -1152,18 +1154,18 @@ export default function AmazonAnalyticsEnhanced() {
                     <div className="flex justify-between text-sm mb-2">
                       <span>Processing Progress</span>
                       <span>
-                        {multiAsinProducts.products ? 
-                          Math.round((multiAsinProducts.products.filter((p: any) => 
-                            p.asin_candidates.some((a: any) => a.isPrimary)
-                          ).length / multiAsinProducts.products.length) * 100) : 0
+                        {(multiAsinProducts?.products || []).length > 0 ? 
+                          Math.round(((multiAsinProducts?.products || []).filter((p: any) => 
+                            (p.asin_candidates || []).some((a: any) => a.isPrimary)
+                          ).length / (multiAsinProducts?.products || []).length) * 100) : 0
                         }%
                       </span>
                     </div>
                     <Progress 
-                      value={multiAsinProducts.products ? 
-                        (multiAsinProducts.products.filter((p: any) => 
-                          p.asin_candidates.some((a: any) => a.isPrimary)
-                        ).length / multiAsinProducts.products.length) * 100 : 0
+                      value={(multiAsinProducts?.products || []).length > 0 ? 
+                        ((multiAsinProducts?.products || []).filter((p: any) => 
+                          (p.asin_candidates || []).some((a: any) => a.isPrimary)
+                        ).length / (multiAsinProducts?.products || []).length) * 100 : 0
                       } 
                       className="h-2"
                     />

@@ -3533,6 +3533,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register batch processing routes
   app.use('/api/batch', batchProcessingRoutes);
+  
+  // Register multi-ASIN display routes
+  app.use('/api/multi-asin-display', multiAsinDisplayRoutes);
 
   const httpServer = createServer(app);
 
