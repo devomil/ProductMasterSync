@@ -113,15 +113,15 @@ router.get('/products-with-candidates', async (req, res) => {
         // Category validation
         const categoryResult = validateCategoryConsistency(
           {
-            category: row.description, // Using description as category for now
+            category: row.description || '',
             productType: row.product_name,
-            description: row.description,
+            description: row.description || '',
             name: row.product_name
           },
           {
-            mainCategory: original.amazonTitle?.split(' ')[0], // Simple category extraction
-            title: original.amazonTitle,
-            description: original.amazonDescription
+            mainCategory: original.amazonTitle?.split(' ')[0] || '',
+            title: original.amazonTitle || '',
+            description: original.amazonTitle || '' // Use title as description fallback
           }
         );
 
