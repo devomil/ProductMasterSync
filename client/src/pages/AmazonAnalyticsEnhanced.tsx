@@ -1068,7 +1068,7 @@ export default function AmazonAnalyticsEnhanced() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {(multiAsinProducts?.products || []).map((product: MultiAsinProduct) => (
+                    {multiAsinProducts.map((product: MultiAsinProduct) => (
                       <div key={product.sku} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div>
@@ -1142,7 +1142,7 @@ export default function AmazonAnalyticsEnhanced() {
                       </div>
                     ))}
                     
-                    {(!multiAsinProducts?.products || multiAsinProducts.products.length === 0) && (
+                    {multiAsinProducts.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
                         <ListTree className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>No products with multiple ASINs found</p>
@@ -1178,7 +1178,7 @@ export default function AmazonAnalyticsEnhanced() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">
-                        {(multiAsinProducts?.products || []).reduce((sum: number, p: MultiAsinProduct) => 
+                        {multiAsinProducts.reduce((sum: number, p: MultiAsinProduct) => 
                           sum + (p.asin_candidates?.length || 0), 0
                         )}
                       </div>
@@ -1186,7 +1186,7 @@ export default function AmazonAnalyticsEnhanced() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {(multiAsinProducts?.products || []).reduce((sum: number, p: MultiAsinProduct) => 
+                        {multiAsinProducts.reduce((sum: number, p: MultiAsinProduct) => 
                           sum + (p.asin_candidates?.filter((a: MultiAsinCandidate) => a.hasAmazonData).length || 0), 0
                         )}
                       </div>
