@@ -238,7 +238,7 @@ export function ConfidenceOverrideDialog({
                   <Checkbox
                     id={flag.id}
                     checked={overrideFlags.includes(flag.id)}
-                    onCheckedChange={(checked) => handleFlagChange(flag.id, checked as boolean)}
+                    onCheckedChange={(checked) => handleFlagChange(flag.id, checked === true)}
                   />
                   <Label htmlFor={flag.id} className="text-sm">{flag.label}</Label>
                 </div>
@@ -251,7 +251,7 @@ export function ConfidenceOverrideDialog({
             <Checkbox
               id="set-primary"
               checked={setPrimary}
-              onCheckedChange={setSetPrimary}
+              onCheckedChange={(checked) => setSetPrimary(checked === true)}
             />
             <Label htmlFor="set-primary" className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-500" />

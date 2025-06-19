@@ -155,8 +155,8 @@ function extractKeywords(text: string): Set<string> {
 function calculateKeywordOverlap(keywords1: Set<string>, keywords2: Set<string>): number {
   if (keywords1.size === 0 || keywords2.size === 0) return 0;
   
-  const intersection = new Set([...keywords1].filter(x => keywords2.has(x)));
-  const union = new Set([...keywords1, ...keywords2]);
+  const intersection = new Set(Array.from(keywords1).filter(x => keywords2.has(x)));
+  const union = new Set([...Array.from(keywords1), ...Array.from(keywords2)]);
   
   return intersection.size / union.size;
 }
