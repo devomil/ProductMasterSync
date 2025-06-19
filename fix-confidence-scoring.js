@@ -2,7 +2,8 @@
  * Fix confidence scoring for all products based on five-tier rules
  */
 
-const { Client } = require('pg');
+import pkg from 'pg';
+const { Client } = pkg;
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL
