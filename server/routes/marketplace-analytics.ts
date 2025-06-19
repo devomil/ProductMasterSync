@@ -98,13 +98,13 @@ router.get('/analytics/trends', async (req, res) => {
 // Live marketplace opportunities with authentic Amazon data - uses stored ASIN data for frontend compatibility
 router.get('/opportunities', async (req, res) => {
   try {
-    // Use the exact same working query from image-opportunities endpoint
+    // Use corrected column names and ensure authentic images
     const query = `
       SELECT 
         p.sku,
         p.name as product_name,
         p.image_url as supplier_image_url,
-        p.current_price,
+        p.price as current_price,
         p.cost,
         c.name as category_name,
         pam.asin,
