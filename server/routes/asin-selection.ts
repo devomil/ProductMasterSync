@@ -306,4 +306,5 @@ router.post('/batch-select-best-asins', async (req: Request, res: Response) => {
       });
     }
   });
-}
+
+export default router;

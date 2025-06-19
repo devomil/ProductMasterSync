@@ -3450,6 +3450,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/asin-search/by-upc/:upc', searchByUPC);
   app.post('/api/asin-search/batch', batchFindASINs);
 
+  // Register ASIN selection routes
+  const asinSelectionRoutes = await import('./routes/asin-selection');
+  app.use("/api/asin-selection", asinSelectionRoutes.default);
+
   // Register additional routes
   app.use('/api/marketplace', marketplaceRoutes);
   app.use('/api/scheduler', schedulerRoutes);
