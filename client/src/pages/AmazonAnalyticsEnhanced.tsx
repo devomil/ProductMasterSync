@@ -304,7 +304,7 @@ export default function AmazonAnalyticsEnhanced() {
     refetchInterval: 60000, // 1 minute
   });
 
-  const multiAsinProducts: MultiAsinProduct[] = multiAsinDisplayData?.products || [];
+  const multiAsinProducts: MultiAsinProduct[] = (multiAsinDisplayData as any)?.products || [];
   console.log('Multi-ASIN products data:', multiAsinDisplayData, 'Array:', multiAsinProducts);
 
   const { data: productCandidates } = useQuery({
@@ -1446,7 +1446,7 @@ export default function AmazonAnalyticsEnhanced() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {multiAsinOpportunityData.opportunities.slice(0, 20).map((opportunity) => (
+                      {multiAsinOpportunityData.opportunities.slice(0, 20).map((opportunity: MultiAsinOpportunity) => (
                         <TableRow key={opportunity.id}>
                           <TableCell>
                             <div className="space-y-1">
