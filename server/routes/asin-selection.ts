@@ -192,11 +192,11 @@ router.post('/apply-best-asin', async (req: Request, res: Response) => {
       await pool.query(`
         INSERT INTO asin_correction_log (
           product_id, 
-          original_asin, 
-          corrected_asin, 
-          correction_reason, 
+          old_asin, 
+          new_asin, 
+          reason, 
           correction_type,
-          created_at
+          applied_at
         ) VALUES ($1, NULL, $2, $3, 'BEST_SELECTION', NOW())
       `, [productId, selectedASIN, reason || 'Selected as best ASIN from multiple candidates']);
 
