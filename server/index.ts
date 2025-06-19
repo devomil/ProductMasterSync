@@ -1,22 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes-minimal";
 import { setupVite, serveStatic, log } from "./vite";
-import { scheduler } from "./utils/temporary-scheduler";
-import setupDatabase from "./db-setup";
-import { errorLogger } from "./services/error-logger";
-import monitoringRoutes from "./routes/monitoring";
-import { staticOptimization } from "./services/static-optimization";
 import { healthCheck } from "./health-check";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Performance monitoring middleware
-app.use(errorLogger.performanceMiddleware());
-
-// Static asset optimization middleware
-app.use(staticOptimization.middleware());
+// Basic middleware only
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -49,32 +40,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database tables before registering routes
-  try {
-    log('Setting up database tables...');
-    await setupDatabase();
-    log('Database tables setup complete.');
-    
-    // Skip Amazon initialization for now to avoid startup failures
-    log('Skipping Amazon database initialization during startup');
-  } catch (error) {
-    log('Error setting up database tables:', String(error));
-    // Continue initialization even if there's an error
-  }
-
   // Add health check endpoint
   app.get('/api/health', async (req, res) => {
     const health = await healthCheck();
     res.status(health.status === 'ok' ? 200 : 500).json(health);
   });
-
-  // Register monitoring routes
-  app.use('/api/monitoring', monitoringRoutes);
   
   const server = await registerRoutes(app);
-
-  // Error handling middleware with monitoring integration
-  app.use(errorLogger.errorMiddleware());
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -111,13 +83,5 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
-    // Initialize scheduled jobs after server is up and running
-    if (process.env.AMAZON_SP_API_CLIENT_ID) {
-      log('Initializing scheduled jobs for Amazon data sync');
-      scheduler.init();
-    } else {
-      log('Amazon SP-API credentials not found. Skipping scheduled jobs initialization.');
-    }
   });
 })();
