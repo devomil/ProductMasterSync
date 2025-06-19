@@ -28,6 +28,7 @@ import amazonTestRoutes from './routes/amazon-test';
 import realAmazonPricingRoutes from './routes/real-amazon-pricing';
 import fixPricingRoutes from './routes/fix-pricing';
 import testPricingFixRoutes from './routes/test-pricing-fix';
+import { comprehensiveSearchRouter } from './routes/comprehensive-search';
 import imageTest from './routes/image-test';
 import imageOpportunities from './routes/image-opportunities';
 import fixMarketPricingRoutes from './routes/fix-market-pricing';

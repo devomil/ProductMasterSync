@@ -282,9 +282,6 @@ export function validateAmazonConfig(config: SPAPIConfig): boolean {
 }
 
 /**
- * Get pricing information including buy box pricing using SP-API Product Pricing API
- */
-/**
  * Search catalog items by UPC
  */
 export async function searchCatalogItemsByUPC(upc: string): Promise<any> {
