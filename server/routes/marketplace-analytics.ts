@@ -163,7 +163,7 @@ router.get('/opportunities', async (req, res) => {
           strategicTags: [],
           // Include image URLs at product level
           supplierImageUrl: product.supplier_image_url,
-          image: product.supplier_image_url
+          image: product.supplier_image_url || product.image_url
         });
       }
 
@@ -221,8 +221,8 @@ router.get('/opportunities', async (req, res) => {
 
       product.strategicTags = tags;
       
-      // Use actual Amazon image if available, otherwise placeholder
-      product.image = `https://images-na.ssl-images-amazon.com/images/I/placeholder${product.sku}.jpg`;
+      // Keep original supplier image, don't override with placeholder
+      // product.image is already set from the database query
 
       return product;
     }).filter(p => p.asinMatches.length > 0);
