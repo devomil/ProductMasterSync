@@ -124,60 +124,60 @@ router.get('/opportunities', async (req, res) => {
       LIMIT 20
     `;
     
-    const { Pool } = require('pg');
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const result = await pool.query(query);
-    
-    console.log(`Found ${result.rows.length} rows`);
-    if (result.rows.length > 0) {
-      console.log(`Sample row from DB:`, {
-        sku: result.rows[0].sku,
-        supplier_image_url: result.rows[0].supplier_image_url,
-        amazon_image_url: result.rows[0].amazon_image_url,
-        asin: result.rows[0].asin
+    console.log(`Found ${opportunityData.length} opportunity records`);
+    if (opportunityData.length > 0) {
+      console.log(`Sample opportunity:`, {
+        sku: opportunityData[0].sku,
+        supplier_image_url: opportunityData[0].supplier_image_url,
+        amazon_image_url: opportunityData[0].amazon_image_url,
+        asin: opportunityData[0].asin
       });
     }
     
-    // Transform each row directly into the expected format with authentic images
-    const opportunities = result.rows.map((row: any) => ({
-      sku: row.sku,
-      productName: row.product_name,
-      upc: '', 
-      category: row.category_name,
-      supplierName: 'Amazon Supplier',
-      currentPrice: parseFloat(row.current_price || '0'),
-      cost: parseFloat(row.cost || '0'),
-      // Use authentic supplier images from database - no placeholders
-      supplierImageUrl: row.supplier_image_url,
-      image: row.supplier_image_url,
-      strategicTags: ['High Opportunity', 'Popular'],
-      asinMatches: [{
-        asin: row.asin,
-        score: 85,
-        price: parseFloat(row.current_price || '7.99'),
-        listPrice: undefined,
-        sellers: 1,
-        buyboxHolder: 'Amazon',
-        isBuyboxEligible: true,
-        condition: 'New',
-        amazonTitle: row.amazon_title,
-        amazonBrand: row.amazon_brand,
-        salesRank: null,
-        categoryRank: null,
-        estimatedSales: null,
-        // Use authentic Amazon images from database
-        imageUrl: row.amazon_image_url,
+    // Transform each record into the expected format with authentic images
+    const opportunities = opportunityData.map((row: any) => {
+      const pricing = row.pricing ? JSON.parse(row.pricing) : {};
+      
+      return {
+        sku: row.sku,
+        productName: row.product_name,
+        upc: row.upc || '', 
+        category: row.category_name || 'Uncategorized',
+        supplierName: 'Amazon Supplier',
+        currentPrice: parseFloat(row.current_price || '0'),
+        cost: parseFloat(row.cost || '0'),
+        // Use authentic supplier images from database
         supplierImageUrl: row.supplier_image_url,
-        canList: row.can_list !== false,
-        hasListingRestrictions: row.has_listing_restrictions || false,
-        restrictionMessages: [],
-        supplierCost: parseFloat(row.cost || '0'),
-        shippingCost: 2.00,
-        amazonFees: parseFloat(row.current_price || '0') * 0.15,
-        netProfit: parseFloat(row.current_price || '0') - parseFloat(row.cost || '0') - 2.00,
-        priceHistory: []
-      }]
-    }));
+        image: row.supplier_image_url,
+        strategicTags: ['High Opportunity', 'Popular'],
+        asinMatches: [{
+          asin: row.asin,
+          score: 85,
+          price: pricing.currentPrice ? pricing.currentPrice / 100 : parseFloat(row.current_price || '0'),
+          listPrice: pricing.listPrice ? pricing.listPrice / 100 : undefined,
+          sellers: 1,
+          buyboxHolder: row.fulfillment_method === 'AMAZON' ? 'Amazon' : 'Available',
+          isBuyboxEligible: true,
+          condition: 'New',
+          amazonTitle: row.amazon_title,
+          amazonBrand: row.amazon_brand,
+          salesRank: row.sales_rank,
+          categoryRank: row.category_rank,
+          estimatedSales: null,
+          // Use authentic Amazon images from dedicated table
+          imageUrl: row.amazon_image_url,
+          supplierImageUrl: row.supplier_image_url,
+          canList: true,
+          hasListingRestrictions: false,
+          restrictionMessages: [],
+          supplierCost: parseFloat(row.cost || '0'),
+          shippingCost: 2.00,
+          amazonFees: parseFloat(row.current_price || '0') * 0.15,
+          netProfit: parseFloat(row.current_price || '0') - parseFloat(row.cost || '0') - 2.00,
+          priceHistory: []
+        }]
+      };
+    });
 
     console.log(`Sample opportunity with images:`, JSON.stringify(opportunities[0], null, 2));
 
