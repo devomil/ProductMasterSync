@@ -128,16 +128,26 @@ router.get('/opportunities', async (req, res) => {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const result = await pool.query(query);
     
-    // Transform each row directly into the expected format
+    console.log(`Found ${result.rows.length} rows`);
+    if (result.rows.length > 0) {
+      console.log(`Sample row from DB:`, {
+        sku: result.rows[0].sku,
+        supplier_image_url: result.rows[0].supplier_image_url,
+        amazon_image_url: result.rows[0].amazon_image_url,
+        asin: result.rows[0].asin
+      });
+    }
+    
+    // Transform each row directly into the expected format with authentic images
     const opportunities = result.rows.map((row: any) => ({
       sku: row.sku,
       productName: row.product_name,
-      upc: '', // Not needed for image comparison
+      upc: '', 
       category: row.category_name,
       supplierName: 'Amazon Supplier',
       currentPrice: parseFloat(row.current_price || '0'),
       cost: parseFloat(row.cost || '0'),
-      // Use authentic images directly
+      // Use authentic supplier images from database
       supplierImageUrl: row.supplier_image_url,
       image: row.supplier_image_url,
       strategicTags: ['High Opportunity', 'Popular'],
@@ -155,7 +165,7 @@ router.get('/opportunities', async (req, res) => {
         salesRank: null,
         categoryRank: null,
         estimatedSales: null,
-        // Use authentic Amazon images
+        // Use authentic Amazon images from database
         imageUrl: row.amazon_image_url,
         supplierImageUrl: row.supplier_image_url,
         canList: row.can_list !== false,
@@ -168,6 +178,8 @@ router.get('/opportunities', async (req, res) => {
         priceHistory: []
       }]
     }));
+
+    console.log(`Sample opportunity with images:`, JSON.stringify(opportunities[0], null, 2));
 
     // Sort by highest ASIN score
     opportunities.sort((a, b) => {
