@@ -49,6 +49,7 @@ import {
   ListTree,
   Play
 } from "lucide-react";
+import { ConfidenceIndicator } from "../components/ConfidenceIndicator";
 
 interface MultiAsinOpportunity {
   id: number;
@@ -858,16 +859,27 @@ export default function AmazonAnalyticsEnhanced() {
                                       {candidate.isPrimary && <Badge variant="default" className="text-xs">PRIMARY</Badge>}
                                       {candidate.needsReview && <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">REVIEW</Badge>}
                                       <span className="font-mono">{candidate.asin}</span>
-                                      <ConfidenceIndicator
-                                        score={candidate.confidenceScore}
-                                        level={candidate.confidenceLevel}
-                                        color={candidate.confidenceColor}
-                                        description={candidate.confidenceDescription}
-                                        matchReason={candidate.matchReason}
-                                        matchDetails={candidate.matchDetails}
-                                        validationIssues={candidate.validationIssues}
-                                        size="sm"
-                                      />
+                                      {candidate.confidenceScore !== undefined ? (
+                                        <ConfidenceIndicator
+                                          score={candidate.confidenceScore}
+                                          level={candidate.confidenceLevel}
+                                          color={candidate.confidenceColor}
+                                          description={candidate.confidenceDescription}
+                                          matchReason={candidate.matchReason}
+                                          matchDetails={candidate.matchDetails}
+                                          validationIssues={candidate.validationIssues}
+                                          size="sm"
+                                        />
+                                      ) : (
+                                        <div className={`px-1 py-0.5 rounded text-xs font-medium ${
+                                          candidate.score >= 75 ? 'bg-green-100 text-green-800' :
+                                          candidate.score >= 50 ? 'bg-blue-100 text-blue-800' :
+                                          candidate.score >= 25 ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-red-100 text-red-800'
+                                        }`}>
+                                          {candidate.score}%
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="text-right">
                                       {candidate.hasAmazonData && (

@@ -7,6 +7,7 @@
 
 import { Router } from 'express';
 import { pool } from '../db';
+import { rankAsinCandidates, getConfidenceLevel, validateAsinCandidate } from '../utils/asin-confidence-matcher';
 
 const router = Router();
 
@@ -22,10 +23,10 @@ router.get('/products-with-candidates', async (req, res) => {
     // Get products with multiple ASINs and show ALL candidates
     const query = `
       WITH multi_asin_products AS (
-        SELECT p.id, p.sku, p.name, p.upc, p.cost, p.price
+        SELECT p.id, p.sku, p.name, p.upc, p.cost, p.price, p.manufacturer_part_number, p.description
         FROM products p
         JOIN product_asin_mapping pam ON p.id = pam.product_id
-        GROUP BY p.id, p.sku, p.name, p.upc, p.cost, p.price
+        GROUP BY p.id, p.sku, p.name, p.upc, p.cost, p.price, p.manufacturer_part_number, p.description
         HAVING COUNT(pam.asin) > 1
         ORDER BY COUNT(pam.asin) DESC
         LIMIT $1 OFFSET $2
@@ -36,6 +37,8 @@ router.get('/products-with-candidates', async (req, res) => {
         map.upc,
         map.cost,
         map.price,
+        map.manufacturer_part_number,
+        map.description,
         JSON_AGG(
           JSON_BUILD_OBJECT(
             'asin', pam.asin,
@@ -52,6 +55,9 @@ router.get('/products-with-candidates', async (req, res) => {
             'sellerCount', acd.seller_count,
             'imageUrl', acd.image_url,
             'hasAmazonData', CASE WHEN acd.asin IS NOT NULL THEN true ELSE false END,
+            'amazonUpc', acd.upc,
+            'amazonMpn', acd.manufacturer_part_number,
+            'amazonDescription', acd.description,
             'score', CASE 
               WHEN acd.asin IS NOT NULL AND acd.sales_rank IS NOT NULL THEN
                 GREATEST(0, 100 - (acd.sales_rank / 1000))
@@ -67,11 +73,67 @@ router.get('/products-with-candidates', async (req, res) => {
       FROM multi_asin_products map
       JOIN product_asin_mapping pam ON map.id = pam.product_id
       LEFT JOIN amazon_catalog_data acd ON pam.asin = acd.asin
-      GROUP BY map.sku, map.name, map.upc, map.cost, map.price
+      GROUP BY map.sku, map.name, map.upc, map.cost, map.price, map.manufacturer_part_number, map.description
       ORDER BY JSONB_ARRAY_LENGTH(JSON_AGG(pam.asin)::jsonb) DESC
     `;
 
     const result = await pool.query(query, [limit, offset]);
+
+    // Apply confidence scoring to each product
+    const products = result.rows.map((row: any) => {
+      const catalogProduct = {
+        upc: row.upc,
+        manufacturerPartNumber: row.manufacturer_part_number,
+        description: row.description,
+        name: row.product_name
+      };
+
+      // Convert ASIN candidates to format expected by confidence matcher
+      const amazonAsins = (row.asin_candidates || []).map((candidate: any) => ({
+        asin: candidate.asin,
+        upc: candidate.amazonUpc,
+        manufacturerPartNumber: candidate.amazonMpn,
+        title: candidate.amazonTitle,
+        description: candidate.amazonDescription,
+        brand: candidate.amazonBrand,
+        imageUrl: candidate.imageUrl
+      }));
+
+      // Apply confidence scoring
+      const rankedCandidates = rankAsinCandidates(catalogProduct, amazonAsins);
+
+      // Merge ranked results with original Amazon data
+      const enhancedCandidates = rankedCandidates.map(ranked => {
+        const original = row.asin_candidates.find((c: any) => c.asin === ranked.asin);
+        const confidenceInfo = getConfidenceLevel(ranked.confidenceScore);
+        const validationIssues = validateAsinCandidate(ranked);
+
+        return {
+          ...original,
+          confidenceScore: ranked.confidenceScore,
+          matchReason: ranked.matchReason,
+          matchDetails: ranked.matchDetails,
+          confidenceLevel: confidenceInfo.level,
+          confidenceColor: confidenceInfo.color,
+          confidenceDescription: confidenceInfo.description,
+          validationIssues,
+          isPrimary: ranked.status === 'primary' ? true : original.isPrimary,
+          needsReview: ranked.status === 'review' || ranked.status === 'low_confidence',
+          score: ranked.confidenceScore // Override old score with confidence score
+        };
+      });
+
+      return {
+        sku: row.sku,
+        product_name: row.product_name,
+        upc: row.upc,
+        cost: row.cost,
+        price: row.price,
+        manufacturer_part_number: row.manufacturer_part_number,
+        description: row.description,
+        asin_candidates: enhancedCandidates
+      };
+    });
 
     // Count total products with multiple ASINs
     const countQuery = `
@@ -86,9 +148,9 @@ router.get('/products-with-candidates', async (req, res) => {
 
     res.json({
       success: true,
-      products: result.rows,
+      products,
       pagination: {
-        total: parseInt(countResult.rows.length),
+        total: countResult.rows.length,
         limit,
         offset,
         hasMore: (offset + limit) < countResult.rows.length
