@@ -8,12 +8,13 @@ import { Express, Request, Response } from 'express';
 import { pool } from '../db';
 import { bestASINSelector } from '../utils/best-asin-selector';
 
-export function registerASINSelectionRoutes(app: Express) {
+import { Router } from 'express';
+const router = Router();
   
-  /**
-   * Get all products with multiple ASIN mappings
-   */
-  app.get('/api/asin-selection/multi-asin-products', async (req: Request, res: Response) => {
+/**
+ * Get all products with multiple ASIN mappings
+ */
+router.get('/multi-asin-products', async (req: Request, res: Response) => {
     try {
       const query = `
         SELECT 
@@ -47,10 +48,10 @@ export function registerASINSelectionRoutes(app: Express) {
     }
   });
 
-  /**
-   * Analyze and select best ASIN for a specific product
-   */
-  app.post('/api/asin-selection/select-best-asin', async (req: Request, res: Response) => {
+/**
+ * Analyze and select best ASIN for a specific product
+ */
+router.post('/select-best-asin', async (req: Request, res: Response) => {
     try {
       const { sku } = req.body;
       
@@ -141,10 +142,10 @@ export function registerASINSelectionRoutes(app: Express) {
     }
   });
 
-  /**
-   * Apply selected ASIN as the primary mapping for a product
-   */
-  app.post('/api/asin-selection/apply-best-asin', async (req: Request, res: Response) => {
+/**
+ * Apply selected ASIN as the primary mapping for a product
+ */
+router.post('/apply-best-asin', async (req: Request, res: Response) => {
     try {
       const { sku, selectedASIN, reason } = req.body;
       
@@ -215,10 +216,10 @@ export function registerASINSelectionRoutes(app: Express) {
     }
   });
 
-  /**
-   * Batch process multiple products to select and apply best ASINs
-   */
-  app.post('/api/asin-selection/batch-select-best-asins', async (req: Request, res: Response) => {
+/**
+ * Batch process multiple products to select and apply best ASINs
+ */
+router.post('/batch-select-best-asins', async (req: Request, res: Response) => {
     try {
       const { limit = 10 } = req.body;
       
