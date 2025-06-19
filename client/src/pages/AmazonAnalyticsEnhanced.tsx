@@ -713,10 +713,11 @@ export default function AmazonAnalyticsEnhanced() {
                                         e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                       }}
                                     />
-                                  ) : null}
-                                  <div className={`w-14 h-14 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-400 ${bestAsin?.imageUrl ? 'hidden' : ''}`}>
-                                    No image
-                                  </div>
+                                  ) : (
+                                    <div className="w-14 h-14 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-400">
+                                      No image
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
