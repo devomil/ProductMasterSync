@@ -597,14 +597,11 @@ export default function AmazonAnalyticsEnhanced() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="opportunities" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 gap-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
-          <TabsTrigger value="image-comparison">Images</TabsTrigger>
-          <TabsTrigger value="ai-intelligence">AI Intel</TabsTrigger>
-          <TabsTrigger value="multi-asin">Multi-ASIN</TabsTrigger>
-          <TabsTrigger value="database">Database</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 gap-1">
+          <TabsTrigger value="opportunities">Market Opportunities</TabsTrigger>
+          <TabsTrigger value="ai-intelligence">AI Intelligence</TabsTrigger>
+          <TabsTrigger value="trends">Market Trends</TabsTrigger>
+          <TabsTrigger value="database">System Status</TabsTrigger>
         </TabsList>
 
         <TabsContent value="opportunities" className="space-y-6">
@@ -928,7 +925,7 @@ export default function AmazonAnalyticsEnhanced() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="trends" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
