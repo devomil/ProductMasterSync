@@ -334,10 +334,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get products with ASIN mappings joined
       const productsQuery = `
-        SELECT p.*, pam.asin as asin, c.name as categoryName
+        SELECT p.*, 
+               CASE 
+                 WHEN COUNT(pam.asin) = 1 THEN MAX(pam.asin)
+                 WHEN COUNT(pam.asin) > 1 THEN MAX(CASE WHEN pam.is_primary THEN pam.asin END)
+                 ELSE NULL
+               END as asin,
+               c.name as categoryName,
+               COUNT(pam.asin) as asin_count
         FROM products p
         LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
-        LEFT JOIN categories c ON p."categoryId" = c.id
+        LEFT JOIN categories c ON p.category_id = c.id
+        GROUP BY p.id, c.name
         ORDER BY p.id
       `;
       
