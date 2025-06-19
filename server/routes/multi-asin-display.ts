@@ -8,6 +8,8 @@
 import { Router } from 'express';
 import { pool } from '../db';
 import { rankAsinCandidates, getConfidenceLevel, validateAsinCandidate } from '../utils/asin-confidence-matcher';
+import { validateCategoryConsistency, generateCategoryValidationFlags } from '../utils/category-validation';
+import { validateImageUrl, generateImageQualityFlags } from '../utils/image-validation';
 
 const router = Router();
 
@@ -56,7 +58,7 @@ router.get('/products-with-candidates', async (req, res) => {
             'imageUrl', acd.image_url,
             'hasAmazonData', CASE WHEN acd.asin IS NOT NULL THEN true ELSE false END,
             'amazonUpc', acd.upc,
-            'amazonMpn', acd.manufacturer_part_number,
+            'amazonMpn', acd.part_number,
             'amazonDescription', acd.description,
             'score', CASE 
               WHEN acd.asin IS NOT NULL AND acd.sales_rank IS NOT NULL THEN
@@ -102,11 +104,45 @@ router.get('/products-with-candidates', async (req, res) => {
       // Apply confidence scoring
       const rankedCandidates = rankAsinCandidates(catalogProduct, amazonAsins);
 
-      // Merge ranked results with original Amazon data
-      const enhancedCandidates = rankedCandidates.map(ranked => {
+      // Merge ranked results with original Amazon data and add enhanced validation
+      const enhancedCandidates = await Promise.all(rankedCandidates.map(async (ranked) => {
         const original = row.asin_candidates.find((c: any) => c.asin === ranked.asin);
         const confidenceInfo = getConfidenceLevel(ranked.confidenceScore);
         const validationIssues = validateAsinCandidate(ranked);
+
+        // Category validation
+        const categoryResult = validateCategoryConsistency(
+          {
+            category: row.description, // Using description as category for now
+            productType: row.product_name,
+            description: row.description,
+            name: row.product_name
+          },
+          {
+            mainCategory: original.amazonTitle?.split(' ')[0], // Simple category extraction
+            title: original.amazonTitle,
+            description: original.amazonDescription
+          }
+        );
+
+        // Image validation
+        let imageValidation = null;
+        let imageFlags: string[] = [];
+        if (original.imageUrl) {
+          try {
+            imageValidation = await validateImageUrl(original.imageUrl);
+            imageFlags = generateImageQualityFlags(imageValidation);
+          } catch (error) {
+            imageFlags = ['IMAGE_VALIDATION_ERROR'];
+          }
+        }
+
+        const categoryFlags = generateCategoryValidationFlags(categoryResult);
+        const allValidationIssues = [
+          ...validationIssues,
+          ...categoryResult.issues,
+          ...(imageValidation ? imageValidation.warnings : [])
+        ];
 
         return {
           ...original,
@@ -116,12 +152,17 @@ router.get('/products-with-candidates', async (req, res) => {
           confidenceLevel: confidenceInfo.level,
           confidenceColor: confidenceInfo.color,
           confidenceDescription: confidenceInfo.description,
-          validationIssues,
+          validationIssues: allValidationIssues,
+          categoryValidation: categoryResult,
+          imageValidation,
+          qualityFlags: [...categoryFlags, ...imageFlags],
           isPrimary: ranked.status === 'primary' ? true : original.isPrimary,
-          needsReview: ranked.status === 'review' || ranked.status === 'low_confidence',
-          score: ranked.confidenceScore // Override old score with confidence score
+          needsReview: ranked.status === 'review' || ranked.status === 'low_confidence' || !categoryResult.isConsistent,
+          score: ranked.confidenceScore,
+          hasOverride: original.mapping_source === 'manual_override',
+          overrideReason: original.override_reason
         };
-      });
+      }));
 
       return {
         sku: row.sku,
