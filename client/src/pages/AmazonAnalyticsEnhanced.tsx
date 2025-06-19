@@ -670,6 +670,16 @@ export default function AmazonAnalyticsEnhanced() {
                         (current.score > (best?.score || 0)) ? current : best
                       ) || null;
 
+                      // Debug logging for image data
+                      if (index === 0) {
+                        console.log('First opportunity data:', {
+                          sku: opportunity.sku,
+                          supplierImageUrl: opportunity.supplierImageUrl,
+                          bestAsin: bestAsin,
+                          amazonImageUrl: bestAsin?.imageUrl
+                        });
+                      }
+
 
 
                       return (
@@ -715,11 +725,10 @@ export default function AmazonAnalyticsEnhanced() {
                                         e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                       }}
                                     />
-                                  ) : (
-                                    <div className="w-14 h-14 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-400">
-                                      No image
-                                    </div>
-                                  )}
+                                  ) : null}
+                                  <div className={`w-14 h-14 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-400 ${bestAsin?.imageUrl ? 'hidden' : ''}`}>
+                                    No image
+                                  </div>
                                 </div>
                               </div>
                             </div>
