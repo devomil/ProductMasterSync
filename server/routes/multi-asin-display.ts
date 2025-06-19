@@ -76,7 +76,7 @@ router.get('/products-with-candidates', async (req, res) => {
       FROM multi_asin_products map
       JOIN product_asin_mapping pam ON map.id = pam.product_id
       LEFT JOIN amazon_catalog_data acd ON pam.asin = acd.asin
-      GROUP BY map.sku, map.name, map.upc, map.cost, map.price, map.manufacturer_part_number, map.description
+      GROUP BY map.id, map.sku, map.name, map.upc, map.cost, map.price, map.manufacturer_part_number, map.description
       ORDER BY JSONB_ARRAY_LENGTH(JSON_AGG(pam.asin)::jsonb) DESC
     `;
 

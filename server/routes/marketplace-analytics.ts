@@ -287,37 +287,79 @@ router.get('/sync/status', async (req, res) => {
   }
 });
 
-// Multi-ASIN Opportunities endpoint - AI-driven strategic insights
+// Multi-ASIN Opportunities endpoint - consistent with Multi-ASIN display
 router.get('/analytics/multi-asin-opportunities', async (req, res) => {
   try {
-    const { limit = 20, minScore = 0.7 } = req.query;
+    const { limit = 20, minConfidence = 70 } = req.query;
     
-    const opportunities = await db
-      .select({
-        id: multiAsinOpportunities.id,
-        productId: multiAsinOpportunities.productId,
-        upc: multiAsinOpportunities.upc,
-        manufacturerPartNumber: multiAsinOpportunities.manufacturerPartNumber,
-        discoveredAsins: multiAsinOpportunities.discoveredAsins,
-        primaryAsin: multiAsinOpportunities.primaryAsin,
-        secondaryAsins: multiAsinOpportunities.secondaryAsins,
-        opportunityScore: multiAsinOpportunities.opportunityScore,
-        strategyType: multiAsinOpportunities.strategyType,
-        profitAnalysis: multiAsinOpportunities.profitAnalysis,
-        supplierRecommendations: multiAsinOpportunities.supplierRecommendations,
-        competitiveAnalysis: multiAsinOpportunities.competitiveAnalysis,
-        seasonalForecast: multiAsinOpportunities.seasonalForecast,
-        updatedAt: multiAsinOpportunities.updatedAt
-      })
-      .from(multiAsinOpportunities)
-      .where(gt(multiAsinOpportunities.opportunityScore, Number(minScore)))
-      .orderBy(desc(multiAsinOpportunities.opportunityScore))
-      .limit(Number(limit));
+    // Get products with multiple ASINs - same logic as Multi-ASIN display
+    const query = `
+      WITH multi_asin_products AS (
+        SELECT p.id, p.sku, p.name, p.upc, p.cost, p.price, p.manufacturer_part_number, p.description
+        FROM products p
+        JOIN product_asin_mapping pam ON p.id = pam.product_id
+        WHERE pam.match_confidence >= $2
+        GROUP BY p.id, p.sku, p.name, p.upc, p.cost, p.price, p.manufacturer_part_number, p.description
+        HAVING COUNT(pam.asin) > 1
+        ORDER BY COUNT(pam.asin) DESC, MAX(pam.match_confidence) DESC
+        LIMIT $1
+      )
+      SELECT 
+        map.sku as catalogSku,
+        map.name as catalogProduct,
+        map.upc as catalogUpc,
+        map.cost as catalogCost,
+        map.price as catalogPrice,
+        map.manufacturer_part_number as catalogMpn,
+        COUNT(pam.asin) as totalAsins,
+        MAX(pam.match_confidence) as maxConfidence,
+        AVG(pam.match_confidence) as avgConfidence,
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'asin', pam.asin,
+            'confidence', pam.match_confidence,
+            'isPrimary', pam.is_primary,
+            'amazonTitle', acd.title,
+            'amazonPrice', acd.current_price,
+            'salesRank', acd.sales_rank,
+            'imageUrl', acd.image_url
+          ) ORDER BY pam.match_confidence DESC, acd.sales_rank ASC NULLS LAST
+        ) as asins
+      FROM multi_asin_products map
+      JOIN product_asin_mapping pam ON map.id = pam.product_id
+      LEFT JOIN amazon_catalog_data acd ON pam.asin = acd.asin
+      GROUP BY map.id, map.sku, map.name, map.upc, map.cost, map.price, map.manufacturer_part_number
+      ORDER BY totalAsins DESC, maxConfidence DESC
+    `;
+    
+    const result = await pool.query(query, [Number(limit), Number(minConfidence)]);
+    
+    const opportunities = result.rows.map((row: any) => ({
+      catalogSku: row.catalogsku,
+      catalogProduct: row.catalogproduct,
+      catalogUpc: row.catalogupc,
+      catalogCost: parseFloat(row.catalogcost || '0'),
+      catalogPrice: parseFloat(row.catalogprice || '0'),
+      catalogMpn: row.catalogmpn,
+      totalAsins: row.totalasins,
+      maxConfidence: row.maxconfidence,
+      avgConfidence: Math.round(row.avgconfidence),
+      asins: row.asins || []
+    }));
 
     res.json({
       opportunities,
       metadata: {
         totalCount: opportunities.length,
+        minConfidenceFilter: Number(minConfidence),
+        generatedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching multi-ASIN opportunities:', error);
+    res.status(500).json({ error: 'Failed to fetch multi-ASIN opportunities' });
+  }
+});
         minScoreFilter: Number(minScore),
         generatedAt: new Date().toISOString()
       }
