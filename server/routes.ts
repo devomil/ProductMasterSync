@@ -344,26 +344,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(productsQuery);
       const products = result.rows;
       
-      // Skip the old storage.getProducts() call since we're now using direct SQL
-      // const products = await storage.getProducts();
-      const categories = await storage.getCategories();
-
-      
-      const enhancedProducts = products.map(product => {
-        let categoryName = null;
-        
-        if (product.categoryId) {
-          const category = categories.find(cat => cat.id === product.categoryId);
-          if (category) {
-            categoryName = category.path || category.name;
-          }
-        }
-        
-        return {
-          ...product,
-          categoryName: categoryName
-        };
-      });
+      // Products already include categoryName and asin from the SQL join
+      const enhancedProducts = products;
       
       res.json(enhancedProducts);
     } catch (error) {
