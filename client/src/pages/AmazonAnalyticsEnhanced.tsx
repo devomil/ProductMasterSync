@@ -247,7 +247,7 @@ export default function AmazonAnalyticsEnhanced() {
     queryKey: ['/api/marketplace/analytics/trends']
   });
 
-  const { data: multiAsinData, isLoading: multiAsinDataLoading } = useQuery<{
+  const { data: multiAsinOpportunityData, isLoading: multiAsinDataLoading } = useQuery<{
     opportunities: MultiAsinOpportunity[];
     metadata: { totalCount: number; minScoreFilter: number; generatedAt: string };
   }>({
@@ -298,13 +298,14 @@ export default function AmazonAnalyticsEnhanced() {
     queryKey: ['/api/marketplace/sync/status']
   });
 
-  // Multi-ASIN data queries
-  const { data: multiAsinProducts, isLoading: multiAsinLoading } = useQuery({
+  // Multi-ASIN display data query
+  const { data: multiAsinDisplayData, isLoading: multiAsinLoading } = useQuery({
     queryKey: ['/api/multi-asin-display/products-with-candidates'],
     refetchInterval: 60000, // 1 minute
   });
 
-  console.log('Multi-ASIN products data:', multiAsinProducts);
+  const multiAsinProducts: MultiAsinProduct[] = multiAsinDisplayData?.products || [];
+  console.log('Multi-ASIN products data:', multiAsinDisplayData, 'Array:', multiAsinProducts);
 
   const { data: productCandidates } = useQuery({
     queryKey: ['/api/multi-asin-display/product', selectedProduct, 'all-candidates'],
@@ -1426,11 +1427,11 @@ export default function AmazonAnalyticsEnhanced() {
                   <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                   Loading multi-ASIN opportunities...
                 </div>
-              ) : multiAsinData?.opportunities?.length ? (
+              ) : multiAsinOpportunityData?.opportunities?.length ? (
                 <div className="space-y-4">
                   <div className="text-sm text-gray-600 mb-4">
-                    Showing {multiAsinData.opportunities.length} opportunities 
-                    (Generated: {new Date(multiAsinData.metadata.generatedAt).toLocaleString()})
+                    Showing {multiAsinOpportunityData.opportunities.length} opportunities 
+                    (Generated: {new Date(multiAsinOpportunityData.metadata.generatedAt).toLocaleString()})
                   </div>
                   
                   <Table>
@@ -1445,7 +1446,7 @@ export default function AmazonAnalyticsEnhanced() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {multiAsinData.opportunities.slice(0, 20).map((opportunity) => (
+                      {multiAsinOpportunityData.opportunities.slice(0, 20).map((opportunity) => (
                         <TableRow key={opportunity.id}>
                           <TableCell>
                             <div className="space-y-1">
