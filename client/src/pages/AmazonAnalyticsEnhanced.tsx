@@ -237,6 +237,8 @@ export default function AmazonAnalyticsEnhanced() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [showImageComparison, setShowImageComparison] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState("opportunities");
+  const [selectedMultiAsinProduct, setSelectedMultiAsinProduct] = useState<MultiAsinProduct | null>(null);
+  const [showAllCandidates, setShowAllCandidates] = useState(false);
 
   // Data fetching
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AmazonAnalytics>({
@@ -1133,7 +1135,10 @@ export default function AmazonAnalyticsEnhanced() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => console.log('View details for product:', product.sku)}
+                            onClick={() => {
+                              setSelectedMultiAsinProduct(product);
+                              setShowAllCandidates(true);
+                            }}
                             className="w-full"
                           >
                             <Eye className="h-4 w-4 mr-2" />
@@ -1883,6 +1888,151 @@ export default function AmazonAnalyticsEnhanced() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Multi-ASIN Candidates Modal */}
+      <Dialog open={showAllCandidates} onOpenChange={setShowAllCandidates}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListTree className="h-5 w-5" />
+              All ASIN Candidates for {selectedMultiAsinProduct?.product_name}
+            </DialogTitle>
+            <DialogDescription>
+              SKU: {selectedMultiAsinProduct?.sku} | UPC: {selectedMultiAsinProduct?.upc}
+              <br />
+              Cost: ${selectedMultiAsinProduct?.cost} | Price: ${selectedMultiAsinProduct?.price}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedMultiAsinProduct?.asin_candidates?.map((candidate: any, idx: number) => (
+              <div key={candidate.asin} className={`border rounded-lg p-4 ${candidate.isPrimary ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* ASIN Info */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant={candidate.isPrimary ? "default" : "outline"}>
+                        {candidate.isPrimary ? 'PRIMARY ASIN' : `RANK ${idx + 1}`}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Score: {candidate.score?.toFixed(0) || 'N/A'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <p className="font-mono text-sm font-semibold">{candidate.asin}</p>
+                      {candidate.amazonTitle && (
+                        <p className="text-sm font-medium">{candidate.amazonTitle}</p>
+                      )}
+                      {candidate.amazonBrand && (
+                        <p className="text-xs text-muted-foreground">Brand: {candidate.amazonBrand}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pricing & Performance */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Market Data</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Price:</span>
+                        <div className="font-semibold">${candidate.currentPrice}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Sellers:</span>
+                        <div className="font-semibold">{candidate.sellerCount || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Sales Rank:</span>
+                        <div className="font-semibold">#{candidate.salesRank?.toLocaleString() || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Buybox:</span>
+                        <div className="font-semibold">{candidate.buyboxHolder || 'N/A'}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1">
+                      {candidate.isBuyboxEligible && (
+                        <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                          Buybox Eligible
+                        </Badge>
+                      )}
+                      {candidate.condition && (
+                        <Badge variant="outline" className="text-xs">
+                          {candidate.condition}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Image & Actions */}
+                  <div className="space-y-3">
+                    {candidate.imageUrl && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Product Image</p>
+                        <img 
+                          src={candidate.imageUrl} 
+                          alt={candidate.amazonTitle || candidate.asin}
+                          className="w-20 h-20 object-contain rounded border bg-gray-50"
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`https://amazon.com/dp/${candidate.asin}`, '_blank')}
+                        className="flex items-center gap-2"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Listing
+                      </Button>
+                      
+                      <Button
+                        variant={candidate.isPrimary ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: "ASIN Selection",
+                            description: `Set ${candidate.asin} as primary for SKU ${selectedMultiAsinProduct?.sku}`
+                          });
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        {candidate.isPrimary ? "Primary ASIN" : "Set Primary"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex justify-between pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAllCandidates(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                toast({
+                  title: "Batch Processing",
+                  description: `Processing all ${selectedMultiAsinProduct?.asin_candidates?.length} candidates for ${selectedMultiAsinProduct?.sku}`
+                });
+              }}
+              className="flex items-center gap-2"
+            >
+              <Play className="h-4 w-4" />
+              Process All Candidates
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
