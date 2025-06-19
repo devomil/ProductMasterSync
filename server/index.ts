@@ -6,6 +6,7 @@ import setupDatabase from "./db-setup";
 import { errorLogger } from "./services/error-logger";
 import monitoringRoutes from "./routes/monitoring";
 import { staticOptimization } from "./services/static-optimization";
+import { healthCheck } from "./health-check";
 
 const app = express();
 app.use(express.json());
@@ -54,13 +55,18 @@ app.use((req, res, next) => {
     await setupDatabase();
     log('Database tables setup complete.');
     
-    // Initialize Amazon ASIN mappings with authentic data
-    const { initializeAmazonDatabase } = await import('./services/database-initialization');
-    await initializeAmazonDatabase();
+    // Skip Amazon initialization for now to avoid startup failures
+    log('Skipping Amazon database initialization during startup');
   } catch (error) {
     log('Error setting up database tables:', String(error));
     // Continue initialization even if there's an error
   }
+
+  // Add health check endpoint
+  app.get('/api/health', async (req, res) => {
+    const health = await healthCheck();
+    res.status(health.status === 'ok' ? 200 : 500).json(health);
+  });
 
   // Register monitoring routes
   app.use('/api/monitoring', monitoringRoutes);

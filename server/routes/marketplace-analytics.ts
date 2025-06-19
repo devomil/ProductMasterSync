@@ -360,15 +360,6 @@ router.get('/analytics/multi-asin-opportunities', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch multi-ASIN opportunities' });
   }
 });
-        minScoreFilter: Number(minScore),
-        generatedAt: new Date().toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching multi-ASIN opportunities:', error);
-    res.status(500).json({ error: 'Failed to fetch multi-ASIN opportunities' });
-  }
-});
 
 // Supplier Performance Analytics endpoint
 router.get('/analytics/supplier-performance', async (req, res) => {
