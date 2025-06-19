@@ -595,15 +595,17 @@ export default function AmazonAnalyticsEnhanced() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="opportunities" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="trends">Market Trends</TabsTrigger>
-          <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
-          <TabsTrigger value="image-comparison">Image Comparison</TabsTrigger>
-          <TabsTrigger value="ai-intelligence">AI Intelligence</TabsTrigger>
-          <TabsTrigger value="multi-asin">Multi-ASIN</TabsTrigger>
-          <TabsTrigger value="database">Database Status</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-7 min-w-fit">
+            <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
+            <TabsTrigger value="trends" className="whitespace-nowrap">Trends</TabsTrigger>
+            <TabsTrigger value="opportunities" className="whitespace-nowrap">Opportunities</TabsTrigger>
+            <TabsTrigger value="image-comparison" className="whitespace-nowrap">Images</TabsTrigger>
+            <TabsTrigger value="ai-intelligence" className="whitespace-nowrap">AI Intel</TabsTrigger>
+            <TabsTrigger value="multi-asin" className="whitespace-nowrap">Multi-ASIN</TabsTrigger>
+            <TabsTrigger value="database" className="whitespace-nowrap">Database</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="opportunities" className="space-y-6">
           {/* Enhanced Search and Filters */}
@@ -1143,7 +1145,7 @@ export default function AmazonAnalyticsEnhanced() {
                       </div>
                     ))}
                     
-                    {multiAsinProducts.length === 0 && (
+                    {multiAsinProducts.length === 0 && !multiAsinLoading && (
                       <div className="text-center py-8 text-muted-foreground">
                         <ListTree className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>No products with multiple ASINs found</p>
