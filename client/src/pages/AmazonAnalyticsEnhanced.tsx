@@ -191,6 +191,14 @@ interface MultiAsinCandidate {
   salesRank?: number;
   confidence: number;
   searchMethod: string;
+  currentPrice?: number;
+  amazonTitle?: string;
+  amazonBrand?: string;
+  buyboxHolder?: string;
+  isBuyboxEligible?: boolean;
+  condition?: string;
+  sellerCount?: number;
+  matchConfidence?: number;
 }
 
 interface MultiAsinProduct {
@@ -744,21 +752,153 @@ export default function AmazonAnalyticsEnhanced() {
             </div>
           </div>
 
-          {/* Enhanced Opportunities Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Product Opportunities</CardTitle>
-              <CardDescription>Amazon marketplace competitive analysis with ASIN mapping</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredAndSortedOpportunities.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900">No opportunities found</h3>
-                    <p className="text-gray-600">Adjust your filters or start Amazon sync to discover opportunities.</p>
+          {/* Combined Opportunities Display */}
+          {selectedCategory === "multi-asin" ? (
+            // Multi-ASIN Products View
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <ListTree className="h-5 w-5" />
+                      Multi-ASIN Products ({multiAsinProducts?.length || 0})
+                    </CardTitle>
+                    <CardDescription>
+                      Products with multiple ASIN candidates requiring optimization
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-sm">
+                      {multiAsinProducts?.reduce((sum: number, p: MultiAsinProduct) => 
+                        sum + (p.asin_candidates?.length || 0), 0
+                      )} Total Candidates
+                    </Badge>
+                    <Badge variant="secondary" className="text-sm">
+                      {multiAsinProducts?.filter((p: MultiAsinProduct) => 
+                        (p.asin_candidates || []).some((a: MultiAsinCandidate) => a.isPrimary)
+                      ).length} Configured
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {multiAsinLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Loading multi-ASIN data...</span>
+                  </div>
+                ) : multiAsinProducts && multiAsinProducts.length > 0 ? (
+                  <div className="grid gap-4">
+                    {multiAsinProducts.map((product: MultiAsinProduct) => (
+                      <Card key={product.sku} className="border-l-4 border-l-blue-500">
+                        <CardContent className="p-6">
+                          <div className="flex flex-col lg:flex-row gap-6">
+                            {/* Product Info */}
+                            <div className="flex-1 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h4 className="font-semibold text-lg">{product.product_name}</h4>
+                                  <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                                  {product.upc && <p className="text-sm text-muted-foreground">UPC: {product.upc}</p>}
+                                </div>
+                                <Badge variant="default" className="ml-2">
+                                  {product.asin_candidates?.length || 0} ASINs
+                                </Badge>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                {product.cost && (
+                                  <div>
+                                    <span className="text-muted-foreground">Cost:</span>
+                                    <div className="font-semibold">${product.cost}</div>
+                                  </div>
+                                )}
+                                {product.price && (
+                                  <div>
+                                    <span className="text-muted-foreground">Price:</span>
+                                    <div className="font-semibold">${product.price}</div>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-muted-foreground">Primary ASIN:</span>
+                                  <div className="font-mono text-xs">
+                                    {product.asin_candidates?.find((a: MultiAsinCandidate) => a.isPrimary)?.asin || 'None Selected'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">With Data:</span>
+                                  <div className="font-semibold">
+                                    {product.asin_candidates?.filter((a: MultiAsinCandidate) => a.hasAmazonData).length || 0}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* ASIN Candidates Preview */}
+                            <div className="space-y-3 min-w-[300px]">
+                              <h5 className="font-medium">Top ASIN Candidates</h5>
+                              <div className="grid gap-2">
+                                {product.asin_candidates?.slice(0, 3).map((candidate: MultiAsinCandidate) => (
+                                  <div key={candidate.asin} className={`flex items-center justify-between p-2 rounded border text-xs ${candidate.isPrimary ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
+                                    <div className="flex items-center space-x-2">
+                                      {candidate.isPrimary && <Badge variant="default" className="text-xs">PRIMARY</Badge>}
+                                      <span className="font-mono">{candidate.asin}</span>
+                                    </div>
+                                    <div className="text-right">
+                                      {candidate.hasAmazonData && (
+                                        <>
+                                          <div className="font-semibold">${candidate.currentPrice}</div>
+                                          <div className="text-muted-foreground">#{candidate.salesRank?.toLocaleString()}</div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMultiAsinProduct(product);
+                                  setShowAllCandidates(true);
+                                }}
+                                className="w-full"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View All {product.asin_candidates?.length || 0} Candidates
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
                 ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ListTree className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No multi-ASIN products found</p>
+                    <p className="text-sm">Products with multiple ASIN candidates will appear here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            // Regular Opportunities View
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Opportunities</CardTitle>
+                <CardDescription>Amazon marketplace competitive analysis with ASIN mapping</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredAndSortedOpportunities.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900">No opportunities found</h3>
+                      <p className="text-gray-600">Adjust your filters or start Amazon sync to discover opportunities.</p>
+                    </div>
+                  ) : (
                   <div className="grid gap-4">
                     {filteredAndSortedOpportunities.map((opportunity, index) => {
                       // Get the best ASIN match for images
@@ -934,11 +1074,12 @@ export default function AmazonAnalyticsEnhanced() {
                       </Card>
                       );
                     })}  
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="trends" className="space-y-6">
