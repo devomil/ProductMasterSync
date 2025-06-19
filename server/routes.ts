@@ -3542,6 +3542,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/asin-confidence-override', asinConfidenceOverrideRoutes);
   app.use('/api/asin-tracking', asinTrackingRoutes);
   app.use('/api/low-confidence-fallback', lowConfidenceFallbackRoutes);
+  
+  // Audit trail and supplier trust routes
+  const auditTrailRouter = (await import('./routes/audit-trail')).default;
+  const supplierTrustRouter = (await import('./routes/supplier-trust')).default;
+  app.use('/api/audit-trail', auditTrailRouter);
+  app.use('/api/supplier-trust', supplierTrustRouter);
 
   const httpServer = createServer(app);
 
