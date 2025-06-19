@@ -105,7 +105,7 @@ router.get('/products-with-candidates', async (req, res) => {
       const rankedCandidates = rankAsinCandidates(catalogProduct, amazonAsins);
 
       // Merge ranked results with original Amazon data and add enhanced validation
-      const enhancedCandidates = await Promise.all(rankedCandidates.map(async (ranked) => {
+      const enhancedCandidates = await Promise.all(rankedCandidates.map(async (ranked: any) => {
         const original = row.asin_candidates.find((c: any) => c.asin === ranked.asin);
         const confidenceInfo = getConfidenceLevel(ranked.confidenceScore);
         const validationIssues = validateAsinCandidate(ranked);

@@ -50,6 +50,7 @@ import {
   Play
 } from "lucide-react";
 import { ConfidenceIndicator } from "../components/ConfidenceIndicator";
+import { ConfidenceOverrideDialog } from "../components/ConfidenceOverrideDialog";
 
 interface MultiAsinOpportunity {
   id: number;

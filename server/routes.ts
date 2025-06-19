@@ -3539,6 +3539,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register multi-ASIN display routes
   app.use('/api/multi-asin-display', multiAsinDisplayRoutes);
+  app.use('/api/asin-confidence-override', asinConfidenceOverrideRoutes);
+  app.use('/api/asin-tracking', asinTrackingRoutes);
+  app.use('/api/low-confidence-fallback', lowConfidenceFallbackRoutes);
 
   const httpServer = createServer(app);
 
