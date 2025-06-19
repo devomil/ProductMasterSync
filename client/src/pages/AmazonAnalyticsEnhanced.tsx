@@ -143,6 +143,7 @@ interface AsinMatch {
   estimatedSales?: number;
   // Enhanced UI fields for image comparison
   imageUrl?: string;
+  supplierImageUrl?: string;
   canList?: boolean;
   hasListingRestrictions?: boolean;
   restrictionMessages?: string[];
@@ -232,7 +233,11 @@ export default function AmazonAnalyticsEnhanced() {
   });
 
   // Image comparison data query
-  const { data: opportunitiesData, isLoading: imageOpportunitiesLoading, error: imageError } = useQuery({
+  const { data: opportunitiesData, isLoading: imageOpportunitiesLoading, error: imageError } = useQuery<{
+    success: boolean;
+    opportunities: ProductOpportunity[];
+    totalCount: number;
+  }>({
     queryKey: ['/api/marketplace/image-opportunities'],
     enabled: showImageComparison,
   });
@@ -958,9 +963,9 @@ export default function AmazonAnalyticsEnhanced() {
               </div>
             )}
             
-            {opportunitiesData?.opportunities?.map((opportunity, index) => {
+            {opportunitiesData?.opportunities?.map((opportunity: ProductOpportunity, index: number) => {
               // Get the best ASIN match for comparison
-              const bestAsin = opportunity.asinMatches?.reduce((best, current) => 
+              const bestAsin = opportunity.asinMatches?.reduce((best: AsinMatch, current: AsinMatch) => 
                 (current.score > (best?.score || 0)) ? current : best
               ) || null;
 
