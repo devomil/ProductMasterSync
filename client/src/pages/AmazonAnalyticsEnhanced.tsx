@@ -179,6 +179,45 @@ interface MarketTrend {
   priceChange: number;
 }
 
+interface MultiAsinCandidate {
+  asin: string;
+  rank: number;
+  score: number;
+  hasAmazonData: boolean;
+  isPrimary: boolean;
+  title?: string;
+  price?: number;
+  imageUrl?: string;
+  salesRank?: number;
+  confidence: number;
+  searchMethod: string;
+}
+
+interface MultiAsinProduct {
+  id: number;
+  sku: string;
+  productName: string;
+  upc?: string;
+  manufacturerPartNumber?: string;
+  brand?: string;
+  category?: string;
+  asin_candidates: MultiAsinCandidate[];
+  primaryAsin?: string;
+  supplierName?: string;
+  lastUpdated: string;
+}
+
+interface MultiAsinResponse {
+  products: MultiAsinProduct[];
+  totalCount: number;
+  summary: {
+    totalProducts: number;
+    totalCandidates: number;
+    withAmazonData: number;
+    avgCandidatesPerProduct: number;
+  };
+}
+
 export default function AmazonAnalyticsEnhanced() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -224,6 +263,11 @@ export default function AmazonAnalyticsEnhanced() {
     };
   }>({
     queryKey: ['/api/marketplace/analytics/supplier-performance'],
+    refetchInterval: 300000 // Refresh every 5 minutes
+  });
+
+  const { data: multiAsinProducts, isLoading: multiAsinProductsLoading } = useQuery<MultiAsinResponse>({
+    queryKey: ['/api/marketplace/multi-asin-display'],
     refetchInterval: 300000 // Refresh every 5 minutes
   });
 
@@ -551,12 +595,13 @@ export default function AmazonAnalyticsEnhanced() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="opportunities" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trends">Market Trends</TabsTrigger>
           <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
           <TabsTrigger value="image-comparison">Image Comparison</TabsTrigger>
           <TabsTrigger value="ai-intelligence">AI Intelligence</TabsTrigger>
+          <TabsTrigger value="multi-asin">Multi-ASIN</TabsTrigger>
           <TabsTrigger value="database">Database Status</TabsTrigger>
         </TabsList>
 
@@ -1024,7 +1069,7 @@ export default function AmazonAnalyticsEnhanced() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {(multiAsinProducts?.products || []).map((product: any) => (
+                    {(multiAsinProducts?.products || []).map((product: MultiAsinProduct) => (
                       <div key={product.sku} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div>
@@ -1134,7 +1179,7 @@ export default function AmazonAnalyticsEnhanced() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-orange-600">
-                        {(multiAsinProducts?.products || []).reduce((sum: number, p: any) => 
+                        {(multiAsinProducts?.products || []).reduce((sum: number, p: MultiAsinProduct) => 
                           sum + (p.asin_candidates?.length || 0), 0
                         )}
                       </div>
@@ -1142,8 +1187,8 @@ export default function AmazonAnalyticsEnhanced() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {(multiAsinProducts?.products || []).reduce((sum: number, p: any) => 
-                          sum + (p.asin_candidates?.filter((a: any) => a.hasAmazonData).length || 0), 0
+                        {(multiAsinProducts?.products || []).reduce((sum: number, p: MultiAsinProduct) => 
+                          sum + (p.asin_candidates?.filter((a: MultiAsinCandidate) => a.hasAmazonData).length || 0), 0
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">With Amazon Data</div>
@@ -1155,16 +1200,16 @@ export default function AmazonAnalyticsEnhanced() {
                       <span>Processing Progress</span>
                       <span>
                         {(multiAsinProducts?.products || []).length > 0 ? 
-                          Math.round(((multiAsinProducts?.products || []).filter((p: any) => 
-                            (p.asin_candidates || []).some((a: any) => a.isPrimary)
+                          Math.round(((multiAsinProducts?.products || []).filter((p: MultiAsinProduct) => 
+                            (p.asin_candidates || []).some((a: MultiAsinCandidate) => a.isPrimary)
                           ).length / (multiAsinProducts?.products || []).length) * 100) : 0
                         }%
                       </span>
                     </div>
                     <Progress 
                       value={(multiAsinProducts?.products || []).length > 0 ? 
-                        ((multiAsinProducts?.products || []).filter((p: any) => 
-                          (p.asin_candidates || []).some((a: any) => a.isPrimary)
+                        ((multiAsinProducts?.products || []).filter((p: MultiAsinProduct) => 
+                          (p.asin_candidates || []).some((a: MultiAsinCandidate) => a.isPrimary)
                         ).length / (multiAsinProducts?.products || []).length) * 100 : 0
                       } 
                       className="h-2"
