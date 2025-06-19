@@ -46,6 +46,7 @@ router.get('/products-with-candidates', async (req, res) => {
             'asin', pam.asin,
             'isPrimary', pam.is_primary,
             'matchConfidence', pam.match_confidence,
+            'mappingSource', pam.mapping_source,
             'amazonTitle', acd.title,
             'amazonBrand', acd.brand,
             'currentPrice', acd.current_price,
