@@ -99,9 +99,9 @@ router.post('/select-best-asin', async (req: Request, res: Response) => {
           buybox_holder,
           is_buybox_eligible,
           condition,
-          sellers_count,
-          main_image_url as imageUrl
-        FROM amazon_product_data
+          seller_count as sellers_count,
+          image_url as imageUrl
+        FROM amazon_catalog_data
         WHERE asin = ANY($1)
       `;
       
