@@ -340,51 +340,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get products with ASIN mappings joined
       const productsQuery = `
-        SELECT p.*, 
+        SELECT p.id, p.sku, p.usin, p.name, p.description,
+               p.category_id as "categoryId",
+               p.manufacturer_id as "manufacturerId", 
+               p.manufacturer_name as "manufacturerName",
+               p.manufacturer_part_number as "manufacturerPartNumber",
+               p.upc, p.price, p.cost, p.weight, p.dimensions, p.attributes, p.status,
+               p.is_remanufactured as "isRemanufactured",
+               p.is_closeout as "isCloseout", 
+               p.is_on_sale as "isOnSale",
+               p.has_rebate as "hasRebate",
+               p.has_free_shipping as "hasFreeShipping",
+               p.inventory_quantity as "inventoryQuantity",
+               p.reorder_threshold as "reorderThreshold",
+               p.image_url as "imageUrl",
+               p.image_url_large as "imageUrlLarge",
+               p.third_party_marketplaces as "thirdPartyMarketplaces",
+               p.case_quantity as "caseQuantity",
+               p.google_merchant_category as "googleMerchantCategory",
+               p.country_of_origin as "countryOfOrigin",
+               p.box_height as "boxHeight",
+               p.box_length as "boxLength", 
+               p.box_width as "boxWidth",
+               p.installation_guide_url as "installationGuideUrl",
+               p.owners_manual_url as "ownersManualUrl",
+               p.brochure_url as "brochureUrl",
+               p.quick_guide_url as "quickGuideUrl",
+               p.additional_images as "additionalImages",
+               p.is_oversized as "isOversized",
+               p.is_returnable as "isReturnable",
+               p.quick_specs as "quickSpecs",
+               p.next_shipment_date_nj as "nextShipmentDateNJ",
+               p.next_shipment_date_fl as "nextShipmentDateFL",
+               p.next_shipment_date_combined as "nextShipmentDateCombined",
+               p.primary_image as "primaryImage",
+               p.last_amazon_sync as "lastAmazonSync",
+               p.amazon_sync_status as "amazonSyncStatus",
+               p.created_at as "createdAt",
+               p.updated_at as "updatedAt",
                CASE 
                  WHEN COUNT(pam.asin) = 1 THEN MAX(pam.asin)
                  WHEN COUNT(pam.asin) > 1 THEN MAX(CASE WHEN pam.is_primary THEN pam.asin END)
                  ELSE NULL
                END as asin,
-               c.name as categoryName,
+               c.name as "categoryName",
                COUNT(pam.asin) as asin_count
         FROM products p
         LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
         LEFT JOIN categories c ON p.category_id = c.id
-        GROUP BY p.id, c.name
+        GROUP BY p.id, p.sku, p.usin, p.name, p.description, p.category_id, p.manufacturer_id, 
+                 p.manufacturer_name, p.manufacturer_part_number, p.upc, p.price, p.cost, p.weight, 
+                 p.dimensions, p.attributes, p.status, p.is_remanufactured, p.is_closeout, p.is_on_sale, 
+                 p.has_rebate, p.has_free_shipping, p.inventory_quantity, p.reorder_threshold, 
+                 p.image_url, p.image_url_large, p.third_party_marketplaces, p.case_quantity, 
+                 p.google_merchant_category, p.country_of_origin, p.box_height, p.box_length, 
+                 p.box_width, p.installation_guide_url, p.owners_manual_url, p.brochure_url, 
+                 p.quick_guide_url, p.additional_images, p.is_oversized, p.is_returnable, 
+                 p.quick_specs, p.next_shipment_date_nj, p.next_shipment_date_fl, 
+                 p.next_shipment_date_combined, p.primary_image, p.last_amazon_sync, 
+                 p.amazon_sync_status, p.created_at, p.updated_at, c.name
         ORDER BY p.id
       `;
       
       const result = await pool.query(productsQuery);
       const products = result.rows;
       
-      // Format products with proper field mapping (convert snake_case to camelCase)
-      const enhancedProducts = products.map(product => ({
-        ...product,
-        categoryName: product.category_name,
-        manufacturerPartNumber: product.manufacturer_part_number,
-        manufacturerName: product.manufacturer_name,
-        imageUrl: product.image_url,
-        imageUrlLarge: product.image_url_large,
-        inventoryQuantity: product.inventory_quantity,
-        isRemanufactured: product.is_remanufactured,
-        isCloseout: product.is_closeout,
-        isOnSale: product.is_on_sale,
-        hasRebate: product.has_rebate,
-        hasFreeShipping: product.has_free_shipping,
-        thirdPartyMarketplaces: product.third_party_marketplaces,
-        caseQuantity: product.case_quantity,
-        googleMerchantCategory: product.google_merchant_category,
-        countryOfOrigin: product.country_of_origin,
-        boxHeight: product.box_height,
-        boxLength: product.box_length,
-        boxWidth: product.box_width,
-        reorderThreshold: product.reorder_threshold,
-        lastAmazonSync: product.last_amazon_sync,
-        amazonSyncStatus: product.amazon_sync_status,
-        createdAt: product.created_at,
-        updatedAt: product.updated_at
-      }));
+      // Products already have properly aliased field names from the SQL query
+      const enhancedProducts = products;
       
       res.json(enhancedProducts);
     } catch (error) {
