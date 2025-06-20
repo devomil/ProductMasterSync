@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/Dashboard";
 import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
+import ProductsSimple from "@/pages/ProductsSimple";
+import SuppliersSimple from "@/pages/SuppliersSimple";
 import ProductDetails from "@/pages/ProductDetails";
 import DataImports from "@/pages/DataImports";
 import DataExports from "@/pages/DataExports";
@@ -39,10 +41,12 @@ function Router() {
     <Switch>
       <Route path="/" component={SimpleTest} />
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/products" component={Products} />
+      <Route path="/products" component={ProductsSimple} />
+      <Route path="/products-advanced" component={Products} />
       <Route path="/products/:id" component={ProductDetails} />
       <Route path="/categories" component={Categories} />
-      <Route path="/suppliers" component={Suppliers} />
+      <Route path="/suppliers" component={SuppliersSimple} />
+      <Route path="/suppliers-advanced" component={Suppliers} />
       <Route path="/data-imports" component={DataImports} />
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />
@@ -79,9 +83,16 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <div className="min-h-screen bg-background">
-          <header className="border-b">
-            <div className="container mx-auto px-4 py-3">
-              <h1 className="text-2xl font-bold">MDM/PIM System</h1>
+          <header className="border-b bg-white shadow-sm">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-gray-900">MDM/PIM System</h1>
+              <nav className="flex space-x-6">
+                <a href="/" className="text-gray-600 hover:text-gray-900">Home</a>
+                <a href="/dashboard" className="text-gray-600 hover:text-gray-900">Dashboard</a>
+                <a href="/products" className="text-gray-600 hover:text-gray-900">Products</a>
+                <a href="/suppliers" className="text-gray-600 hover:text-gray-900">Suppliers</a>
+                <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
+              </nav>
             </div>
           </header>
           <main className="container mx-auto px-4 py-6">
