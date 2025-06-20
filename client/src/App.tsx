@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
 import Dashboard from "@/pages/Dashboard";
 import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
@@ -39,7 +40,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={SimpleTest} />
+      <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/products" component={ProductsSimple} />
       <Route path="/products-advanced" component={Products} />
@@ -81,24 +82,27 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <div className="min-h-screen bg-background">
-          <header className="border-b bg-white shadow-sm">
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-gray-900">MDM/PIM System</h1>
-              <nav className="flex space-x-6">
-                <a href="/" className="text-gray-600 hover:text-gray-900">Home</a>
-                <a href="/dashboard" className="text-gray-600 hover:text-gray-900">Dashboard</a>
-                <a href="/products" className="text-gray-600 hover:text-gray-900">Products</a>
-                <a href="/suppliers" className="text-gray-600 hover:text-gray-900">Suppliers</a>
-                <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
-              </nav>
-            </div>
-          </header>
-          <main className="container mx-auto px-4 py-6">
-            <Router />
-          </main>
-        </div>
+        <OnboardingManager>
+          <Toaster />
+          <div className="min-h-screen bg-background">
+            <header className="border-b bg-white shadow-sm">
+              <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900">MDM/PIM System</h1>
+                <nav className="flex space-x-6">
+                  <a href="/" className="text-gray-600 hover:text-gray-900">Dashboard</a>
+                  <a href="/products" className="text-gray-600 hover:text-gray-900">Products</a>
+                  <a href="/suppliers" className="text-gray-600 hover:text-gray-900">Suppliers</a>
+                  <a href="/categories" className="text-gray-600 hover:text-gray-900">Categories</a>
+                  <a href="/data-imports" className="text-gray-600 hover:text-gray-900">Data Imports</a>
+                  <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
+                </nav>
+              </div>
+            </header>
+            <main className="container mx-auto px-4 py-6">
+              <Router />
+            </main>
+          </div>
+        </OnboardingManager>
       </TooltipProvider>
     </QueryClientProvider>
   );
