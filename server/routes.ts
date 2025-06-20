@@ -388,17 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM products p
         LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
         LEFT JOIN categories c ON p.category_id = c.id
-        GROUP BY p.id, p.sku, p.usin, p.name, p.description, p.category_id, p.manufacturer_id, 
-                 p.manufacturer_name, p.manufacturer_part_number, p.upc, p.price, p.cost, p.weight, 
-                 p.dimensions, p.attributes, p.status, p.is_remanufactured, p.is_closeout, p.is_on_sale, 
-                 p.has_rebate, p.has_free_shipping, p.inventory_quantity, p.reorder_threshold, 
-                 p.image_url, p.image_url_large, p.third_party_marketplaces, p.case_quantity, 
-                 p.google_merchant_category, p.country_of_origin, p.box_height, p.box_length, 
-                 p.box_width, p.installation_guide_url, p.owners_manual_url, p.brochure_url, 
-                 p.quick_guide_url, p.additional_images, p.is_oversized, p.is_returnable, 
-                 p.quick_specs, p.next_shipment_date_nj, p.next_shipment_date_fl, 
-                 p.next_shipment_date_combined, p.primary_image, p.last_amazon_sync, 
-                 p.amazon_sync_status, p.created_at, p.updated_at, c.name
+        GROUP BY p.id, c.name
         ORDER BY p.id
       `;
       

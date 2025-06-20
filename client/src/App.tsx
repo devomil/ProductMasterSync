@@ -32,6 +32,7 @@ import AmazonAnalytics from "@/pages/AmazonAnalyticsEnhanced";
 import AIPurchasing from "@/pages/AIPurchasing";
 import ASINDemo from "@/pages/ASINDemo";
 import SystemMonitoring from "@/pages/SystemMonitoring";
+import SystemAnalysis from "@/pages/SystemAnalysis";
 import BatchProcessing from "@/pages/BatchProcessing";
 import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
@@ -75,6 +76,7 @@ function Router() {
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
       <Route path="/gamified-mapping" component={GamifiedMapping} />
       <Route path="/system-monitoring" component={SystemMonitoring} />
+      <Route path="/system-analysis" component={SystemAnalysis} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
@@ -100,6 +102,7 @@ function App() {
                   <a href="/mapping-templates" className="text-gray-600 hover:text-gray-900">Mapping</a>
                   <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
                   <a href="/amazon-analytics" className="text-gray-600 hover:text-gray-900">Analytics</a>
+                  <a href="/system-analysis" className="text-gray-600 hover:text-gray-900">System</a>
                 </nav>
               </div>
             </header>
