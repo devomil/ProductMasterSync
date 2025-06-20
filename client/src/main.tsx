@@ -1,10 +1,5 @@
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import App from "./App.simple";
 import "./index.css";
-import { ThemeProvider } from "./components/ui/theme-provider";
 
-createRoot(document.getElementById("root")!).render(
-  <ThemeProvider defaultTheme="light" storageKey="mdm-theme">
-    <App />
-  </ThemeProvider>
-);
+createRoot(document.getElementById("root")!).render(<App />);
