@@ -3668,7 +3668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `;
       
       const params = category && category !== 'all' ? [category] : [];
-      const result = await db.query(query, params);
+      const result = await pool.query(query, params);
       
       const opportunities = result.rows.map(row => {
         const profitMargin = parseFloat(row.profit_margin) || 0;
@@ -3772,7 +3772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY avg_margin DESC
       `;
       
-      const trendResult = await db.query(trendQuery);
+      const trendResult = await pool.query(trendQuery);
       
       for (const row of trendResult.rows) {
         const avgMargin = parseFloat(row.avg_margin) || 0;
@@ -3798,7 +3798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         GROUP BY s.id, s.name, s.active, s.updated_at
       `;
       
-      const supplierResult = await db.query(supplierQuery);
+      const supplierResult = await pool.query(supplierQuery);
       
       for (const supplier of supplierResult.rows) {
         if (!supplier.active && supplier.product_count > 0) {
@@ -3822,7 +3822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND amd.price > CAST(p.price AS NUMERIC) * 1.3
       `;
       
-      const opportunityResult = await db.query(opportunityQuery);
+      const opportunityResult = await pool.query(opportunityQuery);
       const highValueCount = parseInt(opportunityResult.rows[0].high_value_count) || 0;
       
       if (highValueCount > 5) {
@@ -3865,7 +3865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE p.status = 'active' AND p.usin IS NOT NULL AND p.usin != ''
       `;
       
-      const result = await db.query(profitQuery);
+      const result = await pool.query(profitQuery);
       const analytics = result.rows[0];
       
       res.json({
