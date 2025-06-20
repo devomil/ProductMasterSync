@@ -39,6 +39,7 @@ import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
 import NotFound from "@/pages/not-found";
+import TopNavigation from "@/components/TopNavigation";
 
 function Router() {
   return (
@@ -91,22 +92,7 @@ function App() {
         <OnboardingManager>
           <Toaster />
           <div className="min-h-screen bg-background">
-            <header className="border-b bg-white shadow-sm">
-              <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">MDM/PIM System</h1>
-                <nav className="flex space-x-6">
-                  <a href="/" className="text-gray-600 hover:text-gray-900">Dashboard</a>
-                  <a href="/products" className="text-gray-600 hover:text-gray-900">Products</a>
-                  <a href="/suppliers" className="text-gray-600 hover:text-gray-900">Suppliers</a>
-                  <a href="/categories" className="text-gray-600 hover:text-gray-900">Categories</a>
-                  <a href="/data-imports" className="text-gray-600 hover:text-gray-900">Data Imports</a>
-                  <a href="/mapping-templates" className="text-gray-600 hover:text-gray-900">Mapping</a>
-                  <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
-                  <a href="/amazon-analytics" className="text-gray-600 hover:text-gray-900">Analytics</a>
-                  <a href="/system-analysis" className="text-gray-600 hover:text-gray-900">System</a>
-                </nav>
-              </div>
-            </header>
+            <TopNavigation />
             <main className="container mx-auto px-4 py-6">
               <Router />
             </main>
