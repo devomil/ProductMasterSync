@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Package2, Building2, Upload, CheckSquare, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MetricCard from "@/components/dashboard/MetricCard";
-import ImportActivity from "@/components/dashboard/ImportActivity";
+
 import DataQuality from "@/components/dashboard/DataQuality";
 import PendingApprovals from "@/components/dashboard/PendingApprovals";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -109,9 +109,6 @@ const Dashboard = () => {
           />
         </div>
       </div>
-
-      {/* Import Activity */}
-      <ImportActivity />
 
       {/* Data Management Overview */}
       <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
