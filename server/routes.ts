@@ -3657,7 +3657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           END as supplier_availability
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
-        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        LEFT JOIN amazon_marketplace_data amd ON p.usin = amd.asin
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         WHERE p.status = 'active'
           AND p.usin IS NOT NULL
@@ -3757,15 +3757,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           c.name as category,
           COUNT(*) as product_count,
           AVG(CASE 
-            WHEN amd.current_price > 0 AND CAST(p.price AS NUMERIC) > 0 
-            THEN ((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
+            WHEN amd.price > 0 AND CAST(p.price AS NUMERIC) > 0 
+            THEN ((amd.price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
             ELSE 0 
           END) as avg_margin,
           AVG(amd.sales_rank) as avg_sales_rank,
-          COUNT(CASE WHEN amd.data_fetched_at > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
+          COUNT(CASE WHEN amd.last_synced > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
         FROM products p
         JOIN categories c ON p.category_id = c.id
-        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        LEFT JOIN amazon_marketplace_data amd ON p.usin = amd.asin
         WHERE p.status = 'active' AND p.usin IS NOT NULL AND p.usin != ''
         GROUP BY c.name
         HAVING COUNT(*) >= 3
@@ -3815,11 +3815,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const opportunityQuery = `
         SELECT COUNT(*) as high_value_count
         FROM products p
-        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        LEFT JOIN amazon_marketplace_data amd ON p.usin = amd.asin
         WHERE p.status = 'active' 
           AND p.usin IS NOT NULL
           AND p.usin != ''
-          AND amd.current_price > CAST(p.price AS NUMERIC) * 1.3
+          AND amd.price > CAST(p.price AS NUMERIC) * 1.3
       `;
       
       const opportunityResult = await db.query(opportunityQuery);
@@ -3847,21 +3847,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profitQuery = `
         SELECT 
           SUM(CASE 
-            WHEN amd.current_price > CAST(p.price AS NUMERIC)
-            THEN (amd.current_price - CAST(p.price AS NUMERIC)) * COALESCE(p.inventory_quantity, 1)
+            WHEN amd.price > CAST(p.price AS NUMERIC)
+            THEN (amd.price - CAST(p.price AS NUMERIC)) * COALESCE(p.inventory_quantity, 1)
             ELSE 0 
           END) as total_profit_potential,
           COUNT(CASE 
-            WHEN amd.current_price > CAST(p.price AS NUMERIC) * 1.8 
+            WHEN amd.price > CAST(p.price AS NUMERIC) * 1.8 
             THEN 1 
           END) as high_value_opportunities,
           AVG(CASE 
-            WHEN amd.current_price > 0 AND CAST(p.price AS NUMERIC) > 0
-            THEN ((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
+            WHEN amd.price > 0 AND CAST(p.price AS NUMERIC) > 0
+            THEN ((amd.price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
             ELSE 0
           END) as avg_margin_increase
         FROM products p
-        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        LEFT JOIN amazon_marketplace_data amd ON p.usin = amd.asin
         WHERE p.status = 'active' AND p.usin IS NOT NULL AND p.usin != ''
       `;
       
