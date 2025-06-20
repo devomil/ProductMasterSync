@@ -262,9 +262,9 @@ export default function SuppliersSimple() {
                 <Building className="h-4 w-4 mr-2" />
                 Advanced Management
               </Button>
-              <Button variant="outline" className="justify-start" onClick={() => window.location.href = '/connections'}>
+              <Button variant="outline" className="justify-start" onClick={() => window.location.href = '/data-sources'}>
                 <Search className="h-4 w-4 mr-2" />
-                Connection Testing
+                Data Sources
               </Button>
             </div>
           </CardContent>
