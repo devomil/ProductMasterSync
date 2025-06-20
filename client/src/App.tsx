@@ -26,9 +26,10 @@ import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
 import AmazonIntegration from "@/pages/AmazonIntegration";
+import AmazonAnalyticsFixed from "@/pages/AmazonAnalyticsFixed";
+import MultiASINSearch from "@/pages/MultiASINSearch";
 import AmazonAnalytics from "@/pages/AmazonAnalyticsEnhanced";
 import AIPurchasing from "@/pages/AIPurchasing";
-import MultiASINSearch from "@/pages/MultiASINSearch";
 import ASINDemo from "@/pages/ASINDemo";
 import SystemMonitoring from "@/pages/SystemMonitoring";
 import BatchProcessing from "@/pages/BatchProcessing";
@@ -42,8 +43,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/products" component={ProductsSimple} />
-      <Route path="/products-advanced" component={Products} />
+      <Route path="/products" component={Products} />
+      <Route path="/products-simple" component={ProductsSimple} />
       <Route path="/products/:id" component={ProductDetails} />
       <Route path="/categories" component={Categories} />
       <Route path="/suppliers" component={SuppliersSimple} />
@@ -63,9 +64,9 @@ function Router() {
       <Route path="/validation-rules" component={ValidationRules} />
       <Route path="/audit-logs" component={AuditLogs} />
       <Route path="/amazon-integration" component={AmazonIntegration} />
-      <Route path="/amazon-analytics" component={AmazonAnalytics} />
+      <Route path="/amazon-analytics" component={AmazonAnalyticsFixed} />
+      <Route path="/multi-asin" component={MultiASINSearch} />
       <Route path="/ai-purchasing" component={AIPurchasing} />
-      <Route path="/multi-asin-search" component={MultiASINSearch} />
       <Route path="/asin-demo" component={ASINDemo} />
       <Route path="/batch-processing" component={BatchProcessing} />
       <Route path="/sample-data-test" component={SampleDataTest} />
@@ -95,6 +96,7 @@ function App() {
                   <a href="/categories" className="text-gray-600 hover:text-gray-900">Categories</a>
                   <a href="/data-imports" className="text-gray-600 hover:text-gray-900">Data Imports</a>
                   <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
+                  <a href="/amazon-analytics" className="text-gray-600 hover:text-gray-900">Analytics</a>
                 </nav>
               </div>
             </header>
