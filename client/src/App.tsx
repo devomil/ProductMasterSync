@@ -53,6 +53,8 @@ function Router() {
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />
       <Route path="/mapping-templates" component={MappingTemplates} />
+      <Route path="/mapping-workspace" component={MappingTemplateWorkspace} />
+      <Route path="/mapping-editor" component={MappingTemplateEditor} />
       <Route path="/mapping-templates/new" component={MappingTemplateWorkspace} />
       <Route path="/mapping-templates/:id" component={MappingTemplateWorkspace} />
       <Route path="/mapping-template-workspace" component={MappingTemplateWorkspace} />
@@ -95,6 +97,7 @@ function App() {
                   <a href="/suppliers" className="text-gray-600 hover:text-gray-900">Suppliers</a>
                   <a href="/categories" className="text-gray-600 hover:text-gray-900">Categories</a>
                   <a href="/data-imports" className="text-gray-600 hover:text-gray-900">Data Imports</a>
+                  <a href="/mapping-templates" className="text-gray-600 hover:text-gray-900">Mapping</a>
                   <a href="/amazon-integration" className="text-gray-600 hover:text-gray-900">Amazon</a>
                   <a href="/amazon-analytics" className="text-gray-600 hover:text-gray-900">Analytics</a>
                 </nav>
