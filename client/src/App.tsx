@@ -156,7 +156,7 @@ function App() {
         </OnboardingManager>
       </TooltipProvider>
     </QueryClientProvider>
-    );
+  );
 }
 
 export default App;

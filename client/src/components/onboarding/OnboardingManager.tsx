@@ -24,18 +24,9 @@ export function OnboardingManager({ children }: OnboardingManagerProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user has completed onboarding
-    const hasCompletedOnboarding = localStorage.getItem('mdm-onboarding-completed');
-    
-    // Show onboarding for new users after a brief delay for better UX
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-      if (!hasCompletedOnboarding) {
-        setShowOnboarding(true);
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    // Skip onboarding and load app immediately
+    localStorage.setItem('mdm-onboarding-completed', 'true');
+    setIsLoading(false);
   }, []);
 
   const handleOnboardingComplete = () => {
