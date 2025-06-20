@@ -2576,30 +2576,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-          if (product && product.manufacturerPartNumber && product.manufacturerPartNumber.trim() !== '') {
-            mpnGroups[product.manufacturerPartNumber] = (mpnGroups[product.manufacturerPartNumber] || 0) + 1;
-          }
-        });
-      }
-      
-      const upcDuplicates = Object.values(upcGroups).filter(count => count > 1);
-      const mpnDuplicates = Object.values(mpnGroups).filter(count => count > 1);
-      
-      res.json({
-        totalProducts: totalCount || 0,
-        potentialUpcDuplicates: upcDuplicates.length || 0,
-        potentialMpnDuplicates: mpnDuplicates.length || 0
-      });
-    } catch (error) {
-      console.error('Error getting deduplication stats:', error);
-      res.status(500).json({
-        error: "Internal server error",
-        totalProducts: 0,
-        potentialUpcDuplicates: 0,
-        potentialMpnDuplicates: 0
-      });
-    }
-  });
 
   app.post('/api/products/advanced-deduplicate', async (req, res) => {
     try {
