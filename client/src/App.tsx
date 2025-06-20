@@ -38,6 +38,7 @@ import BatchProcessing from "@/pages/BatchProcessing";
 import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
+import PurchasingAI from "@/pages/PurchasingAI";
 import NotFound from "@/pages/not-found";
 import TopNavigation from "@/components/TopNavigation";
 
@@ -79,6 +80,7 @@ function Router() {
       <Route path="/gamified-mapping" component={GamifiedMapping} />
       <Route path="/system-monitoring" component={SystemMonitoring} />
       <Route path="/system-analysis" component={SystemAnalysis} />
+      <Route path="/purchasing-ai" component={PurchasingAI} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

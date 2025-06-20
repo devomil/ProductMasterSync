@@ -15,7 +15,8 @@ import {
   Map,
   CheckCircle,
   ShoppingCart,
-  Zap
+  Zap,
+  Brain
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -193,6 +194,12 @@ const TopNavigation = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Purchasing AI */}
+            <NavButton to="/purchasing-ai">
+              <Brain className="h-4 w-4" />
+              Purchasing AI
+            </NavButton>
 
             {/* Analytics */}
             <NavButton to="/amazon-analytics">
