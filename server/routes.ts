@@ -3761,7 +3761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             THEN ((amd.price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
             ELSE 0 
           END) as avg_margin,
-          AVG(amd.sales_rank) as avg_sales_rank,
+          AVG(amd.rank) as avg_sales_rank,
           COUNT(CASE WHEN amd.last_synced > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
         FROM products p
         JOIN categories c ON p.category_id = c.id
