@@ -254,17 +254,17 @@ export default function SuppliersSimple() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3">
-              <Button variant="outline" className="justify-start">
+              <Button variant="outline" className="justify-start" onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Onboard New Supplier
               </Button>
-              <Button variant="outline" className="justify-start">
+              <Button variant="outline" className="justify-start" onClick={() => window.location.href = '/suppliers-advanced'}>
                 <Building className="h-4 w-4 mr-2" />
-                Bulk Import Suppliers
+                Advanced Management
               </Button>
-              <Button variant="outline" className="justify-start">
+              <Button variant="outline" className="justify-start" onClick={() => window.location.href = '/connections'}>
                 <Search className="h-4 w-4 mr-2" />
-                Advanced Search
+                Connection Testing
               </Button>
             </div>
           </CardContent>
