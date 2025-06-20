@@ -10,7 +10,12 @@ import {
   Edit,
   Trash2,
   Mail,
-  Phone
+  Phone,
+  Eye,
+  Settings,
+  Download,
+  TestTube,
+  Play
 } from "lucide-react";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { Button } from "@/components/ui/button";
@@ -44,6 +49,9 @@ const Suppliers = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>(undefined);
+  const [testPullResults, setTestPullResults] = useState<any>(null);
+  const [isTestPullOpen, setIsTestPullOpen] = useState(false);
+  const [testingSupplier, setTestingSupplier] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -86,6 +94,46 @@ const Suppliers = () => {
   const handleEditSupplier = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setIsEditDialogOpen(true);
+  };
+
+  // Test pull mutation
+  const testPullMutation = useMutation({
+    mutationFn: async (supplierId: number) => {
+      const response = await apiRequest(`/api/suppliers/${supplierId}/test-pull`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 10 })
+      });
+      return response;
+    },
+    onSuccess: (data, supplierId) => {
+      setTestPullResults(data);
+      setIsTestPullOpen(true);
+      setTestingSupplier(null);
+      toast({
+        title: "Test Pull Complete",
+        description: data.success ? `Retrieved ${data.sample_data?.length || 0} sample records` : "Test pull failed",
+        variant: data.success ? "default" : "destructive"
+      });
+    },
+    onError: (error) => {
+      setTestingSupplier(null);
+      toast({
+        title: "Test Pull Failed",
+        description: `Failed to test data pull: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleTestPull = (supplierId: number) => {
+    setTestingSupplier(supplierId);
+    testPullMutation.mutate(supplierId);
+  };
+
+  const handleViewDetails = (supplier: Supplier) => {
+    // Navigate to supplier details page or open modal
+    window.location.href = `/suppliers/${supplier.id}/details`;
   };
 
   const filteredSuppliers = suppliers.filter(supplier => 
@@ -228,19 +276,93 @@ const Suppliers = () => {
         </div>
       </div>
 
-      {/* Supplier Create Dialog */}
+      {/* Create Supplier Form */}
       <SupplierForm
-        isOpen={isCreateDialogOpen}
-        onClose={() => setIsCreateDialogOpen(false)}
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={() => {
+          setIsCreateDialogOpen(false);
+          refetch();
+        }}
       />
 
-      {/* Supplier Edit Dialog */}
-      {selectedSupplier && (
-        <SupplierForm
-          isOpen={isEditDialogOpen}
-          onClose={() => setIsEditDialogOpen(false)}
-          supplier={selectedSupplier}
-        />
+      {/* Edit Supplier Form */}
+      <SupplierForm
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={() => {
+          setIsEditDialogOpen(false);
+          setSelectedSupplier(undefined);
+          refetch();
+        }}
+        supplier={selectedSupplier}
+      />
+
+      {/* Test Pull Results Dialog */}
+      {isTestPullOpen && testPullResults && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">
+                Test Pull Results - {testPullResults.success ? 'Success' : 'Failed'}
+              </h2>
+              <Button 
+                variant="ghost" 
+                onClick={() => setIsTestPullOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded">
+                <p className="font-medium">Message:</p>
+                <p className="text-sm text-gray-600">{testPullResults.message}</p>
+              </div>
+              
+              {testPullResults.sample_data && testPullResults.sample_data.length > 0 && (
+                <div>
+                  <h3 className="font-medium mb-2">Sample Data ({testPullResults.sample_data.length} records):</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {Object.keys(testPullResults.sample_data[0] || {}).slice(0, 6).map((key) => (
+                            <th key={key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                              {key}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {testPullResults.sample_data.slice(0, 5).map((row: any, index: number) => (
+                          <tr key={index} className="border-b">
+                            {Object.keys(row).slice(0, 6).map((key) => (
+                              <td key={key} className="px-3 py-2 text-sm text-gray-900 border-r">
+                                {String(row[key]).substring(0, 50)}
+                                {String(row[key]).length > 50 ? '...' : ''}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              
+              {testPullResults.error_details && (
+                <div className="p-3 bg-red-50 rounded">
+                  <p className="font-medium text-red-800">Error Details:</p>
+                  <pre className="text-sm text-red-600 mt-1 whitespace-pre-wrap">
+                    {JSON.stringify(testPullResults.error_details, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
