@@ -55,6 +55,10 @@ export const suppliers = pgTable("suppliers", {
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
   active: boolean("active").default(true),
+  dataSource: json("data_sources"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Categories table
