@@ -358,8 +358,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(productsQuery);
       const products = result.rows;
       
-      // Products already include categoryName and asin from the SQL join
-      const enhancedProducts = products;
+      // Format products with proper field mapping (convert snake_case to camelCase)
+      const enhancedProducts = products.map(product => ({
+        ...product,
+        categoryName: product.category_name,
+        manufacturerPartNumber: product.manufacturer_part_number,
+        manufacturerName: product.manufacturer_name,
+        imageUrl: product.image_url,
+        imageUrlLarge: product.image_url_large,
+        inventoryQuantity: product.inventory_quantity,
+        isRemanufactured: product.is_remanufactured,
+        isCloseout: product.is_closeout,
+        isOnSale: product.is_on_sale,
+        hasRebate: product.has_rebate,
+        hasFreeShipping: product.has_free_shipping,
+        thirdPartyMarketplaces: product.third_party_marketplaces,
+        caseQuantity: product.case_quantity,
+        googleMerchantCategory: product.google_merchant_category,
+        countryOfOrigin: product.country_of_origin,
+        boxHeight: product.box_height,
+        boxLength: product.box_length,
+        boxWidth: product.box_width,
+        reorderThreshold: product.reorder_threshold,
+        lastAmazonSync: product.last_amazon_sync,
+        amazonSyncStatus: product.amazon_sync_status,
+        createdAt: product.created_at,
+        updatedAt: product.updated_at
+      }));
       
       res.json(enhancedProducts);
     } catch (error) {
