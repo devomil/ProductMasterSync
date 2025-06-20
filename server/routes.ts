@@ -3632,9 +3632,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           amd.current_price as amazon_price,
           amd.lowest_price,
           amd.highest_price,
-          amd.total_offers,
+          amd.review_count,
           amd.sales_rank,
-          amd.last_updated as pricing_updated,
+          amd.data_fetched_at as pricing_updated,
           CASE 
             WHEN CAST(p.price AS NUMERIC) > 0 AND amd.current_price > 0 
             THEN ROUND(((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)::numeric, 2)
@@ -3646,8 +3646,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ELSE 50
           END as demand_score,
           CASE 
-            WHEN amd.total_offers <= 5 THEN 'Low'
-            WHEN amd.total_offers <= 15 THEN 'Medium'
+            WHEN amd.review_count <= 50 THEN 'Low'
+            WHEN amd.review_count <= 200 THEN 'Medium'
             ELSE 'High'
           END as competition_level,
           COALESCE(p.inventory_quantity, 0) as stock_level,
@@ -3762,7 +3762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ELSE 0 
           END) as avg_margin,
           AVG(amd.sales_rank) as avg_sales_rank,
-          COUNT(CASE WHEN amd.last_updated > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
+          COUNT(CASE WHEN amd.data_fetched_at > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
         FROM products p
         JOIN categories c ON p.category_id = c.id
         LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
