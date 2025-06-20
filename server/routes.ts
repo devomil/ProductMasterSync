@@ -3614,6 +3614,271 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/amazon-test', amazonConnectionTestRoutes);
   app.use('/api/marketplace', imageOpportunities);
 
+  // Purchasing AI endpoints - using real data from catalog and marketplace
+  app.get('/api/purchasing/opportunities', async (req, res) => {
+    try {
+      const { category, risk_level } = req.query;
+      
+      const query = `
+        SELECT 
+          p.id,
+          p.sku,
+          p.name as product_name,
+          CAST(p.price AS NUMERIC) as current_price,
+          CAST(p.cost AS NUMERIC) as cost,
+          p.upc,
+          c.name as category,
+          p.usin as amazon_asin,
+          amd.current_price as amazon_price,
+          amd.lowest_price,
+          amd.highest_price,
+          amd.total_offers,
+          amd.sales_rank,
+          amd.last_updated as pricing_updated,
+          CASE 
+            WHEN CAST(p.price AS NUMERIC) > 0 AND amd.current_price > 0 
+            THEN ROUND(((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)::numeric, 2)
+            ELSE NULL 
+          END as profit_margin,
+          CASE 
+            WHEN amd.sales_rank IS NOT NULL AND amd.sales_rank > 0
+            THEN GREATEST(10, 100 - (amd.sales_rank / 10000.0))
+            ELSE 50
+          END as demand_score,
+          CASE 
+            WHEN amd.total_offers <= 5 THEN 'Low'
+            WHEN amd.total_offers <= 15 THEN 'Medium'
+            ELSE 'High'
+          END as competition_level,
+          COALESCE(p.inventory_quantity, 0) as stock_level,
+          CASE 
+            WHEN s.active = true THEN true
+            ELSE false
+          END as supplier_availability
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        LEFT JOIN suppliers s ON p.supplier_id = s.id
+        WHERE p.status = 'active'
+          AND p.usin IS NOT NULL
+          AND p.usin != ''
+          ${category && category !== 'all' ? 'AND c.name = $1' : ''}
+        ORDER BY p.updated_at DESC
+        LIMIT 50
+      `;
+      
+      const params = category && category !== 'all' ? [category] : [];
+      const result = await db.query(query, params);
+      
+      const opportunities = result.rows.map(row => {
+        const profitMargin = parseFloat(row.profit_margin) || 0;
+        const demandScore = Math.min(100, Math.max(0, Math.round(parseFloat(row.demand_score))));
+        
+        let recommendationScore = 0;
+        if (profitMargin > 30) recommendationScore += 40;
+        else if (profitMargin > 15) recommendationScore += 25;
+        else if (profitMargin > 5) recommendationScore += 10;
+        
+        recommendationScore += Math.round(demandScore * 0.3);
+        
+        if (row.competition_level === 'Low') recommendationScore += 20;
+        else if (row.competition_level === 'Medium') recommendationScore += 10;
+        
+        if (row.supplier_availability) recommendationScore += 10;
+        
+        let marketTrend = 'Stable';
+        if (row.pricing_updated) {
+          const daysSinceUpdate = (Date.now() - new Date(row.pricing_updated).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceUpdate < 7 && profitMargin > 20) marketTrend = 'Rising';
+          else if (daysSinceUpdate > 14 || profitMargin < 5) marketTrend = 'Declining';
+        }
+        
+        let riskLevel = 'Medium';
+        if (row.competition_level === 'Low' && profitMargin > 25 && row.supplier_availability) {
+          riskLevel = 'Low';
+        } else if (row.competition_level === 'High' || profitMargin < 10 || !row.supplier_availability) {
+          riskLevel = 'High';
+        }
+        
+        if (risk_level && risk_level !== 'all' && riskLevel !== risk_level) {
+          return null;
+        }
+        
+        let recommendationReason = '';
+        if (recommendationScore >= 80) {
+          recommendationReason = `Excellent opportunity with ${profitMargin.toFixed(1)}% margin and ${row.competition_level.toLowerCase()} competition`;
+        } else if (recommendationScore >= 60) {
+          recommendationReason = `Good potential with moderate margins and market position`;
+        } else {
+          recommendationReason = `Consider carefully - ${row.competition_level.toLowerCase()} competition or limited margins`;
+        }
+        
+        const estimatedROI = row.current_price && row.amazon_price 
+          ? Math.round(((parseFloat(row.amazon_price) - parseFloat(row.current_price)) / parseFloat(row.current_price)) * 100)
+          : 0;
+        
+        return {
+          id: row.id.toString(),
+          product_name: row.product_name,
+          sku: row.sku,
+          category: row.category || 'Uncategorized',
+          amazon_asin: row.amazon_asin,
+          current_price: parseFloat(row.current_price) || 0,
+          amazon_price: parseFloat(row.amazon_price) || 0,
+          price_difference: row.amazon_price && row.current_price 
+            ? parseFloat(row.amazon_price) - parseFloat(row.current_price) 
+            : 0,
+          profit_margin: profitMargin,
+          demand_score: demandScore,
+          competition_level: row.competition_level,
+          recommendation_score: Math.min(100, recommendationScore),
+          recommendation_reason: recommendationReason,
+          market_trend: marketTrend,
+          stock_level: parseInt(row.stock_level) || 0,
+          supplier_availability: row.supplier_availability,
+          estimated_roi: estimatedROI,
+          risk_level: riskLevel
+        };
+      }).filter(Boolean);
+      
+      res.json(opportunities);
+    } catch (error) {
+      console.error('Error fetching purchasing opportunities:', error);
+      res.status(500).json({ error: 'Failed to fetch purchasing opportunities' });
+    }
+  });
+
+  app.get('/api/purchasing/ai-insights', async (req, res) => {
+    try {
+      const insights = [];
+      
+      const trendQuery = `
+        SELECT 
+          c.name as category,
+          COUNT(*) as product_count,
+          AVG(CASE 
+            WHEN amd.current_price > 0 AND CAST(p.price AS NUMERIC) > 0 
+            THEN ((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
+            ELSE 0 
+          END) as avg_margin,
+          AVG(amd.sales_rank) as avg_sales_rank,
+          COUNT(CASE WHEN amd.last_updated > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
+        FROM products p
+        JOIN categories c ON p.category_id = c.id
+        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        WHERE p.status = 'active' AND p.usin IS NOT NULL AND p.usin != ''
+        GROUP BY c.name
+        HAVING COUNT(*) >= 3
+        ORDER BY avg_margin DESC
+      `;
+      
+      const trendResult = await db.query(trendQuery);
+      
+      for (const row of trendResult.rows) {
+        const avgMargin = parseFloat(row.avg_margin) || 0;
+        if (avgMargin > 25) {
+          insights.push({
+            type: 'opportunity',
+            title: `${row.category} Category Surge`,
+            description: `${row.category} products showing average ${Math.round(avgMargin)}% margins with strong market performance. Consider increasing inventory allocation.`,
+            confidence: Math.min(95, 70 + Math.round(avgMargin / 5)),
+            action_required: true
+          });
+        }
+      }
+      
+      const supplierQuery = `
+        SELECT 
+          s.name,
+          COUNT(p.id) as product_count,
+          s.active,
+          s.updated_at
+        FROM suppliers s
+        LEFT JOIN products p ON s.id = p.supplier_id
+        GROUP BY s.id, s.name, s.active, s.updated_at
+      `;
+      
+      const supplierResult = await db.query(supplierQuery);
+      
+      for (const supplier of supplierResult.rows) {
+        if (!supplier.active && supplier.product_count > 0) {
+          insights.push({
+            type: 'warning',
+            title: 'Supply Chain Alert',
+            description: `${supplier.name} supplier showing connectivity issues affecting ${supplier.product_count} products. Consider alternative sourcing.`,
+            confidence: 85,
+            action_required: true
+          });
+        }
+      }
+      
+      const opportunityQuery = `
+        SELECT COUNT(*) as high_value_count
+        FROM products p
+        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        WHERE p.status = 'active' 
+          AND p.usin IS NOT NULL
+          AND p.usin != ''
+          AND amd.current_price > CAST(p.price AS NUMERIC) * 1.3
+      `;
+      
+      const opportunityResult = await db.query(opportunityQuery);
+      const highValueCount = parseInt(opportunityResult.rows[0].high_value_count) || 0;
+      
+      if (highValueCount > 5) {
+        insights.push({
+          type: 'opportunity',
+          title: 'High-Value Opportunities Detected',
+          description: `${highValueCount} products identified with 30%+ profit potential. Market conditions favorable for expansion.`,
+          confidence: 91,
+          action_required: true
+        });
+      }
+      
+      res.json(insights);
+    } catch (error) {
+      console.error('Error generating AI insights:', error);
+      res.status(500).json({ error: 'Failed to generate AI insights' });
+    }
+  });
+
+  app.get('/api/purchasing/analytics', async (req, res) => {
+    try {
+      const profitQuery = `
+        SELECT 
+          SUM(CASE 
+            WHEN amd.current_price > CAST(p.price AS NUMERIC)
+            THEN (amd.current_price - CAST(p.price AS NUMERIC)) * COALESCE(p.inventory_quantity, 1)
+            ELSE 0 
+          END) as total_profit_potential,
+          COUNT(CASE 
+            WHEN amd.current_price > CAST(p.price AS NUMERIC) * 1.8 
+            THEN 1 
+          END) as high_value_opportunities,
+          AVG(CASE 
+            WHEN amd.current_price > 0 AND CAST(p.price AS NUMERIC) > 0
+            THEN ((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
+            ELSE 0
+          END) as avg_margin_increase
+        FROM products p
+        LEFT JOIN amazon_market_data amd ON p.usin = amd.asin
+        WHERE p.status = 'active' AND p.usin IS NOT NULL AND p.usin != ''
+      `;
+      
+      const result = await db.query(profitQuery);
+      const analytics = result.rows[0];
+      
+      res.json({
+        total_profit_potential: Math.round(parseFloat(analytics.total_profit_potential) || 0),
+        high_value_opportunities: parseInt(analytics.high_value_opportunities) || 0,
+        avg_margin_increase: Math.round(parseFloat(analytics.avg_margin_increase) || 0)
+      });
+    } catch (error) {
+      console.error('Error calculating purchasing analytics:', error);
+      res.status(500).json({ error: 'Failed to calculate analytics' });
+    }
+  });
+
   // Register connections management routes
   // Register connections routes directly
   registerConnectionsRoutes(app);
