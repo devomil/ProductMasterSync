@@ -3629,20 +3629,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.upc,
           c.name as category,
           p.usin as amazon_asin,
-          amd.current_price as amazon_price,
-          amd.lowest_price,
-          amd.highest_price,
+          amd.price as amazon_price,
+          amd.price as lowest_price,
+          amd.price as highest_price,
           amd.review_count,
-          amd.sales_rank,
-          amd.data_fetched_at as pricing_updated,
+          amd.rank as sales_rank,
+          amd.last_synced as pricing_updated,
           CASE 
-            WHEN CAST(p.price AS NUMERIC) > 0 AND amd.current_price > 0 
-            THEN ROUND(((amd.current_price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)::numeric, 2)
+            WHEN CAST(p.price AS NUMERIC) > 0 AND amd.price > 0 
+            THEN ROUND(((amd.price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)::numeric, 2)
             ELSE NULL 
           END as profit_margin,
           CASE 
-            WHEN amd.sales_rank IS NOT NULL AND amd.sales_rank > 0
-            THEN GREATEST(10, 100 - (amd.sales_rank / 10000.0))
+            WHEN amd.rank IS NOT NULL AND amd.rank > 0
+            THEN GREATEST(10, 100 - (amd.rank / 10000.0))
             ELSE 50
           END as demand_score,
           CASE 

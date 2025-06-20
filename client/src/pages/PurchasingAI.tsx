@@ -68,8 +68,7 @@ const PurchasingAI = () => {
       
       const response = await fetch(`/api/purchasing/opportunities?${params}`);
       if (!response.ok) {
-        // Return mock data for demonstration
-        return generateMockOpportunities();
+        throw new Error('Failed to fetch purchasing opportunities');
       }
       return response.json();
     }
@@ -81,7 +80,7 @@ const PurchasingAI = () => {
     queryFn: async () => {
       const response = await fetch('/api/purchasing/ai-insights');
       if (!response.ok) {
-        return generateMockInsights();
+        throw new Error('Failed to fetch AI insights');
       }
       return response.json();
     }
@@ -92,92 +91,9 @@ const PurchasingAI = () => {
     queryKey: ['/api/categories'],
   });
 
-  const generateMockOpportunities = (): PurchasingOpportunity[] => [
-    {
-      id: '1',
-      product_name: 'Wilderness Systems Tarpon 120 Kayak',
-      sku: '488270',
-      category: 'Paddlesports',
-      amazon_asin: 'B08XYZ123',
-      current_price: 649.99,
-      amazon_price: 899.99,
-      price_difference: 250.00,
-      profit_margin: 38.5,
-      demand_score: 92,
-      competition_level: 'Medium',
-      recommendation_score: 94,
-      recommendation_reason: 'High demand, excellent margins, trending upward in outdoor recreation',
-      market_trend: 'Rising',
-      stock_level: 15,
-      supplier_availability: true,
-      estimated_roi: 245.5,
-      risk_level: 'Low'
-    },
-    {
-      id: '2', 
-      product_name: 'Coleman Sundome Camping Tent',
-      sku: '451892',
-      category: 'Camping',
-      amazon_asin: 'B07ABC456',
-      current_price: 89.99,
-      amazon_price: 129.99,
-      price_difference: 40.00,
-      profit_margin: 44.4,
-      demand_score: 88,
-      competition_level: 'High',
-      recommendation_score: 78,
-      recommendation_reason: 'Seasonal peak approaching, strong brand recognition',
-      market_trend: 'Rising',
-      stock_level: 8,
-      supplier_availability: true,
-      estimated_roi: 156.3,
-      risk_level: 'Medium'
-    },
-    {
-      id: '3',
-      product_name: 'Yeti Rambler Tumbler 30oz',
-      sku: '392847',
-      category: 'Drinkware',
-      amazon_asin: 'B09DEF789',
-      current_price: 34.99,
-      amazon_price: 39.99,
-      price_difference: 5.00,
-      profit_margin: 14.3,
-      demand_score: 76,
-      competition_level: 'High',
-      recommendation_score: 45,
-      recommendation_reason: 'Saturated market, low margins, declining trend',
-      market_trend: 'Declining',
-      stock_level: 45,
-      supplier_availability: true,
-      estimated_roi: 67.8,
-      risk_level: 'High'
-    }
-  ];
 
-  const generateMockInsights = (): AIInsight[] => [
-    {
-      type: 'opportunity',
-      title: 'Outdoor Recreation Surge',
-      description: 'Paddlesports and camping categories showing 340% increase in demand. Consider increasing inventory allocation.',
-      confidence: 92,
-      action_required: true
-    },
-    {
-      type: 'warning',
-      title: 'Supply Chain Alert',
-      description: 'CWR supplier reporting potential delays on 3 high-demand SKUs. Consider alternative sourcing.',
-      confidence: 87,
-      action_required: true
-    },
-    {
-      type: 'trend',
-      title: 'Seasonal Pattern Recognition',
-      description: 'Historical data suggests 45% uptick in camping gear sales over next 6 weeks.',
-      confidence: 94,
-      action_required: false
-    }
-  ];
+
+
 
   const filteredOpportunities = opportunities
     .filter(opp => 
