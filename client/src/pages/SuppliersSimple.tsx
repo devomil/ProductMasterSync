@@ -2,16 +2,21 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Plus, Search, Building, Mail, Phone, TestTube, Eye, RefreshCw } from "lucide-react";
+import { Users, Plus, Search, Building, Mail, Phone, TestTube, Eye, RefreshCw, Edit, Play, Trash2, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { SupplierForm } from "@/components/suppliers/SupplierForm";
 
 export default function SuppliersSimple() {
   const [searchTerm, setSearchTerm] = useState("");
   const [testPullResults, setTestPullResults] = useState<any>(null);
   const [isTestPullOpen, setIsTestPullOpen] = useState(false);
   const [testingSupplier, setTestingSupplier] = useState<number | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: suppliers, isLoading } = useQuery({
@@ -62,6 +67,22 @@ export default function SuppliersSimple() {
     testPullMutation.mutate(supplierId);
   };
 
+  const handleTestConnection = (supplierId: number) => {
+    toast({
+      title: "Test Connection",
+      description: "Connection testing functionality will be implemented based on supplier's data source configuration.",
+    });
+  };
+
+  const handleDeleteSupplier = (supplierId: number) => {
+    if (window.confirm("Are you sure you want to delete this supplier?")) {
+      toast({
+        title: "Delete Supplier",
+        description: "Supplier deletion functionality will be implemented.",
+      });
+    }
+  };
+
   const filteredSuppliers = suppliers?.filter((supplier: any) => 
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,7 +96,7 @@ export default function SuppliersSimple() {
           <h1 className="text-3xl font-bold text-gray-900">Supplier Management</h1>
           <p className="text-gray-600 mt-1">Manage your supplier relationships and data sources</p>
         </div>
-        <Button>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Supplier
         </Button>
@@ -118,7 +139,7 @@ export default function SuppliersSimple() {
               <p className="text-gray-600 mb-4">
                 Start building your supplier network by adding your first supplier.
               </p>
-              <Button>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Supplier
               </Button>
@@ -173,19 +194,50 @@ export default function SuppliersSimple() {
                         <Eye className="h-3 w-3" />
                         View Details
                       </Button>
-                      <Button 
-                        size="sm" 
-                        className="flex-1 gap-1"
-                        onClick={() => handleManage(supplier.id)}
-                        disabled={testingSupplier === supplier.id}
-                      >
-                        {testingSupplier === supplier.id ? (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <TestTube className="h-3 w-3" />
-                        )}
-                        Manage
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" className="flex-1 gap-1">
+                            <Building className="h-3 w-3" />
+                            Manage
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedSupplier(supplier);
+                              setIsEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Supplier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleTestConnection(supplier.id)}
+                          >
+                            <TestTube className="mr-2 h-4 w-4" />
+                            Test Connection
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleManage(supplier.id)}
+                            disabled={testingSupplier === supplier.id}
+                          >
+                            {testingSupplier === supplier.id ? (
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Play className="mr-2 h-4 w-4" />
+                            )}
+                            Sample Batch
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleDeleteSupplier(supplier.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </CardContent>
@@ -311,6 +363,22 @@ export default function SuppliersSimple() {
           </div>
         </div>
       )}
+
+      {/* Add Supplier Dialog */}
+      <SupplierForm
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+      />
+
+      {/* Edit Supplier Dialog */}
+      <SupplierForm
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setSelectedSupplier(null);
+        }}
+        supplier={selectedSupplier}
+      />
     </div>
   );
 }
