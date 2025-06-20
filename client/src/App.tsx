@@ -39,6 +39,7 @@ import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
 import NotFound from "@/pages/not-found";
+import TopNavigation from "@/components/TopNavigation";
 
 function Router() {
   return (
@@ -91,64 +92,7 @@ function App() {
         <OnboardingManager>
           <Toaster />
           <div className="min-h-screen bg-background">
-            <header className="border-b bg-white shadow-sm">
-              <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">MDM/PIM System</h1>
-                <nav className="flex space-x-6">
-                  <a href="/" className="text-gray-600 hover:text-gray-900">Dashboard</a>
-                  <div className="relative group">
-                    <button className="text-gray-600 hover:text-gray-900 flex items-center">
-                      Products <span className="ml-1">▼</span>
-                    </button>
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border shadow-lg rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                      <a href="/products" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Product Catalog</a>
-                      <a href="/categories" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Categories</a>
-                      <a href="/advanced-deduplication" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Deduplication</a>
-                      <hr className="my-1" />
-                      <a href="/amazon-integration" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Amazon Integration</a>
-                      <a href="/multi-asin" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Multi-ASIN Search</a>
-                    </div>
-                  </div>
-                  <div className="relative group">
-                    <button className="text-gray-600 hover:text-gray-900 flex items-center">
-                      Suppliers <span className="ml-1">▼</span>
-                    </button>
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border shadow-lg rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                      <a href="/suppliers" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Supplier Management</a>
-                      <hr className="my-1" />
-                      <a href="/data-sources" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Data Sources</a>
-                      <a href="/connections" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Connection Testing</a>
-                      <a href="/mapping-templates" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Mapping Templates</a>
-                    </div>
-                  </div>
-                  <div className="relative group">
-                    <button className="text-gray-600 hover:text-gray-900 flex items-center">
-                      Data <span className="ml-1">▼</span>
-                    </button>
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border shadow-lg rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                      <a href="/data-imports" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Data Imports</a>
-                      <a href="/data-exports" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Data Exports</a>
-                      <hr className="my-1" />
-                      <a href="/approvals" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Approvals</a>
-                      <a href="/audit-logs" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Audit Logs</a>
-                    </div>
-                  </div>
-                  <a href="/amazon-analytics" className="text-gray-600 hover:text-gray-900">Analytics</a>
-                  <div className="relative group">
-                    <button className="text-gray-600 hover:text-gray-900 flex items-center">
-                      System <span className="ml-1">▼</span>
-                    </button>
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border shadow-lg rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                      <a href="/system-analysis" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">System Analysis</a>
-                      <a href="/system-monitoring" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">System Monitoring</a>
-                      <hr className="my-1" />
-                      <a href="/validation-rules" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Validation Rules</a>
-                      <a href="/api-configuration" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">API Configuration</a>
-                    </div>
-                  </div>
-                </nav>
-              </div>
-            </header>
+            <TopNavigation />
             <main className="container mx-auto px-4 py-6">
               <Router />
             </main>
