@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
+// import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
 import Dashboard from "@/pages/Dashboard";
 import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
@@ -88,9 +88,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <OnboardingManager>
-          <Toaster />
-          <div className="min-h-screen bg-background">
+        <Toaster />
+        <div className="min-h-screen bg-background">
             <header className="border-b bg-white shadow-sm">
               <div className="container mx-auto px-4 py-3 flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-gray-900">MDM/PIM System</h1>
@@ -153,10 +152,9 @@ function App() {
               <Router />
             </main>
           </div>
-        </OnboardingManager>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
 }
 
 export default App;
