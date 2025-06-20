@@ -8,7 +8,7 @@ import PendingApprovals from "@/components/dashboard/PendingApprovals";
 import QuickActions from "@/components/dashboard/QuickActions";
 import ProcessFlow from "@/components/dashboard/ProcessFlow";
 import ImportModal from "@/components/imports/ImportModal";
-import { useOnboarding } from "@/components/onboarding/OnboardingManager";
+// import { useOnboarding } from "@/components/onboarding/OnboardingManager";
 import { InventorySyncTester } from "@/components/InventorySyncTester";
 
 // Data quality metrics
@@ -21,7 +21,7 @@ const dataQualityMetrics = [
 
 const Dashboard = () => {
   const [showImportModal, setShowImportModal] = useState(false);
-  const { triggerOnboarding } = useOnboarding();
+  // const { triggerOnboarding } = useOnboarding();
   const [statistics, setStatistics] = useState({
     totalProducts: 23456,
     activeSuppliers: 156,
@@ -56,7 +56,7 @@ const Dashboard = () => {
         <div className="mt-3 sm:mt-0 sm:ml-4 flex gap-3">
           <Button 
             variant="outline" 
-            onClick={triggerOnboarding}
+            onClick={() => console.log('Onboarding trigger')}
             className="gap-2"
           >
             <Sparkles className="h-4 w-4" />
