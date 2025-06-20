@@ -21,12 +21,17 @@ export default function SuppliersSimple() {
   // Test pull mutation
   const testPullMutation = useMutation({
     mutationFn: async (supplierId: number) => {
-      const response = await apiRequest(`/api/suppliers/${supplierId}/test-pull`, {
+      const response = await fetch(`/api/suppliers/${supplierId}/test-pull`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ limit: 10 })
       });
-      return response;
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: (data, supplierId) => {
       setTestPullResults(data);
