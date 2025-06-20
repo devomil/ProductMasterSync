@@ -2554,6 +2554,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Count duplicates
+      const upcDuplicates = Object.values(upcGroups).filter(count => count > 1).reduce((sum, count) => sum + count, 0);
+      const mpnDuplicates = Object.values(mpnGroups).filter(count => count > 1).reduce((sum, count) => sum + count, 0);
+      
+      const stats = {
+        totalProducts: totalCount,
+        potentialDuplicates: Math.max(upcDuplicates, mpnDuplicates),
+        upcDuplicates,
+        mpnDuplicates,
+        uniqueProducts: totalCount - Math.max(upcDuplicates, mpnDuplicates),
+        lastUpdated: new Date().toISOString()
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error('Error getting deduplication stats:', error);
+      res.status(500).json({ 
+        message: "Error calculating deduplication statistics",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+          if (product && product.manufacturerPartNumber && product.manufacturerPartNumber.trim() !== '') {
+            mpnGroups[product.manufacturerPartNumber] = (mpnGroups[product.manufacturerPartNumber] || 0) + 1;
+          }
+        });
+      }
+      
       const upcDuplicates = Object.values(upcGroups).filter(count => count > 1);
       const mpnDuplicates = Object.values(mpnGroups).filter(count => count > 1);
       
