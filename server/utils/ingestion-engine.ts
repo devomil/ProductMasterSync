@@ -347,12 +347,28 @@ export async function processSFTPIngestion(
             continue;
           }
           
+          // Handle category mapping if category name is provided
+          let categoryId = null;
+          if (record.category_id) {
+            categoryId = parseInt(record.category_id);
+          } else if (record.category_name || record.categoryName) {
+            // Import category mapper
+            const { categoryMapper } = await import('./category-mapper');
+            const categoryName = record.category_name || record.categoryName;
+            const mappingResult = await categoryMapper.mapCategoryNameToId(categoryName);
+            categoryId = mappingResult.categoryId;
+            
+            if (mappingResult.matchType !== 'none') {
+              console.log(`Mapped category "${categoryName}" to ID ${categoryId} (${mappingResult.matchType}, confidence: ${mappingResult.confidence})`);
+            }
+          }
+
           // Extract standard product fields
           const productData = {
             sku: record.sku,
             name: record.product_name || record.name || '',
             description: record.description || '',
-            categoryId: record.category_id ? parseInt(record.category_id) : null,
+            categoryId: categoryId,
             manufacturerId: record.manufacturer_id ? parseInt(record.manufacturer_id) : null,
             manufacturerName: record.manufacturer_name || record.manufacturer || '',
             manufacturerPartNumber: record.manufacturer_part_number || record.mpn || '',
