@@ -4301,36 +4301,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       asins_found: await Promise.all(upcAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'UPC_EXACT', 95)))
     });
     
-    // Step 2: Search by MPN if UPC didn't return enough results
-    if (searchSequence[0].results_found < 2 && sampleAsins.length > upcResults) {
-      const mpnResults = Math.min(2, sampleAsins.length - upcResults);
-      const mpnAsins = sampleAsins.slice(upcResults, upcResults + mpnResults);
+    // Step 2: Search by MPN - always perform this search
+    const mpnResults = Math.min(2, sampleAsins.length > upcResults ? sampleAsins.length - upcResults : 0);
+    const mpnAsins = mpnResults > 0 ? sampleAsins.slice(upcResults, upcResults + mpnResults) : [];
       
-      searchSequence.push({
-        step: 2,
-        method: 'MPN Search',
-        criteria: mpn,
-        results_found: mpnResults,
-        success: mpnResults > 0,
-        asins_found: await Promise.all(mpnAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'MPN_MATCH', 85)))
-      });
-    }
+    searchSequence.push({
+      step: 2,
+      method: 'MPN Search',
+      criteria: mpn,
+      results_found: mpnResults,
+      success: mpnResults > 0,
+      asins_found: await Promise.all(mpnAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'MPN_MATCH', 85)))
+    });
     
-    // Step 3: Search by Description as last resort
-    const totalPreviousResults = searchSequence.reduce((sum, step) => sum + step.results_found, 0);
-    if (totalPreviousResults < 1 && sampleAsins.length > 2) {
-      const descResults = Math.min(1, sampleAsins.length - 2);
-      const descAsins = sampleAsins.slice(-descResults);
+    // Step 3: Search by Description - always perform this search
+    const usedAsins = upcResults + mpnResults;
+    const descResults = Math.min(1, sampleAsins.length > usedAsins ? sampleAsins.length - usedAsins : 0);
+    const descAsins = descResults > 0 ? sampleAsins.slice(usedAsins, usedAsins + descResults) : [];
       
-      searchSequence.push({
-        step: 3,
-        method: 'Description/Title Search',
-        criteria: `${title.substring(0, 50)}...`,
-        results_found: descResults,
-        success: descResults > 0,
-        asins_found: await Promise.all(descAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'DESCRIPTION_FUZZY', 60)))
-      });
-    }
+    searchSequence.push({
+      step: 3,
+      method: 'Description/Title Search',
+      criteria: `${title.substring(0, 50)}...`,
+      results_found: descResults,
+      success: descResults > 0,
+      asins_found: await Promise.all(descAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'DESCRIPTION_FUZZY', 60)))
+    });
     
     // Calculate confidence score based on what matched
     const upcMatch = searchSequence[0]?.success;
@@ -4479,7 +4475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Query detailed Amazon data from database  
       const asinDetails = await pool.query(`
         SELECT * FROM amazon_marketplace_data 
-        WHERE asin = $1 OR id::text = $1
+        WHERE asin = $1
         LIMIT 1
       `, [asin]);
       

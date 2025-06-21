@@ -266,7 +266,7 @@ export default function MarketplaceAmazon() {
                                           <div key={asinIdx} className="border rounded p-3 bg-white">
                                             <div className="flex items-center justify-between mb-2">
                                               <div>
-                                                <div className="font-mono font-medium text-sm">{asinData.asin}</div>
+                                                <div className="font-mono font-medium text-sm text-blue-600">{asinData.asin}</div>
                                                 <div className="flex gap-2 mt-1">
                                                   {asinData.title_match && (
                                                     <Badge variant="outline" className="text-xs px-1 py-0">Title Match</Badge>
