@@ -4059,7 +4059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
 
       // Simulate cascading search logic and confidence scoring
-      const searchResults = simulateAmazonSearch(productData, sampleAsins);
+      const searchResults = simulateAmazonSearch(productData, sampleAsins, 'A10D4VTYI7RMZ2', 'ATVPDKIKX0DER');
       
       const amazonResponse = {
         search_sequence: searchResults.search_sequence,
@@ -4266,7 +4266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to simulate Amazon's cascading search logic
-  function simulateAmazonSearch(productData: any, sampleAsins: string[]) {
+  function simulateAmazonSearch(productData: any, sampleAsins: string[], merchantId: string, marketplaceId: string) {
     const upc = productData.upc || '010694150300';
     const mpn = 'HF-743'; // Hardcoded since column doesn't exist
     const title = productData.product_name || 'RITCHIE HF-743 HELMSMAN COMPASS';
@@ -4293,7 +4293,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title_match: Math.random() > 0.5,
         brand_match: Math.random() > 0.3,
         category: 'Marine Electronics',
-        confidence: Math.round(Math.random() * 20 + 80) // 80-100%
+        confidence: Math.round(Math.random() * 20 + 80), // 80-100%
+        listing_restrictions: getListingRestrictions(asin, merchantId, marketplaceId),
+        buy_box_info: getBuyBoxInfo(asin, merchantId)
       }))
     });
     
@@ -4313,7 +4315,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title_match: Math.random() > 0.4,
           brand_match: Math.random() > 0.6,
           category: 'Marine Electronics',
-          confidence: Math.round(Math.random() * 20 + 60) // 60-80%
+          confidence: Math.round(Math.random() * 20 + 60), // 60-80%
+          listing_restrictions: getListingRestrictions(asin, merchantId, marketplaceId),
+          buy_box_info: getBuyBoxInfo(asin, merchantId)
         }))
       });
     }
@@ -4335,7 +4339,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title_match: Math.random() > 0.2,
           brand_match: Math.random() > 0.7,
           category: Math.random() > 0.5 ? 'Marine Electronics' : 'Sports & Outdoors',
-          confidence: Math.round(Math.random() * 20 + 40) // 40-60%
+          confidence: Math.round(Math.random() * 20 + 40), // 40-60%
+          listing_restrictions: getListingRestrictions(asin, merchantId, marketplaceId),
+          buy_box_info: getBuyBoxInfo(asin, merchantId)
         }))
       });
     }
@@ -4478,6 +4484,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     return restrictions;
+  }
+
+  // Function to get Buy Box information for specific ASIN
+  function getBuyBoxInfo(asin: string, merchantId: string) {
+    const basePrice = 285.52;
+    const priceVariation = Math.random() * 50 - 25; // +/- $25
+    const currentPrice = Math.max(250, basePrice + priceVariation);
+    
+    const competitors = [
+      { seller: 'Amazon', price: currentPrice - 5, fulfillment: 'FBA' },
+      { seller: 'Marine Supply Co', price: currentPrice + 10, fulfillment: 'FBM' },
+      { seller: 'Compass Direct', price: currentPrice + 15, fulfillment: 'FBM' }
+    ];
+    
+    const isEligible = currentPrice <= Math.min(...competitors.map(c => c.price)) + 5;
+    
+    return {
+      asin: asin,
+      current_price: Math.round(currentPrice * 100) / 100,
+      buy_box_eligible: isEligible,
+      buy_box_probability: isEligible ? Math.round(Math.random() * 30 + 70) + '%' : Math.round(Math.random() * 40 + 10) + '%',
+      competitive_analysis: {
+        total_sellers: competitors.length + 1,
+        price_rank: isEligible ? 1 : Math.floor(Math.random() * 3) + 2,
+        lowest_price: Math.min(currentPrice, ...competitors.map(c => c.price)),
+        highest_price: Math.max(currentPrice, ...competitors.map(c => c.price)),
+        avg_price: Math.round(([currentPrice, ...competitors.map(c => c.price)].reduce((a, b) => a + b) / (competitors.length + 1)) * 100) / 100
+      },
+      competitors: competitors,
+      seller_metrics: {
+        seller_id: merchantId,
+        performance_rating: '4.8/5',
+        order_defect_rate: '0.5%',
+        shipping_performance: '98.5%',
+        fba_eligible: true
+      },
+      listing_status: isEligible ? 'COMPETITIVE' : 'NEEDS_PRICE_ADJUSTMENT'
+    };
   }
 
   app.get('/api/marketplace/amazon/mapping-rules', async (req, res) => {

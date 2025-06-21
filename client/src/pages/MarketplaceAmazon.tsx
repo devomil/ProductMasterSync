@@ -263,22 +263,63 @@ export default function MarketplaceAmazon() {
                                       <div className="text-xs font-medium text-gray-700 mb-2">ASINs Discovered:</div>
                                       <div className="space-y-2">
                                         {step.asins_found.map((asinData: any, asinIdx: number) => (
-                                          <div key={asinIdx} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
-                                            <div>
-                                              <div className="font-mono font-medium">{asinData.asin}</div>
-                                              <div className="flex gap-2 mt-1">
-                                                {asinData.title_match && (
-                                                  <Badge variant="outline" className="text-xs px-1 py-0">Title Match</Badge>
-                                                )}
-                                                {asinData.brand_match && (
-                                                  <Badge variant="outline" className="text-xs px-1 py-0">Brand Match</Badge>
-                                                )}
+                                          <div key={asinIdx} className="border rounded p-3 bg-white">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <div>
+                                                <div className="font-mono font-medium text-sm">{asinData.asin}</div>
+                                                <div className="flex gap-2 mt-1">
+                                                  {asinData.title_match && (
+                                                    <Badge variant="outline" className="text-xs px-1 py-0">Title Match</Badge>
+                                                  )}
+                                                  {asinData.brand_match && (
+                                                    <Badge variant="outline" className="text-xs px-1 py-0">Brand Match</Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div className="text-right">
+                                                <div className="font-medium">{asinData.confidence}%</div>
+                                                <div className="text-gray-500 text-xs">{asinData.category}</div>
                                               </div>
                                             </div>
-                                            <div className="text-right">
-                                              <div className="font-medium">{asinData.confidence}%</div>
-                                              <div className="text-gray-500">{asinData.category}</div>
-                                            </div>
+                                            
+                                            {/* Buy Box Information */}
+                                            {asinData.buy_box_info && (
+                                              <div className="mb-2 p-2 bg-blue-50 rounded text-xs">
+                                                <div className="flex justify-between items-center mb-1">
+                                                  <strong>Buy Box Analysis:</strong>
+                                                  <Badge variant={asinData.buy_box_info.buy_box_eligible ? 'default' : 'destructive'} className="text-xs">
+                                                    {asinData.buy_box_info.buy_box_probability}
+                                                  </Badge>
+                                                </div>
+                                                <div>Price: ${asinData.buy_box_info.current_price}</div>
+                                                <div>Rank: #{asinData.buy_box_info.competitive_analysis.price_rank} of {asinData.buy_box_info.competitive_analysis.total_sellers}</div>
+                                                <div>Range: ${asinData.buy_box_info.competitive_analysis.lowest_price} - ${asinData.buy_box_info.competitive_analysis.highest_price}</div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Listing Restrictions Summary */}
+                                            {asinData.listing_restrictions && (
+                                              <div className="text-xs">
+                                                <strong>Restrictions:</strong>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {asinData.listing_restrictions.map((restriction: any, restrictionIdx: number) => (
+                                                    <Badge 
+                                                      key={restrictionIdx} 
+                                                      variant={
+                                                        restriction.status === 'APPROVED' || restriction.status === 'COMPLIANT' || restriction.status === 'COMPETITIVE'
+                                                          ? 'default' 
+                                                          : restriction.status === 'CONDITIONAL_APPROVAL'
+                                                          ? 'secondary'
+                                                          : 'destructive'
+                                                      }
+                                                      className="text-xs"
+                                                    >
+                                                      {restriction.restriction_type}: {restriction.status}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
                                         ))}
                                       </div>
