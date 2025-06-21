@@ -4047,9 +4047,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `, [productData.id]);
       
       if (authenthicDataQuery.rows.length === 0) {
+        console.log(`No Amazon data found for product ${productData.id}, name: ${productData.name}`);
         return res.status(404).json({ 
           error: 'No authentic Amazon marketplace data available',
-          message: 'Database contains no valid Amazon ASINs. Synthetic data generation has been disabled per testing requirements.'
+          message: `No Amazon ASINs found for product "${productData.name}" (EDC ${productData.sku}). Authentic marketplace data required for testing.`,
+          product_details: {
+            name: productData.name,
+            sku: productData.sku,
+            manufacturer: productData.manufacturer_name,
+            upc: productData.upc
+          }
         });
       }
       
