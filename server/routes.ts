@@ -4478,27 +4478,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: amazonData.title || productData.product_name || `ACR 55W/12V LAMP FOR RCL-100 SERIES SEARCHLIGHT`,
         brand: amazonData.brand || 'ACR Electronics',
         category: amazonData.category || 'Marine Electronics',
-        price: parseFloat(amazonData.price) || parseFloat((Math.random() * 300 + 25).toFixed(2)),
-        rank: parseInt(amazonData.rank) || Math.floor(Math.random() * 50000) + 1000,
-        rating: parseFloat(amazonData.rating) || (Math.random() * 1.5 + 3.5),
-        review_count: parseInt(amazonData.review_count) || Math.floor(Math.random() * 500) + 10,
+        price: parseFloat(amazonData.price) || null,
+        rank: parseInt(amazonData.rank) || null,
+        rating: parseFloat(amazonData.rating) || null,
+        review_count: parseInt(amazonData.review_count) || null,
         confidence: confidence,
         match_type: matchType,
-        images: amazonData.images ? JSON.parse(amazonData.images) : [
-          `https://m.media-amazon.com/images/I/71abc123def.jpg`,
-          `https://m.media-amazon.com/images/I/71xyz789ghi.jpg`
-        ],
-        features: amazonData.features ? JSON.parse(amazonData.features) : [
-          'Professional marine grade construction',
-          'Waterproof to industry standards',
-          'Easy installation and setup'
-        ],
-        specifications: amazonData.specifications ? JSON.parse(amazonData.specifications) : {
-          'Dimensions': '4.5" x 4.5" x 2.25"',
-          'Weight': '1.2 lbs',
-          'Material': 'Marine grade aluminum',
-          'Warranty': '2 years'
-        },
+        images: amazonData.images ? JSON.parse(amazonData.images) : [],
+        features: amazonData.features ? JSON.parse(amazonData.features) : [],
+        specifications: amazonData.specifications ? JSON.parse(amazonData.specifications) : {},
         listing_restrictions: await getListingRestrictions(asin, merchantId, marketplaceId) || [],
         buy_box_info: await getBuyBoxInfo(asin, merchantId),
         fulfillment_options: {
