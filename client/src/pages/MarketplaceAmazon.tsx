@@ -439,7 +439,7 @@ export default function MarketplaceAmazon() {
                       <div>
                         <h4 className="font-medium mb-2">Seller Account Restrictions (A10D4VTYI7RMZ2):</h4>
                         <div className="space-y-3">
-                          {amazonData.listing_restrictions?.map((restriction: any, idx: number) => (
+                          {Array.isArray(amazonData.listing_restrictions) && amazonData.listing_restrictions.map((restriction: any, idx: number) => (
                             <div key={idx} className={`border rounded p-3 ${
                               restriction.status === 'APPROVED' || restriction.status === 'COMPLIANT' || restriction.status === 'COMPETITIVE' 
                                 ? 'border-green-200 bg-green-50' 
