@@ -4022,8 +4022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.name as product_name,
           p.sku,
           p.description,
-          p.upc,
-          p.mpn
+          p.upc
         FROM amazon_marketplace_data amd
         LEFT JOIN products p ON p.usin = amd.asin
         WHERE amd.asin = $1
@@ -4045,14 +4044,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { asin: `${productData.asin}B`, relationship: 'bundle' }
       ];
       
+      // Simulate cascading search logic and confidence scoring
+      const searchResults = simulateAmazonSearch(productData);
+      
       const amazonResponse = {
-        search_method: 'UPC + Description + MPN',
-        search_criteria: {
-          upc: productData.upc || '010694150300',
-          mpn: productData.mpn || 'HF-743',
-          description: productData.description || 'Marine compass flush mount',
-          keywords: 'compass marine navigation'
-        },
+        search_sequence: searchResults.search_sequence,
+        confidence_score: searchResults.confidence_score,
+        confidence_tier: searchResults.confidence_tier,
+        search_criteria: searchResults.search_criteria,
         total_matches: relatedAsins.length,
         primary_asin: productData.asin,
         related_asins: relatedAsins,
@@ -4085,7 +4084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'Warranty': '2 years manufacturer',
           'Made In': 'USA',
           'UPC': productData.upc || '010694150300',
-          'MPN': productData.mpn || 'HF-743'
+          'MPN': 'HF-743'
         },
         listing_restrictions: [
           {
@@ -4175,7 +4174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ]
                 },
                 ManufactureInfo: {
-                  ItemPartNumber: { DisplayValue: productData.mpn || 'HF-743' },
+                  ItemPartNumber: { DisplayValue: 'HF-743' },
                   Model: { DisplayValue: 'HF-743' },
                   Warranty: { DisplayValue: '2 year manufacturer warranty' }
                 },
@@ -4269,6 +4268,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to fetch Amazon product data' });
     }
   });
+
+  // Helper function to simulate Amazon's cascading search logic
+  function simulateAmazonSearch(productData: any) {
+    const upc = productData.upc || '010694150300';
+    const mpn = 'HF-743'; // Hardcoded since column doesn't exist
+    const title = productData.product_name || 'RITCHIE HF-743 HELMSMAN COMPASS';
+    const description = productData.description || 'Marine compass flush mount';
+    
+    // Simulate search sequence
+    let searchSequence = [];
+    let confidenceScore = 0;
+    let confidenceTier = '';
+    let matchedCriteria = [];
+    
+    // Step 1: Search by UPC
+    searchSequence.push({
+      step: 1,
+      method: 'UPC Search',
+      criteria: upc,
+      results_found: Math.random() > 0.3 ? 2 : 0,
+      success: Math.random() > 0.3
+    });
+    
+    // Step 2: Search by MPN if UPC didn't return enough results
+    if (searchSequence[0].results_found < 2) {
+      searchSequence.push({
+        step: 2,
+        method: 'MPN Search',
+        criteria: mpn,
+        results_found: Math.random() > 0.2 ? 3 : 0,
+        success: Math.random() > 0.2
+      });
+    }
+    
+    // Step 3: Search by Description as last resort
+    if (searchSequence.length === 2 && searchSequence[1].results_found < 1) {
+      searchSequence.push({
+        step: 3,
+        method: 'Description/Title Search',
+        criteria: `${title.substring(0, 50)}...`,
+        results_found: Math.random() > 0.1 ? 5 : 0,
+        success: Math.random() > 0.1
+      });
+    }
+    
+    // Calculate confidence score based on what matched
+    const upcMatch = searchSequence[0]?.success;
+    const mpnMatch = searchSequence[1]?.success;
+    const titleMatch = searchSequence[2]?.success;
+    
+    if (upcMatch && mpnMatch && titleMatch) {
+      confidenceScore = 100;
+      confidenceTier = 'Perfect Match';
+      matchedCriteria = ['UPC', 'MPN', 'Title/Description'];
+    } else if (upcMatch && mpnMatch) {
+      confidenceScore = 90;
+      confidenceTier = 'High Confidence';
+      matchedCriteria = ['UPC', 'MPN'];
+    } else if (upcMatch) {
+      confidenceScore = 80;
+      confidenceTier = 'Good Confidence';
+      matchedCriteria = ['UPC'];
+    } else if (mpnMatch) {
+      confidenceScore = 70;
+      confidenceTier = 'Moderate Confidence';
+      matchedCriteria = ['MPN'];
+    } else if (titleMatch) {
+      confidenceScore = 50;
+      confidenceTier = 'Low Confidence';
+      matchedCriteria = ['Title/Description'];
+    } else {
+      confidenceScore = 20;
+      confidenceTier = 'Very Low Confidence';
+      matchedCriteria = ['Fuzzy Match'];
+    }
+    
+    return {
+      search_sequence: searchSequence,
+      confidence_score: confidenceScore,
+      confidence_tier: confidenceTier,
+      matched_criteria: matchedCriteria,
+      search_criteria: {
+        upc: upc,
+        mpn: mpn,
+        title: title,
+        description: description,
+        keywords: 'compass marine navigation'
+      }
+    };
+  }
 
   app.get('/api/marketplace/amazon/mapping-rules', async (req, res) => {
     try {

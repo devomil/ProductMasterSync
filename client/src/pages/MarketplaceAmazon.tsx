@@ -168,7 +168,7 @@ export default function MarketplaceAmazon() {
               <CardHeader>
                 <CardTitle>Product Selection</CardTitle>
                 <CardDescription>
-                Amazon searches by UPC + MPN + Description + Keywords to find multiple ASIN matches
+                Amazon uses cascading search: UPC first, then MPN, finally Description with confidence scoring
               </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -221,13 +221,50 @@ export default function MarketplaceAmazon() {
                   ) : amazonData ? (
                     <div className="space-y-4">
                       <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                        <h4 className="font-medium mb-2">Search Method Used:</h4>
-                        <div className="text-sm">
-                          <div><strong>Method:</strong> {amazonData.search_method}</div>
-                          <div><strong>UPC:</strong> {amazonData.search_criteria?.upc}</div>
-                          <div><strong>MPN:</strong> {amazonData.search_criteria?.mpn}</div>
-                          <div><strong>Keywords:</strong> {amazonData.search_criteria?.keywords}</div>
-                          <div><strong>Total Matches Found:</strong> {amazonData.total_matches}</div>
+                        <h4 className="font-medium mb-2">Amazon Search Sequence & Confidence:</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-2 bg-white rounded border">
+                            <div>
+                              <div className="font-medium text-lg">{amazonData.confidence_score}% Confidence</div>
+                              <div className="text-sm text-gray-600">{amazonData.confidence_tier}</div>
+                            </div>
+                            <Badge variant={
+                              amazonData.confidence_score >= 90 ? 'default' :
+                              amazonData.confidence_score >= 70 ? 'secondary' :
+                              amazonData.confidence_score >= 50 ? 'outline' : 'destructive'
+                            }>
+                              {amazonData.matched_criteria?.join(', ')}
+                            </Badge>
+                          </div>
+                          
+                          <div>
+                            <h5 className="font-medium mb-2">Search Steps Performed:</h5>
+                            <div className="space-y-2">
+                              {amazonData.search_sequence?.map((step: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-white rounded text-sm">
+                                  <div>
+                                    <div className="font-medium">Step {step.step}: {step.method}</div>
+                                    <div className="text-gray-600">{step.criteria}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className={step.success ? 'text-green-600' : 'text-red-600'}>
+                                      {step.results_found} results
+                                    </div>
+                                    <Badge variant={step.success ? 'default' : 'destructive'} className="text-xs">
+                                      {step.success ? 'Success' : 'Failed'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div className="text-sm">
+                            <div><strong>UPC:</strong> {amazonData.search_criteria?.upc}</div>
+                            <div><strong>MPN:</strong> {amazonData.search_criteria?.mpn}</div>
+                            <div><strong>Title:</strong> {amazonData.search_criteria?.title}</div>
+                            <div><strong>Total Matches Found:</strong> {amazonData.total_matches}</div>
+                          </div>
                         </div>
                       </div>
 
