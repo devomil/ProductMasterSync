@@ -677,8 +677,8 @@ const Products = () => {
                     </TableRow>
                   ))
                 ) : (
-                  filteredProducts.map(product => (
-                    <TableRow key={product.id}>
+                  filteredProducts.map((product, index) => (
+                    <TableRow key={`${product.id}-${index}`}>
                       <TableCell className="font-medium text-sm">
                         <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                           {product.sku}
