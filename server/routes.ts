@@ -4037,13 +4037,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productData = result.rows[0];
       
       // Query database for real Amazon ASIN mappings
-      // Use authentic Amazon ASINs for marketplace data
-      const authenticAsins = [
-        'B000K2IKGY', 'B07XJ8C8F5', 'B09N3ZNHTY', 'B08N5WRWNW', 'B0B7BP6CJN',
-        'B01MCZE2HW', 'B08T9FC9RG', 'B07YWM6CK9', 'B084DWXC4C', 'B0831B7PY2'
-      ];
+      // Query for authentic Amazon marketplace data only
+      const authenthicDataQuery = await pool.query(`
+        SELECT asin FROM amazon_marketplace_data 
+        WHERE asin IS NOT NULL AND asin != '' AND length(asin) = 10
+        ORDER BY created_at DESC
+        LIMIT 10
+      `);
       
-      const sampleAsins = authenticAsins;
+      if (authenthicDataQuery.rows.length === 0) {
+        return res.status(404).json({ 
+          error: 'No authentic Amazon marketplace data available',
+          message: 'Database contains no valid Amazon ASINs. Synthetic data generation has been disabled per testing requirements.'
+        });
+      }
+      
+      const sampleAsins = authenthicDataQuery.rows.map(row => row.asin);
       
       // Simulate multiple ASIN matches that Amazon might return
       const relatedAsins = [
@@ -4467,21 +4476,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const asinDetails = await pool.query(`
         SELECT * FROM amazon_marketplace_data 
-        WHERE id = $1
+        WHERE asin = $1
         LIMIT 1
-      `, [dbId]);
+      `, [asin]);
       
-      const amazonData = asinDetails.rows[0] || {};
+      const amazonData = asinDetails.rows[0];
+      
+      if (!amazonData) {
+        throw new Error(`No authentic Amazon data found for ASIN ${asin}`);
+      }
       
       return {
-        asin: asin, // This is now a real Amazon ASIN format like B000K2IKGY
-        title: amazonData.title || productData.product_name || `ACR 55W/12V LAMP FOR RCL-100 SERIES SEARCHLIGHT`,
-        brand: amazonData.brand || 'ACR Electronics',
-        category: amazonData.category || 'Marine Electronics',
-        price: parseFloat(amazonData.price) || null,
-        rank: parseInt(amazonData.rank) || null,
-        rating: parseFloat(amazonData.rating) || null,
-        review_count: parseInt(amazonData.review_count) || null,
+        asin: asin,
+        title: amazonData.product_title || amazonData.title || null,
+        brand: amazonData.brand || null,
+        category: amazonData.category || null,
+        price: amazonData.price ? parseFloat(amazonData.price) : null,
+        rank: amazonData.rank ? parseInt(amazonData.rank) : null,
+        rating: amazonData.rating ? parseFloat(amazonData.rating) : null,
+        review_count: amazonData.review_count ? parseInt(amazonData.review_count) : null,
         confidence: confidence,
         match_type: matchType,
         images: amazonData.images ? JSON.parse(amazonData.images) : [],
@@ -4489,16 +4502,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         specifications: amazonData.specifications ? JSON.parse(amazonData.specifications) : {},
         listing_restrictions: await getListingRestrictions(asin, merchantId, marketplaceId) || [],
         buy_box_info: await getBuyBoxInfo(asin, merchantId),
-        fulfillment_options: {
-          fba_eligible: amazonData.fba_eligible !== false,
-          self_ship_allowed: true,
-          hazmat_restrictions: amazonData.hazmat || false
-        },
-        competitive_landscape: {
-          total_sellers: Math.floor(Math.random() * 15) + 3,
-          buy_box_rotation: Math.random() > 0.7,
-          price_sensitivity: amazonData.price_sensitivity || 'medium'
-        }
+        fulfillment_options: amazonData.fulfillment_options ? JSON.parse(amazonData.fulfillment_options) : {},
+        competitive_landscape: amazonData.competitive_landscape ? JSON.parse(amazonData.competitive_landscape) : {}
       };
     } catch (error) {
       console.error('Error fetching detailed ASIN data:', error);
