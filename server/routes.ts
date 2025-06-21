@@ -4479,7 +4479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Query detailed Amazon data from database  
       const asinDetails = await pool.query(`
         SELECT * FROM amazon_marketplace_data 
-        WHERE asin = $1 OR id = $1
+        WHERE asin = $1 OR id::text = $1
         LIMIT 1
       `, [asin]);
       

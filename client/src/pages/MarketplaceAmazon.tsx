@@ -164,7 +164,7 @@ export default function MarketplaceAmazon() {
         </TabsList>
 
         <TabsContent value="testing" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Product Selection</CardTitle>
@@ -180,8 +180,8 @@ export default function MarketplaceAmazon() {
                       <SelectValue placeholder="Choose a product..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map((product: any) => (
-                        <SelectItem key={product.id} value={product.usin}>
+                      {products.map((product: any, index: number) => (
+                        <SelectItem key={`${product.id}-${index}`} value={product.usin}>
                           {product.sku} - {product.name}
                         </SelectItem>
                       ))}
@@ -208,13 +208,13 @@ export default function MarketplaceAmazon() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>API Response</CardTitle>
                 <CardDescription>Live Amazon Seller API data for selected product</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[500px]">
+                <ScrollArea className="h-[700px]">
                   {amazonLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-muted-foreground">Loading Amazon data...</div>
