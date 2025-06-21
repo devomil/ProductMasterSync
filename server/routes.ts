@@ -4311,7 +4311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       criteria: mpn,
       results_found: mpnResults,
       success: mpnResults > 0,
-      asins_found: await Promise.all(mpnAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'MPN_MATCH', 85)))
+      asins_found: mpnResults > 0 ? await Promise.all(mpnAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'MPN_MATCH', 85))) : []
     });
     
     // Step 3: Search by Description - always perform this search
@@ -4325,7 +4325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       criteria: `${title.substring(0, 50)}...`,
       results_found: descResults,
       success: descResults > 0,
-      asins_found: await Promise.all(descAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'DESCRIPTION_FUZZY', 60)))
+      asins_found: descResults > 0 ? await Promise.all(descAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'DESCRIPTION_FUZZY', 60))) : []
     });
     
     // Calculate confidence score based on what matched
