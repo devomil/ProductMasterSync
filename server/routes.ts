@@ -4052,6 +4052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         confidence_score: searchResults.confidence_score,
         confidence_tier: searchResults.confidence_tier,
         search_criteria: searchResults.search_criteria,
+        matched_criteria: searchResults.matched_criteria,
         total_matches: relatedAsins.length,
         primary_asin: productData.asin,
         related_asins: relatedAsins,

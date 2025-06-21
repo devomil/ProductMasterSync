@@ -213,7 +213,7 @@ export default function MarketplaceAmazon() {
                 <CardDescription>Live Amazon Seller API data for selected product</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[500px]">
                   {amazonLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-muted-foreground">Loading Amazon data...</div>
