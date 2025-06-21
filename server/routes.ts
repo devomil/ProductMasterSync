@@ -4036,14 +4036,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const productData = result.rows[0];
       
-      // Simulate multiple ASIN matches that Amazon might return
-      const relatedAsins = [
-        { asin: sampleAsins[0], relationship: 'parent' },
-        { asin: sampleAsins[1], relationship: 'variation', variation_theme: 'Color' },
-        { asin: sampleAsins[2], relationship: 'variation', variation_theme: 'Color' },
-        { asin: sampleAsins[5], relationship: 'bundle' }
-      ];
-      
       // Generate realistic Amazon ASINs first
       const generateAsin = () => `B${Math.random().toString(36).substring(2, 11).toUpperCase().padEnd(9, '0')}`;
       
@@ -4056,6 +4048,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'B09WXYZ123', // Bundle with mounting kit
         generateAsin(),
         generateAsin()
+      ];
+      
+      // Simulate multiple ASIN matches that Amazon might return
+      const relatedAsins = [
+        { asin: sampleAsins[0], relationship: 'parent' },
+        { asin: sampleAsins[1], relationship: 'variation', variation_theme: 'Color' },
+        { asin: sampleAsins[2], relationship: 'variation', variation_theme: 'Color' },
+        { asin: sampleAsins[5], relationship: 'bundle' }
       ];
 
       // Simulate cascading search logic and confidence scoring

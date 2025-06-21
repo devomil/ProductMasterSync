@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle, Eye, MapPin, Settings, TestTube, Download, Upload } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import AsinExplainer from '@/components/AsinExplainer';
 
 interface AmazonProduct {
   asin: string;
