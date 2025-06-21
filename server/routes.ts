@@ -4053,8 +4053,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: 'Failed to fetch ASIN data' });
       }
       
-      // Use actual ASINs from database, no synthetic data
-      const sampleAsins = realAsins.length > 0 ? realAsins : [];
+      // Use actual ASINs from database only
+      if (realAsins.length === 0) {
+        return res.status(404).json({ error: 'No Amazon marketplace data available for this product' });
+      }
+      
+      const sampleAsins = realAsins;
       
       // Simulate multiple ASIN matches that Amazon might return
       const relatedAsins = [
@@ -4065,7 +4069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
 
       // Simulate cascading search logic and confidence scoring
-      const searchResults = simulateAmazonSearch(productData, sampleAsins, 'A10D4VTYI7RMZ2', 'ATVPDKIKX0DER');
+      const searchResults = await simulateAmazonSearch(productData, sampleAsins, 'A10D4VTYI7RMZ2', 'ATVPDKIKX0DER');
       
       const amazonResponse = {
         search_sequence: searchResults.search_sequence,
@@ -4272,7 +4276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to simulate Amazon's cascading search logic
-  function simulateAmazonSearch(productData: any, sampleAsins: string[], merchantId: string, marketplaceId: string) {
+  async function simulateAmazonSearch(productData: any, sampleAsins: string[], merchantId: string, marketplaceId: string) {
     const upc = productData.upc || '010694150300';
     const mpn = 'HF-743'; // Hardcoded since column doesn't exist
     const title = productData.product_name || 'RITCHIE HF-743 HELMSMAN COMPASS';
@@ -4284,9 +4288,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let confidenceTier = '';
     let matchedCriteria = [];
 
-    // Step 1: Search by UPC
-    const upcResults = Math.random() > 0.3 ? Math.floor(Math.random() * 3) + 1 : 0;
-    const upcAsins = upcResults > 0 ? sampleAsins.slice(0, upcResults) : [];
+    // Step 1: Search by UPC - use first 2 real ASINs
+    const upcResults = Math.min(2, sampleAsins.length);
+    const upcAsins = sampleAsins.slice(0, upcResults);
     
     searchSequence.push({
       step: 1,
@@ -4306,9 +4310,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     // Step 2: Search by MPN if UPC didn't return enough results
-    if (searchSequence[0].results_found < 2) {
-      const mpnResults = Math.random() > 0.2 ? Math.floor(Math.random() * 4) + 1 : 0;
-      const mpnAsins = mpnResults > 0 ? sampleAsins.slice(upcResults, upcResults + mpnResults) : [];
+    if (searchSequence[0].results_found < 2 && sampleAsins.length > upcResults) {
+      const mpnResults = Math.min(2, sampleAsins.length - upcResults);
+      const mpnAsins = sampleAsins.slice(upcResults, upcResults + mpnResults);
       
       searchSequence.push({
         step: 2,
@@ -4330,9 +4334,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Step 3: Search by Description as last resort
     const totalPreviousResults = searchSequence.reduce((sum, step) => sum + step.results_found, 0);
-    if (totalPreviousResults < 1) {
-      const descResults = Math.random() > 0.1 ? Math.floor(Math.random() * 6) + 1 : 0;
-      const descAsins = descResults > 0 ? sampleAsins.slice(-descResults) : [];
+    if (totalPreviousResults < 1 && sampleAsins.length > 2) {
+      const descResults = Math.min(1, sampleAsins.length - 2);
+      const descAsins = sampleAsins.slice(-descResults);
       
       searchSequence.push({
         step: 3,
@@ -4539,31 +4543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
     
-    const isEligible = currentPrice <= Math.min(...competitors.map(c => c.price)) + 5;
-    
-    return {
-      asin: asin,
-      current_price: Math.round(currentPrice * 100) / 100,
-      buy_box_eligible: isEligible,
-      buy_box_probability: isEligible ? Math.round(Math.random() * 30 + 70) + '%' : Math.round(Math.random() * 40 + 10) + '%',
-      competitive_analysis: {
-        total_sellers: competitors.length + 1,
-        price_rank: isEligible ? 1 : Math.floor(Math.random() * 3) + 2,
-        lowest_price: Math.min(currentPrice, ...competitors.map(c => c.price)),
-        highest_price: Math.max(currentPrice, ...competitors.map(c => c.price)),
-        avg_price: Math.round(([currentPrice, ...competitors.map(c => c.price)].reduce((a, b) => a + b) / (competitors.length + 1)) * 100) / 100
-      },
-      competitors: competitors,
-      seller_metrics: {
-        seller_id: merchantId,
-        performance_rating: '4.8/5',
-        order_defect_rate: '0.5%',
-        shipping_performance: '98.5%',
-        fba_eligible: true
-      },
-      listing_status: isEligible ? 'COMPETITIVE' : 'NEEDS_PRICE_ADJUSTMENT'
-    };
-  }
+
 
   app.get('/api/marketplace/amazon/mapping-rules', async (req, res) => {
     try {
