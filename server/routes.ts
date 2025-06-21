@@ -4012,9 +4012,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/marketplace/amazon/product/:asin', async (req, res) => {
+  app.get('/api/marketplace/amazon/product/:productId', async (req, res) => {
     try {
-      const { asin } = req.params;
+      const { productId } = req.params;
       
       const query = `
         SELECT p.*, s.name as supplier_name
@@ -4023,7 +4023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE p.usin = $1
       `;
       
-      const result = await pool.query(query, [asin]);
+      const result = await pool.query(query, [productId]);
       
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Product not found' });
@@ -4510,7 +4510,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Extract title from full_data JSON if available
-      const fullData = amazonData.full_data ? JSON.parse(amazonData.full_data) : {};
+      let fullData = {};
+      try {
+        fullData = amazonData.full_data ? JSON.parse(amazonData.full_data) : {};
+      } catch (e) {
+        console.log('JSON parse error for full_data:', e);
+        fullData = {};
+      }
       
       return {
         asin: asin,
