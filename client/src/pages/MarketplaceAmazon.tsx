@@ -239,31 +239,61 @@ export default function MarketplaceAmazon() {
                           
                           <div>
                             <h5 className="font-medium mb-2">Search Steps Performed:</h5>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {amazonData.search_sequence?.map((step: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between p-2 bg-white rounded text-sm">
-                                  <div>
-                                    <div className="font-medium">Step {step.step}: {step.method}</div>
-                                    <div className="text-gray-600">{step.criteria}</div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className={step.success ? 'text-green-600' : 'text-red-600'}>
-                                      {step.results_found} results
+                                <div key={idx} className="bg-white rounded border p-3">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                      <div className="font-medium">Step {step.step}: {step.method}</div>
+                                      <div className="text-gray-600 text-sm">{step.criteria}</div>
                                     </div>
-                                    <Badge variant={step.success ? 'default' : 'destructive'} className="text-xs">
-                                      {step.success ? 'Success' : 'Failed'}
-                                    </Badge>
+                                    <div className="text-right">
+                                      <div className={step.success ? 'text-green-600 font-medium' : 'text-red-600'}>
+                                        {step.results_found} ASINs found
+                                      </div>
+                                      <Badge variant={step.success ? 'default' : 'destructive'} className="text-xs">
+                                        {step.success ? 'Success' : 'Failed'}
+                                      </Badge>
+                                    </div>
                                   </div>
+                                  
+                                  {step.asins_found && step.asins_found.length > 0 && (
+                                    <div>
+                                      <div className="text-xs font-medium text-gray-700 mb-2">ASINs Discovered:</div>
+                                      <div className="space-y-2">
+                                        {step.asins_found.map((asinData: any, asinIdx: number) => (
+                                          <div key={asinIdx} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                                            <div>
+                                              <div className="font-mono font-medium">{asinData.asin}</div>
+                                              <div className="flex gap-2 mt-1">
+                                                {asinData.title_match && (
+                                                  <Badge variant="outline" className="text-xs px-1 py-0">Title Match</Badge>
+                                                )}
+                                                {asinData.brand_match && (
+                                                  <Badge variant="outline" className="text-xs px-1 py-0">Brand Match</Badge>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="font-medium">{asinData.confidence}%</div>
+                                              <div className="text-gray-500">{asinData.category}</div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           </div>
                           
-                          <div className="text-sm">
+                          <div className="text-sm bg-gray-50 p-3 rounded">
                             <div><strong>UPC:</strong> {amazonData.search_criteria?.upc}</div>
                             <div><strong>MPN:</strong> {amazonData.search_criteria?.mpn}</div>
                             <div><strong>Title:</strong> {amazonData.search_criteria?.title}</div>
-                            <div><strong>Total Matches Found:</strong> {amazonData.total_matches}</div>
+                            <div><strong>Total Unique ASINs Found:</strong> {amazonData.total_unique_asins}</div>
+                            <div><strong>Related ASINs (Variations/Bundles):</strong> {amazonData.total_matches}</div>
                           </div>
                         </div>
                       </div>

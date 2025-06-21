@@ -4283,34 +4283,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let confidenceTier = '';
     let matchedCriteria = [];
     
+    // Generate sample ASINs for demonstration
+    const sampleAsins = [
+      `${productData.asin}`,
+      `${productData.asin}V1`,
+      `${productData.asin}V2`, 
+      `${productData.asin}B`,
+      `${productData.asin}C`,
+      `B07${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      `B08${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      `B09${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    ];
+
     // Step 1: Search by UPC
+    const upcResults = Math.random() > 0.3 ? Math.floor(Math.random() * 3) + 1 : 0;
+    const upcAsins = upcResults > 0 ? sampleAsins.slice(0, upcResults) : [];
+    
     searchSequence.push({
       step: 1,
       method: 'UPC Search',
       criteria: upc,
-      results_found: Math.random() > 0.3 ? 2 : 0,
-      success: Math.random() > 0.3
+      results_found: upcResults,
+      success: upcResults > 0,
+      asins_found: upcAsins.map(asin => ({
+        asin: asin,
+        title_match: Math.random() > 0.5,
+        brand_match: Math.random() > 0.3,
+        category: 'Marine Electronics',
+        confidence: Math.round(Math.random() * 20 + 80) // 80-100%
+      }))
     });
     
     // Step 2: Search by MPN if UPC didn't return enough results
     if (searchSequence[0].results_found < 2) {
+      const mpnResults = Math.random() > 0.2 ? Math.floor(Math.random() * 4) + 1 : 0;
+      const mpnAsins = mpnResults > 0 ? sampleAsins.slice(upcResults, upcResults + mpnResults) : [];
+      
       searchSequence.push({
         step: 2,
         method: 'MPN Search',
         criteria: mpn,
-        results_found: Math.random() > 0.2 ? 3 : 0,
-        success: Math.random() > 0.2
+        results_found: mpnResults,
+        success: mpnResults > 0,
+        asins_found: mpnAsins.map(asin => ({
+          asin: asin,
+          title_match: Math.random() > 0.4,
+          brand_match: Math.random() > 0.6,
+          category: 'Marine Electronics',
+          confidence: Math.round(Math.random() * 20 + 60) // 60-80%
+        }))
       });
     }
     
     // Step 3: Search by Description as last resort
-    if (searchSequence.length === 2 && searchSequence[1].results_found < 1) {
+    const totalPreviousResults = searchSequence.reduce((sum, step) => sum + step.results_found, 0);
+    if (totalPreviousResults < 1) {
+      const descResults = Math.random() > 0.1 ? Math.floor(Math.random() * 6) + 1 : 0;
+      const descAsins = descResults > 0 ? sampleAsins.slice(-descResults) : [];
+      
       searchSequence.push({
         step: 3,
         method: 'Description/Title Search',
         criteria: `${title.substring(0, 50)}...`,
-        results_found: Math.random() > 0.1 ? 5 : 0,
-        success: Math.random() > 0.1
+        results_found: descResults,
+        success: descResults > 0,
+        asins_found: descAsins.map(asin => ({
+          asin: asin,
+          title_match: Math.random() > 0.2,
+          brand_match: Math.random() > 0.7,
+          category: Math.random() > 0.5 ? 'Marine Electronics' : 'Sports & Outdoors',
+          confidence: Math.round(Math.random() * 20 + 40) // 40-60%
+        }))
       });
     }
     
@@ -4345,11 +4388,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       matchedCriteria = ['Fuzzy Match'];
     }
     
+    // Calculate total unique ASINs found across all searches
+    const allAsins = searchSequence.flatMap(step => step.asins_found?.map((a: any) => a.asin) || []);
+    const uniqueAsins = [...new Set(allAsins)];
+    
     return {
       search_sequence: searchSequence,
       confidence_score: confidenceScore,
       confidence_tier: confidenceTier,
       matched_criteria: matchedCriteria,
+      total_unique_asins: uniqueAsins.length,
       search_criteria: {
         upc: upc,
         mpn: mpn,
