@@ -4044,8 +4044,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { asin: sampleAsins[5], relationship: 'bundle' }
       ];
       
+      // Generate realistic Amazon ASINs first
+      const generateAsin = () => `B${Math.random().toString(36).substring(2, 11).toUpperCase().padEnd(9, '0')}`;
+      
+      const sampleAsins = [
+        'B08N5WRWNW', // Primary compass ASIN
+        'B07BKJP3X8', // Color variant - Black
+        'B07BKJP4Y9', // Color variant - White  
+        'B08TQRS4MN', // Size variant - 4.5 inch
+        'B08TQRS5NO', // Size variant - 5 inch
+        'B09WXYZ123', // Bundle with mounting kit
+        generateAsin(),
+        generateAsin()
+      ];
+
       // Simulate cascading search logic and confidence scoring
-      const searchResults = simulateAmazonSearch(productData);
+      const searchResults = simulateAmazonSearch(productData, sampleAsins);
       
       const amazonResponse = {
         search_sequence: searchResults.search_sequence,
@@ -4271,7 +4285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to simulate Amazon's cascading search logic
-  function simulateAmazonSearch(productData: any) {
+  function simulateAmazonSearch(productData: any, sampleAsins: string[]) {
     const upc = productData.upc || '010694150300';
     const mpn = 'HF-743'; // Hardcoded since column doesn't exist
     const title = productData.product_name || 'RITCHIE HF-743 HELMSMAN COMPASS';
@@ -4282,21 +4296,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let confidenceScore = 0;
     let confidenceTier = '';
     let matchedCriteria = [];
-    
-    // Generate realistic Amazon ASINs (Amazon Standard Identification Numbers)
-    // ASINs are 10-character alphanumeric codes starting with B followed by 9 chars
-    const generateAsin = () => `B${Math.random().toString(36).substring(2, 11).toUpperCase().padEnd(9, '0')}`;
-    
-    const sampleAsins = [
-      'B08N5WRWNW', // Primary compass ASIN
-      'B07BKJP3X8', // Color variant - Black
-      'B07BKJP4Y9', // Color variant - White  
-      'B08TQRS4MN', // Size variant - 4.5 inch
-      'B08TQRS5NO', // Size variant - 5 inch
-      'B09WXYZ123', // Bundle with mounting kit
-      generateAsin(),
-      generateAsin()
-    ];
 
     // Step 1: Search by UPC
     const upcResults = Math.random() > 0.3 ? Math.floor(Math.random() * 3) + 1 : 0;
