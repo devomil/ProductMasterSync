@@ -4017,15 +4017,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { asin } = req.params;
       
       const query = `
-        SELECT 
-          amd.*,
-          p.name as product_name,
-          p.sku,
-          p.description,
-          p.upc
-        FROM amazon_marketplace_data amd
-        LEFT JOIN products p ON p.usin = amd.asin
-        WHERE amd.asin = $1
+        SELECT p.*, s.name as supplier_name
+        FROM products p
+        LEFT JOIN suppliers s ON p.supplier_id = s.id
+        WHERE p.usin = $1
       `;
       
       const result = await pool.query(query, [asin]);
@@ -4040,7 +4035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Query for authentic Amazon marketplace data linked to this product
       const authenthicDataQuery = await pool.query(`
         SELECT asin FROM amazon_marketplace_data 
-        WHERE (product_id = $1 OR asin IS NOT NULL) 
+        WHERE product_id = $1 
         AND asin IS NOT NULL AND asin != '' AND length(asin) = 10
         ORDER BY created_at DESC
         LIMIT 10
