@@ -167,7 +167,9 @@ export default function MarketplaceAmazon() {
             <Card>
               <CardHeader>
                 <CardTitle>Product Selection</CardTitle>
-                <CardDescription>Choose a product to test Amazon Seller API response</CardDescription>
+                <CardDescription>
+                Amazon searches by UPC + MPN + Description + Keywords to find multiple ASIN matches
+              </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -218,13 +220,28 @@ export default function MarketplaceAmazon() {
                     </div>
                   ) : amazonData ? (
                     <div className="space-y-4">
+                      <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                        <h4 className="font-medium mb-2">Search Method Used:</h4>
+                        <div className="text-sm">
+                          <div><strong>Method:</strong> {amazonData.search_method}</div>
+                          <div><strong>UPC:</strong> {amazonData.search_criteria?.upc}</div>
+                          <div><strong>MPN:</strong> {amazonData.search_criteria?.mpn}</div>
+                          <div><strong>Keywords:</strong> {amazonData.search_criteria?.keywords}</div>
+                          <div><strong>Total Matches Found:</strong> {amazonData.total_matches}</div>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="font-medium">Primary ASIN:</div>
+                        <div>{amazonData.primary_asin}</div>
                         <div className="font-medium">Title:</div>
                         <div>{amazonData.title}</div>
                         <div className="font-medium">Brand:</div>
                         <div>{amazonData.brand}</div>
+                        <div className="font-medium">Manufacturer:</div>
+                        <div>{amazonData.manufacturer}</div>
                         <div className="font-medium">Category:</div>
-                        <div>{amazonData.category}</div>
+                        <div>{amazonData.category} &gt; {amazonData.subcategory}</div>
                         <div className="font-medium">Price:</div>
                         <div>${amazonData.price}</div>
                         <div className="font-medium">Rank:</div>
@@ -234,9 +251,36 @@ export default function MarketplaceAmazon() {
                       </div>
                       
                       <Separator />
+
+                      <div>
+                        <h4 className="font-medium mb-2">Related ASINs Found:</h4>
+                        <div className="space-y-2">
+                          {amazonData.related_asins?.map((asin: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                              <span className="font-mono text-sm">{asin.asin}</span>
+                              <Badge variant="outline">{asin.relationship}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h4 className="font-medium mb-2">Brand Variations Found:</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {amazonData.brand_variations?.map((brand: string, idx: number) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {brand}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <Separator />
                       
                       <div>
-                        <h4 className="font-medium mb-2">Features:</h4>
+                        <h4 className="font-medium mb-2">Product Features:</h4>
                         <ul className="list-disc pl-4 space-y-1 text-sm">
                           {amazonData.features?.map((feature: string, idx: number) => (
                             <li key={idx}>{feature}</li>
@@ -247,10 +291,10 @@ export default function MarketplaceAmazon() {
                       <Separator />
 
                       <div>
-                        <h4 className="font-medium mb-2">Specifications:</h4>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
+                        <h4 className="font-medium mb-2">Technical Specifications:</h4>
+                        <div className="grid grid-cols-1 gap-2 text-sm">
                           {Object.entries(amazonData.specifications || {}).map(([key, value]) => (
-                            <div key={key} className="grid grid-cols-2 gap-1">
+                            <div key={key} className="flex justify-between border-b pb-1">
                               <div className="font-medium">{key}:</div>
                               <div>{value as string}</div>
                             </div>
@@ -258,27 +302,71 @@ export default function MarketplaceAmazon() {
                         </div>
                       </div>
 
-                      {amazonData.restrictions?.length > 0 && (
-                        <>
-                          <Separator />
-                          <div>
-                            <h4 className="font-medium mb-2">Listing Restrictions:</h4>
-                            <div className="space-y-1">
-                              {amazonData.restrictions.map((restriction: string, idx: number) => (
-                                <Badge key={idx} variant="destructive" className="mr-1">
-                                  {restriction}
-                                </Badge>
-                              ))}
+                      <Separator />
+
+                      <div>
+                        <h4 className="font-medium mb-2">Listing Restrictions & Requirements:</h4>
+                        <div className="space-y-3">
+                          {amazonData.listing_restrictions?.map((restriction: any, idx: number) => (
+                            <div key={idx} className="border border-red-200 rounded p-3 bg-red-50">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-medium">{restriction.restriction_type}</span>
+                                <Badge variant="destructive">{restriction.status}</Badge>
+                              </div>
+                              <div className="text-sm text-gray-700 mb-2">{restriction.message}</div>
+                              <div className="text-xs">
+                                <strong>Requirements:</strong>
+                                <ul className="list-disc list-inside mt-1">
+                                  {restriction.requirements?.map((req: string, reqIdx: number) => (
+                                    <li key={reqIdx}>{req}</li>
+                                  ))}
+                                </ul>
+                              </div>
                             </div>
-                          </div>
-                        </>
-                      )}
+                          ))}
+                        </div>
+                      </div>
 
                       <Separator />
 
                       <div>
-                        <h4 className="font-medium mb-2">Raw API Response:</h4>
-                        <pre className="bg-muted p-3 rounded text-xs overflow-auto">
+                        <h4 className="font-medium mb-2">Product Variations:</h4>
+                        <div className="space-y-2">
+                          {amazonData.variations?.map((variation: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-2 border rounded">
+                              <div>
+                                <span className="font-mono text-sm">{variation.asin}</span>
+                                <div className="text-xs text-gray-500">
+                                  {variation.variation_theme}: {variation.variation_value}
+                                </div>
+                              </div>
+                              <div className="text-sm font-medium">${variation.price}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h4 className="font-medium mb-2">Competitive Pricing Analysis:</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="font-medium">Amazon Price:</div>
+                          <div>${amazonData.competitive_pricing?.amazon_price}</div>
+                          <div className="font-medium">Lowest Competitor:</div>
+                          <div>${amazonData.competitive_pricing?.lowest_competitor}</div>
+                          <div className="font-medium">Highest Competitor:</div>
+                          <div>${amazonData.competitive_pricing?.highest_competitor}</div>
+                          <div className="font-medium">Price Position:</div>
+                          <div>{amazonData.competitive_pricing?.price_rank}</div>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h4 className="font-medium mb-2">Complete Raw API Response:</h4>
+                        <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-96">
                           {JSON.stringify(amazonData.raw_data, null, 2)}
                         </pre>
                       </div>
