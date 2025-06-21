@@ -39,6 +39,8 @@ import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
 import PurchasingAI from "@/pages/PurchasingAI";
+import MarketplaceOverview from "@/pages/MarketplaceOverview";
+import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import NotFound from "@/pages/not-found";
 import TopNavigation from "@/components/TopNavigation";
 
@@ -81,6 +83,9 @@ function Router() {
       <Route path="/system-monitoring" component={SystemMonitoring} />
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
+      <Route path="/marketplaces/overview" component={MarketplaceOverview} />
+      <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />
+      <Route path="/marketplaces/:marketplace" component={() => <div className="container mx-auto p-6"><div className="text-center"><h1 className="text-2xl font-bold mb-4">Marketplace Integration</h1><p className="text-muted-foreground">This marketplace integration is coming soon...</p></div></div>} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

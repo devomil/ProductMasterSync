@@ -201,11 +201,49 @@ const TopNavigation = () => {
               Purchasing AI
             </NavButton>
 
-            {/* Analytics */}
-            <NavButton to="/amazon-analytics">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </NavButton>
+            {/* Marketplaces Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  Marketplaces
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/overview" className="flex items-center gap-2 w-full">
+                    <BarChart3 className="h-4 w-4" />
+                    Marketplace Hub
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/amazon" className="flex items-center gap-2 w-full">
+                    <Package className="h-4 w-4" />
+                    Amazon
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/walmart" className="flex items-center gap-2 w-full">
+                    <Package className="h-4 w-4" />
+                    Walmart
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/ebay" className="flex items-center gap-2 w-full">
+                    <Package className="h-4 w-4" />
+                    eBay
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/newegg" className="flex items-center gap-2 w-full">
+                    <Package className="h-4 w-4" />
+                    Newegg
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* System */}
             <DropdownMenu>
