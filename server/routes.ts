@@ -4283,13 +4283,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let confidenceTier = '';
     let matchedCriteria = [];
     
-    // Generate sample ASINs for demonstration
+    // Generate realistic ASINs for demonstration based on product
+    const baseAsin = productData.asin;
     const sampleAsins = [
-      `${productData.asin}`,
-      `${productData.asin}V1`,
-      `${productData.asin}V2`, 
-      `${productData.asin}B`,
-      `${productData.asin}C`,
+      baseAsin,
+      `${baseAsin}V1`,
+      `${baseAsin}V2`, 
+      `${baseAsin}V3`,
+      `${baseAsin}B`,
       `B07${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       `B08${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       `B09${Math.random().toString(36).substring(2, 8).toUpperCase()}`
