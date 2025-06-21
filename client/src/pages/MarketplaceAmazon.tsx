@@ -247,6 +247,15 @@ export default function MarketplaceAmazon() {
                                     <div>
                                       <div className="font-medium">Step {step.step}: {step.method}</div>
                                       <div className="text-gray-600 text-sm">{step.criteria}</div>
+                                      {step.asins_found && step.asins_found.length > 0 && (
+                                        <div className="flex gap-1 mt-2">
+                                          {step.asins_found.map((asin: any, asinIdx: number) => (
+                                            <Badge key={asinIdx} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-mono">
+                                              {asin.asin}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="text-right">
                                       <div className={step.success ? 'text-green-600 font-medium' : 'text-red-600'}>
@@ -260,7 +269,7 @@ export default function MarketplaceAmazon() {
                                   
                                   {step.asins_found && step.asins_found.length > 0 && (
                                     <div>
-                                      <div className="text-xs font-medium text-gray-700 mb-2">ASINs Discovered:</div>
+                                      <div className="text-xs font-medium text-gray-700 mb-2">Detailed ASIN Data:</div>
                                       <div className="space-y-2">
                                         {step.asins_found.map((asinData: any, asinIdx: number) => (
                                           <div key={asinIdx} className="border rounded p-3 bg-white">
