@@ -4472,10 +4472,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to get detailed ASIN data for Purchasing AI
   async function getDetailedAsinData(asin: string, productData: any, merchantId: string, marketplaceId: string, matchType: string, confidence: number) {
     try {
-      // Query detailed Amazon data from database  
+      // Query detailed Amazon data from database using ID mapping
       const asinDetails = await pool.query(`
         SELECT * FROM amazon_marketplace_data 
-        WHERE asin = $1
+        WHERE id::text = $1 OR asin = $1
         LIMIT 1
       `, [asin]);
       
