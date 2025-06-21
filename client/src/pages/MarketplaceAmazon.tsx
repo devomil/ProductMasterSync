@@ -168,7 +168,7 @@ export default function MarketplaceAmazon() {
               <CardHeader>
                 <CardTitle>Product Selection</CardTitle>
                 <CardDescription>
-                Amazon uses cascading search: UPC first, then MPN, finally Description with confidence scoring
+                Amazon searches return real ASINs (Amazon Standard Identification Numbers) via cascading UPC → MPN → Description
               </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

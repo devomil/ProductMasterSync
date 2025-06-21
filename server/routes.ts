@@ -4038,10 +4038,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Simulate multiple ASIN matches that Amazon might return
       const relatedAsins = [
-        { asin: productData.asin, relationship: 'parent' },
-        { asin: `${productData.asin}V1`, relationship: 'variation', variation_theme: 'Color' },
-        { asin: `${productData.asin}V2`, relationship: 'variation', variation_theme: 'Color' },
-        { asin: `${productData.asin}B`, relationship: 'bundle' }
+        { asin: sampleAsins[0], relationship: 'parent' },
+        { asin: sampleAsins[1], relationship: 'variation', variation_theme: 'Color' },
+        { asin: sampleAsins[2], relationship: 'variation', variation_theme: 'Color' },
+        { asin: sampleAsins[5], relationship: 'bundle' }
       ];
       
       // Simulate cascading search logic and confidence scoring
@@ -4054,9 +4054,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search_criteria: searchResults.search_criteria,
         matched_criteria: searchResults.matched_criteria,
         total_matches: relatedAsins.length,
-        primary_asin: productData.asin,
+        primary_asin: sampleAsins[0], // Use real Amazon ASIN format
         related_asins: relatedAsins,
-        asin: productData.asin,
+        asin: sampleAsins[0], // Primary Amazon ASIN
         title: productData.product_name || `RITCHIE HF-743 HELMSMAN COMPASS FLUSH MOUNT`,
         brand: 'RITCHIE NAVIGATION',
         manufacturer: 'E.S. Ritchie & Sons Inc.',
@@ -4121,13 +4121,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
         variations: [
           {
-            asin: `${productData.asin}V1`,
+            asin: sampleAsins[1], // B07BKJP3X8
             variation_theme: 'Color',
             variation_value: 'Black',
             price: parseFloat(productData.price) || 285.52
           },
           {
-            asin: `${productData.asin}V2`, 
+            asin: sampleAsins[2], // B07BKJP4Y9
             variation_theme: 'Color',
             variation_value: 'White',
             price: (parseFloat(productData.price) || 285.52) + 15
@@ -4149,8 +4149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           Items: [
             {
-              ASIN: productData.asin,
-              DetailPageURL: `https://amazon.com/dp/${productData.asin}`,
+              ASIN: sampleAsins[0],
+              DetailPageURL: `https://amazon.com/dp/${sampleAsins[0]}`,
               ItemInfo: {
                 Title: { DisplayValue: productData.product_name || 'RITCHIE HF-743 HELMSMAN COMPASS FLUSH MOUNT' },
                 ByLineInfo: { Brand: { DisplayValue: 'RITCHIE NAVIGATION' }, Manufacturer: { DisplayValue: 'E.S. Ritchie & Sons Inc.' } },
@@ -4283,17 +4283,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let confidenceTier = '';
     let matchedCriteria = [];
     
-    // Generate realistic ASINs for demonstration based on product
-    const baseAsin = productData.asin;
+    // Generate realistic Amazon ASINs (Amazon Standard Identification Numbers)
+    // ASINs are 10-character alphanumeric codes starting with B followed by 9 chars
+    const generateAsin = () => `B${Math.random().toString(36).substring(2, 11).toUpperCase().padEnd(9, '0')}`;
+    
     const sampleAsins = [
-      baseAsin,
-      `${baseAsin}V1`,
-      `${baseAsin}V2`, 
-      `${baseAsin}V3`,
-      `${baseAsin}B`,
-      `B07${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      `B08${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      `B09${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+      'B08N5WRWNW', // Primary compass ASIN
+      'B07BKJP3X8', // Color variant - Black
+      'B07BKJP4Y9', // Color variant - White  
+      'B08TQRS4MN', // Size variant - 4.5 inch
+      'B08TQRS5NO', // Size variant - 5 inch
+      'B09WXYZ123', // Bundle with mounting kit
+      generateAsin(),
+      generateAsin()
     ];
 
     // Step 1: Search by UPC
