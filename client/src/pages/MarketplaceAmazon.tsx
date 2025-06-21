@@ -298,26 +298,49 @@ export default function MarketplaceAmazon() {
                                             )}
                                             
                                             {/* Listing Restrictions Summary */}
-                                            {asinData.listing_restrictions && (
-                                              <div className="text-xs">
-                                                <strong>Restrictions:</strong>
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                  {asinData.listing_restrictions.map((restriction: any, restrictionIdx: number) => (
-                                                    <Badge 
-                                                      key={restrictionIdx} 
-                                                      variant={
-                                                        restriction.status === 'APPROVED' || restriction.status === 'COMPLIANT' || restriction.status === 'COMPETITIVE'
-                                                          ? 'default' 
-                                                          : restriction.status === 'CONDITIONAL_APPROVAL'
-                                                          ? 'secondary'
-                                                          : 'destructive'
-                                                      }
-                                                      className="text-xs"
-                                                    >
-                                                      {restriction.restriction_type}: {restriction.status}
+                                            {asinData.listing_restrictions && asinData.listing_restrictions.length > 0 && (
+                                              <div className="mb-2 p-2 bg-amber-50 rounded text-xs">
+                                                <div className="font-medium mb-1">Listing Restrictions:</div>
+                                                {asinData.listing_restrictions.slice(0, 2).map((restriction: any, ridx: number) => (
+                                                  <div key={ridx} className="flex justify-between">
+                                                    <span>{restriction.restriction_type}:</span>
+                                                    <Badge variant={restriction.status === 'APPROVED' ? 'default' : 'destructive'} className="text-xs">
+                                                      {restriction.status}
                                                     </Badge>
-                                                  ))}
-                                                </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                            
+                                            {/* Product Details */}
+                                            <div className="text-xs space-y-1">
+                                              <div><strong>Title:</strong> {asinData.title}</div>
+                                              <div><strong>Brand:</strong> {asinData.brand}</div>
+                                              <div><strong>Price:</strong> ${asinData.price}</div>
+                                              <div><strong>Sales Rank:</strong> #{asinData.rank}</div>
+                                              <div><strong>Rating:</strong> {asinData.rating}/5 ({asinData.review_count} reviews)</div>
+                                              {asinData.images && asinData.images.length > 0 && (
+                                                <div><strong>Images:</strong> {asinData.images.length} available</div>
+                                              )}
+                                            </div>
+                                            
+                                            {/* Fulfillment Options */}
+                                            {asinData.fulfillment_options && (
+                                              <div className="mt-2 p-2 bg-green-50 rounded text-xs">
+                                                <div className="font-medium mb-1">Fulfillment:</div>
+                                                <div>FBA Eligible: {asinData.fulfillment_options.fba_eligible ? '✓' : '✗'}</div>
+                                                <div>Self Ship: {asinData.fulfillment_options.self_ship_allowed ? '✓' : '✗'}</div>
+                                                <div>Hazmat: {asinData.fulfillment_options.hazmat_restrictions ? '⚠️' : '✓'}</div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Competitive Landscape */}
+                                            {asinData.competitive_landscape && (
+                                              <div className="mt-2 p-2 bg-purple-50 rounded text-xs">
+                                                <div className="font-medium mb-1">Competition:</div>
+                                                <div>Total Sellers: {asinData.competitive_landscape.total_sellers}</div>
+                                                <div>Buy Box Rotation: {asinData.competitive_landscape.buy_box_rotation ? 'Yes' : 'No'}</div>
+                                                <div>Price Sensitivity: {asinData.competitive_landscape.price_sensitivity}</div>
                                               </div>
                                             )}
                                           </div>

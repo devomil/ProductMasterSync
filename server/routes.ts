@@ -4298,15 +4298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       criteria: upc,
       results_found: upcResults,
       success: upcResults > 0,
-      asins_found: await Promise.all(upcAsins.map(async asin => ({
-        asin: asin,
-        title_match: true, // Real UPC match
-        brand_match: true, // Real brand match from database
-        category: 'Marine Electronics',
-        confidence: 95, // High confidence for database match
-        listing_restrictions: getListingRestrictions(asin, merchantId, marketplaceId),
-        buy_box_info: await getBuyBoxInfo(asin, merchantId)
-      })))
+      asins_found: await Promise.all(upcAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'UPC_EXACT', 95)))
     });
     
     // Step 2: Search by MPN if UPC didn't return enough results
@@ -4320,15 +4312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criteria: mpn,
         results_found: mpnResults,
         success: mpnResults > 0,
-        asins_found: await Promise.all(mpnAsins.map(async asin => ({
-          asin: asin,
-          title_match: false,
-          brand_match: true, // MPN typically matches brand
-          category: 'Marine Electronics',
-          confidence: 85, // Good confidence for MPN match
-          listing_restrictions: getListingRestrictions(asin, merchantId, marketplaceId),
-          buy_box_info: await getBuyBoxInfo(asin, merchantId)
-        })))
+        asins_found: await Promise.all(mpnAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'MPN_MATCH', 85)))
       });
     }
     
@@ -4344,15 +4328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criteria: `${title.substring(0, 50)}...`,
         results_found: descResults,
         success: descResults > 0,
-        asins_found: await Promise.all(descAsins.map(async asin => ({
-          asin: asin,
-          title_match: true, // Description search found title match
-          brand_match: false,
-          category: 'Marine Electronics',
-          confidence: 60, // Lower confidence for description-only match
-          listing_restrictions: getListingRestrictions(asin, merchantId, marketplaceId),
-          buy_box_info: await getBuyBoxInfo(asin, merchantId)
-        })))
+        asins_found: await Promise.all(descAsins.map(async asin => await getDetailedAsinData(asin, productData, merchantId, marketplaceId, 'DESCRIPTION_FUZZY', 60)))
       });
     }
     
