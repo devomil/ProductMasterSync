@@ -373,15 +373,36 @@ export default function MarketplaceAmazon() {
                       <Separator />
 
                       <div>
-                        <h4 className="font-medium mb-2">Listing Restrictions & Requirements:</h4>
+                        <h4 className="font-medium mb-2">Seller Account Restrictions (A10D4VTYI7RMZ2):</h4>
                         <div className="space-y-3">
                           {amazonData.listing_restrictions?.map((restriction: any, idx: number) => (
-                            <div key={idx} className="border border-red-200 rounded p-3 bg-red-50">
+                            <div key={idx} className={`border rounded p-3 ${
+                              restriction.status === 'APPROVED' || restriction.status === 'COMPLIANT' || restriction.status === 'COMPETITIVE' 
+                                ? 'border-green-200 bg-green-50' 
+                                : restriction.status === 'CONDITIONAL_APPROVAL' 
+                                ? 'border-yellow-200 bg-yellow-50'
+                                : 'border-red-200 bg-red-50'
+                            }`}>
                               <div className="flex items-center justify-between mb-2">
                                 <span className="font-medium">{restriction.restriction_type}</span>
-                                <Badge variant="destructive">{restriction.status}</Badge>
+                                <Badge variant={
+                                  restriction.status === 'APPROVED' || restriction.status === 'COMPLIANT' || restriction.status === 'COMPETITIVE'
+                                    ? 'default' 
+                                    : restriction.status === 'CONDITIONAL_APPROVAL'
+                                    ? 'secondary'
+                                    : 'destructive'
+                                }>
+                                  {restriction.status}
+                                </Badge>
                               </div>
                               <div className="text-sm text-gray-700 mb-2">{restriction.message}</div>
+                              
+                              {restriction.seller_id && (
+                                <div className="text-xs mb-2 font-mono bg-gray-100 p-1 rounded">
+                                  Seller: {restriction.seller_id} | Marketplace: {restriction.marketplace}
+                                </div>
+                              )}
+                              
                               <div className="text-xs">
                                 <strong>Requirements:</strong>
                                 <ul className="list-disc list-inside mt-1">
@@ -390,6 +411,39 @@ export default function MarketplaceAmazon() {
                                   ))}
                                 </ul>
                               </div>
+                              
+                              {restriction.shipping_restrictions && (
+                                <div className="text-xs mt-2 p-2 bg-gray-100 rounded">
+                                  <strong>Shipping Restrictions:</strong>
+                                  <div>Air: {restriction.shipping_restrictions.air_shipping ? '✓' : '✗'}</div>
+                                  <div>Ground: {restriction.shipping_restrictions.ground_shipping ? '✓' : '✗'}</div>
+                                  <div>Max per shipment: {restriction.shipping_restrictions.max_quantity_per_shipment}</div>
+                                </div>
+                              )}
+                              
+                              {restriction.pricing_insights && (
+                                <div className="text-xs mt-2 p-2 bg-blue-100 rounded">
+                                  <strong>Buy Box Insights:</strong>
+                                  <div>Current: ${restriction.pricing_insights.current_price}</div>
+                                  <div>Competitive Range: ${restriction.pricing_insights.competitive_range.min} - ${restriction.pricing_insights.competitive_range.max}</div>
+                                  <div>Buy Box Probability: {restriction.pricing_insights.buy_box_probability}</div>
+                                </div>
+                              )}
+                              
+                              {restriction.brand_authorization && (
+                                <div className="text-xs mt-2 p-2 bg-green-100 rounded">
+                                  <strong>Brand Authorization:</strong>
+                                  <div>Approved Brands: {restriction.brand_authorization.approved_brands?.join(', ')}</div>
+                                  <div>Type: {restriction.brand_authorization.authorization_type}</div>
+                                  <div>Status: {restriction.brand_authorization.verification_status}</div>
+                                </div>
+                              )}
+                              
+                              {restriction.approval_date && (
+                                <div className="text-xs mt-1 text-green-600">
+                                  Approved: {restriction.approval_date}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
