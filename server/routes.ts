@@ -3750,97 +3750,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/purchasing/ai-insights', async (req, res) => {
     try {
-      const insights = [];
-      
-      const trendQuery = `
-        SELECT 
-          c.name as category,
-          COUNT(*) as product_count,
-          AVG(CASE 
-            WHEN amd.price > 0 AND CAST(p.price AS NUMERIC) > 0 
-            THEN ((amd.price - CAST(p.price AS NUMERIC)) / CAST(p.price AS NUMERIC) * 100)
-            ELSE 0 
-          END) as avg_margin,
-          AVG(amd.rank) as avg_sales_rank,
-          COUNT(CASE WHEN amd.last_synced > NOW() - INTERVAL '7 days' THEN 1 END) as recent_updates
-        FROM products p
-        JOIN categories c ON p.category_id = c.id
-        LEFT JOIN amazon_marketplace_data amd ON p.usin = amd.asin
-        WHERE p.status = 'active' AND p.usin IS NOT NULL AND p.usin != ''
-        GROUP BY c.name
-        HAVING COUNT(*) >= 3
-        ORDER BY avg_margin DESC
+      const query = `
+        SELECT pai.*, p.name as product_name, p.sku, amd.title as asin_title, amd.brand,
+               amd.profit_margin, amd.sales_velocity, amd.competitive_sellers, amd.market_share,
+               amd.listing_quality_score, amd.inventory_level, amd.match_confidence,
+               aca.review_sentiment, aca.keyword_rankings, aca.seasonality_trends
+        FROM purchasing_ai_insights pai
+        LEFT JOIN products p ON pai.product_id = p.id
+        LEFT JOIN amazon_marketplace_data amd ON pai.asin = amd.asin
+        LEFT JOIN asin_competitive_analysis aca ON pai.asin = aca.asin
+        ORDER BY pai.confidence_score DESC, pai.profit_potential DESC
       `;
       
-      const trendResult = await pool.query(trendQuery);
-      
-      for (const row of trendResult.rows) {
-        const avgMargin = parseFloat(row.avg_margin) || 0;
-        if (avgMargin > 25) {
-          insights.push({
-            type: 'opportunity',
-            title: `${row.category} Category Surge`,
-            description: `${row.category} products showing average ${Math.round(avgMargin)}% margins with strong market performance. Consider increasing inventory allocation.`,
-            confidence: Math.min(95, 70 + Math.round(avgMargin / 5)),
-            action_required: true
-          });
-        }
-      }
-      
-      const supplierQuery = `
-        SELECT 
-          s.name,
-          COUNT(p.id) as product_count,
-          s.active,
-          s.updated_at
-        FROM suppliers s
-        LEFT JOIN products p ON s.id = p.supplier_id
-        GROUP BY s.id, s.name, s.active, s.updated_at
-      `;
-      
-      const supplierResult = await pool.query(supplierQuery);
-      
-      for (const supplier of supplierResult.rows) {
-        if (!supplier.active && supplier.product_count > 0) {
-          insights.push({
-            type: 'warning',
-            title: 'Supply Chain Alert',
-            description: `${supplier.name} supplier showing connectivity issues affecting ${supplier.product_count} products. Consider alternative sourcing.`,
-            confidence: 85,
-            action_required: true
-          });
-        }
-      }
-      
-      const opportunityQuery = `
-        SELECT COUNT(*) as high_value_count
-        FROM products p
-        LEFT JOIN amazon_marketplace_data amd ON p.usin = amd.asin
-        WHERE p.status = 'active' 
-          AND p.usin IS NOT NULL
-          AND p.usin != ''
-          AND amd.price > CAST(p.price AS NUMERIC) * 1.3
-      `;
-      
-      const opportunityResult = await pool.query(opportunityQuery);
-      const highValueCount = parseInt(opportunityResult.rows[0].high_value_count) || 0;
-      
-      if (highValueCount > 5) {
-        insights.push({
-          type: 'opportunity',
-          title: 'High-Value Opportunities Detected',
-          description: `${highValueCount} products identified with 30%+ profit potential. Market conditions favorable for expansion.`,
-          confidence: 91,
-          action_required: true
-        });
-      }
+      const result = await pool.query(query);
+      const insights = result.rows.map(row => ({
+        id: row.id,
+        product_id: row.product_id,
+        product_name: row.product_name,
+        sku: row.sku,
+        asin: row.asin,
+        asin_title: row.asin_title,
+        brand: row.brand,
+        insight_type: row.insight_type,
+        recommendation: row.recommendation,
+        confidence_score: parseFloat(row.confidence_score),
+        profit_potential: parseFloat(row.profit_potential),
+        market_opportunity: row.market_opportunity,
+        competitive_advantage: row.competitive_advantage,
+        risk_factors: row.risk_factors,
+        suggested_actions: row.suggested_actions,
+        marketplace_data: {
+          profit_margin: parseFloat(row.profit_margin) || 0,
+          sales_velocity: parseInt(row.sales_velocity) || 0,
+          competitive_sellers: parseInt(row.competitive_sellers) || 0,
+          market_share: parseFloat(row.market_share) || 0,
+          listing_quality_score: parseInt(row.listing_quality_score) || 0,
+          inventory_level: row.inventory_level,
+          match_confidence: parseFloat(row.match_confidence) || 0,
+          review_sentiment: parseFloat(row.review_sentiment) || 0,
+          keyword_rankings: row.keyword_rankings || {},
+          seasonality_trends: row.seasonality_trends || {}
+        },
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }));
       
       res.json(insights);
     } catch (error) {
-      console.error('Error generating AI insights:', error);
-      res.status(500).json({ error: 'Failed to generate AI insights' });
+      console.error('Error fetching AI insights:', error);
+      res.status(500).json({ error: 'Failed to fetch AI insights' });
     }
   });
+
 
   app.get('/api/purchasing/analytics', async (req, res) => {
     try {
