@@ -575,13 +575,6 @@ export class DatabaseStorage implements IStorage {
     }
     
     return fulfillmentResult.rows[0];
-      },
-      warehouseInventory: {
-        "WH1": 25,
-        "WH2": 15,
-        "WH3": 0
-      }
-    };
   }
   
   async updateProductFulfillment(productId: number, fulfillment: any): Promise<any> {

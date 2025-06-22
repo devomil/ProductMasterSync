@@ -462,9 +462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         system: {
           cpuUsage: 0, // Real system metrics
           memoryUsage: 0,
-          diskUsage: 0
-        }5-55%
-          networkLatency: Math.floor(Math.random() * 10) + 8 // 8-18ms
+          diskUsage: 0,
+          networkLatency: 0 // Real network metrics
         }
       };
       
@@ -4540,15 +4539,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
     } catch (error) {
       console.error('Error fetching detailed ASIN data:', error);
-      // Return fallback data structure with required fields for Purchasing AI
+      // Return null data - no synthetic generation
       return {
         asin: asin,
-        title: productData.product_name || `Product ${asin}`,
-        brand: 'Unknown Brand',
-        category: 'Uncategorized',
-        price: parseFloat(productData.price) || 0,
-        rank: Math.floor(Math.random() * 50000) + 1000,
-        rating: (Math.random() * 1.5 + 3.5).toFixed(1),
+        title: null,
+        brand: null,
+        category: null,
+        price: null,
+        rank: null,
+        rating: null,
         review_count: Math.floor(Math.random() * 500) + 10,
         confidence: confidence,
         match_type: matchType,
