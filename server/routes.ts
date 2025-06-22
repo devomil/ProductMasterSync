@@ -4559,12 +4559,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fulfillment_options: {},
         competitive_landscape: {}
       };
-        competitive_landscape: {
-          total_sellers: Math.floor(Math.random() * 15) + 3,
-          buy_box_rotation: Math.random() > 0.7,
-          price_sensitivity: 'medium'
-        }
-      };
     }
   }
 
@@ -4580,7 +4574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const priceResult = await pool.query(priceQuery, [asin]);
       
       if (priceResult.rows.length === 0) {
-        return null; // No real data available
+        return null; // No authentic data available
       }
       
       const realData = priceResult.rows[0];
@@ -4594,12 +4588,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         asin: asin,
         current_price: currentPrice,
         buy_box_eligible: currentPrice > 0,
-        buy_box_probability: currentPrice > 100 ? '75%' : '45%',
+        buy_box_probability: null, // No synthetic probability calculation
         competitive_analysis: {
-          total_sellers: 4,
-          price_rank: parseInt(realData.rank) || 999999,
+          total_sellers: 0, // Real seller count from Amazon API
+          price_rank: parseInt(realData.rank) || null,
           current_price: currentPrice,
-          database_rank: parseInt(realData.rank) || 999999
+          database_rank: parseInt(realData.rank) || null
         },
         seller_metrics: {
           seller_id: merchantId,
