@@ -4478,8 +4478,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dbId = asinIndex >= 0 ? asinIndex + 1 : 1;
       
       const asinDetails = await pool.query(`
-        SELECT * FROM amazon_marketplace_data 
-        WHERE asin = $1
+        SELECT amd.*, aca.total_sellers as competitive_sellers_count, aca.market_share, 
+               aca.listing_quality_score, aca.review_sentiment, aca.price_history,
+               aca.seller_metrics, aca.keyword_rankings, aca.seasonality_trends
+        FROM amazon_marketplace_data amd
+        LEFT JOIN asin_competitive_analysis aca ON amd.asin = aca.asin
+        WHERE amd.asin = $1
         LIMIT 1
       `, [asin]);
       
@@ -4548,7 +4552,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         listing_restrictions: amazonData.listing_restrictions || [],
         buy_box_info: await getBuyBoxInfo(asin, merchantId),
         fulfillment_options: amazonData.fulfillment_options ? JSON.parse(amazonData.fulfillment_options) : {},
-        competitive_landscape: amazonData.competitive_landscape ? JSON.parse(amazonData.competitive_landscape) : {}
+        competitive_landscape: {
+          total_sellers: amazonData.competitive_sellers_count || amazonData.competitive_sellers,
+          market_share: amazonData.market_share,
+          listing_quality_score: amazonData.listing_quality_score,
+          review_sentiment: amazonData.review_sentiment,
+          price_history: amazonData.price_history || [],
+          seller_metrics: amazonData.seller_metrics || {},
+          keyword_rankings: amazonData.keyword_rankings || {},
+          seasonality_trends: amazonData.seasonality_trends || {}
+        }
       };
     } catch (error) {
       console.error('Error fetching detailed ASIN data:', error);
