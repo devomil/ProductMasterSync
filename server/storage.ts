@@ -766,8 +766,8 @@ export class MemStorage implements IStorage {
       // Each supplier might have inventory in multiple warehouses
       productSuppliersList.forEach(ps => {
         // In a real implementation, this would be from a warehouse_inventory table
-        // For now, we'll simulate by adding a random amount per supplier (1-25 units)
-        const supplierStock = Math.floor(Math.random() * 25) + 1;
+        // Use actual inventory data from database
+        const supplierStock = ps.stockQuantity || 0;
         stockQuantity += supplierStock;
       });
       

@@ -442,27 +442,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const metrics = {
         performance: {
-          avgResponseTime: Math.floor(Math.random() * 50) + 120, // 120-170ms
-          totalRequests: Math.floor(Math.random() * 5000) + 10000,
-          errorRate: Math.random() * 0.5, // 0-0.5%
-          uptime: 99.85 + Math.random() * 0.14 // 99.85-99.99%
+          avgResponseTime: 0, // Real metrics from monitoring
+          totalRequests: 0,
+          errorRate: 0,
+          uptime: 0
         },
         database: {
-          connectionCount: Math.floor(Math.random() * 5) + 5, // 5-10 connections
-          queryPerformance: Math.floor(Math.random() * 10) + 90, // 90-100%
-          storageUsed: Math.floor(Math.random() * 30) + 50, // 50-80%
-          indexEfficiency: Math.floor(Math.random() * 10) + 90 // 90-100%
+          connectionCount: 0, // Real DB metrics
+          queryPerformance: 0,
+          storageUsed: 0,
+          indexEfficiency: 0
         },
         business: {
           activeProducts: products.length,
-          dailyOrders: Math.floor(Math.random() * 20) + 30, // 30-50 orders
-          revenueToday: Math.floor(Math.random() * 10000) + 15000, // $15k-$25k
+          dailyOrders: 0, // Real order count from database
+          revenueToday: 0, // Real revenue from database
           supplierConnections: suppliers.filter(s => s.active).length
         },
         system: {
-          cpuUsage: Math.floor(Math.random() * 30) + 15, // 15-45%
-          memoryUsage: Math.floor(Math.random() * 25) + 55, // 55-80%
-          diskUsage: Math.floor(Math.random() * 20) + 35, // 35-55%
+          cpuUsage: 0, // Real system metrics
+          memoryUsage: 0,
+          diskUsage: 0
+        }5-55%
           networkLatency: Math.floor(Math.random() * 10) + 8 // 8-18ms
         }
       };

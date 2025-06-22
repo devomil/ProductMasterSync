@@ -555,13 +555,9 @@ export class DatabaseStorage implements IStorage {
 
   // Warehouse management - These are placeholder implementations that would need to be replaced with real DB tables
   async getWarehouses(): Promise<any[]> {
-    // This is a placeholder. In a real implementation, we'd have a warehouses table
-    const mockWarehouses = [
-      { id: "WH1", name: "Main Warehouse", code: "MAIN", address: { street: "123 Logistics Way", city: "Commerce", state: "CA", postal_code: "90001", country: "USA" }, active: true },
-      { id: "WH2", name: "East Coast DC", code: "EASTDC", address: { street: "456 Distribution Ave", city: "Edison", state: "NJ", postal_code: "08817", country: "USA" }, active: true },
-      { id: "WH3", name: "Midwest Fulfillment", code: "MIDWEST", address: { street: "789 Supply Chain Blvd", city: "Chicago", state: "IL", postal_code: "60642", country: "USA" }, active: true }
-    ];
-    return mockWarehouses;
+    const query = 'SELECT * FROM warehouses WHERE active = true ORDER BY name';
+    const result = await this.pool.query(query);
+    return result.rows;
   }
   
   // Product Fulfillment management - These are placeholder implementations that would need to be replaced with real DB tables
@@ -570,16 +566,15 @@ export class DatabaseStorage implements IStorage {
     const product = await this.getProduct(productId);
     if (!product) return undefined;
     
-    // Return mock fulfillment data
-    return {
-      productId,
-      fulfillmentMode: "hybrid", // 'internal', 'dropship', 'hybrid'
-      defaultWarehouse: "WH1",
-      dropshipEnabled: true,
-      dropshipPriority: 2, // 1 = prefer dropship, 2 = prefer internal, 3 = based on inventory
-      supplierLeadTimes: {
-        "1": 2, // supplier ID 1 has 2 days lead time
-        "2": 3  // supplier ID 2 has 3 days lead time
+    // Get real fulfillment data from database
+    const fulfillmentQuery = 'SELECT * FROM product_fulfillment WHERE product_id = $1';
+    const fulfillmentResult = await this.pool.query(fulfillmentQuery, [productId]);
+    
+    if (fulfillmentResult.rows.length === 0) {
+      return undefined;
+    }
+    
+    return fulfillmentResult.rows[0];
       },
       warehouseInventory: {
         "WH1": 25,
