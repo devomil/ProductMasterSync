@@ -4548,31 +4548,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         price: null,
         rank: null,
         rating: null,
-        review_count: Math.floor(Math.random() * 500) + 10,
-        confidence: confidence,
-        match_type: matchType,
-        images: [
-          `https://m.media-amazon.com/images/I/71abc123def.jpg`,
-          `https://m.media-amazon.com/images/I/71xyz789ghi.jpg`
-        ],
-        features: [
-          'Professional marine grade construction',
-          'Waterproof to industry standards',
-          'Easy installation and setup'
-        ],
-        specifications: {
-          'Dimensions': '4.5" x 4.5" x 2.25"',
-          'Weight': '1.2 lbs',
-          'Material': 'Marine grade aluminum',
-          'Warranty': '2 years'
-        },
+        review_count: null,
+        confidence: 0,
+        match_type: 'no_data',
+        images: [],
+        features: [],
+        specifications: {},
         listing_restrictions: [],
-        buy_box_info: await getBuyBoxInfo(asin, merchantId),
-        fulfillment_options: {
-          fba_eligible: true,
-          self_ship_allowed: true,
-          hazmat_restrictions: false
-        },
+        buy_box_info: null,
+        fulfillment_options: {},
+        competitive_landscape: {}
+      };
         competitive_landscape: {
           total_sellers: Math.floor(Math.random() * 15) + 3,
           buy_box_rotation: Math.random() > 0.7,
