@@ -43,7 +43,7 @@ export default function SystemMonitoring() {
 
   useEffect(() => {
     // Check if system needs attention based on health data
-    if (healthData) {
+    if (healthData && Array.isArray(healthData)) {
       const hasIssues = healthData.some((service: any) => service.status !== 'healthy');
       setSystemOptimized(!hasIssues);
     }

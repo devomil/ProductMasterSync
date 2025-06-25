@@ -9,7 +9,6 @@ import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
 import ProductsSimple from "@/pages/ProductsSimple";
 import SuppliersSimple from "@/pages/SuppliersSimple";
-import SuppliersAdvanced from "@/pages/SuppliersAdvanced";
 import ProductDetails from "@/pages/ProductDetails";
 import DataImports from "@/pages/DataImports";
 import DataExports from "@/pages/DataExports";
@@ -31,7 +30,6 @@ import MultiASINSearch from "@/pages/MultiASINSearch";
 import AmazonAnalytics from "@/pages/AmazonAnalyticsEnhanced";
 import AIPurchasing from "@/pages/AIPurchasing";
 import ASINDemo from "@/pages/ASINDemo";
-import SystemMonitoring from "@/pages/SystemMonitoring";
 import SystemAnalysis from "@/pages/SystemAnalysis";
 import BatchProcessing from "@/pages/BatchProcessing";
 import SampleDataTest from "@/pages/SampleDataTest";
@@ -54,7 +52,6 @@ function Router() {
       <Route path="/products/:id" component={ProductDetails} />
       <Route path="/categories" component={Categories} />
       <Route path="/suppliers" component={SuppliersSimple} />
-      <Route path="/suppliers-advanced" component={SuppliersAdvanced} />
       <Route path="/data-imports" component={DataImports} />
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />
@@ -77,7 +74,7 @@ function Router() {
       <Route path="/sample-data-test" component={SampleDataTest} />
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
       <Route path="/gamified-mapping" component={GamifiedMapping} />
-      <Route path="/system-monitoring" component={SystemMonitoring} />
+
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
       <Route path="/marketplaces/overview" component={MarketplaceOverview} />
