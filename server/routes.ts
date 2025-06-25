@@ -4573,6 +4573,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Advanced Supplier Management API endpoints
+  app.get("/api/suppliers-advanced/kpis/:supplierId?/:timeframe?", async (req, res) => {
+    try {
+      const { supplierId, timeframe } = req.params;
+      
+      // In production, this would query real supplier performance data
+      res.json({
+        onTimeDelivery: 94.2,
+        qualityScore: 4.7,
+        costVariance: -2.3,
+        responseTime: 4.2,
+        performanceTrend: "improving",
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/suppliers-advanced/risk-analysis/:supplierId?", async (req, res) => {
+    try {
+      const { supplierId } = req.params;
+      
+      res.json({
+        financialRisk: "low",
+        geographicRisk: "medium", 
+        complianceRisk: "low",
+        overallRiskScore: 3.2,
+        riskFactors: [
+          {
+            type: "single_source",
+            severity: "medium",
+            description: "Single source dependency for marine electronics",
+            mitigation: "Identify backup suppliers"
+          }
+        ],
+        lastAssessed: new Date().toISOString()
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/suppliers-advanced/price-history/:supplierId?/:timeframe?", async (req, res) => {
+    try {
+      const { supplierId, timeframe } = req.params;
+      
+      res.json({
+        averagePriceChange: 3.2,
+        priceVolatility: "moderate",
+        contractSavings: 12450,
+        trends: [
+          { month: "Jan", averagePrice: 245.50 },
+          { month: "Feb", averagePrice: 248.20 },
+          { month: "Mar", averagePrice: 253.10 }
+        ],
+        topIncreases: [
+          { product: "Marine Compass HF-743", increase: 8.3 },
+          { product: "Navigation Light LED", increase: 5.7 }
+        ],
+        topDecreases: [
+          { product: "Safety Whistle Pack", decrease: -3.2 },
+          { product: "Anchor Chain 8mm", decrease: -1.8 }
+        ]
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
