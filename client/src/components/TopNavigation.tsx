@@ -135,6 +135,12 @@ const TopNavigation = () => {
                     Supplier Management
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/suppliers-advanced" className="flex items-center gap-2 w-full">
+                    <BarChart3 className="h-4 w-4" />
+                    Advanced Supplier Analytics
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Link to="/data-sources" className="flex items-center gap-2 w-full">
