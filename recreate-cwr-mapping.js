@@ -2,7 +2,7 @@
  * Recreate CWR mapping template and import product catalog
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -10,13 +10,9 @@ async function recreateCWRMapping() {
   try {
     console.log('🔄 Getting CWR sample data to understand structure...');
     
-    // Get sample data to understand the structure
-    const sampleResponse = await axios.post(`${API_BASE}/connections/sample-data`, {
-      type: 'sftp',
-      supplier_id: 2,
-      limit: 3,
-      remote_path: '/eco8/out/catalog.csv',
-      specific_path: '/eco8/out/catalog.csv'
+    // Get sample data using the data source directly
+    const sampleResponse = await axios.post(`${API_BASE}/test-pull/1`, {
+      limit: 3
     });
 
     if (!sampleResponse.data.success) {
