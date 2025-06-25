@@ -116,6 +116,12 @@ export default function ProductDetails() {
     retry: 1
   });
 
+  // Fetch mapping templates to know which fields are mapped and should be displayed
+  const { data: mappingTemplates } = useQuery({
+    queryKey: ['/api/mapping-templates'],
+    retry: 1
+  });
+
   // Mutation for syncing Amazon data to database
   const syncAmazonDataMutation = useMutation({
     mutationFn: async (upc: string) => {
@@ -482,7 +488,7 @@ export default function ProductDetails() {
               <Card>
                 <CardHeader>
                   <CardTitle>Master Catalog Information</CardTitle>
-                  <CardDescription>Unified product data across all suppliers</CardDescription>
+                  <CardDescription>Unified product data across all suppliers (mapped fields)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -498,6 +504,24 @@ export default function ProductDetails() {
                           <span className="text-gray-600 text-sm font-medium">MPN:</span>
                           <span className="text-gray-900">{product.manufacturerPartNumber || "N/A"}</span>
                         </div>
+                        {product.upc && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">UPC:</span>
+                            <span className="text-gray-900 font-mono text-sm">{product.upc}</span>
+                          </div>
+                        )}
+                        {product.price && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">List Price:</span>
+                            <span className="text-gray-900 font-semibold">${parseFloat(product.price).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {product.cost && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">Cost:</span>
+                            <span className="text-gray-900">${parseFloat(product.cost).toFixed(2)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600 text-sm font-medium">UPC:</span>
                           <span className="text-gray-900">{product.upc || "N/A"}</span>
@@ -550,6 +574,69 @@ export default function ProductDetails() {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Documentation URLs Section - Only show if any URLs are mapped */}
+                  {(product.installationGuideUrl || product.ownersManualUrl || product.brochureUrl || product.quickGuideUrl || product.videoUrls) && (
+                    <>
+                      <div className="border-t pt-4 mt-6">
+                        <h4 className="font-semibold text-lg text-gray-900 border-b pb-2 mb-3">Documentation & Media</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {product.installationGuideUrl && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600 text-sm">Installation Guide:</span>
+                              <a 
+                                href={product.installationGuideUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                              >
+                                View PDF <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
+                          {product.ownersManualUrl && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600 text-sm">Owner's Manual:</span>
+                              <a 
+                                href={product.ownersManualUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                              >
+                                View PDF <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
+                          {product.brochureUrl && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600 text-sm">Brochure:</span>
+                              <a 
+                                href={product.brochureUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                              >
+                                View PDF <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
+                          {product.quickGuideUrl && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-600 text-sm">Quick Guide:</span>
+                              <a 
+                                href={product.quickGuideUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                              >
+                                View PDF <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

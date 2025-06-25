@@ -2267,6 +2267,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/mapping-templates", async (req, res) => {
     try {
       const validatedData = insertMappingTemplateSchema.parse(req.body);
+      
+      // Ensure mappings structure includes both catalog and productDetail
+      let mappings = validatedData.mappings as any;
+      
+      // If mappings is a simple object, convert it to the new structure
+      if (mappings && !mappings.catalog && !mappings.productDetail) {
+        // Convert old format to new structure
+        const catalogMappings = Object.entries(mappings).map(([sourceField, targetField]) => ({
+          sourceField,
+          targetField: targetField as string
+        }));
+        
+        // Create productDetail mappings for key product fields
+        const productDetailMappings = catalogMappings.filter((mapping: any) => {
+          const productDetailFields = [
+            'image_url', 'image300x300Url', 'image1000x1000Url', 'additionalImageUrls',
+            'installationGuideUrl', 'ownersManualUrl', 'brochureUrl', 'quickGuideUrl',
+            'videoUrls', 'boxHeight', 'boxWidth', 'boxLength', 'weight', 'caseQuantity',
+            'harmonizationCode', 'countryOfOrigin', 'googleMerchantCategory', 'thirdPartyMarketplaces'
+          ];
+          return productDetailFields.includes(mapping.targetField);
+        });
+        
+        mappings = {
+          catalog: catalogMappings,
+          productDetail: productDetailMappings
+        };
+        
+        validatedData.mappings = mappings;
+      }
+      
       const mappingTemplate = await storage.createMappingTemplate(validatedData);
       
       // Create audit log
