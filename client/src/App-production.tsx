@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Switch } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import Sidebar from "@/components/layout/Sidebar";
 import Dashboard from "@/pages/Dashboard";
 import Products from "@/pages/Products";
@@ -9,8 +9,8 @@ import ProductDetails from "@/pages/ProductDetails";
 import Categories from "@/pages/Categories";
 import Suppliers from "@/pages/Suppliers";
 import MappingTemplateEditor from "@/pages/MappingTemplateEditor";
-import Imports from "@/pages/Imports";
-import Exports from "@/pages/Exports";
+import DataImports from "@/pages/DataImports";
+import DataExports from "@/pages/DataExports";
 import Approvals from "@/pages/Approvals";
 import AmazonIntegration from "@/pages/AmazonIntegration";
 
@@ -42,8 +42,8 @@ function App() {
                 <Route path="/suppliers" component={Suppliers} />
                 <Route path="/mapping-templates" component={MappingTemplateEditor} />
                 <Route path="/mapping-templates/:id" component={MappingTemplateEditor} />
-                <Route path="/imports" component={Imports} />
-                <Route path="/exports" component={Exports} />
+                <Route path="/imports" component={DataImports} />
+                <Route path="/exports" component={DataExports} />
                 <Route path="/approvals" component={Approvals} />
                 <Route path="/amazon-integration" component={AmazonIntegration} />
                 <Route>
