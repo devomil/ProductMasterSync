@@ -53,6 +53,8 @@ export default function MappingTemplateEditor() {
   const params = useParams<{ id?: string }>();
   const id = params.id ? parseInt(params.id) : null;
   const isEdit = !!id;
+  const isNew = window.location.pathname.includes('/new');
+  const isListView = !id && !isNew;
   
   // Basic state
   const [activeTab, setActiveTab] = useState<string>("info");
@@ -146,6 +148,12 @@ export default function MappingTemplateEditor() {
   const { data: dataSources = [] } = useQuery({ 
     queryKey: ['/api/data-sources'],
     select: (data: any) => data as DataSource[]
+  });
+
+  // Fetch mapping templates for list view
+  const { data: templates = [] } = useQuery<MappingTemplate[]>({
+    queryKey: ['/api/mapping-templates'],
+    enabled: isListView,
   });
   
   // Fetch template if editing
@@ -545,6 +553,61 @@ export default function MappingTemplateEditor() {
     }
   };
   
+  // If showing list view, render the templates list
+  if (isListView) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Mapping Templates</h1>
+          <Button onClick={() => navigate('/mapping-templates/new')}>
+            Create New Template
+          </Button>
+        </div>
+        
+        <div className="grid gap-4">
+          {templates.map((template) => (
+            <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">{template.name}</h3>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {template.description || "No description"}
+                    </p>
+                    <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                      <span>Source: {template.sourceType}</span>
+                      <span>Fields: {Object.keys(template.mappings || {}).length}</span>
+                      {template.supplierId && (
+                        <span>Supplier: {suppliers.find(s => s.id === template.supplierId)?.name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => navigate(`/mapping-templates/${template.id}`)}
+                    variant="outline"
+                  >
+                    Edit Template
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          
+          {templates.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-muted-foreground mb-4">No mapping templates found</p>
+                <Button onClick={() => navigate('/mapping-templates/new')}>
+                  Create Your First Template
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex items-center justify-between mb-6">
