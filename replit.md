@@ -120,10 +120,12 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
-- **Core Components Restored (2025-06-25)**: Fixed missing logic in Supplier Management, Data Sources, and Mapping Templates
-- **Database Methods**: Added getDataSourcesBySupplier method for proper supplier-datasource connections
-- **API Endpoints**: Restored supplier test-pull functionality with authentic SFTP data integration
-- **System Integration**: All components now properly connected with working API routes and database queries
+- **Performance Optimization (2025-06-25)**: Fixed database connection timeouts and slow queries
+- **Enhanced Error Handling**: Added timeout management and connection retry logic for all database operations
+- **Supplier Management UI**: Improved View Details dialog and Edit functionality with proper field mapping
+- **Database Indexes**: Added essential indexes for products, suppliers, and categories for better performance
+- **Connection Stability**: Enhanced SFTP connector with proper timeout handling and error messages
+- **API Reliability**: Added request timeouts and fallback handling to prevent hanging requests
 
 # Changelog
 - June 25, 2025. Initial setup and CWR data recovery
