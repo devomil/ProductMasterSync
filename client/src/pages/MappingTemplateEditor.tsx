@@ -75,6 +75,12 @@ export default function MappingTemplateEditor() {
     { sourceField: "", targetField: "" }
   ]);
   
+  // Product detail mappings
+  const [productDetailMappings, setProductDetailMappings] = useState<FieldMapping[]>([
+    { sourceField: "", targetField: "" }
+  ]);
+  const [mappingView, setMappingView] = useState<'catalog' | 'detail'>('catalog');
+  
   // Target fields definition
   const targetFields = [
     { id: "sku", name: "SKU", required: true, description: "Unique product identifier" },
@@ -811,9 +817,14 @@ export default function MappingTemplateEditor() {
             <MappingWorkspace
               sampleData={sampleData}
               sampleHeaders={sampleHeaders}
-              fieldMappings={fieldMappings}
-              targetFields={targetFields}
-              onUpdateMappings={setFieldMappings}
+              catalogMappings={fieldMappings}
+              detailMappings={productDetailMappings}
+              activeView={mappingView}
+              catalogFields={targetFields}
+              detailFields={productDetailFields}
+              onUpdateCatalogMappings={setFieldMappings}
+              onUpdateDetailMappings={setProductDetailMappings}
+              onToggleView={setMappingView}
               onAutoMap={() => {
                 const autoMappings = autoMapFields(sampleHeaders);
                 setFieldMappings(autoMappings);

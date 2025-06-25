@@ -18,9 +18,7 @@ import Suppliers from "@/pages/Suppliers";
 import SupplierDetails from "@/pages/SupplierDetails";
 import ApiConfiguration from "@/pages/ApiConfiguration";
 import DataSources from "@/pages/DataSources";
-import MappingTemplates from "./pages/MappingTemplates";
 import MappingTemplateEditor from "./pages/MappingTemplateEditor";
-import MappingTemplateWorkspace from "./pages/MappingTemplateWorkspace";
 import SimpleMappingDemo from "./pages/SimpleMappingDemo";
 import DescriptionProcessor from "./pages/DescriptionProcessor";
 import Connections from "@/pages/Connections";
@@ -60,12 +58,9 @@ function Router() {
       <Route path="/data-imports" component={DataImports} />
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />
-      <Route path="/mapping-templates" component={MappingTemplates} />
-      <Route path="/mapping-workspace" component={MappingTemplateWorkspace} />
-      <Route path="/mapping-editor" component={MappingTemplateEditor} />
-      <Route path="/mapping-templates/new" component={MappingTemplateWorkspace} />
-      <Route path="/mapping-templates/:id" component={MappingTemplateWorkspace} />
-      <Route path="/mapping-template-workspace" component={MappingTemplateWorkspace} />
+      <Route path="/mapping-templates" component={MappingTemplateEditor} />
+      <Route path="/mapping-templates/new" component={MappingTemplateEditor} />
+      <Route path="/mapping-templates/:id" component={MappingTemplateEditor} />
       <Route path="/mapping-demo" component={SimpleMappingDemo} />
       <Route path="/description-processor" component={DescriptionProcessor} />
       <Route path="/connections" component={Connections} />
