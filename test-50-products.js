@@ -78,23 +78,31 @@ async function test50ProductSync() {
     }
 
     // Apply CWR mapping template to transform the data
-    const mappings = JSON.parse(template[0].mappings);
+    const mappings = template[0].mappings;
     const transformedProducts = [];
 
     for (const record of sampleProducts) {
       const productData = {};
       
-      // Apply each mapping from the template
-      mappings.forEach(mapping => {
-        const sourceValue = record[mapping.sourceField];
+      // Apply mappings based on the CWR template structure
+      // Mappings format: {"source_field": "target_field"}
+      Object.entries(mappings).forEach(([sourceField, targetField]) => {
+        const sourceValue = record[sourceField];
         if (sourceValue) {
-          productData[mapping.targetField] = sourceValue;
+          productData[targetField] = sourceValue;
         }
       });
 
-      // Ensure required fields
-      if (!productData.sku && productData.edcCode) productData.sku = productData.edcCode;
-      if (!productData.name && productData.description) productData.name = productData.description;
+      // Map standard fields
+      productData.sku = record["EDC CODE"];
+      productData.manufacturerPartNumber = record["MFGN"];
+      productData.upc = record["UPC"];
+      productData.name = record["DESCRIPTION"];
+      productData.manufacturerName = record["MFG NAME"];
+      productData.category = record["CATEGORY"];
+      productData.price = record["LIST"];
+      productData.cost = record["COST"];
+      productData.inventoryQuantity = parseInt(record["QTY FL"]) + parseInt(record["QTY NJ"]);
       
       transformedProducts.push(productData);
     }
