@@ -465,11 +465,11 @@ export default function MappingTemplateEditor() {
       return;
     }
     
-    // Convert field mappings to mappings record
+    // Convert field mappings to mappings record (sourceField -> targetField format)
     const mappings: Record<string, string> = {};
     fieldMappings.forEach(mapping => {
       if (mapping.sourceField && mapping.targetField) {
-        mappings[mapping.targetField] = mapping.sourceField;
+        mappings[mapping.sourceField] = mapping.targetField;
       }
     });
     

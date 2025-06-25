@@ -2317,7 +2317,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/mapping-templates/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const validatedData = insertMappingTemplateSchema.partial().parse(req.body);
+      let validatedData = insertMappingTemplateSchema.partial().parse(req.body);
+      
+      // Handle mappings field conversion for proper saving
+      if (validatedData.mappings) {
+        let mappings = validatedData.mappings as any;
+        
+        // If mappings is a simple object (old format), convert to new structure
+        if (mappings && !mappings.catalog && !mappings.productDetail) {
+          // Convert simple object to array format for both catalog and product detail
+          const catalogMappings = Object.entries(mappings).map(([sourceField, targetField]) => ({
+            sourceField,
+            targetField: targetField as string
+          }));
+          
+          // Separate catalog and product detail mappings
+          const catalogFields = [
+            'sku', 'usin', 'upc', 'cost', 'price', 'product_name', 'description',
+            'category', 'brand', 'mpn', 'weight', 'stock_quantity', 'status'
+          ];
+          
+          const productDetailFields = [
+            'primary_image', 'image_url', 'image300x300Url', 'image1000x1000Url', 
+            'additionalImageUrls', 'installationGuideUrl', 'ownersManualUrl', 
+            'brochureUrl', 'quickGuideUrl', 'videoUrls', 'boxHeight', 'boxWidth', 
+            'boxLength', 'caseQuantity', 'harmonizationCode', 'countryOfOrigin', 
+            'googleMerchantCategory', 'thirdPartyMarketplaces'
+          ];
+          
+          const catalogMappingsFiltered = catalogMappings.filter(mapping => 
+            catalogFields.includes(mapping.targetField)
+          );
+          
+          const productDetailMappingsFiltered = catalogMappings.filter(mapping => 
+            productDetailFields.includes(mapping.targetField)
+          );
+          
+          mappings = {
+            catalog: catalogMappingsFiltered,
+            productDetail: productDetailMappingsFiltered
+          };
+          
+          validatedData.mappings = mappings;
+        }
+      }
+      
       const updatedMappingTemplate = await storage.updateMappingTemplate(id, validatedData);
       
       if (!updatedMappingTemplate) {
