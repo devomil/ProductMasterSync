@@ -1723,101 +1723,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Apply catalog mappings
             const catalogData: any = { sku: edcSku };
             const productDetailData: any = { sku: edcSku };
-          
-          // Handle authentic CWR images if detected
-          if (isCWRData) {
-            const images = [];
-            if (record['Image (1000x1000) Url'] && record['Image (1000x1000) Url'].trim() !== '') {
-              images.push(record['Image (1000x1000) Url'].trim());
-            }
-            if (record['Image (300x300) Url'] && record['Image (300x300) Url'].trim() !== '') {
-              images.push(record['Image (300x300) Url'].trim());
-            }
-            if (record['Image Additional (1000x1000) Urls'] && record['Image Additional (1000x1000) Urls'].trim() !== '') {
-              const additionalImages = record['Image Additional (1000x1000) Urls'].split(',')
-                .map(url => url.trim())
-                .filter(url => url !== '');
-              images.push(...additionalImages);
-            }
             
-            if (images.length > 0) {
-              catalogData.imageUrl = images[0];
-              catalogData.imageUrlLarge = images.length > 1 ? images[1] : images[0];
-              catalogData.primaryImage = images[0];
-              catalogData.images = JSON.stringify(images);
-              console.log(`🖼️ CWR images captured for ${record['CWR Part Number']}: ${images.length} images`);
-            }
-            
-            // Handle CWR documentation URLs
-            if (record['Installation Guide (pdf) Url'] && record['Installation Guide (pdf) Url'].trim() !== '') {
-              catalogData.installationGuideUrl = record['Installation Guide (pdf) Url'].trim();
-            }
-            if (record['Owners Manual (pdf) Url'] && record['Owners Manual (pdf) Url'].trim() !== '') {
-              catalogData.ownersManualUrl = record['Owners Manual (pdf) Url'].trim();
-            }
-            if (record['Brochure Literature (pdf) Url'] && record['Brochure Literature (pdf) Url'].trim() !== '') {
-              catalogData.brochureUrl = record['Brochure Literature (pdf) Url'].trim();
-            }
-            if (record['Quick Guide Literature (pdf) Url'] && record['Quick Guide Literature (pdf) Url'].trim() !== '') {
-              catalogData.quickGuideUrl = record['Quick Guide Literature (pdf) Url'].trim();
-            }
-            
-            // Log documentation URLs if found
-            const docUrls = [
-              catalogData.installationGuideUrl,
-              catalogData.ownersManualUrl, 
-              catalogData.brochureUrl,
-              catalogData.quickGuideUrl
-            ].filter(Boolean);
-            
-            if (docUrls.length > 0) {
-              console.log(`📄 CWR documentation URLs captured for ${record['CWR Part Number']}: ${docUrls.length} documents`);
-            }
-          }
-
-          // Process catalog mappings - handle both old and new mapping format
-          if (mappings && typeof mappings === 'object') {
-            if ('catalog' in mappings && Array.isArray(mappings.catalog)) {
-              for (const mapping of mappings.catalog) {
-                if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
-                  catalogData[mapping.targetField] = record[mapping.sourceField];
-                }
+            // Handle authentic CWR images if detected
+            if (isCWRData) {
+              const images = [];
+              if (record['Image (1000x1000) Url'] && record['Image (1000x1000) Url'].trim() !== '') {
+                images.push(record['Image (1000x1000) Url'].trim());
               }
-            } else {
-              // Handle direct mappings object format
-              for (const [sourceField, targetField] of Object.entries(mappings as Record<string, any>)) {
-                if (record[sourceField]) {
-                let value = record[sourceField];
-                
-                // Special handling for description field - ensure we only store clean text
-                if (targetField === 'description' && typeof value === 'string' && value.includes('<')) {
-                  value = value
-                    .replace(/<[^>]*>/g, '')
-                    .replace(/&nbsp;/g, ' ')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#39;/g, "'")
-                    .replace(/&trade;/g, '™')
-                    .replace(/&reg;/g, '®')
-                    .replace(/&copy;/g, '©')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-                  console.log('🧹 Processed HTML description to clean text during mapping');
+              if (record['Image (300x300) Url'] && record['Image (300x300) Url'].trim() !== '') {
+                images.push(record['Image (300x300) Url'].trim());
+              }
+              if (record['Image Additional (1000x1000) Urls'] && record['Image Additional (1000x1000) Urls'].trim() !== '') {
+                const additionalImages = record['Image Additional (1000x1000) Urls'].split(',')
+                  .map((url: any) => url.trim())
+                  .filter((url: any) => url !== '');
+                images.push(...additionalImages);
+              }
+              
+              if (images.length > 0) {
+                catalogData.imageUrl = images[0];
+                catalogData.imageUrlLarge = images.length > 1 ? images[1] : images[0];
+                catalogData.primaryImage = images[0];
+                catalogData.images = JSON.stringify(images);
+                console.log(`🖼️ CWR images captured for ${record['CWR Part Number']}: ${images.length} images`);
+              }
+            
+              // Handle CWR documentation URLs
+              if (record['Installation Guide (pdf) Url'] && record['Installation Guide (pdf) Url'].trim() !== '') {
+                catalogData.installationGuideUrl = record['Installation Guide (pdf) Url'].trim();
+              }
+              if (record['Owners Manual (pdf) Url'] && record['Owners Manual (pdf) Url'].trim() !== '') {
+                catalogData.ownersManualUrl = record['Owners Manual (pdf) Url'].trim();
+              }
+              if (record['Brochure Literature (pdf) Url'] && record['Brochure Literature (pdf) Url'].trim() !== '') {
+                catalogData.brochureUrl = record['Brochure Literature (pdf) Url'].trim();
+              }
+              if (record['Quick Guide Literature (pdf) Url'] && record['Quick Guide Literature (pdf) Url'].trim() !== '') {
+                catalogData.quickGuideUrl = record['Quick Guide Literature (pdf) Url'].trim();
+              }
+              
+              // Log documentation URLs if found
+              const docUrls = [
+                catalogData.installationGuideUrl,
+                catalogData.ownersManualUrl, 
+                catalogData.brochureUrl,
+                catalogData.quickGuideUrl
+              ].filter(Boolean);
+              
+              if (docUrls.length > 0) {
+                console.log(`📄 CWR documentation URLs captured for ${record['CWR Part Number']}: ${docUrls.length} documents`);
+              }
+            }
+
+            // Process catalog mappings - handle both old and new mapping format
+            if (mappings && typeof mappings === 'object') {
+              if ('catalog' in mappings && Array.isArray(mappings.catalog)) {
+                for (const mapping of mappings.catalog) {
+                  if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
+                    catalogData[mapping.targetField] = record[mapping.sourceField];
+                  }
                 }
-                
-                // Convert camelCase field names to database column names where needed
-                let dbFieldName = targetField as string;
-                const fieldNameMap: { [key: string]: string } = {
-                  'quickGuideUrl': 'quick_guide_url',
-                  'ownersManualUrl': 'owners_manual_url', 
-                  'brochureUrl': 'brochure_url',
-                  'installationGuideUrl': 'installation_guide_url'
-                };
-                
-                if (fieldNameMap[targetField as string]) {
-                  dbFieldName = fieldNameMap[targetField as string];
+              } else {
+                // Handle direct mappings object format
+                for (const [sourceField, targetField] of Object.entries(mappings as Record<string, any>)) {
+                  if (record[sourceField]) {
+                    let value = record[sourceField];
+                    
+                    // Special handling for description field - ensure we only store clean text
+                    if (targetField === 'description' && typeof value === 'string' && value.includes('<')) {
+                      value = value
+                        .replace(/<[^>]*>/g, '')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#39;/g, "'")
+                        .replace(/&trade;/g, '™')
+                        .replace(/&reg;/g, '®')
+                        .replace(/&copy;/g, '©')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                      console.log('🧹 Processed HTML description to clean text during mapping');
+                    }
+                    
+                    // Convert camelCase field names to database column names where needed
+                    let dbFieldName = targetField as string;
+                    const fieldNameMap: { [key: string]: string } = {
+                      'quickGuideUrl': 'quick_guide_url',
+                      'ownersManualUrl': 'owners_manual_url', 
+                      'brochureUrl': 'brochure_url',
+                      'installationGuideUrl': 'installation_guide_url'
+                    };
+                    
+                    if (fieldNameMap[targetField as string]) {
+                      dbFieldName = fieldNameMap[targetField as string];
                 }
                 
                 // Debug logging for key fields
