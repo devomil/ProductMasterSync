@@ -111,7 +111,7 @@ async function createOrFindCategoryByPath(categoryPath: string): Promise<number>
       // Create new category with intelligent attributes based on industry
       const attributes = generateCategoryAttributes(part, fullPath, currentLevel);
       
-      const [newCategory] = await db.insert(categories).values({
+      const newCategoryResult = await db.insert(categories).values({
         name: part,
         code: generateCategoryCode(part),
         parentId: parentId,
@@ -120,7 +120,9 @@ async function createOrFindCategoryByPath(categoryPath: string): Promise<number>
         attributes: attributes
       }).returning();
       
-      parentId = newCategory.id;
+      if (Array.isArray(newCategoryResult) && newCategoryResult.length > 0) {
+        parentId = newCategoryResult[0].id;
+      }
       
       console.log(`🏗️ Created new category: ${fullPath} (ID: ${parentId})`);
     }
@@ -1202,7 +1204,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedApproval = await storage.updateApproval(id, {
         status,
-        completedAt: ["approve", "reject"].includes(action) ? new Date() : undefined,
         approvedBy: action === "approve" ? 1 : undefined, // Hard-coded user ID for demo
       });
       
