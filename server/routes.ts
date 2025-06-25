@@ -2821,10 +2821,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       res.json({
-        totalProducts: products.length || 23456, // Fallback to sample data
-        activeSuppliers: suppliers.filter(s => s.active).length || 156,
-        successfulImports30d: successfulImports || 248,
-        pendingApprovals: pendingApprovals || 42,
+        totalProducts: products.length,
+        activeSuppliers: suppliers.filter(s => s.active).length,
+        successfulImports30d: successfulImports,
+        pendingApprovals: pendingApprovals,
         dataQuality,
         pipelinePerformance
       });
