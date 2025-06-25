@@ -243,6 +243,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(dataSources);
   }
 
+  async getDataSourcesBySupplier(supplierId: number): Promise<DataSource[]> {
+    return await db.select().from(dataSources).where(eq(dataSources.supplierId, supplierId));
+  }
+
   async getDataSource(id: number): Promise<DataSource | undefined> {
     const [dataSource] = await db.select().from(dataSources).where(eq(dataSources.id, id));
     return dataSource;
