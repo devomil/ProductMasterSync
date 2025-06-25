@@ -147,12 +147,14 @@ export default function MappingTemplateEditor() {
       });
       
       // Convert mappings to field mappings array
+      console.log('Template mappings:', templateData.mappings);
       const mappingsArray = Object.entries(templateData.mappings).map(
-        ([targetField, sourceField]) => ({
+        ([sourceField, targetField]) => ({
           sourceField: sourceField as string,
-          targetField
+          targetField: targetField as string
         })
       );
+      console.log('Converted mappings array:', mappingsArray);
       
       setFieldMappings(mappingsArray.length > 0 ? mappingsArray : [{ sourceField: "", targetField: "" }]);
       
