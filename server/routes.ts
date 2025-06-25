@@ -1585,7 +1585,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           message: error instanceof Error ? error.message : "SFTP connection failed"
         });
-      } else {
+      }
+    } else {
         // Handle other data source types - require authentic data configuration
         console.log(`Test pull request for data source ${id}, type: ${dataSource.type} - authentic data source required`);
         
@@ -1973,7 +1974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Error processing record:", error);
             errorCount++;
           }
-      }
+        }
 
       // Auto-sync inventory data for sample imports from CWR SFTP
       let inventorySyncCount = 0;
