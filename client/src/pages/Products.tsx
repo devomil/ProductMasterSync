@@ -36,6 +36,7 @@ import {
   InventoryStatusType 
 } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import { useMappingTemplates } from "@/hooks/useMappingTemplates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -187,6 +188,9 @@ const Products = () => {
   const [fulfillmentDrawerOpen, setFulfillmentDrawerOpen] = useState(false);
   const [amazonDataDrawerOpen, setAmazonDataDrawerOpen] = useState(false);
   
+  // Load mapping templates to get CWR template columns
+  const { data: mappingTemplates } = useMappingTemplates();
+  
   // Filter state using reducer
   const [filters, dispatchFilters] = useReducer(filterReducer, {
     searchType: 'all' as SearchType,
@@ -227,6 +231,44 @@ const Products = () => {
   
   // Get categories data
   const { categories, isLoading: categoriesLoading } = useCategories();
+  
+  // Get CWR mapping template to determine dynamic columns
+  const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
+  const dynamicColumns = cwrTemplate?.mappings ? Object.values(cwrTemplate.mappings) : [];
+  
+  // Define column mapping for display names
+  const columnDisplayNames: Record<string, string> = {
+    sku: 'SKU',
+    product_name: 'Product Name',
+    description: 'Description', 
+    upc: 'UPC',
+    mpn: 'MPN',
+    brand: 'Brand',
+    category: 'Category',
+    price: 'Price',
+    cost: 'Cost',
+    weight: 'Weight',
+    primary_image: 'Image'
+  };
+  
+  // Helper function to get product field value
+  const getProductValue = (product: any, field: string): string => {
+    const fieldMap: Record<string, string> = {
+      product_name: product.name,
+      mpn: product.manufacturerPartNumber,
+      brand: product.manufacturerName,
+      category: product.categoryName,
+      primary_image: product.primaryImageUrl,
+      upc: product.upc,
+      price: product.price,
+      cost: product.cost,
+      weight: product.weight,
+      sku: product.sku,
+      description: product.description
+    };
+    
+    return fieldMap[field] || product[field] || '-';
+  };
 
   // Filtering logic
   const filteredProducts = products.filter(product => {
