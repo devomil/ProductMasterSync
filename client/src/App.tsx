@@ -9,6 +9,7 @@ import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
 import ProductsSimple from "@/pages/ProductsSimple";
 import SuppliersSimple from "@/pages/SuppliersSimple";
+import SuppliersAdvanced from "@/pages/SuppliersAdvanced";
 import ProductDetails from "@/pages/ProductDetails";
 import DataImports from "@/pages/DataImports";
 import DataExports from "@/pages/DataExports";
