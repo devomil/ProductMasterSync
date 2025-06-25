@@ -1063,15 +1063,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (success) {
                 await storage.updateImport(newImport.id, {
                   status: "success",
-                  processedCount: importData.recordCount,
-                  completedAt: new Date()
+                  processedCount: importData.recordCount
                 });
               } else {
                 await storage.updateImport(newImport.id, {
                   status: "error",
                   errorCount: 1,
-                  importErrors: [{ message: "Processing error", line: Math.floor(Math.random() * importData.recordCount) + 1 }],
-                  completedAt: new Date()
+                  importErrors: [{ message: "Processing error", line: Math.floor(Math.random() * importData.recordCount) + 1 }]
                 });
               }
             } catch (err) {
@@ -1123,8 +1121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           setTimeout(async () => {
             try {
               await storage.updateExport(exportData.id, {
-                status: "success",
-                completedAt: new Date()
+                status: "success"
               });
             } catch (err) {
               console.error("Error finalizing export:", err);
@@ -2048,8 +2045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processedCount: successCount,
         errorCount: errorCount,
         supplierId: dataSource.supplierId,
-        mappingTemplateId: templateId,
-        completedAt: new Date()
+        mappingTemplate: templateId?.toString()
       });
 
       res.json({
