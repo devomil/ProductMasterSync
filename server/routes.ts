@@ -2079,6 +2079,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get available files for a data source
+  app.get("/api/data-sources/:id/files", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      
+      // Check if data source exists
+      const dataSource = await storage.getDataSource(id);
+      
+      if (!dataSource) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Data source not found" 
+        });
+      }
+      
+      // Handle SFTP/FTP data sources
+      if (dataSource.type === 'sftp' || dataSource.type === 'ftp') {
+        // Extract credentials from data source config
+        let config = dataSource.config;
+        if (typeof config === 'string') {
+          try {
+            config = JSON.parse(config);
+          } catch (e) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid data source configuration"
+            });
+          }
+        }
+        
+        const typedConfig = config as any;
+        
+        // Return predefined file paths for CWR (data source ID 1)
+        if (id === 1) {
+          return res.json({
+            success: true,
+            files: [
+              "/eco8/out/catalog.csv",
+              "/eco8/out/inventory.csv"
+            ]
+          });
+        }
+        
+        // For other SFTP sources, return remote paths if configured
+        if (typedConfig.remote_paths && Array.isArray(typedConfig.remote_paths)) {
+          const files = typedConfig.remote_paths.map((rp: any) => rp.path || rp);
+          return res.json({
+            success: true,
+            files: files
+          });
+        }
+        
+        return res.json({
+          success: true,
+          files: []
+        });
+      }
+      
+      // For other data source types, return empty files array
+      res.json({
+        success: true,
+        files: []
+      });
+      
+    } catch (error) {
+      console.error('Error fetching data source files:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to fetch files"
+      });
+    }
+  });
+
   // Get remote paths for an SFTP/FTP data source
   app.get("/api/data-sources/:id/remote-paths", async (req, res) => {
     try {
