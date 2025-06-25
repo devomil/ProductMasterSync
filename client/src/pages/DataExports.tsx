@@ -43,7 +43,7 @@ const DataExports = () => {
   const [searchQuery, setSearchQuery] = useState("");
   
   // Filter exports based on search query
-  const filteredExports = mockExports.filter(exportItem => 
+  const filteredExports = exportTemplates.filter(exportItem => 
     exportItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     exportItem.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
     exportItem.format?.toLowerCase().includes(searchQuery.toLowerCase())
