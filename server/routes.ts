@@ -1585,8 +1585,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           message: error instanceof Error ? error.message : "SFTP connection failed"
         });
-      }
-      
       } else {
         // Handle other data source types - require authentic data configuration
         console.log(`Test pull request for data source ${id}, type: ${dataSource.type} - authentic data source required`);
@@ -1958,23 +1956,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           try {
             let savedProduct;
-          if (existingProduct) {
-            // Update existing product
-            savedProduct = await storage.updateProduct(existingProduct.id, productData);
-            console.log(`📝 Updated existing product: ${productData.name}`);
-          } else {
-            // Create new product
-            savedProduct = await storage.createProduct(productData);
-            console.log(`✨ Created new product: ${productData.name}`);
-          }
-          
-          processedProducts.push(savedProduct);
-          successCount++;
+            if (existingProduct) {
+              // Update existing product
+              savedProduct = await storage.updateProduct(existingProduct.id, productData);
+              console.log(`📝 Updated existing product: ${productData.name}`);
+            } else {
+              // Create new product
+              savedProduct = await storage.createProduct(productData);
+              console.log(`✨ Created new product: ${productData.name}`);
+            }
+            
+            processedProducts.push(savedProduct);
+            successCount++;
 
-        } catch (error) {
-          console.error("Error processing record:", error);
-          errorCount++;
-        }
+          } catch (error) {
+            console.error("Error processing record:", error);
+            errorCount++;
+          }
       }
 
       // Auto-sync inventory data for sample imports from CWR SFTP
