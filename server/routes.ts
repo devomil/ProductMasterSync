@@ -1785,9 +1785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               // Handle direct mappings object format
               for (const [sourceField, targetField] of Object.entries(mappings as Record<string, any>)) {
-
-              
-              if (record[sourceField]) {
+                if (record[sourceField]) {
                 let value = record[sourceField];
                 
                 // Special handling for description field - ensure we only store clean text
@@ -1830,6 +1828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
+        }
 
           // Process product detail mappings  
           if (mappings && typeof mappings === 'object' && 'productDetail' in mappings && Array.isArray(mappings.productDetail)) {
@@ -1975,6 +1974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             errorCount++;
           }
         }
+      }
 
       // Auto-sync inventory data for sample imports from CWR SFTP
       let inventorySyncCount = 0;
