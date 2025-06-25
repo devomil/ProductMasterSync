@@ -1711,17 +1711,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      for (const record of sampleData) {
-        try {
-          // Generate numeric EDC code (6 digits)
-          const edcSku = String(Math.floor(Math.random() * 900000) + 100000);
-          
-          // Check if this is CWR data and apply specialized processing
-          const isCWRData = record['CWR Part Number'];
-          
-          // Apply catalog mappings
-          const catalogData: any = { sku: edcSku };
-          const productDetailData: any = { sku: edcSku };
+      try {
+        for (const record of sampleData) {
+          try {
+            // Generate numeric EDC code (6 digits)
+            const edcSku = String(Math.floor(Math.random() * 900000) + 100000);
+            
+            // Check if this is CWR data and apply specialized processing
+            const isCWRData = record['CWR Part Number'];
+            
+            // Apply catalog mappings
+            const catalogData: any = { sku: edcSku };
+            const productDetailData: any = { sku: edcSku };
           
           // Handle authentic CWR images if detected
           if (isCWRData) {
@@ -1974,8 +1975,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             errorCount++;
           }
         }
+      } catch (error) {
+        console.error("Error in sample processing:", error);
       }
-
+      
       // Auto-sync inventory data for sample imports from CWR SFTP
       let inventorySyncCount = 0;
       if (dataSource.type === 'sftp' && processedProducts.length > 0) {
