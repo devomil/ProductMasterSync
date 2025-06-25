@@ -37,42 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 
 // Mock data for exports (would normally come from a hook)
-const mockExports = [
-  {
-    id: 1,
-    name: "Weekly Product Catalog",
-    type: "file",
-    status: "success",
-    format: "excel",
-    filter: { categoryId: 1 },
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 5 * 60 * 1000),
-    recordCount: 2348,
-    destination: "/exports/product_catalog_20230512.xlsx",
-  },
-  {
-    id: 2,
-    name: "Marketplace Product Feed",
-    type: "api",
-    status: "pending",
-    format: "json",
-    filter: { status: "active" },
-    createdAt: new Date(Date.now() - 5 * 60 * 1000),
-    recordCount: 0,
-    destination: "https://marketplace.example.com/api/products",
-  },
-  {
-    id: 3,
-    name: "Monthly Inventory Report",
-    type: "file",
-    status: "processing",
-    format: "csv",
-    filter: {},
-    createdAt: new Date(Date.now() - 30 * 60 * 1000),
-    recordCount: 5689,
-    destination: "/exports/inventory_report.csv",
-  },
-];
+// All export data comes from authentic database queries only
 
 const DataExports = () => {
   const [searchQuery, setSearchQuery] = useState("");
