@@ -119,8 +119,14 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Performance**: Optimized indexes for product searches and supplier queries
 - **Backup Strategy**: Automated backups through Neon platform
 
+# Recent Changes
+- **CWR Data Recovery (2025-06-25)**: Successfully recreated CWR mapping template and product catalog
+- **Database Rebuild**: Imported 8 CWR products with authentic data structure
+- **Mapping Template**: Created CWR field mappings for automated data transformation
+- **Clean Import**: Products now properly formatted with cost/price validation
+
 # Changelog
-- June 25, 2025. Initial setup
+- June 25, 2025. Initial setup and CWR data recovery
 
 # User Preferences
 
