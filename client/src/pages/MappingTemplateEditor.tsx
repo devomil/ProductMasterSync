@@ -176,13 +176,17 @@ export default function MappingTemplateEditor() {
       
       // Convert mappings to field mappings array
       console.log('Template mappings:', templateData.mappings);
-      const mappings = templateData.mappings || {};
-      const mappingsArray = Object.entries(mappings).map(
-        ([sourceField, targetField]) => ({
-          sourceField: sourceField as string,
-          targetField: targetField as string
-        })
-      );
+      const mappings = templateData.mappings;
+      let mappingsArray: Array<{sourceField: string, targetField: string}> = [];
+      
+      if (mappings && typeof mappings === 'object' && Object.keys(mappings).length > 0) {
+        mappingsArray = Object.entries(mappings).map(
+          ([sourceField, targetField]) => ({
+            sourceField: sourceField as string,
+            targetField: targetField as string
+          })
+        );
+      }
       console.log('Converted mappings array:', mappingsArray);
       
       setFieldMappings(mappingsArray.length > 0 ? mappingsArray : [{ sourceField: "", targetField: "" }]);
@@ -722,7 +726,7 @@ export default function MappingTemplateEditor() {
                       <Input
                         id="fileLabel"
                         name="fileLabel"
-                        value={templateForm.fileLabel}
+                        value={templateForm.fileLabel || ""}
                         onChange={handleTemplateFormChange}
                         placeholder="Enter file path or label"
                       />
