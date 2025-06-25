@@ -1684,34 +1684,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let errorCount = 0;
       let skippedCount = 0;
 
-      // Validate mapping template before processing
-      const requiredFields = ['sku', 'name'];
-      const mappedTargetFields = new Set();
-      
-      if (mappings && typeof mappings === 'object') {
-        if ('catalog' in mappings && Array.isArray(mappings.catalog)) {
-          mappings.catalog.forEach((mapping: any) => {
-            if (mapping.targetField) mappedTargetFields.add(mapping.targetField);
-          });
-        } else {
-          Object.values(mappings).forEach((targetField: any) => {
-            if (targetField) mappedTargetFields.add(targetField);
-          });
-        }
-      }
-
-      // Check for missing required field mappings
-      for (const requiredField of requiredFields) {
-        if (!mappedTargetFields.has(requiredField)) {
-          validationErrors.push({
-            type: 'missing_required_mapping',
-            field: requiredField,
-            message: `Required field '${requiredField}' is not mapped in the template`
-          });
-        }
-      }
-
       try {
+        // Validate mapping template before processing
+        const requiredFields = ['sku', 'name'];
+        const mappedTargetFields = new Set();
+        
+        if (mappings && typeof mappings === 'object') {
+          if ('catalog' in mappings && Array.isArray(mappings.catalog)) {
+            mappings.catalog.forEach((mapping: any) => {
+              if (mapping.targetField) mappedTargetFields.add(mapping.targetField);
+            });
+          } else {
+            Object.values(mappings).forEach((targetField: any) => {
+              if (targetField) mappedTargetFields.add(targetField);
+            });
+          }
+        }
+
+        // Check for missing required field mappings
+        for (const requiredField of requiredFields) {
+          if (!mappedTargetFields.has(requiredField)) {
+            validationErrors.push({
+              type: 'missing_required_mapping',
+              field: requiredField,
+              message: `Required field '${requiredField}' is not mapped in the template`
+            });
+          }
+        }
         for (const record of sampleData) {
           try {
             // Generate numeric EDC code (6 digits)
@@ -1818,20 +1817,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     
                     if (fieldNameMap[targetField as string]) {
                       dbFieldName = fieldNameMap[targetField as string];
+                    }
+                    
+                    // Debug logging for key fields
+                    if (['boxWidth', 'boxHeight', 'boxLength', 'caseQuantity', 'thirdPartyMarketplaces', 'googleMerchantCategory', 'quickGuideUrl', 'ownersManualUrl', 'brochureUrl', 'installationGuideUrl'].includes(targetField)) {
+                      console.log(`📦 Mapping ${sourceField} -> ${dbFieldName}: "${value}"`);
+                    }
+                    
+                    catalogData[dbFieldName] = value;
+                  }
                 }
-                
-                // Debug logging for key fields
-                if (['boxWidth', 'boxHeight', 'boxLength', 'caseQuantity', 'thirdPartyMarketplaces', 'googleMerchantCategory', 'quickGuideUrl', 'ownersManualUrl', 'brochureUrl', 'installationGuideUrl'].includes(targetField)) {
-                  console.log(`📦 Mapping ${sourceField} -> ${dbFieldName}: "${value}"`);
-                }
-                
-                catalogData[dbFieldName] = value;
               }
             }
-          }
-        }
 
-          // Process product detail mappings  
+            // Process product detail mappings  
           if (mappings && typeof mappings === 'object' && 'productDetail' in mappings && Array.isArray(mappings.productDetail)) {
             for (const mapping of mappings.productDetail) {
               if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
