@@ -176,7 +176,8 @@ export default function MappingTemplateEditor() {
       
       // Convert mappings to field mappings array
       console.log('Template mappings:', templateData.mappings);
-      const mappingsArray = Object.entries(templateData.mappings).map(
+      const mappings = templateData.mappings || {};
+      const mappingsArray = Object.entries(mappings).map(
         ([sourceField, targetField]) => ({
           sourceField: sourceField as string,
           targetField: targetField as string

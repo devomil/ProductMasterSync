@@ -2249,6 +2249,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!mappingTemplate) {
         return res.status(404).json({ message: "Mapping template not found" });
       }
+      
+      // Convert nested mapping format to simple format expected by frontend
+      if (mappingTemplate.mappings && typeof mappingTemplate.mappings === 'object') {
+        const mappings = mappingTemplate.mappings as any;
+        if (mappings.catalog && Array.isArray(mappings.catalog)) {
+          // Convert array format to simple object format
+          const simpleMappings: Record<string, string> = {};
+          mappings.catalog.forEach((mapping: any) => {
+            if (mapping.sourceField && mapping.targetField) {
+              simpleMappings[mapping.sourceField] = mapping.targetField;
+            }
+          });
+          mappingTemplate.mappings = simpleMappings;
+        } else if (typeof mappingTemplate.mappings === 'string') {
+          // Parse string format
+          try {
+            const parsed = JSON.parse(mappingTemplate.mappings);
+            if (parsed.catalog && Array.isArray(parsed.catalog)) {
+              const simpleMappings: Record<string, string> = {};
+              parsed.catalog.forEach((mapping: any) => {
+                if (mapping.sourceField && mapping.targetField) {
+                  simpleMappings[mapping.sourceField] = mapping.targetField;
+                }
+              });
+              mappingTemplate.mappings = simpleMappings;
+            }
+          } catch (e) {
+            console.error('Failed to parse mappings string:', e);
+          }
+        }
+      }
+      
       res.json(mappingTemplate);
     } catch (error) {
       handleError(res, error);
