@@ -23,6 +23,10 @@ export default function SuppliersSimple() {
     queryKey: ["/api/suppliers"],
   });
 
+  const { data: statistics } = useQuery({
+    queryKey: ["/api/statistics"],
+  });
+
   // Test pull mutation
   const testPullMutation = useMutation({
     mutationFn: async (supplierId: number) => {
@@ -278,19 +282,19 @@ export default function SuppliersSimple() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Active Suppliers:</span>
-                <span className="font-medium">2</span>
+                <span className="font-medium">{statistics?.activeSuppliers || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Pending Approval:</span>
-                <span className="font-medium">1</span>
+                <span className="font-medium">{statistics?.pendingApprovals || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Products:</span>
-                <span className="font-medium">225</span>
+                <span className="font-medium">{statistics?.totalProducts || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">This Month:</span>
-                <span className="font-medium text-green-600">+15%</span>
+                <span className="font-medium">{statistics?.successfulImports30d || 0} imports</span>
               </div>
             </div>
           </CardContent>
