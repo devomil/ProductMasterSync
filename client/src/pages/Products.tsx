@@ -682,20 +682,35 @@ const Products = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[120px] text-sm font-medium">
-                      EDC
-                    </TableHead>
-                    <TableHead className="min-w-[240px] text-sm font-medium">
-                      Product Name
-                    </TableHead>
-                    <TableHead className="min-w-[200px] text-sm font-medium">Description</TableHead>
-                    <TableHead className="w-[120px] text-sm font-medium">UPC</TableHead>
-                    <TableHead className="w-[120px] text-sm font-medium">MPN</TableHead>
-                    <TableHead className="w-[140px] text-sm font-medium">Brand</TableHead>
-                    <TableHead className="min-w-[180px] text-sm font-medium">Category</TableHead>
-                    <TableHead className="w-[80px] text-sm font-medium">Cost</TableHead>
-                    <TableHead className="w-[80px] text-sm font-medium">Price</TableHead>
-                    <TableHead className="w-[120px] text-sm font-medium">Weight</TableHead>
+                    {/* Render dynamic columns based on CWR mapping template */}
+                    {dynamicColumns.length > 0 ? (
+                      dynamicColumns.map((field, index) => (
+                        <TableHead key={field} className={`text-sm font-medium ${
+                          field === 'sku' ? 'w-[120px]' :
+                          field === 'product_name' ? 'min-w-[240px]' :
+                          field === 'description' ? 'min-w-[200px]' :
+                          field === 'category' ? 'min-w-[180px]' :
+                          field === 'brand' ? 'w-[140px]' :
+                          'w-[120px]'
+                        }`}>
+                          {columnDisplayNames[field] || field.charAt(0).toUpperCase() + field.slice(1)}
+                        </TableHead>
+                      ))
+                    ) : (
+                      // Fallback to default columns if no mapping template
+                      <>
+                        <TableHead className="w-[120px] text-sm font-medium">SKU</TableHead>
+                        <TableHead className="min-w-[240px] text-sm font-medium">Product Name</TableHead>
+                        <TableHead className="min-w-[200px] text-sm font-medium">Description</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium">UPC</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium">MPN</TableHead>
+                        <TableHead className="w-[140px] text-sm font-medium">Brand</TableHead>
+                        <TableHead className="min-w-[180px] text-sm font-medium">Category</TableHead>
+                        <TableHead className="w-[80px] text-sm font-medium">Cost</TableHead>
+                        <TableHead className="w-[80px] text-sm font-medium">Price</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium">Weight</TableHead>
+                      </>
+                    )}
                     <TableHead className="w-[80px] text-sm font-medium">Status</TableHead>
                     <TableHead className="w-[80px] text-right text-sm font-medium">Actions</TableHead>
                   </TableRow>
@@ -721,31 +736,74 @@ const Products = () => {
                 ) : (
                   filteredProducts.map((product, index) => (
                     <TableRow key={`${product.id}-${index}`}>
-                      <TableCell className="font-medium text-sm">
-                        <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
-                          {product.sku}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="min-w-[240px]">
-                        <div>
-                          <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline">
-                            {product.name}
-                          </Link>
-                          {getSpecialFlagComponents(product)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[200px]">
-                        <div className="text-sm text-gray-600 line-clamp-2" title={product.description || ''}>
-                          {product.description || '-'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{product.upc || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.manufacturerPartNumber || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.manufacturerName || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.categoryName || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.cost || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.price || '-'}</TableCell>
-                      <TableCell className="text-sm">{product.weight || '-'}</TableCell>
+                      {/* Render dynamic columns based on CWR mapping template */}
+                      {dynamicColumns.length > 0 ? (
+                        dynamicColumns.map((field, fieldIndex) => (
+                          <TableCell key={field} className={`text-sm ${
+                            field === 'sku' ? 'font-medium' :
+                            field === 'product_name' ? 'min-w-[240px]' :
+                            field === 'description' ? 'min-w-[200px]' :
+                            ''
+                          }`}>
+                            {field === 'sku' ? (
+                              <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+                                {getProductValue(product, field)}
+                              </Link>
+                            ) : field === 'product_name' ? (
+                              <div>
+                                <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline">
+                                  {getProductValue(product, field)}
+                                </Link>
+                                {getSpecialFlagComponents(product)}
+                              </div>
+                            ) : field === 'description' ? (
+                              <div className="text-sm text-gray-600 line-clamp-2" title={getProductValue(product, field)}>
+                                {getProductValue(product, field)}
+                              </div>
+                            ) : field === 'primary_image' ? (
+                              getProductValue(product, field) !== '-' ? (
+                                <img 
+                                  src={getProductValue(product, field)} 
+                                  alt="Product" 
+                                  className="w-8 h-8 object-cover rounded"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              ) : '-'
+                            ) : (
+                              getProductValue(product, field)
+                            )}
+                          </TableCell>
+                        ))
+                      ) : (
+                        // Fallback to default columns if no mapping template
+                        <>
+                          <TableCell className="font-medium text-sm">
+                            <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+                              {product.sku}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="min-w-[240px]">
+                            <div>
+                              <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline">
+                                {product.name}
+                              </Link>
+                              {getSpecialFlagComponents(product)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-[200px]">
+                            <div className="text-sm text-gray-600 line-clamp-2" title={product.description || ''}>
+                              {product.description || '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{product.upc || '-'}</TableCell>
+                          <TableCell className="text-sm">{product.manufacturerPartNumber || '-'}</TableCell>
+                          <TableCell className="text-sm">{product.manufacturerName || '-'}</TableCell>
+                          <TableCell className="text-sm">{product.categoryName || '-'}</TableCell>
+                          <TableCell className="text-sm">{product.cost || '-'}</TableCell>
+                          <TableCell className="text-sm">{product.price || '-'}</TableCell>
+                          <TableCell className="text-sm">{product.weight || '-'}</TableCell>
+                        </>
+                      )}
                       <TableCell>
                         <Badge
                           variant={product.status === 'active' ? 'default' : 'secondary'}

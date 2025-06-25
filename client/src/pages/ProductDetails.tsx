@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMappingTemplates } from "@/hooks/useMappingTemplates";
 import { HelpBubble, helpContexts } from "@/components/HelpBubble";
 import { 
   Tabs, 
@@ -95,7 +96,59 @@ export default function ProductDetails() {
     enabled: !!product?.sku,
   }) as { data: any };
   
+  // Get mapping templates to display all mapped fields
+  const { mappingTemplates, isLoading: templatesLoading } = useMappingTemplates();
+  const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
+  
   const vendorStockData = getVendorStockData(product, inventoryData);
+  
+  // Helper function to get product field value with proper mapping
+  const getProductFieldValue = (fieldName: string): string => {
+    if (!product) return '-';
+    
+    const fieldMap: Record<string, any> = {
+      sku: product.sku,
+      product_name: product.name,
+      description: product.description,
+      upc: product.upc,
+      mpn: product.manufacturerPartNumber,
+      brand: product.manufacturerName,
+      category: product.categoryName,
+      price: product.price,
+      cost: product.cost,
+      weight: product.weight,
+      primary_image: product.primaryImageUrl,
+      // Extended fields from product data
+      status: product.status,
+      manufacturer_name: product.manufacturerName,
+      category_name: product.categoryName,
+      created_at: product.createdAt,
+      updated_at: product.updatedAt,
+      // Additional fields that might be in rawSupplierData
+      ...product
+    };
+    
+    const value = fieldMap[fieldName];
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'number') return value.toString();
+    return value;
+  };
+  
+  // Get all mapped fields for specifications display
+  const getAllMappedFields = () => {
+    if (!cwrTemplate?.mappings) return [];
+    
+    const mappings = cwrTemplate.mappings;
+    return Object.entries(mappings).map(([sourceField, targetField]) => ({
+      sourceField,
+      targetField,
+      displayName: targetField.charAt(0).toUpperCase() + targetField.replace(/_/g, ' ').slice(1),
+      value: getProductFieldValue(targetField)
+    }));
+  };
+  
+  const mappedFields = getAllMappedFields();
   
   // State for warehouse detail modal
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
@@ -116,11 +169,7 @@ export default function ProductDetails() {
     retry: 1
   });
 
-  // Fetch mapping templates to know which fields are mapped and should be displayed
-  const { data: mappingTemplates } = useQuery({
-    queryKey: ['/api/mapping-templates'],
-    retry: 1
-  });
+  // Note: mappingTemplates already declared above via useMappingTemplates hook
 
   // Mutation for syncing Amazon data to database
   const syncAmazonDataMutation = useMutation({
