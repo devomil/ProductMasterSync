@@ -15,7 +15,12 @@ import {
   schedules,
   dataSources,
   categories,
-  products
+  products,
+  imports,
+  exportsTable,
+  approvals,
+  mappingTemplates,
+  suppliers
 } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import marketplaceRoutes from "./marketplace/routes";
@@ -1322,7 +1327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: pullError instanceof Error ? pullError.message : "Failed to pull SFTP sample data",
             error_details: {
               error: pullError instanceof Error ? pullError.message : String(pullError),
-              path: pathToUse,
+              path: remotePath,
               host: credentials.host
             }
           });
@@ -2466,6 +2471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (extension === ".csv" || fileType.includes("csv")) {
         // CSV Processing
         const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const { parse } = await import('csv-parse/sync');
         const parser = parse(fileContent, {
           columns: true,
           skip_empty_lines: true
@@ -2491,6 +2497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } 
       else if (extension === ".xlsx" || extension === ".xls" || fileType.includes("excel") || fileType.includes("spreadsheet")) {
         // Excel Processing
+        const xlsx = await import('xlsx');
         const workbook = xlsx.readFile(filePath);
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
