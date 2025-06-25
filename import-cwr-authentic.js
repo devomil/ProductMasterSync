@@ -5,7 +5,7 @@ import pg from 'pg';
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-async function importRealCWRData() {
+async function importCWRAuthentic() {
   console.log('🔄 Importing authentic CWR data from SFTP...');
   
   const client = new SFTPClient();
@@ -42,13 +42,13 @@ async function importRealCWRData() {
         .on('data', (record) => {
           recordCount++;
           
-          // Take first 25 authentic records for quick import
-          if (recordCount <= 25) {
+          // Take first 30 authentic records
+          if (recordCount <= 30) {
             records.push(record);
           }
           
-          // Stop after collecting 25 records
-          if (recordCount >= 25) {
+          // Stop after collecting 30 records
+          if (recordCount >= 30) {
             stream.destroy();
             processRecords(records).then(() => {
               client.end();
@@ -60,6 +60,13 @@ async function importRealCWRData() {
           console.error('Parse error:', parseErr.message);
           client.end();
           resolve(false);
+        })
+        .on('end', async () => {
+          if (records.length > 0) {
+            await processRecords(records);
+          }
+          client.end();
+          resolve(true);
         });
       });
     });
@@ -76,10 +83,6 @@ async function importRealCWRData() {
 async function processRecords(records) {
   console.log(`🔄 Processing ${records.length} authentic CWR records...`);
   
-  // Clear mock data
-  await pool.query('DELETE FROM products');
-  console.log('🗑️ Cleared all existing products');
-  
   let imported = 0;
   
   for (const record of records) {
@@ -91,6 +94,12 @@ async function processRecords(records) {
       const numericPart = cwrPart.replace(/[^0-9]/g, '') || '1';
       const edcCode = `EDC${numericPart.padStart(6, '0')}`;
       
+      // Parse numeric values
+      const cost = parseFloat(record['Your Cost']) || null;
+      const price = parseFloat(record['List Price']) || null;
+      const weight = parseFloat(record['Shipping Weight']) || null;
+      const qty = parseInt(record['Quantity Available to Ship (Combined)']) || 0;
+      
       await pool.query(`
         INSERT INTO products (
           sku, usin, upc, cost, price, name, description,
@@ -101,14 +110,14 @@ async function processRecords(records) {
         edcCode,
         cwrPart,
         record['UPC Code'] || null,
-        record['Your Cost'] || null,
-        record['List Price'] || null,
+        cost,
+        price,
         record['Uppercase Title'] || cwrPart,
         record['Full Description'] || null,
         record['Manufacturer Name'] || null,
         record['Manufacturer Part Number'] || null,
-        record['Shipping Weight'] || null,
-        parseInt(record['Quantity Available to Ship (Combined)']) || 0,
+        weight,
+        qty,
         'active'
       ]);
       
@@ -116,12 +125,17 @@ async function processRecords(records) {
       imported++;
       
     } catch (error) {
-      console.error('Import error:', error.message);
+      console.error(`❌ Error importing ${record['CWR Part Number']}:`, error.message);
     }
   }
   
   console.log(`🎉 Imported ${imported} authentic CWR products`);
-  await pool.end();
+  
+  // Verify the import
+  const result = await pool.query('SELECT COUNT(*) as total FROM products');
+  console.log(`📊 Total products in database: ${result.rows[0].total}`);
 }
 
-importRealCWRData();
+importCWRAuthentic().finally(() => {
+  pool.end();
+});
