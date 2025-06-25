@@ -2075,6 +2075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         errors: validationErrors.length > 0 ? validationErrors : undefined
       });
+
     } catch (error) {
       console.error("Sample import error:", error);
       res.status(500).json({
