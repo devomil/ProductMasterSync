@@ -120,12 +120,12 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Advanced Supplier Management (2025-06-25)**: Created dedicated /suppliers-advanced page with comprehensive supplier KPIs, risk management, price history analysis, performance scorecards, and contract tracking
+- **Feature Architecture Reorganization**: Properly separated purchasing intelligence (/purchasing-ai) from supplier relationship management (/suppliers-advanced) features
+- **System Monitoring Dashboard**: Implemented real-time performance analysis, database monitoring, error detection, and system insights with auto-refresh capabilities
 - **Performance Optimization (2025-06-25)**: Fixed database connection timeouts and slow queries
 - **Enhanced Error Handling**: Added timeout management and connection retry logic for all database operations
-- **Supplier Management UI**: Improved View Details dialog and Edit functionality with proper field mapping
 - **Database Indexes**: Added essential indexes for products, suppliers, and categories for better performance
-- **Connection Stability**: Enhanced SFTP connector with proper timeout handling and error messages
-- **API Reliability**: Added request timeouts and fallback handling to prevent hanging requests
 
 # Changelog
 - June 25, 2025. Initial setup and CWR data recovery

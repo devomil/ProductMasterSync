@@ -55,7 +55,7 @@ function Router() {
       <Route path="/products/:id" component={ProductDetails} />
       <Route path="/categories" component={Categories} />
       <Route path="/suppliers" component={SuppliersSimple} />
-      <Route path="/suppliers-advanced" component={Suppliers} />
+      <Route path="/suppliers-advanced" component={SuppliersAdvanced} />
       <Route path="/data-imports" component={DataImports} />
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />
