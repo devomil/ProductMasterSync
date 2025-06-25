@@ -120,12 +120,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Mapping Template System Consolidation (2025-06-25)**: Eliminated duplicate mapping template systems causing field mapping save conflicts
+- **Fixed Field Mapping Format**: Corrected sourceField -> targetField mapping structure for proper persistence
+- **Removed Duplicate Files**: Consolidated MappingTemplates.tsx, MappingTemplatesUpdate.tsx, and MappingTemplateWorkspace.tsx into single MappingTemplateEditor
+- **Enhanced Backend Compatibility**: Updated PUT endpoint to handle both old and new mapping formats with proper conversion
 - **Advanced Supplier Management (2025-06-25)**: Created dedicated /suppliers-advanced page with comprehensive supplier KPIs, risk management, price history analysis, performance scorecards, and contract tracking
-- **Feature Architecture Reorganization**: Properly separated purchasing intelligence (/purchasing-ai) from supplier relationship management (/suppliers-advanced) features
 - **System Monitoring Dashboard**: Implemented real-time performance analysis, database monitoring, error detection, and system insights with auto-refresh capabilities
 - **Performance Optimization (2025-06-25)**: Fixed database connection timeouts and slow queries
-- **Enhanced Error Handling**: Added timeout management and connection retry logic for all database operations
-- **Database Indexes**: Added essential indexes for products, suppliers, and categories for better performance
 
 # Changelog
 - June 25, 2025. Initial setup and CWR data recovery

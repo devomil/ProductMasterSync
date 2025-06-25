@@ -81,6 +81,20 @@ export default function MappingTemplateEditor() {
   ]);
   const [mappingView, setMappingView] = useState<'catalog' | 'detail'>('catalog');
   
+  // Product detail fields
+  const productDetailFields = [
+    { id: "brand", name: "Brand", description: "Product brand" },
+    { id: "model", name: "Model", description: "Product model" },
+    { id: "year", name: "Year", description: "Model year" },
+    { id: "origin_country", name: "Country of Origin", description: "Manufacturing country" },
+    { id: "warranty", name: "Warranty", description: "Warranty information" },
+    { id: "features", name: "Features", description: "Product features" },
+    { id: "specifications", name: "Specifications", description: "Technical specifications" },
+    { id: "compatibility", name: "Compatibility", description: "Compatible products" },
+    { id: "installation", name: "Installation", description: "Installation instructions" },
+    { id: "maintenance", name: "Maintenance", description: "Maintenance requirements" }
+  ];
+  
   // Target fields definition
   const targetFields = [
     { id: "sku", name: "SKU", required: true, description: "Unique product identifier" },
