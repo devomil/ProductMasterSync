@@ -1680,7 +1680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enhanced validation and error tracking
       const processedProducts = [];
       const validationErrors = [];
-      const processingWarnings = [];
+      const processingWarnings: string[] = [];
       let successCount = 0;
       let errorCount = 0;
       let skippedCount = 0;
@@ -1689,14 +1689,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const requiredFields = ['sku', 'name'];
       const mappedTargetFields = new Set();
       
-      if (mappings.catalog) {
-        mappings.catalog.forEach(mapping => {
-          if (mapping.targetField) mappedTargetFields.add(mapping.targetField);
-        });
-      } else {
-        Object.values(mappings).forEach(targetField => {
-          if (targetField) mappedTargetFields.add(targetField);
-        });
+      if (mappings && typeof mappings === 'object') {
+        if ('catalog' in mappings && Array.isArray(mappings.catalog)) {
+          mappings.catalog.forEach((mapping: any) => {
+            if (mapping.targetField) mappedTargetFields.add(mapping.targetField);
+          });
+        } else {
+          Object.values(mappings).forEach((targetField: any) => {
+            if (targetField) mappedTargetFields.add(targetField);
+          });
+        }
       }
 
       // Check for missing required field mappings
@@ -1774,17 +1776,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Process catalog mappings - handle both old and new mapping format
-          if (mappings.catalog) {
-            for (const mapping of mappings.catalog) {
-              if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
-                catalogData[mapping.targetField] = record[mapping.sourceField];
+          if (mappings && typeof mappings === 'object') {
+            if ('catalog' in mappings && Array.isArray(mappings.catalog)) {
+              for (const mapping of mappings.catalog) {
+                if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
+                  catalogData[mapping.targetField] = record[mapping.sourceField];
+                }
               }
-            }
-          } else {
-            // Handle direct mappings object format
-
-
-            for (const [sourceField, targetField] of Object.entries(mappings)) {
+            } else {
+              // Handle direct mappings object format
+              for (const [sourceField, targetField] of Object.entries(mappings as Record<string, any>)) {
 
               
               if (record[sourceField]) {
@@ -1817,8 +1818,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   'installationGuideUrl': 'installation_guide_url'
                 };
                 
-                if (fieldNameMap[targetField]) {
-                  dbFieldName = fieldNameMap[targetField];
+                if (fieldNameMap[targetField as string]) {
+                  dbFieldName = fieldNameMap[targetField as string];
                 }
                 
                 // Debug logging for key fields
@@ -1832,7 +1833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Process product detail mappings  
-          if (mappings.productDetail) {
+          if (mappings && typeof mappings === 'object' && 'productDetail' in mappings && Array.isArray(mappings.productDetail)) {
             for (const mapping of mappings.productDetail) {
               if (mapping.sourceField && mapping.targetField && record[mapping.sourceField]) {
                 productDetailData[mapping.targetField] = record[mapping.sourceField];
@@ -1955,7 +1956,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             googleMerchantCategory: productData.googleMerchantCategory
           });
 
-          let savedProduct;
+          try {
+            let savedProduct;
           if (existingProduct) {
             // Update existing product
             savedProduct = await storage.updateProduct(existingProduct.id, productData);
