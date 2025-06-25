@@ -61,11 +61,17 @@ export default function SuppliersSimple() {
   const handleViewDetails = (supplierId: number) => {
     const supplier = (suppliers && Array.isArray(suppliers)) ? suppliers.find((s: any) => s.id === supplierId) : null;
     if (supplier) {
-      setSelectedSupplier(supplier);
-      toast({
-        title: "Supplier Details",
-        description: `Viewing details for ${supplier.name}`,
-      });
+      // Show detailed supplier information in a modal or toast
+      const details = [
+        `Name: ${supplier.name}`,
+        `Code: ${supplier.code || 'N/A'}`,
+        `Contact: ${supplier.contact_name || 'N/A'}`,
+        `Email: ${supplier.contact_email || 'N/A'}`,
+        `Phone: ${supplier.contact_phone || 'N/A'}`,
+        `Status: ${supplier.active ? 'Active' : 'Inactive'}`
+      ].join('\n');
+      
+      alert(`Supplier Details:\n\n${details}`);
     }
   };
 
@@ -126,7 +132,7 @@ export default function SuppliersSimple() {
               </Card>
             ))}
           </div>
-        ) : !suppliers || suppliers.length === 0 ? (
+        ) : !filteredSuppliers || filteredSuppliers.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />

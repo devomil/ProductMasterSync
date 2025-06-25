@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -56,15 +56,7 @@ export function SupplierForm({ isOpen, onClose, supplier, onSave }: SupplierForm
   // Initialize form with existing supplier data or defaults
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierFormSchema),
-    defaultValues: supplier ? {
-      name: supplier.name,
-      code: supplier.code,
-      contactName: supplier.contactName,
-      contactEmail: supplier.contactEmail,
-      contactPhone: supplier.contactPhone,
-      active: supplier.active !== null ? supplier.active : true,
-      notes: ""
-    } : {
+    defaultValues: {
       name: "",
       code: "",
       contactName: "",
@@ -74,6 +66,31 @@ export function SupplierForm({ isOpen, onClose, supplier, onSave }: SupplierForm
       notes: ""
     },
   });
+
+  // Reset form when supplier prop changes
+  useEffect(() => {
+    if (supplier) {
+      form.reset({
+        name: supplier.name || "",
+        code: supplier.code || "",
+        contactName: supplier.contact_name || "",
+        contactEmail: supplier.contact_email || "",
+        contactPhone: supplier.contact_phone || "",
+        active: supplier.active !== null ? supplier.active : true,
+        notes: supplier.notes || ""
+      });
+    } else {
+      form.reset({
+        name: "",
+        code: "",
+        contactName: "",
+        contactEmail: "",
+        contactPhone: "",
+        active: true,
+        notes: ""
+      });
+    }
+  }, [supplier, form]);
 
   // Create or update supplier mutation
   const mutation = useMutation({
