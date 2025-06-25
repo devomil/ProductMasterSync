@@ -234,37 +234,60 @@ const Products = () => {
   
   // Get CWR mapping template to determine dynamic columns
   const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
-  const dynamicColumns = cwrTemplate?.mappings ? Object.values(cwrTemplate.mappings) : [];
   
-  // Define column mapping for display names
+  // Define the desired column order for CWR - EDC first, then USIN, then UPC
+  const desiredColumnOrder = ['sku', 'usin', 'upc', 'cost', 'price', 'category', 'weight', 'product_name', 'description', 'brand', 'primary_image', 'mpn'];
+  
+  // Get dynamic columns in the correct order: EDC (sku), USIN, UPC, then others
+  let dynamicColumns = [];
+  if (cwrTemplate?.mappings) {
+    // Always start with EDC (sku) - this is application-generated
+    dynamicColumns = ['sku'];
+    
+    // Add USIN if it exists in mapping (CWR Part Number maps to usin)
+    if (Object.values(cwrTemplate.mappings).includes('usin')) {
+      dynamicColumns.push('usin');
+    }
+    
+    // Add remaining columns in desired order if they exist in mapping
+    desiredColumnOrder.slice(2).forEach(field => {
+      if (Object.values(cwrTemplate.mappings).includes(field)) {
+        dynamicColumns.push(field);
+      }
+    });
+  }
+  
+  // Define column mapping for display names with correct CWR order
   const columnDisplayNames: Record<string, string> = {
-    sku: 'SKU',
-    product_name: 'Product Name',
-    description: 'Description', 
-    upc: 'UPC',
-    mpn: 'MPN',
-    brand: 'Brand',
-    category: 'Category',
-    price: 'Price',
+    sku: 'EDC',  // First column should be EDC (which maps to SKU)
+    usin: 'USIN', // Second column
+    upc: 'UPC',   // Third column
     cost: 'Cost',
+    price: 'Price',
+    category: 'Category',
     weight: 'Weight',
-    primary_image: 'Image'
+    product_name: 'Product Name',
+    description: 'Description',
+    brand: 'Brand',
+    primary_image: 'Image',
+    mpn: 'MPN'
   };
   
   // Helper function to get product field value
   const getProductValue = (product: any, field: string): string => {
     const fieldMap: Record<string, string> = {
-      product_name: product.name,
-      mpn: product.manufacturerPartNumber,
-      brand: product.manufacturerName,
-      category: product.categoryName,
-      primary_image: product.primaryImageUrl,
-      upc: product.upc,
-      price: product.price,
-      cost: product.cost,
-      weight: product.weight,
-      sku: product.sku,
-      description: product.description
+      sku: product.sku,  // EDC is application-generated, stored as SKU
+      usin: product.usin || product.cwrPartNumber || '-',  // USIN field from CWR Part Number
+      upc: product.upc || '-',
+      cost: product.cost ? `$${parseFloat(product.cost).toFixed(2)}` : '-',
+      price: product.price ? `$${parseFloat(product.price).toFixed(2)}` : '-',
+      category: product.categoryName || '-',
+      weight: product.weight ? `${product.weight} lbs` : '-',
+      product_name: product.name || '-',
+      description: product.description || '-',
+      brand: product.manufacturerName || '-',
+      primary_image: product.primaryImageUrl || '-',
+      mpn: product.manufacturerPartNumber || '-'
     };
     
     return fieldMap[field] || product[field] || '-';
