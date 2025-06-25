@@ -44,10 +44,11 @@ type SupplierFormValues = z.infer<typeof supplierFormSchema>;
 interface SupplierFormProps {
   isOpen: boolean;
   onClose: () => void;
-  supplier?: Supplier;
+  supplier?: Supplier | null;
+  onSave?: (supplierData: any) => void;
 }
 
-export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
+export function SupplierForm({ isOpen, onClose, supplier, onSave }: SupplierFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Plus, Search, Building, Mail, Phone, TestTube, Eye, RefreshCw, Edit, Play, Trash2, MoreHorizontal } from "lucide-react";
+import { Users, Plus, Search, Building, Mail, Phone, Eye, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -11,9 +11,7 @@ import { SupplierForm } from "@/components/suppliers/SupplierForm";
 
 export default function SuppliersSimple() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [testPullResults, setTestPullResults] = useState<any>(null);
-  const [isTestPullOpen, setIsTestPullOpen] = useState(false);
-  const [testingSupplier, setTestingSupplier] = useState<number | null>(null);
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
@@ -27,13 +25,13 @@ export default function SuppliersSimple() {
     queryKey: ["/api/statistics"],
   });
 
-  // Test pull mutation
-  const testPullMutation = useMutation({
-    mutationFn: async (supplierId: number) => {
-      const response = await fetch(`/api/suppliers/${supplierId}/test-pull`, {
-        method: "POST",
+  // Edit supplier functionality
+  const editSupplierMutation = useMutation({
+    mutationFn: async (supplierData: any) => {
+      const response = await fetch(`/api/suppliers/${supplierData.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 10 })
+        body: JSON.stringify(supplierData)
       });
       
       if (!response.ok) {
@@ -42,40 +40,33 @@ export default function SuppliersSimple() {
       
       return response.json();
     },
-    onSuccess: (data, supplierId) => {
-      setTestPullResults(data);
-      setIsTestPullOpen(true);
-      setTestingSupplier(null);
+    onSuccess: () => {
+      setIsEditDialogOpen(false);
+      setSelectedSupplier(null);
       toast({
-        title: "Test Pull Complete",
-        description: data.success ? `Retrieved ${data.sample_data?.length || 0} sample records` : "Test pull failed",
-        variant: data.success ? "default" : "destructive"
+        title: "Supplier Updated",
+        description: "Supplier information has been successfully updated.",
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
     },
     onError: (error) => {
-      setTestingSupplier(null);
       toast({
-        title: "Test Pull Failed",
-        description: `Failed to test data pull: ${error.message}`,
-        variant: "destructive"
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update supplier",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleViewDetails = (supplierId: number) => {
-    window.location.href = `/suppliers/${supplierId}/details`;
-  };
-
-  const handleManage = (supplierId: number) => {
-    setTestingSupplier(supplierId);
-    testPullMutation.mutate(supplierId);
-  };
-
-  const handleTestConnection = (supplierId: number) => {
-    toast({
-      title: "Test Connection",
-      description: "Connection testing functionality will be implemented based on supplier's data source configuration.",
-    });
+    const supplier = suppliers?.find((s: any) => s.id === supplierId);
+    if (supplier) {
+      setSelectedSupplier(supplier);
+      toast({
+        title: "Supplier Details",
+        description: `Viewing details for ${supplier.name}`,
+      });
+    }
   };
 
   const handleDeleteSupplier = (supplierId: number) => {
@@ -215,23 +206,7 @@ export default function SuppliersSimple() {
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Supplier
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleTestConnection(supplier.id)}
-                          >
-                            <TestTube className="mr-2 h-4 w-4" />
-                            Test Connection
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleManage(supplier.id)}
-                            disabled={testingSupplier === supplier.id}
-                          >
-                            {testingSupplier === supplier.id ? (
-                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Play className="mr-2 h-4 w-4" />
-                            )}
-                            Sample Batch
-                          </DropdownMenuItem>
+
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
