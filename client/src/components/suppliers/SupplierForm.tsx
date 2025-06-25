@@ -73,9 +73,9 @@ export function SupplierForm({ isOpen, onClose, supplier, onSave }: SupplierForm
       form.reset({
         name: supplier.name || "",
         code: supplier.code || "",
-        contactName: supplier.contact_name || "",
-        contactEmail: supplier.contact_email || "",
-        contactPhone: supplier.contact_phone || "",
+        contactName: supplier.contactName || "",
+        contactEmail: supplier.contactEmail || "",
+        contactPhone: supplier.contactPhone || "",
         active: supplier.active !== null ? supplier.active : true,
         notes: supplier.notes || ""
       });

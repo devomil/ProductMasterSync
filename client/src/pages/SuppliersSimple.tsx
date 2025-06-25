@@ -2,8 +2,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Plus, Search, Building, Mail, Phone, Eye, Edit, Trash2, MoreHorizontal } from "lucide-react";
+import { Users, Plus, Search, Building, Mail, Phone, Eye, Edit, Trash2, MoreHorizontal, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -58,20 +59,12 @@ export default function SuppliersSimple() {
     },
   });
 
+  const [viewDetailsSupplier, setViewDetailsSupplier] = useState<any>(null);
+
   const handleViewDetails = (supplierId: number) => {
     const supplier = (suppliers && Array.isArray(suppliers)) ? suppliers.find((s: any) => s.id === supplierId) : null;
     if (supplier) {
-      // Show detailed supplier information in a modal or toast
-      const details = [
-        `Name: ${supplier.name}`,
-        `Code: ${supplier.code || 'N/A'}`,
-        `Contact: ${supplier.contact_name || 'N/A'}`,
-        `Email: ${supplier.contact_email || 'N/A'}`,
-        `Phone: ${supplier.contact_phone || 'N/A'}`,
-        `Status: ${supplier.active ? 'Active' : 'Inactive'}`
-      ].join('\n');
-      
-      alert(`Supplier Details:\n\n${details}`);
+      setViewDetailsSupplier(supplier);
     }
   };
 
@@ -282,6 +275,78 @@ export default function SuppliersSimple() {
         </Card>
       </div>
 
+      {/* View Details Dialog */}
+      <Dialog open={!!viewDetailsSupplier} onOpenChange={() => setViewDetailsSupplier(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Supplier Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information for {viewDetailsSupplier?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {viewDetailsSupplier && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500 mb-1">Name</h4>
+                  <p className="text-sm">{viewDetailsSupplier.name}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500 mb-1">Code</h4>
+                  <p className="text-sm">{viewDetailsSupplier.code || 'N/A'}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500 mb-1">Contact Person</h4>
+                  <p className="text-sm">{viewDetailsSupplier.contactName || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500 mb-1">Status</h4>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${viewDetailsSupplier.active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-sm">{viewDetailsSupplier.active ? 'Active' : 'Inactive'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-sm text-gray-500 mb-1">Email</h4>
+                <p className="text-sm">{viewDetailsSupplier.contactEmail || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-sm text-gray-500 mb-1">Phone</h4>
+                <p className="text-sm">{viewDetailsSupplier.contactPhone || 'N/A'}</p>
+              </div>
+              
+              {viewDetailsSupplier.notes && (
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500 mb-1">Notes</h4>
+                  <p className="text-sm text-gray-700">{viewDetailsSupplier.notes}</p>
+                </div>
+              )}
+              
+              <div className="pt-2 border-t">
+                <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+                  <div>
+                    <span className="font-medium">Created:</span> {viewDetailsSupplier.createdAt ? new Date(viewDetailsSupplier.createdAt).toLocaleDateString() : 'N/A'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Updated:</span> {viewDetailsSupplier.updatedAt ? new Date(viewDetailsSupplier.updatedAt).toLocaleDateString() : 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Add Supplier Dialog */}
       <SupplierForm
         isOpen={isCreateDialogOpen}
@@ -296,6 +361,7 @@ export default function SuppliersSimple() {
           setSelectedSupplier(null);
         }}
         supplier={selectedSupplier}
+        onSave={(supplierData) => editSupplierMutation.mutate(supplierData)}
       />
     </div>
   );
