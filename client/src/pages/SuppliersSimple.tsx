@@ -6,7 +6,7 @@ import { Users, Plus, Search, Building, Mail, Phone, Eye, Edit, Trash2, MoreHori
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SupplierForm } from "@/components/suppliers/SupplierForm";
 
 export default function SuppliersSimple() {
@@ -59,7 +59,7 @@ export default function SuppliersSimple() {
   });
 
   const handleViewDetails = (supplierId: number) => {
-    const supplier = suppliers?.find((s: any) => s.id === supplierId);
+    const supplier = (suppliers && Array.isArray(suppliers)) ? suppliers.find((s: any) => s.id === supplierId) : null;
     if (supplier) {
       setSelectedSupplier(supplier);
       toast({
@@ -78,11 +78,11 @@ export default function SuppliersSimple() {
     }
   };
 
-  const filteredSuppliers = suppliers?.filter((supplier: any) => 
+  const filteredSuppliers = (suppliers && Array.isArray(suppliers)) ? suppliers.filter((supplier: any) => 
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.contact_email?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  ) : [];
 
   return (
     <div className="space-y-6">
@@ -257,91 +257,24 @@ export default function SuppliersSimple() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Active Suppliers:</span>
-                <span className="font-medium">{statistics?.activeSuppliers || 0}</span>
+                <span className="font-medium">{(statistics as any)?.activeSuppliers || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Pending Approval:</span>
-                <span className="font-medium">{statistics?.pendingApprovals || 0}</span>
+                <span className="font-medium">{(statistics as any)?.pendingApprovals || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Total Products:</span>
-                <span className="font-medium">{statistics?.totalProducts || 0}</span>
+                <span className="font-medium">{(statistics as any)?.totalProducts || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">This Month:</span>
-                <span className="font-medium">{statistics?.successfulImports30d || 0} imports</span>
+                <span className="font-medium">{(statistics as any)?.successfulImports30d || 0} imports</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Test Pull Results Dialog */}
-      {isTestPullOpen && testPullResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">
-                Test Pull Results - {testPullResults.success ? 'Success' : 'Failed'}
-              </h2>
-              <Button 
-                variant="ghost" 
-                onClick={() => setIsTestPullOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ×
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="p-3 bg-gray-50 rounded">
-                <p className="font-medium">Message:</p>
-                <p className="text-sm text-gray-600">{testPullResults.message}</p>
-              </div>
-              
-              {testPullResults.sample_data && testPullResults.sample_data.length > 0 && (
-                <div>
-                  <h3 className="font-medium mb-2">Sample Data ({testPullResults.sample_data.length} records):</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full border border-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          {Object.keys(testPullResults.sample_data[0] || {}).slice(0, 6).map((key) => (
-                            <th key={key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
-                              {key}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {testPullResults.sample_data.slice(0, 5).map((row: any, index: number) => (
-                          <tr key={index} className="border-b">
-                            {Object.keys(row).slice(0, 6).map((key) => (
-                              <td key={key} className="px-3 py-2 text-sm text-gray-900 border-r">
-                                {String(row[key]).substring(0, 50)}
-                                {String(row[key]).length > 50 ? '...' : ''}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-              
-              {testPullResults.error_details && (
-                <div className="p-3 bg-red-50 rounded">
-                  <p className="font-medium text-red-800">Error Details:</p>
-                  <pre className="text-sm text-red-600 mt-1 whitespace-pre-wrap">
-                    {JSON.stringify(testPullResults.error_details, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Supplier Dialog */}
       <SupplierForm
