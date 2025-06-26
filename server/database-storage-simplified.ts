@@ -88,6 +88,53 @@ export class DatabaseStorage implements IStorage {
     return updatedCategory;
   }
 
+  async deleteCategory(id: number): Promise<boolean> {
+    await db.delete(schema.categories).where(eq(schema.categories.id, id));
+    return true;
+  }
+
+  // Category mapping management
+  async getCategoryMappings(): Promise<any[]> {
+    return await db
+      .select({
+        id: schema.supplierCategoryMappings.id,
+        supplierId: schema.supplierCategoryMappings.supplierId,
+        supplierName: schema.suppliers.name,
+        supplierCategoryName: schema.supplierCategoryMappings.supplierCategoryName,
+        masterCategoryId: schema.supplierCategoryMappings.masterCategoryId,
+        masterCategoryName: schema.categories.name,
+        confidence: schema.supplierCategoryMappings.confidence,
+        isApproved: schema.supplierCategoryMappings.isApproved,
+        productCount: sql<number>`0`
+      })
+      .from(schema.supplierCategoryMappings)
+      .leftJoin(schema.suppliers, eq(schema.supplierCategoryMappings.supplierId, schema.suppliers.id))
+      .leftJoin(schema.categories, eq(schema.supplierCategoryMappings.masterCategoryId, schema.categories.id));
+  }
+
+  async getUnmappedSupplierCategories(): Promise<any[]> {
+    // This would require complex logic to find supplier categories not yet mapped
+    // For now, return empty array - can be enhanced later
+    return [];
+  }
+
+  async createCategoryMapping(mapping: any): Promise<any> {
+    const [createdMapping] = await db
+      .insert(schema.supplierCategoryMappings)
+      .values(mapping)
+      .returning();
+    return createdMapping;
+  }
+
+  async updateCategoryMapping(id: number, mapping: any): Promise<any> {
+    const [updatedMapping] = await db
+      .update(schema.supplierCategoryMappings)
+      .set(mapping)
+      .where(eq(schema.supplierCategoryMappings.id, id))
+      .returning();
+    return updatedMapping;
+  }
+
   // Product management
   async getProducts(): Promise<Product[]> {
     return await db.select({
