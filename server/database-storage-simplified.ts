@@ -1,5 +1,5 @@
 import { db } from './db';
-import { eq, and, or, like, isNull, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, like, isNull, desc, asc, sql, count } from 'drizzle-orm';
 import * as schema from "@shared/schema";
 import type {
   User, InsertUser,
@@ -66,7 +66,28 @@ export class DatabaseStorage implements IStorage {
 
   // Category management
   async getCategories(): Promise<Category[]> {
-    return await db.select().from(schema.categories);
+    const categoriesWithCounts = await db
+      .select({
+        id: schema.categories.id,
+        name: schema.categories.name,
+        code: schema.categories.code,
+        parentId: schema.categories.parentId,
+        level: schema.categories.level,
+        path: schema.categories.path,
+        createdAt: schema.categories.createdAt,
+        updatedAt: schema.categories.updatedAt,
+        attributes: schema.categories.attributes,
+        productCount: count(schema.products.id),
+      })
+      .from(schema.categories)
+      .leftJoin(schema.products, eq(schema.categories.id, schema.products.categoryId))
+      .groupBy(schema.categories.id)
+      .orderBy(schema.categories.level, schema.categories.name);
+    
+    return categoriesWithCounts.map(cat => ({
+      ...cat,
+      productCount: Number(cat.productCount) || 0
+    }));
   }
 
   async getCategory(id: number): Promise<Category | undefined> {
