@@ -35,6 +35,28 @@ import {
   SearchType, 
   InventoryStatusType 
 } from "@/hooks/useProducts";
+
+// Helper function to clean HTML tags from descriptions
+const cleanHtmlTags = (htmlString: string): string => {
+  if (!htmlString) return '';
+  return htmlString
+    .replace(/<p><strong>/gi, '')
+    .replace(/<\/strong><\/p><p>/gi, ' ')
+    .replace(/<\/strong><\/p>/gi, '')
+    .replace(/<p>/gi, '')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<strong>/gi, '')
+    .replace(/<\/strong>/gi, '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// Helper function to remove EDC prefix from SKU
+const removeEdcPrefix = (sku: string): string => {
+  if (!sku) return '';
+  return sku.replace(/^EDC/i, '');
+};
 import { useCategories } from "@/hooks/useCategories";
 import { useMappingTemplates } from "@/hooks/useMappingTemplates";
 import { Button } from "@/components/ui/button";
@@ -276,7 +298,7 @@ const Products = () => {
   // Helper function to get product field value
   const getProductValue = (product: any, field: string): string => {
     const fieldMap: Record<string, string> = {
-      sku: product.sku,  // EDC is application-generated, stored as SKU
+      sku: removeEdcPrefix(product.sku),  // Remove EDC prefix from SKU display
       usin: product.usin || product.cwrPartNumber || '-',  // USIN field from CWR Part Number
       upc: product.upc || '-',
       cost: product.cost ? `$${parseFloat(product.cost).toFixed(2)}` : '-',
@@ -284,7 +306,7 @@ const Products = () => {
       category: product.categoryName || '-',
       weight: product.weight ? `${product.weight} lbs` : '-',
       product_name: product.name || '-',
-      description: product.description || '-',
+      description: cleanHtmlTags(product.description || '') || '-',  // Clean HTML tags from description
       brand: product.manufacturerName || '-',
       primary_image: product.primaryImageUrl || '-',
       mpn: product.manufacturerPartNumber || '-'
@@ -722,7 +744,7 @@ const Products = () => {
                     ) : (
                       // Fallback to default columns if no mapping template
                       <>
-                        <TableHead className="w-[120px] text-sm font-medium">SKU</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium">EDC</TableHead>
                         <TableHead className="min-w-[240px] text-sm font-medium">Product Name</TableHead>
                         <TableHead className="min-w-[200px] text-sm font-medium">Description</TableHead>
                         <TableHead className="w-[120px] text-sm font-medium">UPC</TableHead>
@@ -802,7 +824,7 @@ const Products = () => {
                         <>
                           <TableCell className="font-medium text-sm">
                             <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
-                              {product.sku}
+                              {removeEdcPrefix(product.sku)}
                             </Link>
                           </TableCell>
                           <TableCell className="min-w-[240px]">
@@ -814,8 +836,8 @@ const Products = () => {
                             </div>
                           </TableCell>
                           <TableCell className="min-w-[200px]">
-                            <div className="text-sm text-gray-600 line-clamp-2" title={product.description || ''}>
-                              {product.description || '-'}
+                            <div className="text-sm text-gray-600 line-clamp-2" title={cleanHtmlTags(product.description || '')}>
+                              {cleanHtmlTags(product.description || '') || '-'}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">{product.upc || '-'}</TableCell>
