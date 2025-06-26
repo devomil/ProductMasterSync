@@ -120,6 +120,12 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Multiple File Paths Support (2025-06-26)**:
+  - Enhanced Data Source wizard to support multiple file paths per supplier
+  - Users can now add/remove labeled file paths for different product categories or time periods
+  - Each path has customizable label (e.g., "Main Catalog", "Seasonal Products", "Clearance Items")
+  - UI includes intuitive add/remove controls with proper validation
+  - Backend updated to handle filePaths array instead of single path string
 - **Sample Pull UI Workflow Priority (2025-06-26)**:
   - User emphasized importance of UI-driven sample pull workflow for supplier onboarding
   - Users need to test sample data, mapping, and verification before full catalog loads
