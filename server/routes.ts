@@ -328,7 +328,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/categories/:id", async (req, res) => {
     try {
-      const category = await storage.getCategory(Number(req.params.id));
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+      const category = await storage.getCategory(id);
       if (!category) {
         return res.status(404).json({ message: "Category not found" });
       }
@@ -359,7 +363,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/categories/:id", async (req, res) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
       const validatedData = insertCategorySchema.partial().parse(req.body);
       const updatedCategory = await storage.updateCategory(id, validatedData);
       
@@ -386,7 +393,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/categories/:id", async (req, res) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
       const success = await storage.deleteCategory(id);
       
       if (!success) {
@@ -438,7 +448,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/categories/mappings/:id", async (req, res) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid mapping ID" });
+      }
       const mappingData = req.body;
       const updatedMapping = await storage.updateCategoryMapping(id, mappingData);
       res.json(updatedMapping);

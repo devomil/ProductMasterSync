@@ -118,6 +118,23 @@ export class DatabaseStorage implements IStorage {
     return [];
   }
 
+  async createCategoryMapping(mappingData: any): Promise<any> {
+    const [createdMapping] = await db
+      .insert(schema.supplierCategoryMappings)
+      .values(mappingData)
+      .returning();
+    return createdMapping;
+  }
+
+  async updateCategoryMapping(id: number, mappingData: any): Promise<any> {
+    const [updatedMapping] = await db
+      .update(schema.supplierCategoryMappings)
+      .set(mappingData)
+      .where(eq(schema.supplierCategoryMappings.id, id))
+      .returning();
+    return updatedMapping;
+  }
+
   async createCategoryMapping(mapping: any): Promise<any> {
     const [createdMapping] = await db
       .insert(schema.supplierCategoryMappings)
