@@ -16,7 +16,8 @@ import {
   CheckCircle,
   ShoppingCart,
   Zap,
-  Brain
+  Brain,
+  FolderTree
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -159,6 +160,12 @@ const TopNavigation = () => {
                   <Link to="/mapping-templates" className="flex items-center gap-2 w-full">
                     <Map className="h-4 w-4" />
                     Mapping Templates
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/category-management" className="flex items-center gap-2 w-full">
+                    <FolderTree className="h-4 w-4" />
+                    Category Management
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
