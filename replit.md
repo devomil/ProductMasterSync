@@ -120,6 +120,10 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **UI Data Display Improvements (2025-06-26)**: 
+  - Removed "EDC" prefix from internal part number displays across all pages
+  - Changed SKU column header to "EDC" throughout the application
+  - Cleaned HTML tags from product descriptions for better readability
 - **Mapping Template System Consolidation (2025-06-25)**: Eliminated duplicate mapping template systems causing field mapping save conflicts
 - **Fixed Field Mapping Format**: Corrected sourceField -> targetField mapping structure for proper persistence
 - **Removed Duplicate Files**: Consolidated MappingTemplates.tsx, MappingTemplatesUpdate.tsx, and MappingTemplateWorkspace.tsx into single MappingTemplateEditor
