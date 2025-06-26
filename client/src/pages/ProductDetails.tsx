@@ -829,18 +829,32 @@ export default function ProductDetails() {
                           View Warehouse Locations
                         </Button>
                         
-                        {index === 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <div><strong>MPN:</strong> {product.manufacturerPartNumber || "N/A"}</div>
-                              <div><strong>UPC:</strong> {product.upc || "N/A"}</div>
-                              <div><strong>Brand:</strong> {product.manufacturerName || "N/A"}</div>
-                              <div className="mt-2 text-xs text-gray-500">
-                                Primary supplier with authentic product data and full warranty support.
-                              </div>
-                            </div>
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="text-sm text-gray-600 space-y-1">
+                            {/* Show supplier-specific part number based on vendor */}
+                            {vendor.name === 'CWR' && product.cwrPartNumber && (
+                              <div><strong>CWR Part Number:</strong> {product.cwrPartNumber}</div>
+                            )}
+                            {vendor.name === 'Ingram Micro' && product.ingramPartNumber && (
+                              <div><strong>Ingram Part Number:</strong> {product.ingramPartNumber}</div>
+                            )}
+                            {vendor.name === 'TD/Synnex' && product.synnexPartNumber && (
+                              <div><strong>TD/Synnex Part Number:</strong> {product.synnexPartNumber}</div>
+                            )}
+                            
+                            {/* Always show these for the primary supplier (first card) */}
+                            {index === 0 && (
+                              <>
+                                <div><strong>MPN:</strong> {product.manufacturerPartNumber || "N/A"}</div>
+                                <div><strong>UPC:</strong> {product.upc || "N/A"}</div>
+                                <div><strong>Brand:</strong> {product.manufacturerName || "N/A"}</div>
+                                <div className="mt-2 text-xs text-gray-500">
+                                  Primary supplier with authentic product data and full warranty support.
+                                </div>
+                              </>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>
