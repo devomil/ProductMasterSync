@@ -162,12 +162,7 @@ const TopNavigation = () => {
                     Mapping Templates
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/category-management" className="flex items-center gap-2 w-full">
-                    <FolderTree className="h-4 w-4" />
-                    Category Management
-                  </Link>
-                </DropdownMenuItem>
+
               </DropdownMenuContent>
             </DropdownMenu>
 
