@@ -27,6 +27,12 @@ import {
 import { AlertCircle, Download, ExternalLink, HelpCircle, RefreshCw, Settings, Upload } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
+// Helper function to remove EDC prefix from SKU
+const removeEdcPrefix = (sku: string): string => {
+  if (!sku) return '';
+  return sku.replace(/^EDC/i, '');
+};
+
 export default function AmazonIntegration() {
   const { data: products, isLoading } = useQuery({
     queryKey: ['/api/products'],
@@ -299,7 +305,7 @@ export default function AmazonIntegration() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>SKU</TableHead>
+                      <TableHead>EDC</TableHead>
                       <TableHead>Product Name</TableHead>
                       <TableHead>UPC</TableHead>
                       <TableHead>ASIN</TableHead>
@@ -311,7 +317,7 @@ export default function AmazonIntegration() {
                     {!isLoading && products ? (
                       products.slice(0, 5).map((product: any) => (
                         <TableRow key={product.id}>
-                          <TableCell className="font-medium">{product.sku}</TableCell>
+                          <TableCell className="font-medium">{removeEdcPrefix(product.sku)}</TableCell>
                           <TableCell>{product.name}</TableCell>
                           <TableCell>{product.upc || '-'}</TableCell>
                           <TableCell>-</TableCell>

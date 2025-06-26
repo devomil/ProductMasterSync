@@ -23,6 +23,28 @@ import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCirc
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 // import AmazonMarketData from "@/components/products/AmazonMarketData";
 
+// Helper function to clean HTML tags from descriptions
+const cleanHtmlTags = (htmlString: string): string => {
+  if (!htmlString) return '';
+  return htmlString
+    .replace(/<p><strong>/gi, '')
+    .replace(/<\/strong><\/p><p>/gi, ' ')
+    .replace(/<\/strong><\/p>/gi, '')
+    .replace(/<p>/gi, '')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<strong>/gi, '')
+    .replace(/<\/strong>/gi, '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// Helper function to remove EDC prefix from SKU
+const removeEdcPrefix = (sku: string): string => {
+  if (!sku) return '';
+  return sku.replace(/^EDC/i, '');
+};
+
 // Authentic vendor stock data from CWR supplier information
 const getVendorStockData = (product: any, inventoryData?: any) => {
   if (!product) return [];
@@ -342,7 +364,7 @@ export default function ProductDetails() {
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
             <div className="flex items-center gap-2 mb-4">
-              <Badge variant="secondary">EDC: {product.sku}</Badge>
+              <Badge variant="secondary">EDC: {removeEdcPrefix(product.sku)}</Badge>
               {product.manufacturerPartNumber && (
                 <Badge variant="outline">MPN: {product.manufacturerPartNumber}</Badge>
               )}
@@ -368,7 +390,7 @@ export default function ProductDetails() {
                   <div className="text-gray-700 leading-relaxed">
                     {product.description && (
                       <div className="space-y-3">
-                        {product.description.split('\n').map((paragraph, index) => (
+                        {cleanHtmlTags(product.description).split('\n').map((paragraph, index) => (
                           paragraph.trim() && (
                             <p key={index} className="text-sm">
                               {paragraph.trim()}
@@ -447,7 +469,7 @@ export default function ProductDetails() {
                         </div>
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600">EDC:</span>
-                          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{product.sku}</span>
+                          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{removeEdcPrefix(product.sku)}</span>
                         </div>
                       </div>
                     </div>
