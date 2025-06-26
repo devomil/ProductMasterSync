@@ -19,7 +19,9 @@ import {
   Globe, 
   HardDrive,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Plus,
+  Trash2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -68,7 +70,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
     port: "22",
     username: "",
     password: "",
-    path: "/",
+    filePaths: [{ id: Date.now().toString(), label: "Main Catalog", path: "/" }],
     // API details
     url: "",
     apiKey: "",
@@ -105,6 +107,36 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const addFilePath = () => {
+    setFormData(prev => ({
+      ...prev,
+      filePaths: [
+        ...prev.filePaths,
+        { 
+          id: Date.now().toString(), 
+          label: `Path ${prev.filePaths.length + 1}`, 
+          path: "/" 
+        }
+      ]
+    }));
+  };
+
+  const removeFilePath = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      filePaths: prev.filePaths.filter(fp => fp.id !== id)
+    }));
+  };
+
+  const updateFilePath = (id: string, field: 'label' | 'path', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      filePaths: prev.filePaths.map(fp => 
+        fp.id === id ? { ...fp, [field]: value } : fp
+      )
+    }));
   };
 
   const testConnection = async () => {
@@ -428,13 +460,63 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="path">File Path</Label>
-                  <Input
-                    id="path"
-                    value={formData.path}
-                    onChange={(e) => handleInputChange('path', e.target.value)}
-                    placeholder="/data/products.csv"
-                  />
+                  <div className="flex items-center justify-between mb-3">
+                    <Label>File Paths</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addFilePath}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Path
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {formData.filePaths.map((filePath, index) => (
+                      <div key={filePath.id} className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <Label htmlFor={`path-label-${filePath.id}`} className="text-sm">
+                            Label
+                          </Label>
+                          <Input
+                            id={`path-label-${filePath.id}`}
+                            value={filePath.label}
+                            onChange={(e) => updateFilePath(filePath.id, 'label', e.target.value)}
+                            placeholder={`Path ${index + 1}`}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor={`path-value-${filePath.id}`} className="text-sm">
+                            File Path
+                          </Label>
+                          <Input
+                            id={`path-value-${filePath.id}`}
+                            value={filePath.path}
+                            onChange={(e) => updateFilePath(filePath.id, 'path', e.target.value)}
+                            placeholder="/data/products.csv"
+                            className="mt-1"
+                          />
+                        </div>
+                        {formData.filePaths.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeFilePath(filePath.id)}
+                            className="p-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Add multiple file paths for different product categories or time periods
+                  </p>
                 </div>
               </div>
             )}
