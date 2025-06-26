@@ -70,7 +70,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
     port: "22",
     username: "",
     password: "",
-    filePaths: [{ id: Date.now().toString(), label: "Main Catalog", path: "/" }],
+    filePaths: [{ id: Date.now().toString(), label: "Main Catalog", path: "/ecodata/out/catalog.csv" }],
     // API details
     url: "",
     apiKey: "",
@@ -150,7 +150,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
           port: parseInt(formData.port),
           username: formData.username,
           password: formData.password,
-          path: formData.path,
+          filePaths: formData.filePaths,
           is_sftp: true
         };
       } else if (formData.type === 'api') {
@@ -211,7 +211,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
           port: parseInt(formData.port),
           username: formData.username,
           password: formData.password,
-          path: formData.path,
+          filePaths: formData.filePaths,
           is_sftp: true
         };
       } else if (formData.type === 'api') {
