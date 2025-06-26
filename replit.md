@@ -120,6 +120,10 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Sample Pull UI Workflow Priority (2025-06-26)**:
+  - User emphasized importance of UI-driven sample pull workflow for supplier onboarding
+  - Users need to test sample data, mapping, and verification before full catalog loads
+  - Enhanced category management confirmed working - navigation consolidated to single /categories page
 - **Categories Page Complete Redesign (2025-06-26)**:
   - Created modern hierarchical category display with proper tree structure and visual hierarchy
   - Added comprehensive statistics dashboard showing total categories, parent/child breakdown, and product counts
