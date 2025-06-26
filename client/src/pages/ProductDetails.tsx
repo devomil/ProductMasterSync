@@ -719,64 +719,98 @@ export default function ProductDetails() {
               <Card>
                 <CardHeader>
                   <CardTitle>Product Gallery</CardTitle>
-                  <CardDescription>High-quality images from multiple suppliers</CardDescription>
+                  <CardDescription>High-quality images from CWR supplier feed</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Primary CWR Image */}
+                    {/* Image (300x300) Url */}
                     {product?.imageUrl && (
                       <div className="relative group">
                         <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                           <img 
                             src={product.imageUrl} 
-                            alt={`${product?.name || 'Product'} - Primary`}
+                            alt={`${product?.name || 'Product'} - 300x300`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                            onLoad={() => console.log('Image loaded:', product.imageUrl)}
                             onError={(e) => {
-                              console.log('Image failed to load:', product.imageUrl);
+                              console.log('300x300 image failed to load:', product.imageUrl);
                               e.currentTarget.style.display = 'none';
                             }}
                           />
                         </div>
                         <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                          Primary Image
+                          Image (300x300)
                         </div>
                       </div>
                     )}
                     
-                    {/* Large Version if different */}
-                    {product.imageUrlLarge && product.imageUrlLarge !== product.imageUrl && (
+                    {/* Image (1000x1000) Url */}
+                    {(product?.imageUrlLarge || product?.primaryImage) && (
                       <div className="relative group">
                         <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                           <img 
-                            src={product.imageUrlLarge} 
-                            alt={`${product.name} - Large`}
+                            src={product.imageUrlLarge || product.primaryImage} 
+                            alt={`${product?.name || 'Product'} - 1000x1000`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             onError={(e) => {
+                              console.log('1000x1000 image failed to load:', product.imageUrlLarge || product.primaryImage);
                               e.currentTarget.style.display = 'none';
                             }}
                           />
                         </div>
                         <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                          High Resolution
+                          Image (1000x1000)
                         </div>
                       </div>
                     )}
                     
-                    {/* Placeholder for additional supplier images */}
-                    <div className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500">
-                      <div className="text-center">
-                        <div className="text-sm font-medium">Additional Images</div>
-                        <div className="text-xs">Available when multiple suppliers provide this product</div>
+                    {/* Image Additional (1000x1000) Urls */}
+                    {(() => {
+                      try {
+                        const additionalImages = product?.additionalImages ? 
+                          (typeof product.additionalImages === 'string' ? 
+                            JSON.parse(product.additionalImages) : 
+                            product.additionalImages) : [];
+                        
+                        return additionalImages.map((imageUrl: string, index: number) => (
+                          <div key={index} className="relative group">
+                            <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                              <img 
+                                src={imageUrl} 
+                                alt={`${product?.name || 'Product'} - Additional ${index + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                onError={(e) => {
+                                  console.log(`Additional image ${index + 1} failed to load:`, imageUrl);
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                            <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                              Additional {index + 1}
+                            </div>
+                          </div>
+                        ));
+                      } catch (error) {
+                        console.log('Error parsing additional images:', error);
+                        return null;
+                      }
+                    })()}
+                    
+                    {/* Show placeholder only if no images are available */}
+                    {!product?.imageUrl && !product?.imageUrlLarge && !product?.primaryImage && !product?.additionalImages && (
+                      <div className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500">
+                        <div className="text-center">
+                          <div className="text-sm font-medium">No Images Available</div>
+                          <div className="text-xs">Images will appear when CWR feed includes image URLs</div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                     <h4 className="font-medium text-blue-900 mb-2">Image Quality & Authenticity</h4>
                     <p className="text-sm text-blue-700">
-                      All product images are sourced directly from authorized suppliers and manufacturers. 
-                      Images show the actual product you will receive, ensuring accuracy and authenticity.
+                      All product images are sourced directly from the CWR supplier feed. These are authentic manufacturer 
+                      images showing the actual product you will receive, with both 300x300 and 1000x1000 resolution versions available.
                     </p>
                   </div>
                 </CardContent>

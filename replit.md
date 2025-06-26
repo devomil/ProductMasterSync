@@ -120,6 +120,12 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Category Management Navigation Fix (2025-06-26)**:
+  - Fixed SelectItem empty value prop error that was causing React crashes
+  - Moved Category Management from Products dropdown to Suppliers dropdown as requested
+  - Added proper database parameter validation to prevent NaN errors
+  - Implemented missing category mapping database methods
+  - Added required created_at/updated_at columns to categories table
 - **UI Data Display Improvements (2025-06-26)**: 
   - Removed "EDC" prefix from internal part number displays across all pages
   - Changed SKU column header to "EDC" throughout the application
