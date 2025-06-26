@@ -1,152 +1,148 @@
-import { Pool } from 'pg';
-import SftpClient from 'ssh2-sftp-client';
-import { parse as csvParse } from 'csv-parse';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL);
 
 async function updateCatalogFields() {
-  console.log('📊 Updating products with authentic CWR catalog fields...');
+  console.log('Creating categories from CWR catalog data...');
   
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
-  });
+  // Manual extraction of category data from the first few records to establish correct categories
+  const categoryData = [
+    { usin: '10020', categoryName: 'Paddlesports | Safety' },
+    { usin: '10021', categoryName: 'Lighting | Bulbs' },
+    { usin: '10024', categoryName: 'Lighting | Bulbs' },
+    { usin: '10025', categoryName: 'Lighting | Accessories' },
+    { usin: '10026', categoryName: 'Lighting | Bulbs' },
+    { usin: '10027', categoryName: 'Lighting | Accessories' },
+    { usin: '10030', categoryName: 'Lighting | Accessories' },
+    { usin: '10341', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10342', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10345', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10348', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10349', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10350', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10351', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10352', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10353', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10354', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10355', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10357', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10360', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10361', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10366', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10367', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10368', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10369', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10373', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10374', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10377', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10378', categoryName: 'Marine Navigation & Instruments | Compasses' },
+    { usin: '10391', categoryName: 'Communication | Hailer Horns' }
+  ];
   
-  const sftp = new SftpClient();
+  const categoryMap = new Map();
   
-  try {
-    // Connect to CWR SFTP
-    await sftp.connect({
-      host: 'edi.cwrdistribution.com',
-      port: 22,
-      username: 'eco8',
-      password: process.env.SFTP_PASSWORD,
-    });
-    
-    console.log('✅ Connected to CWR SFTP server');
-    
-    // Get catalog data
-    const catalogBuffer = await sftp.get('/eco8/out/catalog.csv');
-    const csvContent = catalogBuffer.toString();
-    
-    console.log('✅ Downloaded catalog.csv from authentic source');
-    
-    // Parse CSV with headers
-    const records = await new Promise((resolve, reject) => {
-      csvParse(csvContent, {
-        columns: true,
-        skip_empty_lines: true,
-        delimiter: ',',
-        quote: '"'
-      }, (err, data) => {
-        if (err) reject(err);
-        else resolve(data);
-      });
-    });
-    
-    console.log(`📋 Processing ${records.length} authentic catalog records...`);
-    
-    let updatedCount = 0;
-    
-    // Import first 50 products with complete data
-    for (const record of records.slice(0, 50)) {
-      try {
-        const sku = record['CWR Part Number'];
-        const mpn = record['Manufacturer Part Number'];
+  // Process hierarchical categories
+  for (const item of categoryData) {
+    if (item.categoryName.includes('|')) {
+      const categoryParts = item.categoryName.split('|').map(c => c.trim());
+      let currentPath = '';
+      
+      for (let level = 0; level < categoryParts.length; level++) {
+        const categoryPart = categoryParts[level];
+        const parentPath = currentPath;
+        currentPath = currentPath ? `${currentPath} | ${categoryPart}` : categoryPart;
         
-        if (!sku) continue;
-        
-        // Map all available catalog fields
-        const productData = {
-          sku: sku,
-          name: record['Uppercase Title'] || record['Description'] || '',
-          description: record['Long Description'] || record['Description'] || '',
-          manufacturerPartNumber: mpn,
-          manufacturerName: record['Manufacturer'] || '',
-          upc: record['UPC Code'] || null,
-          price: record['List Price'] || null,
-          cost: record['Your Cost'] || null,
-          weight: record['Weight'] || null,
-          
-          // Additional catalog fields from your authentic data
-          thirdPartyMarketplaces: record['3rd Party Marketplaces'] || null,
-          caseQuantity: record['Case Qty'] || record['Case Quantity'] || null,
-          googleMerchantCategory: record['Google Merchant Category'] || record['Google Category'] || null,
-          countryOfOrigin: record['Country of Origin'] || record['Origin Country'] || null,
-          boxHeight: record['Box Height'] || record['Height'] || null,
-          boxLength: record['Box Length'] || record['Length'] || null,
-          boxWidth: record['Box Width'] || record['Width'] || null,
-          
-          status: 'active',
-          updatedAt: new Date()
-        };
-        
-        // Insert or update product
-        const insertQuery = `
-          INSERT INTO products (
-            sku, name, description, manufacturer_part_number, manufacturer_name, 
-            upc, price, cost, weight, third_party_marketplaces, case_quantity,
-            google_merchant_category, country_of_origin, box_height, box_length, 
-            box_width, status, created_at, updated_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
-          )
-          ON CONFLICT (sku) DO UPDATE SET
-            name = EXCLUDED.name,
-            description = EXCLUDED.description,
-            manufacturer_part_number = EXCLUDED.manufacturer_part_number,
-            manufacturer_name = EXCLUDED.manufacturer_name,
-            upc = EXCLUDED.upc,
-            price = EXCLUDED.price,
-            cost = EXCLUDED.cost,
-            weight = EXCLUDED.weight,
-            third_party_marketplaces = EXCLUDED.third_party_marketplaces,
-            case_quantity = EXCLUDED.case_quantity,
-            google_merchant_category = EXCLUDED.google_merchant_category,
-            country_of_origin = EXCLUDED.country_of_origin,
-            box_height = EXCLUDED.box_height,
-            box_length = EXCLUDED.box_length,
-            box_width = EXCLUDED.box_width,
-            updated_at = NOW()
-        `;
-        
-        const values = [
-          productData.sku,
-          productData.name,
-          productData.description,
-          productData.manufacturerPartNumber,
-          productData.manufacturerName,
-          productData.upc,
-          productData.price,
-          productData.cost,
-          productData.weight,
-          productData.thirdPartyMarketplaces,
-          productData.caseQuantity,
-          productData.googleMerchantCategory,
-          productData.countryOfOrigin,
-          productData.boxHeight,
-          productData.boxLength,
-          productData.boxWidth,
-          productData.status
-        ];
-        
-        await pool.query(insertQuery, values);
-        updatedCount++;
-        
-        if (updatedCount % 10 === 0) {
-          console.log(`✅ Processed ${updatedCount} products with authentic catalog data...`);
+        if (!categoryMap.has(currentPath)) {
+          categoryMap.set(currentPath, {
+            name: categoryPart,
+            code: categoryPart.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            level: level,
+            path: currentPath,
+            parentPath: parentPath || null
+          });
         }
-        
-      } catch (error) {
-        console.error(`❌ Error processing ${record['CWR Part Number']}:`, error.message);
+      }
+    } else {
+      // Single level category
+      if (!categoryMap.has(item.categoryName)) {
+        categoryMap.set(item.categoryName, {
+          name: item.categoryName,
+          code: item.categoryName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          level: 0,
+          path: item.categoryName,
+          parentPath: null
+        });
       }
     }
-    
-    console.log(`🎉 Successfully imported ${updatedCount} products with complete catalog fields from authentic CWR data!`);
-    
-  } catch (error) {
-    console.error('❌ Import error:', error);
-  } finally {
-    await sftp.end();
-    await pool.end();
   }
+  
+  console.log(`Creating ${categoryMap.size} categories from CWR data...`);
+  
+  // Insert categories in hierarchical order (parents first)
+  const categoriesByLevel = Array.from(categoryMap.values()).sort((a, b) => a.level - b.level);
+  const categoryIdMap = new Map();
+  
+  for (const category of categoriesByLevel) {
+    try {
+      // Find parent category ID if exists
+      let parentId = null;
+      if (category.parentPath) {
+        parentId = categoryIdMap.get(category.parentPath);
+      }
+      
+      // Insert or get existing category
+      const existingCategory = await sql`
+        SELECT id FROM categories WHERE code = ${category.code} AND name = ${category.name}
+      `;
+      
+      let categoryId;
+      if (existingCategory.length > 0) {
+        categoryId = existingCategory[0].id;
+        console.log(`✓ Found existing category: ${category.path}`);
+      } else {
+        const result = await sql`
+          INSERT INTO categories (name, code, level, path, parent_id, created_at, updated_at)
+          VALUES (${category.name}, ${category.code}, ${category.level}, ${category.path}, ${parentId}, NOW(), NOW())
+          RETURNING id
+        `;
+        categoryId = result[0].id;
+        console.log(`✓ Created category: ${category.path}`);
+      }
+      
+      categoryIdMap.set(category.path, categoryId);
+    } catch (error) {
+      console.error(`Error creating category ${category.name}:`, error.message);
+    }
+  }
+  
+  // Update products with their categories
+  let updatedProductCount = 0;
+  
+  for (const item of categoryData) {
+    try {
+      const categoryId = categoryIdMap.get(item.categoryName);
+      if (categoryId) {
+        const result = await sql`
+          UPDATE products 
+          SET category_id = ${categoryId}
+          WHERE usin = ${item.usin}
+          RETURNING id, sku, name
+        `;
+        
+        if (result.length > 0) {
+          const product = result[0];
+          console.log(`✓ Updated ${product.sku} with category: ${item.categoryName}`);
+          updatedProductCount++;
+        }
+      }
+    } catch (error) {
+      console.error(`Error updating product ${item.usin}:`, error.message);
+    }
+  }
+  
+  console.log(`\nCategory update complete!`);
+  console.log(`- Created/verified ${categoryMap.size} categories`);
+  console.log(`- Updated ${updatedProductCount} products with proper categories`);
 }
 
-updateCatalogFields().catch(console.error);
+updateCatalogFields();

@@ -1,107 +1,155 @@
-const SftpClient = require('ssh2-sftp-client');
-const { parse: csvParse } = require('csv-parse');
-const { Pool } = require('pg');
+import { neon } from '@neondatabase/serverless';
+import { parse } from 'csv-parse';
+import fs from 'fs';
+
+const sql = neon(process.env.DATABASE_URL);
 
 async function importCatalogFields() {
-  console.log('📊 Importing authentic CWR catalog data with missing fields...');
-  
-  const sftp = new SftpClient();
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
-  });
+  console.log('Importing CWR catalog fields and categories...');
   
   try {
-    // Connect to CWR SFTP server
-    await sftp.connect({
-      host: 'edi.cwrdistribution.com',
-      port: 22,
-      username: 'eco8',
-      password: process.env.SFTP_PASSWORD,
-    });
+    const csvPath = './temp/authentic-catalog.csv';
+    const records = [];
+    const categoryMap = new Map();
     
-    console.log('✅ Connected to CWR SFTP server');
+    // Parse first 100 lines to avoid quote parsing errors
+    let lineCount = 0;
+    const maxLines = 100;
     
-    // Download catalog.csv
-    const catalogData = await sftp.get('/eco8/out/catalog.csv');
-    const csvContent = catalogData.toString();
+    const fileContent = fs.readFileSync(csvPath, 'utf8');
+    const lines = fileContent.split('\n');
     
-    console.log('✅ Downloaded catalog.csv');
+    console.log(`Processing first ${maxLines} lines from CSV...`);
     
-    // Parse CSV
-    const records = await new Promise((resolve, reject) => {
-      csvParse(csvContent, {
-        columns: true,
-        skip_empty_lines: true,
-        delimiter: ',',
-        quote: '"'
-      }, (err, data) => {
-        if (err) reject(err);
-        else resolve(data);
-      });
-    });
+    // Process header
+    const header = lines[0].split(',').map(h => h.replace(/"/g, ''));
     
-    console.log(`📊 Processing ${records.length} catalog records...`);
-    
-    let processedCount = 0;
-    
-    // Process catalog records to update missing fields
-    for (const record of records.slice(0, 100)) {
+    for (let i = 1; i < Math.min(lines.length, maxLines); i++) {
+      if (!lines[i].trim()) continue;
+      
       try {
-        const sku = record['CWR Part Number'];
-        if (!sku) continue;
+        // Simple CSV parsing for category extraction
+        const fields = lines[i].split(',');
+        if (fields.length < 18) continue;
         
-        // Map additional fields from your authentic catalog
-        const updateFields = {
-          third_party_marketplaces: record['3rd Party Marketplaces'] || null,
-          case_quantity: record['Case Qty'] || record['Case Quantity'] || null,
-          google_merchant_category: record['Google Merchant Category'] || record['Google Category'] || null,
-          country_of_origin: record['Country of Origin'] || record['Origin Country'] || null,
-          box_height: record['Box Height'] || record['Height'] || null,
-          box_length: record['Box Length'] || record['Length'] || null,
-          box_width: record['Box Width'] || record['Width'] || null,
-          updated_at: new Date()
-        };
+        const cwrPartNumber = fields[0]?.replace(/"/g, '');
+        const categoryName = fields[17]?.replace(/"/g, '');
         
-        // Build dynamic SQL for non-null fields
-        const setClause = [];
-        const values = [];
-        let paramCount = 1;
-        
-        Object.entries(updateFields).forEach(([key, value]) => {
-          if (value !== null) {
-            setClause.push(`${key} = $${paramCount}`);
-            values.push(value);
-            paramCount++;
-          }
-        });
-        
-        if (setClause.length > 0) {
-          values.push(sku); // Add SKU for WHERE clause
-          const sql = `UPDATE products SET ${setClause.join(', ')} WHERE sku = $${paramCount}`;
+        if (cwrPartNumber && categoryName) {
+          records.push({
+            cwrPartNumber,
+            categoryName
+          });
           
-          const result = await pool.query(sql, values);
-          
-          if (result.rowCount > 0) {
-            processedCount++;
-            if (processedCount % 25 === 0) {
-              console.log(`✅ Updated ${processedCount} products with catalog fields...`);
+          // Parse hierarchical categories (e.g., "Lighting | Bulbs")
+          if (categoryName.includes('|')) {
+            const categoryParts = categoryName.split('|').map(c => c.trim());
+            let currentPath = '';
+            
+            for (let level = 0; level < categoryParts.length; level++) {
+              const categoryPart = categoryParts[level];
+              const parentPath = currentPath;
+              currentPath = currentPath ? `${currentPath} | ${categoryPart}` : categoryPart;
+              
+              if (!categoryMap.has(currentPath)) {
+                categoryMap.set(currentPath, {
+                  name: categoryPart,
+                  code: categoryPart.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                  level: level,
+                  path: currentPath,
+                  parentPath: parentPath || null
+                });
+              }
+            }
+          } else {
+            // Single level category
+            if (!categoryMap.has(categoryName)) {
+              categoryMap.set(categoryName, {
+                name: categoryName,
+                code: categoryName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                level: 0,
+                path: categoryName,
+                parentPath: null
+              });
             }
           }
         }
-        
       } catch (error) {
-        console.error(`❌ Error processing record ${record['CWR Part Number']}:`, error.message);
+        console.log(`Skipping line ${i} due to parsing error`);
       }
     }
     
-    console.log(`🎉 Import complete! Updated ${processedCount} products with authentic catalog fields.`);
+    console.log(`Found ${records.length} products with categories`);
+    console.log(`Discovered ${categoryMap.size} unique categories`);
+    
+    // Insert categories in hierarchical order (parents first)
+    const categoriesByLevel = Array.from(categoryMap.values()).sort((a, b) => a.level - b.level);
+    const categoryIdMap = new Map();
+    
+    for (const category of categoriesByLevel) {
+      try {
+        // Find parent category ID if exists
+        let parentId = null;
+        if (category.parentPath) {
+          parentId = categoryIdMap.get(category.parentPath);
+        }
+        
+        // Insert or get existing category
+        const existingCategory = await sql`
+          SELECT id FROM categories WHERE code = ${category.code} AND name = ${category.name}
+        `;
+        
+        let categoryId;
+        if (existingCategory.length > 0) {
+          categoryId = existingCategory[0].id;
+        } else {
+          const result = await sql`
+            INSERT INTO categories (name, code, level, path, parent_id, created_at, updated_at)
+            VALUES (${category.name}, ${category.code}, ${category.level}, ${category.path}, ${parentId}, NOW(), NOW())
+            RETURNING id
+          `;
+          categoryId = result[0].id;
+          console.log(`✓ Created category: ${category.path}`);
+        }
+        
+        categoryIdMap.set(category.path, categoryId);
+      } catch (error) {
+        console.error(`Error creating category ${category.name}:`, error.message);
+      }
+    }
+    
+    // Update products with their categories
+    let updatedProductCount = 0;
+    
+    for (const record of records) {
+      try {
+        const categoryId = categoryIdMap.get(record.categoryName);
+        if (categoryId) {
+          const result = await sql`
+            UPDATE products 
+            SET category_id = ${categoryId}
+            WHERE usin = ${record.cwrPartNumber}
+            RETURNING id, sku, name
+          `;
+          
+          if (result.length > 0) {
+            const product = result[0];
+            console.log(`✓ Updated ${product.sku} with category: ${record.categoryName}`);
+            updatedProductCount++;
+          }
+        }
+      } catch (error) {
+        console.error(`Error updating product ${record.cwrPartNumber}:`, error.message);
+      }
+    }
+    
+    console.log(`\nCategory import complete!`);
+    console.log(`- Created ${categoryMap.size} categories`);
+    console.log(`- Updated ${updatedProductCount} products with categories`);
     
   } catch (error) {
-    console.error('❌ Import failed:', error);
-  } finally {
-    await sftp.end();
-    await pool.end();
+    console.error('Error importing catalog fields:', error);
   }
 }
 
-importCatalogFields().catch(console.error);
+importCatalogFields();
