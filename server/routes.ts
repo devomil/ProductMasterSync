@@ -384,6 +384,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/categories/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const success = await storage.deleteCategory(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "delete",
+        entityType: "category",
+        entityId: id,
+        details: {}
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // Category Mapping API
+  app.get("/api/categories/mappings", async (req, res) => {
+    try {
+      const mappings = await storage.getCategoryMappings();
+      res.json(mappings);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/categories/unmapped", async (req, res) => {
+    try {
+      const unmapped = await storage.getUnmappedSupplierCategories();
+      res.json(unmapped);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/categories/mappings", async (req, res) => {
+    try {
+      const mappingData = req.body;
+      const mapping = await storage.createCategoryMapping(mappingData);
+      res.status(201).json(mapping);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.put("/api/categories/mappings/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const mappingData = req.body;
+      const updatedMapping = await storage.updateCategoryMapping(id, mappingData);
+      res.json(updatedMapping);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Products API
   app.get("/api/products", async (req, res) => {
     try {

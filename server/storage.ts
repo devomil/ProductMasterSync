@@ -36,6 +36,13 @@ export interface IStorage {
   getCategory(id: number): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: number): Promise<boolean>;
+  
+  // Category mapping management
+  getCategoryMappings(): Promise<any[]>;
+  getUnmappedSupplierCategories(): Promise<any[]>;
+  createCategoryMapping(mapping: any): Promise<any>;
+  updateCategoryMapping(id: number, mapping: any): Promise<any>;
 
   // Product management
   getProducts(): Promise<Product[]>;

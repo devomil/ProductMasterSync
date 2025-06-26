@@ -13,6 +13,7 @@ import ProductDetails from "@/pages/ProductDetails";
 import DataImports from "@/pages/DataImports";
 import DataExports from "@/pages/DataExports";
 import Categories from "@/pages/Categories";
+import CategoryManagement from "@/pages/CategoryManagement";
 import Suppliers from "@/pages/Suppliers";
 import SupplierDetails from "@/pages/SupplierDetails";
 import ApiConfiguration from "@/pages/ApiConfiguration";
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/products-simple" component={ProductsSimple} />
       <Route path="/products/:id" component={ProductDetails} />
       <Route path="/categories" component={Categories} />
+      <Route path="/category-management" component={CategoryManagement} />
       <Route path="/suppliers" component={SuppliersSimple} />
       <Route path="/data-imports" component={DataImports} />
       <Route path="/data-exports" component={DataExports} />
