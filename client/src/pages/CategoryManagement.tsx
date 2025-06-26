@@ -309,17 +309,17 @@ export default function CategoryManagement() {
                 <div>
                   <Label htmlFor="parent">Parent Category</Label>
                   <Select
-                    value={newCategory.parentId?.toString() || ""}
+                    value={newCategory.parentId?.toString() || "none"}
                     onValueChange={(value) => setNewCategory({
                       ...newCategory, 
-                      parentId: value ? parseInt(value) : null
+                      parentId: value === "none" ? null : parseInt(value)
                     })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select parent category (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Parent (Root Category)</SelectItem>
+                      <SelectItem value="none">No Parent (Root Category)</SelectItem>
                       {categories.map(cat => (
                         <SelectItem key={cat.id} value={cat.id.toString()}>
                           {cat.name}

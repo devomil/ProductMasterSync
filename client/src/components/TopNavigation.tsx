@@ -103,12 +103,7 @@ const TopNavigation = () => {
                     Categories
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/category-management" className="flex items-center gap-2 w-full">
-                    <Map className="h-4 w-4" />
-                    Category Management
-                  </Link>
-                </DropdownMenuItem>
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Link to="/amazon-integration" className="flex items-center gap-2 w-full">

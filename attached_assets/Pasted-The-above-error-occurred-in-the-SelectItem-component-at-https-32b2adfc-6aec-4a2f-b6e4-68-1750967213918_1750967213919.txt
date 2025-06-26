@@ -1,0 +1,37 @@
+The above error occurred in the <SelectItem> component:
+
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=edd3271d:846:7
+    at _c11 (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/components/ui/select.tsx:208:13)
+    at div
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=edd3271d:42:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:43:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:20:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5KSDU44R.js?v=edd3271d:41:15
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=edd3271d:757:13
+    at div
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:43:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:20:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5KSDU44R.js?v=edd3271d:41:15
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=edd3271d:38:15)
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=edd3271d:300:58
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:43:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:20:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=edd3271d:42:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MTDBOXDD.js?v=edd3271d:258:22
+    at SelectPortal
+    at _c7 (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/src/components/ui/select.tsx:123:12)
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=edd3271d:38:15)
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=edd3271d:38:15)
+    at CollectionProvider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5KSDU44R.js?v=edd3271d:31:13)
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=edd3271d:38:15)
+    at Provider (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=edd3271d:38:15)
+    at Popper (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IHT6IU3N.js?v=edd3271d:1921:11)
+    at Select (https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=edd3271d:88:5)
+    at div
+    at div
+    at div
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=edd3271d:42:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MTDBOXDD.js?v=edd3271d:59:7
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:43:13
+    at https://32b2adfc-6aec-4a2f-b6e4-68a94fb6b064-00-2b5nuhwez23a4.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=edd3271d:20:13
+    at…
