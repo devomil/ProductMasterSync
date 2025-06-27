@@ -744,6 +744,16 @@ const pullSampleDataFromSFTP = async (
           console.log('Using specific path from credentials:', credentials.specific_path);
           pathsToCheck.push(credentials.specific_path);
         }
+        // Check for new filePaths array structure from multiple file paths wizard
+        else if (Array.isArray(credentials.filePaths) && credentials.filePaths.length > 0) {
+          console.log('Using filePaths array from credentials:', credentials.filePaths);
+          credentials.filePaths.forEach((pathObj: any) => {
+            if (pathObj.path) {
+              console.log(`Adding path: ${pathObj.path} (${pathObj.label})`);
+              pathsToCheck.push(pathObj.path);
+            }
+          });
+        }
         // Otherwise use standard paths from configuration 
         else if (credentials.remoteDir) {
           pathsToCheck.push(credentials.remoteDir);
