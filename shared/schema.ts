@@ -26,6 +26,12 @@ export const marketplaceEnum = pgEnum('marketplace', [
 export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
   'once', 'hourly', 'daily', 'weekly', 'monthly', 'custom'
 ]);
+export const fileTypeEnum = pgEnum('file_type', [
+  'catalog', 'inventory', 'pricing', 'images', 'specifications', 'other'
+]);
+export const processingPriorityEnum = pgEnum('processing_priority', [
+  'low', 'normal', 'high', 'critical'
+]);
 export const resolutionStrategyEnum = pgEnum('resolution_strategy', [
   'newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all'
 ]);
@@ -332,6 +338,80 @@ export const connections = pgTable("connections", {
   credentials: json("credentials").notNull(),
   lastTested: timestamp("last_tested"),
   lastStatus: connectionStatusEnum("last_status"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Data source file paths with automation and dependencies
+export const dataSourcePaths = pgTable("data_source_paths", {
+  id: serial("id").primaryKey(),
+  connectionId: integer("connection_id").notNull().references(() => connections.id),
+  
+  // File identification
+  label: text("label").notNull(), // "Main Catalog", "Inventory", "Pricing"
+  filePath: text("file_path").notNull(),
+  fileType: fileTypeEnum("file_type").notNull(),
+  processingPriority: processingPriorityEnum("processing_priority").default("normal"),
+  
+  // Automation settings
+  isAutomated: boolean("is_automated").default(false),
+  scheduleFrequency: scheduleFrequencyEnum("schedule_frequency").default("daily"),
+  customSchedule: text("custom_schedule"), // Cron expression for custom schedules
+  
+  // Processing dependencies - ensures catalog files process before inventory
+  dependsOnPathId: integer("depends_on_path_id").references(() => dataSourcePaths.id),
+  processingDelayMinutes: integer("processing_delay_minutes").default(0),
+  
+  // Status tracking
+  isActive: boolean("is_active").default(true),
+  lastProcessed: timestamp("last_processed"),
+  nextScheduled: timestamp("next_scheduled"),
+  lastStatus: importStatusEnum("last_status"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Supplier automation schedules for catalog and inventory workflows
+export const supplierAutomation = pgTable("supplier_automation", {
+  id: serial("id").primaryKey(),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  connectionId: integer("connection_id").notNull().references(() => connections.id),
+  
+  // General settings
+  name: text("name").notNull(), // "CWR Distribution Automation"
+  isActive: boolean("is_active").default(true),
+  
+  // Catalog processing (primary data - must complete first)
+  catalogEnabled: boolean("catalog_enabled").default(true),
+  catalogFrequency: scheduleFrequencyEnum("catalog_frequency").default("daily"),
+  catalogTimesPerDay: integer("catalog_times_per_day").default(1), // 1-2 times daily
+  catalogScheduleTimes: json("catalog_schedule_times").default(['02:00']), // Array of times
+  catalogCustomSchedule: text("catalog_custom_schedule"), // Cron for weekly/monthly
+  
+  // Inventory processing (dependent on catalog completion)
+  inventoryEnabled: boolean("inventory_enabled").default(true),
+  inventoryFrequency: scheduleFrequencyEnum("inventory_frequency").default("hourly"),
+  inventoryTimesPerDay: integer("inventory_times_per_day").default(12), // 1-12 times daily
+  inventoryStartTime: text("inventory_start_time").default("06:00"),
+  inventoryEndTime: text("inventory_end_time").default("22:00"),
+  inventoryCustomSchedule: text("inventory_custom_schedule"),
+  
+  // Processing rules and dependencies
+  waitForCatalogCompletion: boolean("wait_for_catalog_completion").default(true),
+  catalogTimeoutMinutes: integer("catalog_timeout_minutes").default(30),
+  inventoryDelayAfterCatalog: integer("inventory_delay_after_catalog").default(10), // Minutes
+  
+  // Error handling
+  maxRetryAttempts: integer("max_retry_attempts").default(3),
+  retryDelayMinutes: integer("retry_delay_minutes").default(30),
+  pauseOnConsecutiveFailures: integer("pause_on_consecutive_failures").default(5),
+  
+  // Notifications
+  notifyOnSuccess: boolean("notify_on_success").default(false),
+  notifyOnFailure: boolean("notify_on_failure").default(true),
+  notificationEmails: json("notification_emails").default([]),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

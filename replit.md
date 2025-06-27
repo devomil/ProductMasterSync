@@ -120,12 +120,21 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Intelligent Automation Scheduling System (2025-06-27)**:
+  - Built comprehensive automation scheduler for catalog and inventory workflows
+  - Catalog files process first (1-2 times daily, weekly, bi-weekly, monthly)
+  - Inventory files process after catalog completion (1-12 times daily with configurable hours)
+  - File type classification system (catalog, inventory, pricing, images, specifications)
+  - Processing dependencies ensure proper workflow order
+  - Configurable retry logic, error handling, and email notifications
+  - Visual workflow representation showing processing steps and timing
 - **Multiple File Paths Support (2025-06-26)**:
   - Enhanced Data Source wizard to support multiple file paths per supplier
   - Users can now add/remove labeled file paths for different product categories or time periods
   - Each path has customizable label (e.g., "Main Catalog", "Seasonal Products", "Clearance Items")
   - UI includes intuitive add/remove controls with proper validation
   - Backend updated to handle filePaths array instead of single path string
+  - Fixed sample data pull to use configured file paths instead of root directory
 - **Sample Pull UI Workflow Priority (2025-06-26)**:
   - User emphasized importance of UI-driven sample pull workflow for supplier onboarding
   - Users need to test sample data, mapping, and verification before full catalog loads
