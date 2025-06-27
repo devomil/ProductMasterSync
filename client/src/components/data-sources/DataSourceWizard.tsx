@@ -236,15 +236,16 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
       setSampleData({
         pulled: true,
         success: result.success,
-        records: result.records || [],
-        totalRecords: result.total_records || 0,
+        records: result.data || result.records || [],
+        totalRecords: result.total_records || (result.data ? result.data.length : 0),
         message: result.message
       });
 
       if (result.success) {
+        const recordCount = (result.data || result.records || []).length;
         toast({
           title: "Sample Data Retrieved",
-          description: `Retrieved ${result.records?.length || 0} sample products`
+          description: `Retrieved ${recordCount} sample products`
         });
       } else {
         toast({
