@@ -1,4 +1,4 @@
-MFGPN,ITEM,DESCRIPTION,UPC,MFG,PRICE,COST,QTY,WEIGHT,DIMENSIONS,CASE_QTY,IMAGE_URL,LARGE_IMAGE
+Part Number,Product Name,Description,UPC,Manufacturer,Price,Cost,Inventory,Weight,Dimensions,Case Qty,Image URL,Large Image
 010342,Oil Filter - Mercury Marine,High-performance oil filter for Mercury Marine engines with superior filtration technology,123456789012,Mercury Marine,29.99,19.99,150,2.5,4.5 x 4.5 x 6.2 inches,12,https://productimageserver.com/images/010342_300.jpg,https://productimageserver.com/images/010342_1000.jpg
 010343,Spark Plug - Mercury Marine,Premium spark plug designed for Mercury Marine outboard engines,234567890123,Mercury Marine,12.99,8.99,200,0.3,0.6 x 0.6 x 3.5 inches,16,https://productimageserver.com/images/010343_300.jpg,https://productimageserver.com/images/010343_1000.jpg
 010344,Water Pump Impeller,High-quality rubber impeller for water pump cooling systems,345678901234,Mercury Marine,24.99,16.99,75,0.8,3.2 x 3.2 x 1.5 inches,8,https://productimageserver.com/images/010344_300.jpg,https://productimageserver.com/images/010344_1000.jpg

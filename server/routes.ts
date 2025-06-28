@@ -702,18 +702,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalRecords: records.length 
         });
       } else {
-        // Fallback to demo structure that matches your expected CSV headers
+        // Fallback to demo structure that matches your CWR data headers
         const demoData = [
           {
-            "MFGPN": "010342",
-            "ITEM": "Oil Filter - Mercury Marine", 
-            "DESCRIPTION": "High-performance oil filter for Mercury Marine engines",
+            "Part Number": "010342",
+            "Product Name": "Oil Filter - Mercury Marine", 
+            "Description": "High-performance oil filter for Mercury Marine engines",
             "UPC": "123456789012",
-            "MFG": "Mercury Marine",
-            "PRICE": "29.99",
-            "COST": "19.99",
-            "QTY": "150",
-            "WEIGHT": "2.5"
+            "Manufacturer": "Mercury Marine",
+            "Price": "29.99",
+            "Cost": "19.99",
+            "Inventory": "150",
+            "Weight": "2.5",
+            "Dimensions": "4.5 x 4.5 x 6.2 inches",
+            "Case Qty": "12",
+            "Image URL": "https://productimageserver.com/images/010342_300.jpg",
+            "Large Image": "https://productimageserver.com/images/010342_1000.jpg"
           }
         ];
         
