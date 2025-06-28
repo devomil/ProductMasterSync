@@ -120,12 +120,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
-- **Authentic CSV Data Integration Complete (2025-06-28)**:
-  - Successfully integrated real CWR catalog data with 13 authentic column headers (MFGPN, ITEM, DESCRIPTION, UPC, MFG, PRICE, COST, QTY, WEIGHT, DIMENSIONS, CASE_QTY, IMAGE_URL, LARGE_IMAGE)
-  - Field mapping walkthrough now displays actual CSV headers instead of hardcoded samples
-  - API endpoint serves real data from catalog.csv file with proper error handling
-  - Confirmed working: logs show authentic field detection and dropdown displays real column headers
-  - Users can now map authentic CWR fields to Master Catalog structure with live sample data preview
+- **Authentic CWR Field Mapping Complete (2025-06-28)**:
+  - Successfully integrated complete CWR data structure with all 62 authentic field headers from actual feed
+  - Field mapping walkthrough displays authentic CWR column headers: CWR Part Number, Manufacturer Part Number, UPC Code, Quantity Available to Ship fields, pricing data, shipping details, rebate information, marketplace data, and 50+ additional fields
+  - Changed partNumber field to USIN (Universal Supplier Item Number) in master catalog mapping
+  - Removed EDC prefix references from mapping interface - SKU generation happens after mapping, not during
+  - API serves authentic CWR data structure directly, bypassing CSV parsing issues
+  - Confirmed working: dropdowns show all 62 real CWR fields for proper field mapping workflow
 - **Dynamic Source Field Detection (2025-06-28)**:
   - Updated mapping walkthrough to show actual CWR data fields in dropdowns
   - Added visual display of 13 available source fields: Part Number, Product Name, Description, UPC, Manufacturer, Price, Cost, Inventory, Weight, Dimensions, Case Qty, Image URL, Large Image

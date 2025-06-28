@@ -43,10 +43,10 @@ interface MappingWalkthroughProps {
 const REQUIRED_MAPPINGS = {
   master_catalog: [
     {
-      id: 'part_number',
-      targetField: 'partNumber',
+      id: 'usin',
+      targetField: 'usin',
       required: true,
-      description: 'Supplier part number (EDC SKU will be auto-generated)',
+      description: 'Universal Supplier Item Number for internal tracking',
       example: '010342'
     },
     {
