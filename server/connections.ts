@@ -1571,6 +1571,81 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
   }
 };
 
+// Create data source endpoint
+const createDataSource = async (req: Request, res: Response) => {
+  try {
+    console.log('Creating data source with payload:', JSON.stringify(req.body, null, 2));
+    
+    const { name, description, type, supplierId, ...configData } = req.body;
+    
+    // Build the credentials object from the request data
+    const credentials: any = {};
+    
+    if (type === 'sftp') {
+      credentials.host = configData.host;
+      credentials.port = parseInt(configData.port) || 22;
+      credentials.username = configData.username;
+      credentials.password = configData.password;
+      credentials.filePaths = configData.filePaths || [];
+      credentials.is_sftp = true;
+    } else if (type === 'api') {
+      credentials.url = configData.url;
+      credentials.headers = configData.headers || {};
+      credentials.auth_type = configData.authType || 'none';
+      if (configData.username) credentials.username = configData.username;
+      if (configData.password) credentials.password = configData.password;
+    } else if (type === 'database') {
+      credentials.host = configData.host;
+      credentials.port = parseInt(configData.port) || 5432;
+      credentials.database = configData.database;
+      credentials.username = configData.username;
+      credentials.password = configData.password;
+    }
+    
+    // Insert into connections table
+    const [connection] = await db.insert(connections).values({
+      name,
+      description: description || null,
+      type,
+      supplierId: supplierId ? parseInt(supplierId) : null,
+      credentials,
+      isActive: true,
+      lastStatus: 'pending'
+    }).returning();
+    
+    console.log('Data source created successfully:', connection.id);
+    
+    res.status(201).json({
+      success: true,
+      id: connection.id,
+      message: 'Data source created successfully'
+    });
+    
+  } catch (error: any) {
+    console.error('Error creating data source:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create data source',
+      message: error.message || 'Unknown error occurred'
+    });
+  }
+};
+
+// Get all data sources
+const getDataSources = async (req: Request, res: Response) => {
+  try {
+    const sources = await db.select().from(connections);
+    res.json(sources);
+  } catch (error: any) {
+    console.error('Error fetching data sources:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch data sources',
+      message: error.message
+    });
+  }
+};
+
 // Register routes
 export const registerConnectionsRoutes = (app: any) => {
   app.get('/api/connections', getConnections);
@@ -1582,4 +1657,8 @@ export const registerConnectionsRoutes = (app: any) => {
   app.post('/api/connections/pull-sample-data', pullSampleData);
   app.post('/api/connections/sample-data', pullSampleData); // Added alias for client compatibility
   app.post('/api/data-sources/:id/sync-inventory', syncInventoryForDataSource);
+  
+  // Data source endpoints
+  app.get('/api/datasources', getDataSources);
+  app.post('/api/datasources', createDataSource);
 };
