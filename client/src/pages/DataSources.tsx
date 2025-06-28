@@ -46,23 +46,34 @@ export default function DataSources() {
 
   const startMappingWalkthrough = async (dataSourceId: string) => {
     try {
-      // For demonstration, use sample data structure from CWR catalog
-      const sampleData = [
-        {
-          "Part Number": "010342",
-          "Product Name": "Oil Filter - Mercury Marine",
-          "Description": "High-performance oil filter for Mercury Marine engines, superior filtration technology",
-          "UPC": "123456789012",
-          "Manufacturer": "Mercury Marine", 
-          "Price": "29.99",
-          "Cost": "19.99",
-          "Inventory": "150",
-          "Weight": "2.5",
-          "Dimensions": "4.5 x 4.5 x 6.2 inches",
-          "Case Qty": "12",
-          "Image URL": "https://productimageserver.com/images/010342_300.jpg",
-          "Large Image": "https://productimageserver.com/images/010342_1000.jpg"
-        },
+      // Fetch actual sample data from the data source
+      const response = await fetch(`/api/datasources/${dataSourceId}/sample-data`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch sample data');
+      }
+      
+      const result = await response.json();
+      let sampleData = result.data || [];
+      
+      // Fallback to demo data structure if API fails
+      if (!sampleData.length) {
+        sampleData = [
+          {
+            "Part Number": "010342",
+            "Product Name": "Oil Filter - Mercury Marine",
+            "Description": "High-performance oil filter for Mercury Marine engines, superior filtration technology",
+            "UPC": "123456789012",
+            "Manufacturer": "Mercury Marine", 
+            "Price": "29.99",
+            "Cost": "19.99",
+            "Inventory": "150",
+            "Weight": "2.5",
+            "Dimensions": "4.5 x 4.5 x 6.2 inches",
+            "Case Qty": "12",
+            "Image URL": "https://productimageserver.com/images/010342_300.jpg",
+            "Large Image": "https://productimageserver.com/images/010342_1000.jpg"
+          },
         {
           "Part Number": "010343", 
           "Product Name": "Fuel Filter - Yamaha",
@@ -93,7 +104,8 @@ export default function DataSources() {
           "Image URL": "https://productimageserver.com/images/010344_300.jpg",
           "Large Image": "https://productimageserver.com/images/010344_1000.jpg"
         }
-      ];
+        ];
+      }
 
       setSampleData(sampleData);
       setShowMappingWalkthrough(true);

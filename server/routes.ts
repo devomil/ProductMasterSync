@@ -668,6 +668,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn("Connections routes not available:", error);
   }
 
+  // Get sample data from data source (for field mapping)
+  app.get("/api/datasources/:id/sample-data", async (req, res) => {
+    try {
+      const dataSourceId = parseInt(req.params.id);
+      
+      // Get data source details
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+        
+      if (!dataSource) {
+        return res.status(404).json({ error: "Data source not found" });
+      }
+      
+      // For demo purposes, read from a sample CSV file or use connections.ts logic
+      // This would normally connect to the actual SFTP/FTP source
+      const sampleCsvPath = path.resolve(process.cwd(), "catalog.csv");
+      
+      if (fs.existsSync(sampleCsvPath)) {
+        const csvContent = fs.readFileSync(sampleCsvPath, 'utf-8');
+        const records = parseCsv(csvContent, { 
+          columns: true, 
+          skip_empty_lines: true,
+          delimiter: ','
+        });
+        
+        // Return first 5 records for mapping
+        res.json({ 
+          success: true, 
+          data: records.slice(0, 5),
+          totalRecords: records.length 
+        });
+      } else {
+        // Fallback to demo structure that matches your expected CSV headers
+        const demoData = [
+          {
+            "MFGPN": "010342",
+            "ITEM": "Oil Filter - Mercury Marine", 
+            "DESCRIPTION": "High-performance oil filter for Mercury Marine engines",
+            "UPC": "123456789012",
+            "MFG": "Mercury Marine",
+            "PRICE": "29.99",
+            "COST": "19.99",
+            "QTY": "150",
+            "WEIGHT": "2.5"
+          }
+        ];
+        
+        res.json({ 
+          success: true, 
+          data: demoData,
+          totalRecords: demoData.length,
+          note: "Using demo data - actual CSV not found"
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error fetching sample data:", error);
+      res.status(500).json({ error: "Failed to fetch sample data" });
+    }
+  });
+
   // Basic health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ 
