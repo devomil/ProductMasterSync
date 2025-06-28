@@ -25,9 +25,14 @@ export default function DataSources() {
   const handleDataSourceCreated = (newDataSource: any) => {
     queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
     setShowWizard(false);
+    
+    // Find the supplier name to display in the toast
+    const supplier = suppliers.find(s => s.id === parseInt(newDataSource.supplier_id || newDataSource.supplierId));
+    const supplierName = supplier?.name || newDataSource.name || 'Data source';
+    
     toast({
       title: "Data Source Created",
-      description: `${newDataSource.name} is ready for sample data testing`
+      description: `${supplierName} is ready for sample data testing`
     });
   };
 
@@ -47,7 +52,9 @@ export default function DataSources() {
   };
 
   const getStatusBadge = (dataSource: DataSource) => {
-    if (dataSource.active) {
+    // Check both 'active' and 'isActive' properties
+    const isActive = dataSource.active ?? dataSource.isActive ?? true;
+    if (isActive) {
       return <Badge variant="default" className="gap-1"><CheckCircle className="w-3 h-3" />Active</Badge>;
     }
     return <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" />Inactive</Badge>;
