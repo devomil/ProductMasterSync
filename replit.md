@@ -120,6 +120,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Field Mapping Walkthrough System (2025-06-28)**:
+  - Built comprehensive mapping checklist walkthrough component with step-by-step validation
+  - Guides users through required field mappings for Master Catalog and product details pages
+  - Six categorized mapping sections: Product Identification, Product Information, Pricing & Costs, Inventory & Stock, Images & Media, Specifications & Attributes
+  - Real-time progress tracking with visual completion indicators and sample data preview
+  - Automatic launch after successful data source creation with seamless workflow integration
+  - Manual mapping walkthrough trigger available on existing data sources via "Field Mapping Walkthrough" button
+  - Validates all required fields before allowing progression to next category
+  - Saves mapping templates automatically for future catalog imports
 - **Intelligent Automation Scheduling System (2025-06-27)**:
   - Built comprehensive automation scheduler for catalog and inventory workflows
   - Catalog files process first (1-2 times daily, weekly, bi-weekly, monthly)

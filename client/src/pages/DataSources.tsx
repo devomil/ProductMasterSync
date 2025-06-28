@@ -3,14 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import DataSourceWizard from "@/components/data-sources/DataSourceWizard";
+import { MappingWalkthrough } from "@/components/mapping/MappingWalkthrough";
 
 export default function DataSources() {
   const [showWizard, setShowWizard] = useState(false);
+  const [showMappingWalkthrough, setShowMappingWalkthrough] = useState(false);
+  const [currentDataSource, setCurrentDataSource] = useState<any>(null);
+  const [sampleData, setSampleData] = useState<any[]>([]);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -32,8 +36,124 @@ export default function DataSources() {
     
     toast({
       title: "Data Source Created",
-      description: `${supplierName} is ready for sample data testing`
+      description: `${supplierName} is ready for field mapping`
     });
+
+    // Automatically start the mapping walkthrough
+    setCurrentDataSource(newDataSource);
+    startMappingWalkthrough(newDataSource.id);
+  };
+
+  const startMappingWalkthrough = async (dataSourceId: string) => {
+    try {
+      // For demonstration, use sample data structure from CWR catalog
+      const sampleData = [
+        {
+          "Part Number": "010342",
+          "Product Name": "Oil Filter - Mercury Marine",
+          "Description": "High-performance oil filter for Mercury Marine engines, superior filtration technology",
+          "UPC": "123456789012",
+          "Manufacturer": "Mercury Marine", 
+          "Price": "29.99",
+          "Cost": "19.99",
+          "Inventory": "150",
+          "Weight": "2.5",
+          "Dimensions": "4.5 x 4.5 x 6.2 inches",
+          "Case Qty": "12",
+          "Image URL": "https://productimageserver.com/images/010342_300.jpg",
+          "Large Image": "https://productimageserver.com/images/010342_1000.jpg"
+        },
+        {
+          "Part Number": "010343", 
+          "Product Name": "Fuel Filter - Yamaha",
+          "Description": "Premium fuel filter for Yamaha outboard motors, advanced water separation",
+          "UPC": "123456789013",
+          "Manufacturer": "Yamaha",
+          "Price": "24.99",
+          "Cost": "16.99", 
+          "Inventory": "200",
+          "Weight": "1.8",
+          "Dimensions": "3.2 x 3.2 x 5.1 inches",
+          "Case Qty": "24",
+          "Image URL": "https://productimageserver.com/images/010343_300.jpg",
+          "Large Image": "https://productimageserver.com/images/010343_1000.jpg"
+        },
+        {
+          "Part Number": "010344",
+          "Product Name": "Spark Plug - NGK",
+          "Description": "Marine grade spark plug with corrosion-resistant coating for saltwater environments",
+          "UPC": "123456789014",
+          "Manufacturer": "NGK",
+          "Price": "12.99",
+          "Cost": "8.99",
+          "Inventory": "500", 
+          "Weight": "0.3",
+          "Dimensions": "0.8 x 0.8 x 3.5 inches",
+          "Case Qty": "8",
+          "Image URL": "https://productimageserver.com/images/010344_300.jpg",
+          "Large Image": "https://productimageserver.com/images/010344_1000.jpg"
+        }
+      ];
+
+      setSampleData(sampleData);
+      setShowMappingWalkthrough(true);
+      
+    } catch (error) {
+      console.error('Error starting mapping walkthrough:', error);
+      toast({
+        variant: "destructive",
+        title: "Walkthrough Error",
+        description: "Failed to start field mapping walkthrough"
+      });
+    }
+  };
+
+  const handleMappingComplete = async (mappings: any[]) => {
+    try {
+      // Save the mapping template
+      const response = await fetch('/api/mapping-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${currentDataSource?.name} Mapping`,
+          description: 'Auto-generated from mapping walkthrough',
+          sourceType: currentDataSource?.type || 'sftp',
+          mappings: mappings.reduce((acc, mapping) => {
+            if (mapping.sourceField) {
+              acc[mapping.targetField] = mapping.sourceField;
+            }
+            return acc;
+          }, {} as Record<string, string>),
+          supplierId: currentDataSource?.supplier_id || currentDataSource?.supplierId
+        })
+      });
+
+      if (response.ok) {
+        setShowMappingWalkthrough(false);
+        setCurrentDataSource(null);
+        setSampleData([]);
+        
+        toast({
+          title: "Mapping Complete",
+          description: "Field mappings saved successfully. Ready for full catalog import."
+        });
+      } else {
+        throw new Error('Failed to save mapping template');
+      }
+    } catch (error) {
+      console.error('Error saving mapping:', error);
+      toast({
+        variant: "destructive",
+        title: "Save Error",
+        description: "Failed to save field mappings"
+      });
+    }
+  };
+
+  const handleMappingCancel = () => {
+    setShowMappingWalkthrough(false);
+    setCurrentDataSource(null);
+    setSampleData([]);
   };
 
   const getTypeIcon = (type: string) => {
@@ -59,6 +179,19 @@ export default function DataSources() {
     }
     return <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" />Inactive</Badge>;
   };
+
+  if (showMappingWalkthrough) {
+    return (
+      <main className="container mx-auto py-6 px-4 md:px-6">
+        <MappingWalkthrough
+          dataSourceId={currentDataSource?.id || ''}
+          sampleData={sampleData}
+          onComplete={handleMappingComplete}
+          onCancel={handleMappingCancel}
+        />
+      </main>
+    );
+  }
 
   if (showWizard) {
     return (
@@ -144,7 +277,7 @@ export default function DataSources() {
                     </div>
                     
                     <div className="pt-3 border-t">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mb-2">
                         <Button size="sm" variant="outline" className="flex-1">
                           Test Connection
                         </Button>
@@ -152,6 +285,18 @@ export default function DataSources() {
                           Pull Sample (50)
                         </Button>
                       </div>
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        className="w-full gap-1"
+                        onClick={() => {
+                          setCurrentDataSource(dataSource);
+                          startMappingWalkthrough(dataSource.id.toString());
+                        }}
+                      >
+                        <MapPin className="w-4 h-4" />
+                        Field Mapping Walkthrough
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
