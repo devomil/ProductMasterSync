@@ -191,11 +191,14 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
   const updateMapping = (fieldId: string, sourceField: string) => {
     const targetField = currentFields.find(f => f.id === fieldId);
     if (targetField) {
+      // Handle skipped fields by setting empty sourceField
+      const actualSourceField = sourceField === "__SKIP__" ? "" : sourceField;
+      
       setMappings(prev => ({
         ...prev,
         [fieldId]: {
           id: fieldId,
-          sourceField,
+          sourceField: actualSourceField,
           targetField: targetField.targetField,
           required: targetField.required,
           category: currentCategory,
@@ -388,7 +391,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
                       <SelectValue placeholder="Select a field from your data..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">-- Skip this field --</SelectItem>
+                      <SelectItem value="__SKIP__">-- Skip this field --</SelectItem>
                       {sourceFields.map((sourceField) => (
                         <SelectItem key={sourceField} value={sourceField}>
                           {sourceField}
