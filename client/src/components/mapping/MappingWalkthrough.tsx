@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import { 
   CheckCircle, 
   AlertCircle, 
@@ -483,13 +484,5 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
         </div>
       </div>
     </div>
-  );
-}
-
-function Label({ children, className = "", ...props }: any) {
-  return (
-    <label className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`} {...props}>
-      {children}
-    </label>
   );
 }
