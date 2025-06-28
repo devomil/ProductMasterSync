@@ -120,6 +120,11 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Dynamic Source Field Detection (2025-06-28)**:
+  - Updated mapping walkthrough to show actual CWR data fields in dropdowns
+  - Added visual display of 13 available source fields: Part Number, Product Name, Description, UPC, Manufacturer, Price, Cost, Inventory, Weight, Dimensions, Case Qty, Image URL, Large Image
+  - Enhanced sample data preview with real values from user's files
+  - Simplified mapping process to Master Catalog (9 essential fields) and Product Details (remaining fields)
 - **Field Mapping Walkthrough System (2025-06-28)**:
   - Built comprehensive mapping checklist walkthrough component with step-by-step validation
   - Guides users through required field mappings for Master Catalog and product details pages

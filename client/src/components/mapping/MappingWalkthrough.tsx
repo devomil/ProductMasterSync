@@ -189,6 +189,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
     // Extract field names from sample data
     if (sampleData && sampleData.length > 0) {
       const fields = Object.keys(sampleData[0] || {});
+      console.log('Available source fields from CWR data:', fields);
       setSourceFields(fields);
     }
   }, [sampleData]);
@@ -299,6 +300,27 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Show available source fields */}
+            {sourceFields.length > 0 && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm font-medium text-blue-800 mb-2">
+                  Available fields from your CWR data ({sourceFields.length} fields):
+                </div>
+                <div className="flex flex-wrap gap-1 text-xs">
+                  {sourceFields.slice(0, 10).map((field) => (
+                    <span key={field} className="px-2 py-1 bg-white border border-blue-200 rounded text-blue-700 font-mono">
+                      {field}
+                    </span>
+                  ))}
+                  {sourceFields.length > 10 && (
+                    <span className="px-2 py-1 text-blue-600">
+                      +{sourceFields.length - 10} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span>Overall Progress</span>
@@ -408,13 +430,15 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
                 
                 {/* Show sample data preview */}
                 {currentMapping?.sourceField && sampleData.length > 0 && (
-                  <div className="bg-gray-50 p-2 rounded text-xs">
-                    <strong>Sample values:</strong> {
-                      sampleData.slice(0, 3)
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded text-sm">
+                    <div className="font-medium text-blue-800 mb-1">Sample values from your data:</div>
+                    <div className="text-blue-700 font-mono text-xs">
+                      {sampleData.slice(0, 4)
                         .map(row => row[currentMapping.sourceField])
                         .filter(val => val !== undefined && val !== null && val !== '')
-                        .join(', ') || 'No sample data available'
-                    }
+                        .map(val => String(val).substring(0, 50) + (String(val).length > 50 ? '...' : ''))
+                        .join(' • ') || 'No sample data available'}
+                    </div>
                   </div>
                 )}
               </div>
