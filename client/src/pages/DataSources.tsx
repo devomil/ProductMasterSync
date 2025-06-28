@@ -110,21 +110,39 @@ export default function DataSources() {
 
   const handleMappingComplete = async (mappings: any[]) => {
     try {
-      // Save the mapping template
+      // Process mappings and include EDC SKU auto-generation logic
+      const processedMappings = mappings.reduce((acc, mapping) => {
+        if (mapping.sourceField) {
+          // Handle part number to EDC SKU conversion
+          if (mapping.targetField === 'partNumber') {
+            acc['sku'] = `EDC${mapping.sourceField}`; // Auto-generate EDC SKU
+            acc['supplierPartNumber'] = mapping.sourceField; // Keep original part number
+          } else {
+            acc[mapping.targetField] = mapping.sourceField;
+          }
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Save the mapping template with EDC SKU generation
       const response = await fetch('/api/mapping-templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: `${currentDataSource?.name} Mapping`,
-          description: 'Auto-generated from mapping walkthrough',
+          description: 'Auto-generated from mapping walkthrough with EDC SKU creation',
           sourceType: currentDataSource?.type || 'sftp',
-          mappings: mappings.reduce((acc, mapping) => {
-            if (mapping.sourceField) {
-              acc[mapping.targetField] = mapping.sourceField;
+          mappings: processedMappings,
+          supplierId: currentDataSource?.supplier_id || currentDataSource?.supplierId,
+          transformations: [
+            {
+              field: 'sku',
+              type: 'prefix',
+              value: 'EDC',
+              sourceField: processedMappings.supplierPartNumber || 'partNumber',
+              description: 'Auto-generate EDC SKU from supplier part number'
             }
-            return acc;
-          }, {} as Record<string, string>),
-          supplierId: currentDataSource?.supplier_id || currentDataSource?.supplierId
+          ]
         })
       });
 
@@ -135,7 +153,7 @@ export default function DataSources() {
         
         toast({
           title: "Mapping Complete",
-          description: "Field mappings saved successfully. Ready for full catalog import."
+          description: "Field mappings saved with EDC SKU auto-generation. Ready for full catalog import."
         });
       } else {
         throw new Error('Failed to save mapping template');

@@ -42,11 +42,11 @@ interface MappingWalkthroughProps {
 const REQUIRED_MAPPINGS = {
   identification: [
     {
-      id: 'sku',
-      targetField: 'sku',
+      id: 'part_number',
+      targetField: 'partNumber',
       required: true,
-      description: 'Unique product identifier',
-      example: 'EDC010342'
+      description: 'Supplier part number (EDC SKU will be auto-generated)',
+      example: '010342'
     },
     {
       id: 'upc',

@@ -128,7 +128,9 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
   - Automatic launch after successful data source creation with seamless workflow integration
   - Manual mapping walkthrough trigger available on existing data sources via "Field Mapping Walkthrough" button
   - Validates all required fields before allowing progression to next category
-  - Saves mapping templates automatically for future catalog imports
+  - **EDC SKU Auto-Generation**: System automatically creates EDC prefixed SKUs from supplier part numbers (e.g., "010342" becomes "EDC010342")
+  - Maintains original supplier part numbers separately while generating internal EDC identifiers
+  - Saves mapping templates with transformation rules for consistent catalog imports
 - **Intelligent Automation Scheduling System (2025-06-27)**:
   - Built comprehensive automation scheduler for catalog and inventory workflows
   - Catalog files process first (1-2 times daily, weekly, bi-weekly, monthly)
