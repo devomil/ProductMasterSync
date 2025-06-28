@@ -40,7 +40,7 @@ interface MappingWalkthroughProps {
 }
 
 const REQUIRED_MAPPINGS = {
-  identification: [
+  master_catalog: [
     {
       id: 'part_number',
       targetField: 'partNumber',
@@ -49,76 +49,77 @@ const REQUIRED_MAPPINGS = {
       example: '010342'
     },
     {
-      id: 'upc',
-      targetField: 'upc',
-      required: true,
-      description: 'Universal Product Code for marketplace integration',
-      example: '123456789012'
-    },
-    {
-      id: 'manufacturer_part_number',
-      targetField: 'manufacturerPartNumber',
-      required: true,
-      description: 'Manufacturer part number',
-      example: 'MPN-12345'
-    }
-  ],
-  product_info: [
-    {
       id: 'name',
       targetField: 'name',
       required: true,
-      description: 'Product display name',
+      description: 'Product Name',
       example: 'Marine Engine Oil Filter'
     },
     {
       id: 'description',
       targetField: 'description',
       required: true,
-      description: 'Detailed product description',
+      description: 'Description',
       example: 'High-performance oil filter for marine engines...'
+    },
+    {
+      id: 'upc',
+      targetField: 'upc',
+      required: true,
+      description: 'UPC',
+      example: '123456789012'
+    },
+    {
+      id: 'manufacturer_part_number',
+      targetField: 'manufacturerPartNumber',
+      required: true,
+      description: 'MPN',
+      example: 'MPN-12345'
     },
     {
       id: 'manufacturer_name',
       targetField: 'manufacturerName',
       required: true,
-      description: 'Brand or manufacturer name',
+      description: 'Brand',
       example: 'Mercury Marine'
-    }
-  ],
-  pricing: [
+    },
     {
-      id: 'price',
-      targetField: 'price',
-      required: true,
-      description: 'Retail selling price',
-      example: '29.99'
+      id: 'category',
+      targetField: 'categoryName',
+      required: false,
+      description: 'Category',
+      example: 'Marine Parts'
     },
     {
       id: 'cost',
       targetField: 'cost',
       required: false,
-      description: 'Supplier cost (for margin calculation)',
+      description: 'Cost',
       example: '19.99'
-    }
-  ],
-  inventory: [
+    },
     {
-      id: 'inventory_quantity',
-      targetField: 'inventoryQuantity',
-      required: true,
-      description: 'Available stock quantity',
-      example: '150'
+      id: 'price',
+      targetField: 'price',
+      required: false,
+      description: 'Price',
+      example: '29.99'
     },
     {
       id: 'weight',
       targetField: 'weight',
       required: false,
-      description: 'Product weight for shipping',
+      description: 'Weight',
       example: '2.5'
     }
   ],
-  images: [
+  product_details: [
+    {
+      id: 'inventory_quantity',
+      targetField: 'inventoryQuantity',
+      required: false,
+      description: 'Available stock quantity',
+      example: '150'
+    },
     {
       id: 'image_url',
       targetField: 'imageUrl',
@@ -132,9 +133,7 @@ const REQUIRED_MAPPINGS = {
       required: false,
       description: 'High-resolution product image',
       example: 'https://example.com/product_large.jpg'
-    }
-  ],
-  specifications: [
+    },
     {
       id: 'dimensions',
       targetField: 'dimensions',
@@ -148,26 +147,32 @@ const REQUIRED_MAPPINGS = {
       required: false,
       description: 'Units per case for bulk ordering',
       example: '12'
+    },
+    {
+      id: 'color',
+      targetField: 'color',
+      required: false,
+      description: 'Product color',
+      example: 'Black'
+    },
+    {
+      id: 'material',
+      targetField: 'material',
+      required: false,
+      description: 'Product material',
+      example: 'Aluminum'
     }
   ]
 };
 
 const CATEGORY_ICONS = {
-  identification: Target,
-  product_info: Package,
-  pricing: DollarSign,
-  inventory: Database,
-  images: Image,
-  specifications: FileText
+  master_catalog: Package,
+  product_details: FileText
 };
 
 const CATEGORY_LABELS = {
-  identification: 'Product Identification',
-  product_info: 'Product Information',
-  pricing: 'Pricing & Costs',
-  inventory: 'Inventory & Stock',
-  images: 'Images & Media',
-  specifications: 'Specifications & Attributes'
+  master_catalog: 'Master Catalog',
+  product_details: 'Product Details Pages (50+ Fields)'
 };
 
 export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCancel }: MappingWalkthroughProps) {
