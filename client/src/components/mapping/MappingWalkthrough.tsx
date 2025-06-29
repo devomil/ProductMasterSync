@@ -28,7 +28,7 @@ interface MappingField {
   sourceField: string;
   targetField: string;
   required: boolean;
-  category: 'identification' | 'product_info' | 'pricing' | 'inventory' | 'images' | 'specifications';
+  category: 'master_catalog' | 'inventory' | 'pricing' | 'shipping' | 'compliance' | 'promotions' | 'documentation';
   description: string;
   example?: string;
 }
@@ -113,34 +113,63 @@ const REQUIRED_MAPPINGS = {
       example: '2.5'
     }
   ],
-  product_details: [
+  // Inventory Tab Fields
+  inventory: [
     {
-      id: 'inventory_quantity',
-      targetField: 'inventoryQuantity',
+      id: 'quantity_available_combined',
+      targetField: 'quantityAvailableCombined',
       required: false,
-      description: 'Available stock quantity',
+      description: 'Total available stock across all warehouses',
       example: '150'
     },
     {
-      id: 'image_url',
-      targetField: 'imageUrl',
+      id: 'quantity_available_nj',
+      targetField: 'quantityAvailableNj',
       required: false,
-      description: 'Primary product image URL',
-      example: 'https://example.com/product.jpg'
+      description: 'Stock available in NJ warehouse',
+      example: '75'
     },
     {
-      id: 'image_url_large',
-      targetField: 'imageUrlLarge',
+      id: 'quantity_available_fl',
+      targetField: 'quantityAvailableFl',
       required: false,
-      description: 'High-resolution product image',
-      example: 'https://example.com/product_large.jpg'
+      description: 'Stock available in FL warehouse',
+      example: '75'
     },
     {
-      id: 'dimensions',
-      targetField: 'dimensions',
+      id: 'quantity_backordered',
+      targetField: 'quantityBackordered',
       required: false,
-      description: 'Product dimensions',
-      example: '10x5x3 inches'
+      description: 'Items on backorder',
+      example: '25'
+    },
+    {
+      id: 'quantity_committed',
+      targetField: 'quantityCommitted',
+      required: false,
+      description: 'Stock committed to orders',
+      example: '10'
+    },
+    {
+      id: 'quantity_on_hand',
+      targetField: 'quantityOnHand',
+      required: false,
+      description: 'Physical inventory count',
+      example: '185'
+    },
+    {
+      id: 'next_shipment_date_combined',
+      targetField: 'nextShipmentDateCombined',
+      required: false,
+      description: 'Next expected shipment date',
+      example: '2025-07-15'
+    },
+    {
+      id: 'shipping_weight',
+      targetField: 'shippingWeight',
+      required: false,
+      description: 'Product shipping weight',
+      example: '2.5'
     },
     {
       id: 'case_quantity',
@@ -148,6 +177,299 @@ const REQUIRED_MAPPINGS = {
       required: false,
       description: 'Units per case for bulk ordering',
       example: '12'
+    }
+  ],
+
+  // Pricing Tab Fields  
+  pricing: [
+    {
+      id: 'your_cost',
+      targetField: 'yourCost',
+      required: false,
+      description: 'Supplier cost price',
+      example: '19.99'
+    },
+    {
+      id: 'list_price',
+      targetField: 'listPrice',
+      required: false,
+      description: 'Manufacturer list price',
+      example: '29.99'
+    },
+    {
+      id: 'map_price',
+      targetField: 'mapPrice',
+      required: false,
+      description: 'Minimum advertised price',
+      example: '28.49'
+    },
+    {
+      id: 'mrp_price',
+      targetField: 'mrpPrice',
+      required: false,
+      description: 'Manufacturer suggested retail price',
+      example: '35.99'
+    },
+    {
+      id: 'core_cost',
+      targetField: 'coreCost',
+      required: false,
+      description: 'Core exchange cost',
+      example: '15.99'
+    },
+    {
+      id: 'tariff_cost',
+      targetField: 'tariffCost',
+      required: false,
+      description: 'Import tariff cost',
+      example: '1.00'
+    },
+    {
+      id: 'original_price_sale',
+      targetField: 'originalPriceSale',
+      required: false,
+      description: 'Original price before sale',
+      example: '29.99'
+    }
+  ],
+
+  // Shipping Tab Fields
+  shipping: [
+    {
+      id: 'box_height',
+      targetField: 'boxHeight',
+      required: false,
+      description: 'Package height',
+      example: '5'
+    },
+    {
+      id: 'box_length',
+      targetField: 'boxLength',
+      required: false,
+      description: 'Package length',
+      example: '10'
+    },
+    {
+      id: 'box_width',
+      targetField: 'boxWidth',
+      required: false,
+      description: 'Package width',
+      example: '8'
+    },
+    {
+      id: 'drop_ships_direct',
+      targetField: 'dropShipsDirect',
+      required: false,
+      description: 'Ships direct from vendor',
+      example: 'Yes'
+    },
+    {
+      id: 'truck_freight',
+      targetField: 'truckFreight',
+      required: false,
+      description: 'Requires truck freight',
+      example: 'No'
+    },
+    {
+      id: 'oversized',
+      targetField: 'oversized',
+      required: false,
+      description: 'Oversized shipping required',
+      example: 'No'
+    },
+    {
+      id: 'first_class_mail',
+      targetField: 'firstClassMail',
+      required: false,
+      description: 'Can ship first class mail',
+      example: 'Yes'
+    },
+    {
+      id: 'country_of_origin',
+      targetField: 'countryOfOrigin',
+      required: false,
+      description: 'Manufacturing country',
+      example: 'USA'
+    },
+    {
+      id: 'harmonization_code',
+      targetField: 'harmonizationCode',
+      required: false,
+      description: 'HS tariff code',
+      example: '8421.23.0000'
+    }
+  ],
+
+  // Compliance Tab Fields
+  compliance: [
+    {
+      id: 'hazardous_materials',
+      targetField: 'hazardousMaterials',
+      required: false,
+      description: 'Contains hazardous materials',
+      example: 'No'
+    },
+    {
+      id: 'exportable',
+      targetField: 'exportable',
+      required: false,
+      description: 'Can be exported internationally',
+      example: 'Yes'
+    },
+    {
+      id: 'remanufactured',
+      targetField: 'remanufactured',
+      required: false,
+      description: 'Remanufactured product',
+      example: 'No'
+    },
+    {
+      id: 'google_merchant_category',
+      targetField: 'googleMerchantCategory',
+      required: false,
+      description: 'Google Shopping category',
+      example: 'Vehicles & Parts > Vehicle Parts & Accessories'
+    },
+    {
+      id: 'prop65_warning',
+      targetField: 'prop65Warning',
+      required: false,
+      description: 'California Prop 65 warning required',
+      example: 'No'
+    },
+    {
+      id: 'fcc_id',
+      targetField: 'fccId',
+      required: false,
+      description: 'FCC equipment ID',
+      example: 'ABC123DEF456'
+    }
+  ],
+
+  // Promotions Tab Fields
+  promotions: [
+    {
+      id: 'sale',
+      targetField: 'sale',
+      required: false,
+      description: 'Currently on sale',
+      example: 'Yes'
+    },
+    {
+      id: 'sale_start_date',
+      targetField: 'saleStartDate',
+      required: false,
+      description: 'Sale start date',
+      example: '2025-07-01'
+    },
+    {
+      id: 'sale_end_date',
+      targetField: 'saleEndDate',
+      required: false,
+      description: 'Sale end date',
+      example: '2025-07-31'
+    },
+    {
+      id: 'closeout',
+      targetField: 'closeout',
+      required: false,
+      description: 'Closeout item',
+      example: 'No'
+    },
+    {
+      id: 'rebate',
+      targetField: 'rebate',
+      required: false,
+      description: 'Rebate available',
+      example: 'Yes'
+    },
+    {
+      id: 'rebate_description',
+      targetField: 'rebateDescription',
+      required: false,
+      description: 'Rebate details',
+      example: '$5 mail-in rebate'
+    },
+    {
+      id: 'rebate_start_date',
+      targetField: 'rebateStartDate',
+      required: false,
+      description: 'Rebate start date',
+      example: '2025-07-01'
+    },
+    {
+      id: 'rebate_end_date',
+      targetField: 'rebateEndDate',
+      required: false,
+      description: 'Rebate end date',
+      example: '2025-12-31'
+    }
+  ],
+
+  // Documentation Tab Fields
+  documentation: [
+    {
+      id: 'image_300x300',
+      targetField: 'image300x300',
+      required: false,
+      description: 'Standard product image (300x300)',
+      example: 'https://productimageserver.com/300x300/image.jpg'
+    },
+    {
+      id: 'image_1000x1000',
+      targetField: 'image1000x1000',
+      required: false,
+      description: 'High-resolution image (1000x1000)',
+      example: 'https://productimageserver.com/1000x1000/image.jpg'
+    },
+    {
+      id: 'product_manual_url',
+      targetField: 'productManualUrl',
+      required: false,
+      description: 'Product manual PDF link',
+      example: 'https://manuals.example.com/manual.pdf'
+    },
+    {
+      id: 'installation_guide_url',
+      targetField: 'installationGuideUrl',
+      required: false,
+      description: 'Installation guide link',
+      example: 'https://guides.example.com/install.pdf'
+    },
+    {
+      id: 'product_brochure_url',
+      targetField: 'productBrochureUrl',
+      required: false,
+      description: 'Marketing brochure link',
+      example: 'https://brochures.example.com/brochure.pdf'
+    },
+    {
+      id: 'product_video_url',
+      targetField: 'productVideoUrl',
+      required: false,
+      description: 'Product demonstration video',
+      example: 'https://videos.example.com/demo.mp4'
+    },
+    {
+      id: 'quick_specs',
+      targetField: 'quickSpecs',
+      required: false,
+      description: 'Product specifications summary',
+      example: 'Compatible with engines 2005-2020'
+    },
+    {
+      id: 'accessories_by_sku',
+      targetField: 'accessoriesBySku',
+      required: false,
+      description: 'Related accessories by SKU',
+      example: 'ACC001,ACC002,ACC003'
+    },
+    {
+      id: 'accessories_by_mfg',
+      targetField: 'accessoriesByMfg',
+      required: false,
+      description: 'Related accessories by manufacturer part',
+      example: 'MFG-ACC-001,MFG-ACC-002'
     },
     {
       id: 'color',
@@ -168,12 +490,22 @@ const REQUIRED_MAPPINGS = {
 
 const CATEGORY_ICONS = {
   master_catalog: Package,
-  product_details: FileText
+  inventory: Database,
+  pricing: DollarSign,
+  shipping: Target,
+  compliance: CheckCircle,
+  promotions: ArrowRight,
+  documentation: FileText
 };
 
 const CATEGORY_LABELS = {
   master_catalog: 'Master Catalog',
-  product_details: 'Product Details Pages (50+ Fields)'
+  inventory: 'Inventory Tab Fields',
+  pricing: 'Pricing Tab Fields',
+  shipping: 'Shipping Tab Fields', 
+  compliance: 'Compliance Tab Fields',
+  promotions: 'Promotions Tab Fields',
+  documentation: 'Documentation Tab Fields'
 };
 
 export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCancel }: MappingWalkthroughProps) {
@@ -183,7 +515,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
   const [sourceFields, setSourceFields] = useState<string[]>([]);
 
   const categories = Object.keys(REQUIRED_MAPPINGS) as Array<keyof typeof REQUIRED_MAPPINGS>;
-  const currentCategory = categories[currentStep];
+  const currentCategory = categories[currentStep] as keyof typeof REQUIRED_MAPPINGS;
   const currentFields = REQUIRED_MAPPINGS[currentCategory];
 
   useEffect(() => {
