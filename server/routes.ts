@@ -553,20 +553,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categories = await storage.getCategories();
       const category = categories.find(c => c.id === product.categoryId);
       
-      // Format the product with comprehensive CWR field mapping
-      const formattedProduct = {
-        ...product,
-        categoryName: category?.name || null,
-        // Map CWR-specific fields for warehouse modal display
+      // Calculate CWR-specific fields for warehouse modal display
+      const cwrFields = {
+        // Inventory fields
         quantityAvailableToShip: product.inventoryQuantity || 0,
         quantityBackordered: 0,
         quantityCommitted: 0,
         quantityOnHand: product.inventoryQuantity || 0,
+        
+        // Pricing fields
         listPrice: product.price,
         mapPrice: product.price && !isNaN(Number(product.price)) ? (Number(product.price) * 0.95).toFixed(2) : null,
         msrp: product.price && !isNaN(Number(product.price)) ? (Number(product.price) * 1.2).toFixed(2) : null,
         coreCost: product.cost && !isNaN(Number(product.cost)) ? (Number(product.cost) * 0.8).toFixed(2) : null,
         tariffCost: product.cost && !isNaN(Number(product.cost)) ? (Number(product.cost) * 0.05).toFixed(2) : null,
+        
+        // Shipping fields
         shippingCost: "5.99",
         freeFreight: product.hasFreeShipping || false,
         directShip: true,
@@ -574,8 +576,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exportable: true,
         dropship: true,
         leadTime: "1-2 business days",
+        
+        // Compliance fields
         prop65: false,
         fccId: product.manufacturerPartNumber ? `FCC-${product.manufacturerPartNumber.slice(-6)}` : null,
+        
+        // Promotions fields
         sale: product.isOnSale || false,
         rebate: product.hasRebate || false,
         rebateDescription: product.hasRebate ? "Mail-in rebate available" : null,
@@ -583,12 +589,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         saleEndDate: product.isOnSale ? "2025-12-31" : null,
         rebateStartDate: product.hasRebate ? "2025-01-01" : null,
         rebateEndDate: product.hasRebate ? "2025-12-31" : null,
+        
+        // Documentation fields
         videoUrls: product.additionalImages ? product.additionalImages.replace('images', 'videos') : null,
         listOfAccessoriesBySku: `Accessories for ${product.sku}`,
         quickGuideLiteratureUrl: product.quickGuideUrl,
         brochureLiteratureUrl: product.brochureUrl,
         imageAdditionalUrls: product.additionalImages,
         manufacturer: product.manufacturerName
+      };
+
+      // Format the product with comprehensive CWR field mapping
+      const formattedProduct = {
+        ...product,
+        categoryName: category?.name || null,
+        ...cwrFields
       };
       
       res.json(formattedProduct);
