@@ -33,7 +33,7 @@ export function OnboardingManager({ children }: OnboardingManagerProps) {
       if (!hasCompletedOnboarding) {
         setShowOnboarding(true);
       }
-    }, 1000);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, []);
