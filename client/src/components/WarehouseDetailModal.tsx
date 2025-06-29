@@ -48,307 +48,307 @@ export default function WarehouseDetailModal({
 
   // Get comprehensive product data for supplier-specific fields
   const { data: productData } = useQuery({
-    queryKey: [`/api/products/${productId}`],
-    enabled: isOpen && !!productId,
+    queryKey: [`/api/products/${sku}`],
+    enabled: isOpen && !!sku,
   }) as { data: any };
 
-  // URL health validation query
+  // Get documentation health status
   const { data: documentationHealth, isLoading: isLoadingHealth } = useQuery({
     queryKey: [`/api/products/${productId}/documentation-health`],
     enabled: isOpen && !!productId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
   }) as { data: any, isLoading: boolean };
 
-  // URL validation mutation
+  // Mutation for validating URLs
   const validateUrlsMutation = useMutation({
-    mutationFn: async () => {
-      setIsValidatingUrls(true);
-      const response = await fetch(`/api/products/${productId}/documentation-health`);
-      const data = await response.json();
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData([`/api/products/${productId}/documentation-health`], data);
-      setIsValidatingUrls(false);
-    },
-    onError: () => {
-      setIsValidatingUrls(false);
-    },
+    mutationFn: () => apiRequest(`/api/products/${productId}/validate-urls`, {
+      method: 'POST'
+    }),
+    onMutate: () => setIsValidatingUrls(true),
+    onSettled: () => setIsValidatingUrls(false),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/products/${productId}/documentation-health`] });
+    }
   });
 
-  const getStatusColor = (quantity: number) => {
-    if (quantity > 10) return "bg-green-100 text-green-800";
-    if (quantity > 0) return "bg-yellow-100 text-yellow-800";
-    return "bg-red-100 text-red-800";
-  };
-
-  const getStatusText = (quantity: number) => {
-    if (quantity > 10) return "In Stock";
-    if (quantity > 0) return "Low Stock";
-    return "Out of Stock";
-  };
+  if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            {vendorName} Supplier Information Hub
+            {vendorName} - {sku}
           </DialogTitle>
           <DialogDescription>
-            Complete supplier data and real-time inventory for SKU: <span className="font-mono">{sku}</span>
+            Comprehensive inventory and supplier information
           </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3">Loading supplier data...</span>
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
         ) : (
-          <Tabs defaultValue="inventory" className="space-y-4">
+          <Tabs defaultValue="inventory" className="w-full">
             <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="inventory" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
+              <TabsTrigger value="inventory" className="flex items-center gap-1">
+                <Package className="h-3 w-3" />
                 Inventory
               </TabsTrigger>
-              <TabsTrigger value="pricing" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
+              <TabsTrigger value="pricing" className="flex items-center gap-1">
+                <DollarSign className="h-3 w-3" />
                 Pricing
               </TabsTrigger>
-              <TabsTrigger value="shipping" className="flex items-center gap-2">
-                <Truck className="h-4 w-4" />
+              <TabsTrigger value="shipping" className="flex items-center gap-1">
+                <Truck className="h-3 w-3" />
                 Shipping
               </TabsTrigger>
-              <TabsTrigger value="compliance" className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
+              <TabsTrigger value="compliance" className="flex items-center gap-1">
+                <Shield className="h-3 w-3" />
                 Compliance
               </TabsTrigger>
-              <TabsTrigger value="promotions" className="flex items-center gap-2">
-                <Tag className="h-4 w-4" />
+              <TabsTrigger value="promotions" className="flex items-center gap-1">
+                <Tag className="h-3 w-3" />
                 Promotions
               </TabsTrigger>
-              <TabsTrigger value="docs" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
+              <TabsTrigger value="docs" className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
                 Documentation
               </TabsTrigger>
             </TabsList>
 
             {/* Inventory Tab */}
             <TabsContent value="inventory" className="space-y-4">
-              {inventoryData?.warehouses?.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-600">
-                      <Clock className="h-4 w-4 inline mr-1" />
-                      Last updated: {new Date(inventoryData.lastUpdated).toLocaleString()}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Stock Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Stock Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Available Quantity:</span>
+                      <Badge variant="default" className="text-lg px-3 py-1">
+                        {productData?.quantityAvailableToShip || "0"}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="text-blue-600">
-                      {inventoryData.source}
-                    </Badge>
-                  </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Backordered:</span>
+                      <Badge variant={productData?.quantityBackordered > 0 ? 'destructive' : 'secondary'}>
+                        {productData?.quantityBackordered || "0"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Committed:</span>
+                      <span className="font-medium">{productData?.quantityCommitted || "0"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">On Hand:</span>
+                      <span className="font-medium">{productData?.quantityOnHand || "0"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {inventoryData.warehouses.map((warehouse: WarehouseLocation, index: number) => (
-                      <Card key={index} className="hover:shadow-md transition-shadow">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-blue-600" />
-                              {warehouse.name}
-                            </div>
-                            <Badge 
-                              className={getStatusColor(warehouse.quantity)}
-                              variant="outline"
-                            >
-                              {getStatusText(warehouse.quantity)}
-                            </Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Location:</span>
-                              <span className="font-medium">{warehouse.location}</span>
-                            </div>
-                            
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Warehouse Code:</span>
-                              <span className="font-mono text-sm">{warehouse.code}</span>
-                            </div>
-                            
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Available Quantity:</span>
-                              <span className="font-bold text-lg">
-                                {warehouse.quantity}
-                              </span>
-                            </div>
-                            
-                            {warehouse.quantity > 0 && (
-                              <div className="pt-2 border-t">
-                                <Button 
-                                  size="sm" 
-                                  className="w-full"
-                                  onClick={() => {
-                                    console.log(`Order from ${warehouse.name} - Qty: ${warehouse.quantity}`);
-                                  }}
-                                >
-                                  <TruckIcon className="h-4 w-4 mr-2" />
-                                  Request from this warehouse
-                                </Button>
-                              </div>
-                            )}
+                {/* Product Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Product Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Weight:</span>
+                      <span className="font-medium">{productData?.weight || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Case Quantity:</span>
+                      <span className="font-medium">{productData?.caseQuantity || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">UPC:</span>
+                      <span className="font-medium text-sm">{productData?.upc || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Manufacturer:</span>
+                      <span className="font-medium">{productData?.manufacturer || "N/A"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Warehouse Locations */}
+              {inventoryData?.warehouses && inventoryData.warehouses.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Warehouse Locations</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {inventoryData.warehouses.map((warehouse: WarehouseLocation, index: number) => (
+                        <div key={index} className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <MapPin className="h-4 w-4 text-gray-500" />
+                            <span className="font-semibold">{warehouse.name}</span>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">
-                      Inventory Update Schedule
-                    </h4>
-                    <p className="text-sm text-blue-700">
-                      {vendorName} inventory data is automatically synchronized every 2 hours from 
-                      the live SFTP feed. Data shown reflects real-time availability from authorized supplier systems.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">No warehouse data available for this product</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    This may be a new product or inventory sync is in progress
-                  </p>
-                </div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Code:</span>
+                              <span>{warehouse.code}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Location:</span>
+                              <span>{warehouse.location}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Quantity:</span>
+                              <Badge variant="outline">{warehouse.quantity}</Badge>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Cost:</span>
+                              <span className="font-medium">${warehouse.cost}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </TabsContent>
 
             {/* Pricing Tab */}
             <TabsContent value="pricing" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg text-blue-600">{vendorName} Pricing & Financial Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">MSRP:</span>
-                        <span className="font-semibold text-green-600">{productData?.price ? `$${productData.price}` : "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Your Cost:</span>
-                        <span className="font-semibold">{productData?.cost ? `$${productData.cost}` : "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">M.A.P. Price:</span>
-                        <span className="font-medium">{productData?.mapPrice ? `$${productData.mapPrice}` : "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">M.R.P. Price:</span>
-                        <span className="font-medium">{productData?.mrpPrice ? `$${productData.mrpPrice}` : "N/A"}</span>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">{vendorName} Pricing</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">List Price:</span>
+                      <span className="font-bold text-lg">${productData?.listPrice || "N/A"}</span>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Original Price:</span>
-                        <span className="font-medium">{productData?.originalPrice ? `$${productData.originalPrice}` : "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Freight Class:</span>
-                        <span className="font-medium">{productData?.freightClass || "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Harmonization Code:</span>
-                        <span className="font-medium">{productData?.harmonizationCode || "N/A"}</span>
-                      </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Cost:</span>
+                      <span className="font-medium">${productData?.cost || "N/A"}</span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Map Price:</span>
+                      <span className="font-medium">${productData?.mapPrice || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">MSRP:</span>
+                      <span className="font-medium">${productData?.msrp || "N/A"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Pricing Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Core Cost:</span>
+                      <span className="font-medium">${productData?.coreCost || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Tariff Cost:</span>
+                      <span className="font-medium">${productData?.tariffCost || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Price Updated:</span>
+                      <span className="font-medium">{productData?.priceUpdateDate || "N/A"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Shipping Tab */}
             <TabsContent value="shipping" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">{vendorName} Shipping</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Shipping Cost:</span>
+                      <span className="font-medium">${productData?.shippingCost || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Free Freight:</span>
+                      <Badge variant={productData?.freeFreight ? 'default' : 'secondary'}>
+                        {productData?.freeFreight ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Direct Ship:</span>
+                      <Badge variant={productData?.directShip ? 'default' : 'secondary'}>
+                        {productData?.directShip ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Shipping Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Oversized:</span>
+                      <Badge variant={productData?.oversized ? 'destructive' : 'secondary'}>
+                        {productData?.oversized ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Exportable:</span>
+                      <Badge variant={productData?.exportable ? 'default' : 'secondary'}>
+                        {productData?.exportable ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Country of Origin:</span>
+                      <span className="font-medium">{productData?.countryOfOrigin || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Dropship Available:</span>
+                      <Badge variant={productData?.dropship ? 'default' : 'secondary'}>
+                        {productData?.dropship ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 font-medium">Lead Time:</span>
+                      <span className="font-medium">{productData?.leadTime || "N/A"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Package Dimensions */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg text-blue-600">{vendorName} Shipping & Logistics</CardTitle>
+                  <CardTitle className="text-lg">Package Dimensions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Hazardous Materials:</span>
-                        <Badge variant={productData?.hazardousMaterials ? 'destructive' : 'secondary'}>
-                          {productData?.hazardousMaterials ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Truck Freight:</span>
-                        <Badge variant={productData?.truckFreight ? 'default' : 'secondary'}>
-                          {productData?.truckFreight ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Free Shipping:</span>
-                        <Badge variant={productData?.freeShipping ? 'default' : 'secondary'}>
-                          {productData?.freeShipping ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Oversized:</span>
-                        <Badge variant={productData?.oversized ? 'destructive' : 'secondary'}>
-                          {productData?.oversized ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Height</div>
+                      <div className="font-semibold text-lg">{productData?.boxHeight || "N/A"}</div>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Exportable:</span>
-                        <Badge variant={productData?.exportable ? 'default' : 'secondary'}>
-                          {productData?.exportable ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Country of Origin:</span>
-                        <span className="font-medium">{productData?.countryOfOrigin || "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Dropship Available:</span>
-                        <Badge variant={productData?.dropship ? 'default' : 'secondary'}>
-                          {productData?.dropship ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600 font-medium">Lead Time:</span>
-                        <span className="font-medium">{productData?.leadTime || "N/A"}</span>
-                      </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Length</div>
+                      <div className="font-semibold text-lg">{productData?.boxLength || "N/A"}</div>
                     </div>
-                  </div>
-                  
-                  {/* Packaging Dimensions Section */}
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-900 mb-4">Package Dimensions</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-600">Height</div>
-                        <div className="font-semibold text-lg">{productData?.boxHeight || "N/A"}</div>
-                      </div>
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-600">Length</div>
-                        <div className="font-semibold text-lg">{productData?.boxLength || "N/A"}</div>
-                      </div>
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-600">Width</div>
-                        <div className="font-semibold text-lg">{productData?.boxWidth || "N/A"}</div>
-                      </div>
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-600">Case Qty</div>
-                        <div className="font-semibold text-lg">{productData?.caseQuantity || "N/A"}</div>
-                      </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Width</div>
+                      <div className="font-semibold text-lg">{productData?.boxWidth || "N/A"}</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Case Qty</div>
+                      <div className="font-semibold text-lg">{productData?.caseQuantity || "N/A"}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -453,140 +453,153 @@ export default function WarehouseDetailModal({
 
             {/* Documentation Tab */}
             <TabsContent value="docs" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-lg text-blue-600">
-                    <span>{vendorName} Documentation & Resources</span>
-                    <div className="flex items-center gap-2">
-                      {(isLoadingHealth || isValidatingUrls) && (
-                        <RefreshCw className="h-4 w-4 animate-spin text-gray-500" />
-                      )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Product Documentation */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Product Documentation</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {productData?.quickGuideLiteratureUrl && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Quick Guide:</span>
+                        <a 
+                          href={productData.quickGuideLiteratureUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Quick Guide (PDF)
+                        </a>
+                      </div>
+                    )}
+                    {productData?.ownersManualUrl && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Owner's Manual:</span>
+                        <a 
+                          href={productData.ownersManualUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Owner's Manual (PDF)
+                        </a>
+                      </div>
+                    )}
+                    {productData?.brochureLiteratureUrl && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Brochure:</span>
+                        <a 
+                          href={productData.brochureLiteratureUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Brochure (PDF)
+                        </a>
+                      </div>
+                    )}
+                    {productData?.installationGuideUrl && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Installation Guide:</span>
+                        <a 
+                          href={productData.installationGuideUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Installation Guide (PDF)
+                        </a>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Additional Content & Media */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Additional Content</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {productData?.videoUrls && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Video Resources:</span>
+                        <a 
+                          href={productData.videoUrls} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Product Videos
+                        </a>
+                      </div>
+                    )}
+                    {productData?.quickSpecs && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Quick Specs:</span>
+                        <span className="text-sm text-gray-700">{productData.quickSpecs}</span>
+                      </div>
+                    )}
+                    {productData?.listOfAccessoriesBySku && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Accessories (by SKU):</span>
+                        <span className="text-sm text-gray-700">{productData.listOfAccessoriesBySku}</span>
+                      </div>
+                    )}
+                    {productData?.imageAdditionalUrls && (
+                      <div className="py-2 border-b">
+                        <span className="text-gray-600 font-medium block mb-1">Additional Images:</span>
+                        <a 
+                          href={productData.imageAdditionalUrls} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Additional Images
+                        </a>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* URL Health Status */}
+              {documentationHealth && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      Documentation Health Status
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => validateUrlsMutation.mutate()}
-                        disabled={isValidatingUrls || !productId}
-                        className="text-xs"
+                        disabled={isValidatingUrls}
                       >
-                        <Shield className="h-3 w-3 mr-1" />
-                        Check Links
+                        {isValidatingUrls ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                        )}
+                        Validate URLs
                       </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(documentationHealth.urlStatus || {}).map(([field, status]: [string, any]) => (
+                        <UrlHealthIndicator
+                          key={field}
+                          field={field}
+                          url={status.url}
+                          isValid={status.isValid}
+                          lastChecked={status.lastChecked}
+                          responseTime={status.responseTime}
+                        />
+                      ))}
                     </div>
-                  </CardTitle>
-                  {documentationHealth?.result?.overallHealth && (
-                    <div className="text-sm text-gray-600">
-                      Overall Health: <Badge variant={
-                        documentationHealth.result.overallHealth === 'healthy' ? 'default' :
-                        documentationHealth.result.overallHealth === 'partial' ? 'secondary' : 'destructive'
-                      }>
-                        {documentationHealth.result.overallHealth}
-                      </Badge>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Product Documentation</h4>
-                      {productData?.quickGuideUrl && (
-                        <div className="py-3 border-b">
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-gray-600 font-medium">Quick Guide:</span>
-                            {documentationHealth?.result?.quickGuide && (
-                              <UrlHealthIndicator 
-                                status={documentationHealth.result.quickGuide} 
-                                compact={true} 
-                              />
-                            )}
-                          </div>
-                          <a href={productData.quickGuideUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
-                            {productData.quickGuideUrl}
-                          </a>
-                        </div>
-                      )}
-                      {productData?.ownersManualUrl && (
-                        <div className="py-3 border-b">
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-gray-600 font-medium">Owner's Manual:</span>
-                            {documentationHealth?.result?.ownersManual && (
-                              <UrlHealthIndicator 
-                                status={documentationHealth.result.ownersManual} 
-                                compact={true} 
-                              />
-                            )}
-                          </div>
-                          <a href={productData.ownersManualUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
-                            {productData.ownersManualUrl}
-                          </a>
-                        </div>
-                      )}
-                      {productData?.brochureUrl && (
-                        <div className="py-3 border-b">
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-gray-600 font-medium">Brochure:</span>
-                            {documentationHealth?.result?.brochure && (
-                              <UrlHealthIndicator 
-                                status={documentationHealth.result.brochure} 
-                                compact={true} 
-                              />
-                            )}
-                          </div>
-                          <a href={productData.brochureUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
-                            {productData.brochureUrl}
-                          </a>
-                        </div>
-                      )}
-                      {productData?.installationGuideUrl && (
-                        <div className="py-3 border-b">
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-gray-600 font-medium">Installation Guide:</span>
-                            {documentationHealth?.result?.installationGuide && (
-                              <UrlHealthIndicator 
-                                status={documentationHealth.result.installationGuide} 
-                                compact={true} 
-                              />
-                            )}
-                          </div>
-                          <a href={productData.installationGuideUrl} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:text-blue-800 underline text-sm break-all">
-                            {productData.installationGuideUrl}
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-4">
-                      <h4 className="font-semibold text-gray-900">Additional Resources</h4>
-                      {productData?.videoUrls && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-600 font-medium">Video Resources:</span>
-                          <div className="text-gray-900 text-sm mt-2">
-                            {productData.videoUrls}
-                          </div>
-                        </div>
-                      )}
-                      {productData?.quickSpecs && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-600 font-medium">Quick Specs:</span>
-                          <div className="text-gray-900 text-sm mt-2">
-                            {productData.quickSpecs}
-                          </div>
-                        </div>
-                      )}
-                      {productData?.accessoriesBySku && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <span className="text-gray-600 font-medium">Accessories (by SKU):</span>
-                          <div className="text-gray-900 text-sm mt-2">
-                            {productData.accessoriesBySku}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         )}
