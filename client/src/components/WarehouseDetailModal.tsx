@@ -48,8 +48,8 @@ export default function WarehouseDetailModal({
 
   // Get comprehensive product data for supplier-specific fields
   const { data: productData } = useQuery({
-    queryKey: [`/api/products/${sku}`],
-    enabled: isOpen && !!sku,
+    queryKey: [`/api/products/${productId}`],
+    enabled: isOpen && !!productId,
   }) as { data: any };
 
   // Get documentation health status
