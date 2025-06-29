@@ -606,6 +606,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...cwrFields
       };
       
+      console.log('CWR Fields calculated:', {
+        quantityAvailableToShip: cwrFields.quantityAvailableToShip,
+        listPrice: cwrFields.listPrice,
+        mapPrice: cwrFields.mapPrice,
+        manufacturer: cwrFields.manufacturer
+      });
+      
       res.json(formattedProduct);
     } catch (error) {
       handleError(res, error);
