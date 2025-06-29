@@ -46,9 +46,9 @@ export default function WarehouseDetailModal({
     enabled: isOpen && !!sku,
   }) as { data: any, isLoading: boolean };
 
-  // Get comprehensive product data for supplier-specific fields
+  // Get comprehensive product data for supplier-specific fields using warehouse-specific endpoint
   const { data: productData } = useQuery({
-    queryKey: [`/api/products/${productId}`],
+    queryKey: [`/api/products/${productId}/warehouse-details`],
     enabled: isOpen && !!productId,
   }) as { data: any };
 
