@@ -60,9 +60,12 @@ export default function WarehouseDetailModal({
 
   // Mutation for validating URLs
   const validateUrlsMutation = useMutation({
-    mutationFn: () => apiRequest(`/api/products/${productId}/validate-urls`, {
-      method: 'POST'
-    }),
+    mutationFn: () => {
+      return fetch(`/api/products/${productId}/validate-urls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(res => res.json());
+    },
     onMutate: () => setIsValidatingUrls(true),
     onSettled: () => setIsValidatingUrls(false),
     onSuccess: () => {
@@ -586,15 +589,15 @@ export default function WarehouseDetailModal({
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(documentationHealth.urlStatus || {}).map(([field, status]: [string, any]) => (
-                        <UrlHealthIndicator
-                          key={field}
-                          field={field}
-                          url={status.url}
-                          isValid={status.isValid}
-                          lastChecked={status.lastChecked}
-                          responseTime={status.responseTime}
-                        />
+                      {Object.entries(documentationHealth.urlStatus || {}).map(([field, statusData]: [string, any]) => (
+                        <div key={field} className="p-3 border rounded-lg">
+                          <div className="font-medium text-sm text-gray-700 mb-1">{field}</div>
+                          <UrlHealthIndicator
+                            status={statusData}
+                            showDetails={true}
+                            compact={false}
+                          />
+                        </div>
                       ))}
                     </div>
                   </CardContent>
