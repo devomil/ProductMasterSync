@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Sample Pull with Mapping Feature Complete (2025-06-30)**:
+  - Fixed completion screen display after field mapping walkthrough completion
+  - Users now see "Sample Pull with Mapping (50 Products)" button after completing field mapping
+  - Created comprehensive `/mapping-templates` page for viewing and editing completed mapping templates
+  - Enhanced DataSources workflow to show completion screen before closing walkthrough
+  - Proper sample pull functionality imports products using saved field mappings with EDC SKU auto-generation
+  - Backend API `/api/datasources/:id/sample-pull-with-mapping` successfully transforms CWR source data using mapping templates
+  - Real-time mapping statistics display showing mapped required/optional fields and overall progress
+  - Users can navigate to `/mapping-templates` to view, edit, and manage their completed field mapping templates
 - **Comprehensive WarehouseDetailModal CWR Data Organization (2025-06-29)**:
   - Implemented complete supplier information display system with six dedicated tabs
   - **Inventory Tab**: Stock quantities (available to ship, backordered, committed, on-hand), product details (weight, case quantity, UPC, manufacturer)

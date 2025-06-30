@@ -31,7 +31,8 @@ export default function DataSources() {
     setShowWizard(false);
     
     // Find the supplier name to display in the toast
-    const supplier = suppliers.find(s => s.id === parseInt(newDataSource.supplier_id || newDataSource.supplierId));
+    const suppliersList = suppliers as any[];
+    const supplier = suppliersList.find((s: any) => s.id === parseInt(newDataSource.supplier_id || newDataSource.supplierId));
     const supplierName = supplier?.name || newDataSource.name || 'Data source';
     
     toast({
@@ -159,13 +160,12 @@ export default function DataSources() {
       });
 
       if (response.ok) {
-        setShowMappingWalkthrough(false);
-        setCurrentDataSource(null);
-        setSampleData([]);
+        // Don't close walkthrough immediately - let it show completion screen
+        // The user will close it manually using the "Close Walkthrough" button
         
         toast({
           title: "Mapping Complete",
-          description: "Field mappings saved with EDC SKU auto-generation. Ready for full catalog import."
+          description: "Field mappings saved with EDC SKU auto-generation. Ready for sample pull testing."
         });
       } else {
         throw new Error('Failed to save mapping template');
@@ -184,6 +184,9 @@ export default function DataSources() {
     setShowMappingWalkthrough(false);
     setCurrentDataSource(null);
     setSampleData([]);
+    
+    // Refresh data sources to show updated status
+    queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
   };
 
   const getTypeIcon = (type: string) => {
