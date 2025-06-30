@@ -1135,6 +1135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Apply field mappings to transform the data
       const fieldMappings = (mappingTemplate.mappings as any) || {};
+      console.log('Field mappings:', fieldMappings);
+      console.log('Sample source record:', sampleResult.data[0]);
       const transformedProducts = [];
       
       for (let i = 0; i < Math.min(limit, sampleResult.data.length); i++) {
@@ -1170,12 +1172,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
         
-        // Ensure required fields
+        // Ensure required fields are populated
         if (!transformedRecord.sku && transformedRecord.usin) {
           transformedRecord.sku = `EDC${transformedRecord.usin}`;
         }
-        if (!transformedRecord.name && transformedRecord.title) {
-          transformedRecord.name = transformedRecord.title;
+        if (!transformedRecord.name) {
+          // Try multiple field mappings for name
+          transformedRecord.name = transformedRecord.title || 
+                                   transformedRecord.uppercaseTitle || 
+                                   transformedRecord.productName || 
+                                   sourceRecord['Title'] || 
+                                   sourceRecord['Uppercase Title'] || 
+                                   sourceRecord['Product Name'] || 
+                                   'Imported Product';
+        }
+        
+        // Ensure SKU is always present
+        if (!transformedRecord.sku) {
+          transformedRecord.sku = `PRODUCT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
         
         transformedProducts.push(transformedRecord);

@@ -521,6 +521,9 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
   const [isAIMapping, setIsAIMapping] = useState(false);
   const [aiMappings, setAiMappings] = useState<any[]>([]);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
+  const [isComplete, setIsComplete] = useState(false);
+  const [isSamplePulling, setIsSamplePulling] = useState(false);
+  const [samplePullResult, setSamplePullResult] = useState<any>(null);
 
   const categories = Object.keys(REQUIRED_MAPPINGS) as Array<keyof typeof REQUIRED_MAPPINGS>;
   const currentCategory = categories[currentStep] as keyof typeof REQUIRED_MAPPINGS;
@@ -674,6 +677,42 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
       // Complete the mapping process
       const mappingArray = Object.values(mappings);
       onComplete(mappingArray);
+      setIsComplete(true);
+    }
+  };
+
+  const handleSamplePull = async () => {
+    try {
+      setIsSamplePulling(true);
+      
+      const response = await apiRequest('POST', `/api/datasources/${dataSourceId}/sample-pull-with-mapping`, {
+        limit: 50
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setSamplePullResult(result);
+        toast({
+          title: "Sample Pull Complete",
+          description: `Successfully imported ${result.imported} products using your field mappings`
+        });
+      } else {
+        toast({
+          title: "Sample Pull Failed",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Sample pull error:', error);
+      toast({
+        title: "Sample Pull Error",
+        description: "Failed to pull sample data. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSamplePulling(false);
     }
   };
 
@@ -686,6 +725,103 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
   const stats = getCompletionStats();
   const categoryStats = getCurrentCategoryStats();
   const IconComponent = CATEGORY_ICONS[currentCategory];
+
+  // Show completion screen after mapping is done
+  if (isComplete) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Field Mapping Complete!</h2>
+          <p className="text-gray-600 mt-2">
+            Your field mappings have been saved successfully. Ready to test with sample data.
+          </p>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Mapping Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{stats.mappedRequired}</div>
+                <div className="text-sm text-green-700">Required Mapped</div>
+              </div>
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{stats.mappedOptional}</div>
+                <div className="text-sm text-blue-700">Optional Mapped</div>
+              </div>
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{stats.overallProgress}%</div>
+                <div className="text-sm text-purple-700">Overall Progress</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Test Your Mappings
+            </CardTitle>
+            <p className="text-sm text-gray-600">
+              Pull 50 sample products using your saved field mappings to validate the import process.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!samplePullResult ? (
+              <Button 
+                onClick={handleSamplePull}
+                disabled={isSamplePulling}
+                className="w-full"
+                size="lg"
+              >
+                {isSamplePulling ? (
+                  <>
+                    <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                    Pulling Sample Data...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Sample Pull with Mapping (50 Products)
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Successfully imported {samplePullResult.imported} products using your field mappings!
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Button variant="outline" onClick={() => window.location.href = '/products'}>
+                    View Products in Catalog
+                  </Button>
+                  <Button variant="outline" onClick={handleSamplePull} disabled={isSamplePulling}>
+                    Pull Another Sample
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-center">
+          <Button onClick={onCancel} variant="outline">
+            Close Walkthrough
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
