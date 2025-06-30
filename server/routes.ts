@@ -919,11 +919,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn("Marketplace routes not available:", error);
   }
 
-  try {
-    registerConnectionsRoutes(app);
-  } catch (error) {
-    console.warn("Connections routes not available:", error);
-  }
+  // Commented out to prevent conflicts with data sources CRUD operations
+  // The connections routes were overriding the data sources endpoints
+  // try {
+  //   registerConnectionsRoutes(app);
+  // } catch (error) {
+  //   console.warn("Connections routes not available:", error);
+  // }
 
   // Data Sources CRUD operations
   app.get("/api/datasources", async (req, res) => {
