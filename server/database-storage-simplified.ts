@@ -409,7 +409,16 @@ export class DatabaseStorage implements IStorage {
 
   // Data source management
   async getDataSources(): Promise<DataSource[]> {
-    return await db.select().from(schema.dataSources);
+    try {
+      console.log("DEBUG: Executing dataSources query...");
+      const result = await db.select().from(schema.dataSources);
+      console.log("DEBUG: Query result:", result?.length || 0, "items");
+      console.log("DEBUG: Raw result:", result);
+      return result;
+    } catch (error) {
+      console.error("DEBUG: Error in getDataSources:", error);
+      throw error;
+    }
   }
 
   async getDataSource(id: number): Promise<DataSource | undefined> {
