@@ -15,8 +15,248 @@ import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, 
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import DataSourceWizard from "@/components/data-sources/DataSourceWizard";
 import { MappingWalkthrough } from "@/components/mapping/MappingWalkthrough";
+
+// Schema for editing data source
+const editDataSourceSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  type: z.enum(["sftp", "ftp", "api", "csv", "excel"]),
+  config: z.object({
+    host: z.string().optional(),
+    port: z.number().optional(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    url: z.string().optional(),
+    apiKey: z.string().optional(),
+  }).optional(),
+});
+
+type EditDataSourceFormData = z.infer<typeof editDataSourceSchema>;
+
+// Edit Data Source Form Component
+interface EditDataSourceFormProps {
+  dataSource: DataSource;
+  onClose: () => void;
+}
+
+function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
+  const form = useForm<EditDataSourceFormData>({
+    resolver: zodResolver(editDataSourceSchema),
+    defaultValues: {
+      name: dataSource.name,
+      description: dataSource.description || "",
+      type: dataSource.type as any,
+      config: {
+        host: dataSource.config?.host || "",
+        port: dataSource.config?.port || 22,
+        username: dataSource.config?.username || "",
+        password: "",
+        url: dataSource.config?.url || "",
+        apiKey: dataSource.config?.apiKey || "",
+      },
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: EditDataSourceFormData) => {
+      return await apiRequest("PUT", `/api/datasources/${dataSource.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
+      toast({
+        title: "Success",
+        description: "Data source updated successfully",
+      });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update data source",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: EditDataSourceFormData) => {
+    updateMutation.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Data source name" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Optional description" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Type</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select data source type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="sftp">SFTP</SelectItem>
+                  <SelectItem value="ftp">FTP</SelectItem>
+                  <SelectItem value="api">API</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="excel">Excel</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Configuration fields based on type */}
+        {(form.watch("type") === "sftp" || form.watch("type") === "ftp") && (
+          <>
+            <FormField
+              control={form.control}
+              name="config.host"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Host</FormLabel>
+                  <FormControl>
+                    <Input placeholder="ftp.example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="config.port"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Port</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder={form.watch("type") === "sftp" ? "22" : "21"} 
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 22)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="config.username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Username" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="config.password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Leave blank to keep current password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        {form.watch("type") === "api" && (
+          <>
+            <FormField
+              control={form.control}
+              name="config.url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>API URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://api.example.com/data" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="config.apiKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>API Key</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Leave blank to keep current API key" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? "Updating..." : "Update Data Source"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
 
 export default function DataSources() {
   const [showWizard, setShowWizard] = useState(false);
@@ -489,23 +729,14 @@ export default function DataSources() {
 
       {/* Edit Data Source Dialog */}
       <Dialog open={!!editingDataSource} onOpenChange={() => setEditingDataSource(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Edit Data Source</DialogTitle>
             <DialogDescription>
               Update connection details and configuration for this data source.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Edit functionality will be available in the next update. For now, you can deactivate/activate or delete this data source.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditingDataSource(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
+          {editingDataSource && <EditDataSourceForm dataSource={editingDataSource} onClose={() => setEditingDataSource(null)} />}
         </DialogContent>
       </Dialog>
 

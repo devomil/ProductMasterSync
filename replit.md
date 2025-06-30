@@ -148,6 +148,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Data Source Management System Fixed (2025-06-30)**:
+  - Resolved route conflicts between connections and data_sources tables
+  - Fixed API endpoints to return correct database data (IDs 6, 7) instead of mock data
+  - Activate/deactivate functionality now works properly with real database operations
+  - Edit connection buttons properly connected to authentic data sources
+  - Removed conflicting registerConnectionsRoutes that was overriding data sources endpoints
+  - System now uses proper data format (active, supplierId, config) from data_sources table
 - **Sample Pull with Mapping Feature Complete (2025-06-30)**:
   - Fixed completion screen display after field mapping walkthrough completion
   - Users now see "Sample Pull with Mapping (50 Products)" button after completing field mapping
