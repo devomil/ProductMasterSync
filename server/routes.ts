@@ -928,13 +928,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Data Sources CRUD operations
   app.get("/api/datasources", async (req, res) => {
     try {
-      console.log("DEBUG: About to call storage.getDataSources()");
       const dataSources = await storage.getDataSources();
-      console.log("DEBUG: getDataSources returned:", dataSources?.length || 0, "items");
-      console.log("DEBUG: First item:", dataSources?.[0] || "No items");
       res.json(dataSources);
     } catch (error) {
-      console.error("DEBUG: Error in getDataSources:", error);
       handleError(res, error);
     }
   });

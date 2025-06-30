@@ -409,16 +409,7 @@ export class DatabaseStorage implements IStorage {
 
   // Data source management
   async getDataSources(): Promise<DataSource[]> {
-    try {
-      console.log("DEBUG: Executing dataSources query...");
-      const result = await db.select().from(schema.dataSources);
-      console.log("DEBUG: Query result:", result?.length || 0, "items");
-      console.log("DEBUG: Raw result:", result);
-      return result;
-    } catch (error) {
-      console.error("DEBUG: Error in getDataSources:", error);
-      throw error;
-    }
+    return await db.select().from(schema.dataSources);
   }
 
   async getDataSource(id: number): Promise<DataSource | undefined> {
@@ -440,19 +431,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDataSource(id: number, dataSource: Partial<InsertDataSource>): Promise<DataSource | undefined> {
-    try {
-      console.log("DEBUG: updateDataSource called with id:", id, "data:", dataSource);
-      const [updatedDataSource] = await db
-        .update(schema.dataSources)
-        .set(dataSource)
-        .where(eq(schema.dataSources.id, id))
-        .returning();
-      console.log("DEBUG: updateDataSource result:", updatedDataSource);
-      return updatedDataSource;
-    } catch (error) {
-      console.error("DEBUG: Error in updateDataSource:", error);
-      throw error;
-    }
+    const [updatedDataSource] = await db
+      .update(schema.dataSources)
+      .set(dataSource)
+      .where(eq(schema.dataSources.id, id))
+      .returning();
+    return updatedDataSource;
   }
 
   async deleteDataSource(id: number): Promise<boolean> {
