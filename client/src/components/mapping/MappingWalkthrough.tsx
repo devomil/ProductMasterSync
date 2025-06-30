@@ -670,13 +670,13 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
     return stats.mappedRequired === stats.required;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < categories.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
       // Complete the mapping process
       const mappingArray = Object.values(mappings);
-      onComplete(mappingArray);
+      await onComplete(mappingArray);
       setIsComplete(true);
     }
   };
