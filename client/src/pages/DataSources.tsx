@@ -33,7 +33,7 @@ export default function DataSources() {
 
   const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
     queryKey: ['/api/suppliers'],
-    select: (data) => data || []
+    select: (data: any) => data || []
   });
 
   // Mutation for toggling data source active status
@@ -283,9 +283,7 @@ export default function DataSources() {
   };
 
   const getStatusBadge = (dataSource: DataSource) => {
-    // Check both 'active' and 'isActive' properties
-    const isActive = dataSource.active ?? dataSource.isActive ?? true;
-    if (isActive) {
+    if (dataSource.active) {
       return <Badge variant="default" className="gap-1"><CheckCircle className="w-3 h-3" />Active</Badge>;
     }
     return <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" />Inactive</Badge>;
@@ -344,7 +342,7 @@ export default function DataSources() {
             </Card>
           ))}
         </div>
-      ) : dataSources.length === 0 ? (
+      ) : (dataSources as DataSource[]).length === 0 ? (
         <div className="text-center py-12">
           <div className="mx-auto max-w-md">
             <Database className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -361,8 +359,8 @@ export default function DataSources() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dataSources.map((dataSource: DataSource) => {
-            const supplier = suppliers.find(s => s.id === dataSource.supplierId);
+          {(dataSources as DataSource[]).map((dataSource: DataSource) => {
+            const supplier = (suppliers as any[]).find((s: any) => s.id === dataSource.supplierId);
             
             return (
               <Card key={dataSource.id} className="hover:shadow-md transition-shadow">
@@ -372,9 +370,52 @@ export default function DataSources() {
                       {getTypeIcon(dataSource.type)}
                       <CardTitle className="text-lg">{dataSource.name}</CardTitle>
                     </div>
-                    {getStatusBadge(dataSource)}
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(dataSource)}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setEditingDataSource(dataSource)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Connection
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => toggleStatusMutation.mutate({ 
+                              id: dataSource.id, 
+                              active: !dataSource.active 
+                            })}
+                          >
+                            {dataSource.active ? (
+                              <>
+                                <PowerOff className="h-4 w-4 mr-2" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <Power className="h-4 w-4 mr-2" />
+                                Activate
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => setDeletingDataSource(dataSource)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Source
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  <CardDescription>{dataSource.description}</CardDescription>
+                  <CardDescription>
+                    {`${dataSource.type.toUpperCase()} data source for ${supplier?.name || 'supplier'}`}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -385,6 +426,22 @@ export default function DataSources() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Supplier:</span>
                       <span className="font-medium">{supplier?.name || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Status:</span>
+                      <span className="font-medium flex items-center gap-1">
+                        {dataSource.active ? (
+                          <>
+                            <CheckCircle className="w-3 h-3 text-green-600" />
+                            Online
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3 h-3 text-gray-400" />
+                            Disabled
+                          </>
+                        )}
+                      </span>
                     </div>
                     
                     <div className="pt-3 border-t">
@@ -429,6 +486,52 @@ export default function DataSources() {
           </div>
         </div>
       </div>
+
+      {/* Edit Data Source Dialog */}
+      <Dialog open={!!editingDataSource} onOpenChange={() => setEditingDataSource(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Data Source</DialogTitle>
+            <DialogDescription>
+              Update connection details and configuration for this data source.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Edit functionality will be available in the next update. For now, you can deactivate/activate or delete this data source.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingDataSource(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingDataSource} onOpenChange={() => setDeletingDataSource(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Data Source</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingDataSource?.name}"? This action cannot be undone and will permanently remove the data source configuration.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingDataSource(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deletingDataSource && deleteMutation.mutate(deletingDataSource.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Data Source"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
