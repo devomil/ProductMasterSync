@@ -22,7 +22,8 @@ import {
   FileText,
   Sparkles,
   Brain,
-  Zap
+  Zap,
+  Download
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";

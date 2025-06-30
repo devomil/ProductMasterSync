@@ -1073,6 +1073,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sample pull with mapping endpoint
+  app.post('/api/datasources/:id/sample-pull-with-mapping', async (req, res) => {
+    try {
+      const dataSourceId = parseInt(req.params.id);
+      const { limit = 50 } = req.body;
+      
+      console.log(`Starting sample pull with mapping for data source ${dataSourceId}...`);
+      
+      // Get the data source
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+        
+      if (!dataSource) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Data source not found' 
+        });
+      }
+      
+      // Get the latest mapping template for this data source
+      const [mappingTemplate] = await db
+        .select()
+        .from(mappingTemplates)
+        .where(eq(mappingTemplates.supplierId, dataSource.supplierId))
+        .orderBy(sql`${mappingTemplates.updatedAt} DESC`)
+        .limit(1);
+        
+      if (!mappingTemplate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No mapping template found. Please complete field mapping walkthrough first.' 
+        });
+      }
+      
+      console.log('Found mapping template:', mappingTemplate.id);
+      
+      // Pull sample data from the data source
+      const sampleDataResponse = await fetch(`http://localhost:5000/api/datasources/${dataSourceId}/sample-data`);
+      const sampleResult = await sampleDataResponse.json();
+      
+      if (!sampleResult.success || !sampleResult.data) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Failed to pull sample data from source' 
+        });
+      }
+      
+      console.log(`Pulled ${sampleResult.data.length} records from source`);
+      
+      // Apply field mappings to transform the data
+      const fieldMappings = mappingTemplate.fieldMappings || {};
+      const transformedProducts = [];
+      
+      for (let i = 0; i < Math.min(limit, sampleResult.data.length); i++) {
+        const sourceRecord = sampleResult.data[i];
+        const transformedRecord: any = {
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // Apply field mappings
+        Object.entries(fieldMappings).forEach(([sourceField, targetField]) => {
+          if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
+            let value = sourceRecord[sourceField];
+            
+            // Type conversions based on target field
+            if (targetField === 'yourCost' || targetField === 'listPrice' || targetField === 'mapPrice' || targetField === 'mrpPrice') {
+              value = parseFloat(value) || 0;
+            } else if (targetField === 'shippingWeight' || targetField === 'caseQuantity') {
+              value = parseFloat(value) || 0;
+            } else if (typeof value === 'string') {
+              // Clean HTML tags from descriptions
+              if (targetField === 'description' || targetField === 'fullDescription') {
+                value = value.replace(/<[^>]*>/g, '').trim();
+              }
+              // Generate EDC SKU for USIN field
+              if (targetField === 'usin' && value) {
+                transformedRecord.sku = `EDC${value}`;
+              }
+            }
+            
+            transformedRecord[targetField] = value;
+          }
+        });
+        
+        // Ensure required fields
+        if (!transformedRecord.sku && transformedRecord.usin) {
+          transformedRecord.sku = `EDC${transformedRecord.usin}`;
+        }
+        if (!transformedRecord.name && transformedRecord.title) {
+          transformedRecord.name = transformedRecord.title;
+        }
+        
+        transformedProducts.push(transformedRecord);
+      }
+      
+      console.log(`Transformed ${transformedProducts.length} products`);
+      
+      // Insert products into database
+      const insertedProducts = [];
+      for (const product of transformedProducts) {
+        try {
+          const [insertedProduct] = await db
+            .insert(products)
+            .values(product)
+            .onConflictDoUpdate({
+              target: products.sku,
+              set: {
+                ...product,
+                updatedAt: new Date()
+              }
+            })
+            .returning();
+            
+          insertedProducts.push(insertedProduct);
+        } catch (error) {
+          console.error('Error inserting product:', error);
+          // Continue with other products
+        }
+      }
+      
+      console.log(`Successfully imported ${insertedProducts.length} products`);
+      
+      res.json({
+        success: true,
+        message: `Successfully imported ${insertedProducts.length} products using saved mapping template`,
+        imported: insertedProducts.length,
+        products: insertedProducts.slice(0, 10), // Return first 10 for preview
+        mappingTemplateId: mappingTemplate.id,
+        fieldMappings: Object.keys(fieldMappings).length
+      });
+      
+    } catch (error) {
+      console.error('Sample pull with mapping error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to pull and import sample data',
+        error: error.message 
+      });
+    }
+  });
+
   // Basic health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ 
