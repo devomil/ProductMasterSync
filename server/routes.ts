@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db, pool } from "./db";
+import { AIMappingService } from "./services/ai-mapping";
 import { z } from "zod";
 import { 
   insertProductSchema, 
@@ -1020,6 +1021,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching sample data:", error);
       res.status(500).json({ error: "Failed to fetch sample data" });
+    }
+  });
+
+  // AI Auto-mapping endpoints
+  app.post("/api/ai-mapping/auto-map", async (req, res) => {
+    try {
+      const { sourceFields, targetFields } = req.body;
+      
+      if (!sourceFields || !targetFields || !Array.isArray(sourceFields) || !Array.isArray(targetFields)) {
+        return res.status(400).json({ error: "sourceFields and targetFields arrays are required" });
+      }
+
+      const aiMappingService = AIMappingService.getInstance();
+      const result = await aiMappingService.autoMapFields(sourceFields, targetFields);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error) {
+      console.error("AI auto-mapping error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate AI mappings",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/ai-mapping/suggest", async (req, res) => {
+    try {
+      const { sourceField, targetFields } = req.body;
+      
+      if (!sourceField || !targetFields || !Array.isArray(targetFields)) {
+        return res.status(400).json({ error: "sourceField and targetFields array are required" });
+      }
+
+      const aiMappingService = AIMappingService.getInstance();
+      const suggestion = await aiMappingService.suggestBestMatch(sourceField, targetFields);
+      
+      res.json({
+        success: true,
+        suggestion
+      });
+    } catch (error) {
+      console.error("AI suggestion error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate AI suggestion",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

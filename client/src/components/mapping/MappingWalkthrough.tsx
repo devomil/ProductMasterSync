@@ -19,9 +19,13 @@ import {
   Package,
   DollarSign,
   Image,
-  FileText
+  FileText,
+  Sparkles,
+  Brain,
+  Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface MappingField {
   id: string;
@@ -513,6 +517,9 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
   const [currentStep, setCurrentStep] = useState(0);
   const [mappings, setMappings] = useState<Record<string, MappingField>>({});
   const [sourceFields, setSourceFields] = useState<string[]>([]);
+  const [isAIMapping, setIsAIMapping] = useState(false);
+  const [aiMappings, setAiMappings] = useState<any[]>([]);
+  const [aiConfidence, setAiConfidence] = useState<number>(0);
 
   const categories = Object.keys(REQUIRED_MAPPINGS) as Array<keyof typeof REQUIRED_MAPPINGS>;
   const currentCategory = categories[currentStep] as keyof typeof REQUIRED_MAPPINGS;
@@ -550,6 +557,67 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
           example: targetField.example
         }
       }));
+    }
+  };
+
+  const handleAIAutoMap = async () => {
+    setIsAIMapping(true);
+    try {
+      // Prepare target fields for current category
+      const targetFields = currentFields.map(field => ({
+        id: field.id,
+        targetField: field.targetField,
+        description: field.description,
+        example: field.example || '',
+        category: currentCategory
+      }));
+
+      const response = await apiRequest('POST', '/api/ai-mapping/auto-map', {
+        sourceFields,
+        targetFields
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAiMappings(data.mappings);
+        setAiConfidence(data.totalConfidence);
+
+        toast({
+          title: "AI Auto-Mapping Complete",
+          description: `Found ${data.mappings.length} suggestions with ${Math.round(data.totalConfidence * 100)}% average confidence`
+        });
+
+        // Auto-apply high confidence mappings (>= 0.8)
+        data.mappings.forEach((mapping: any) => {
+          if (mapping.confidence >= 0.8) {
+            const field = currentFields.find(f => f.targetField === mapping.targetField);
+            if (field) {
+              updateMapping(field.id, mapping.sourceField);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('AI mapping error:', error);
+      toast({
+        title: "AI Mapping Failed",
+        description: "Unable to generate AI suggestions. Please map fields manually.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAIMapping(false);
+    }
+  };
+
+  const applyAISuggestion = (mapping: any) => {
+    const field = currentFields.find(f => f.targetField === mapping.targetField);
+    if (field) {
+      updateMapping(field.id, mapping.sourceField);
+      toast({
+        title: "AI Suggestion Applied",
+        description: `Mapped "${mapping.sourceField}" to "${mapping.targetField}"`
+      });
     }
   };
 
