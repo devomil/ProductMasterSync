@@ -327,7 +327,7 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
                     </div>
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <Label className="text-sm font-medium text-gray-700 mb-1 block">File Path</Label>
+                        <FormLabel className="text-sm font-medium text-gray-700 mb-1 block">File Path</FormLabel>
                         <Input
                           placeholder="/ecodata/out/catalog.csv"
                           value={filePath.path}
