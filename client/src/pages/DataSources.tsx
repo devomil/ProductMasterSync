@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
@@ -37,6 +38,11 @@ const editDataSourceSchema = z.object({
     password: z.string().optional(),
     url: z.string().optional(),
     apiKey: z.string().optional(),
+    filePaths: z.array(z.object({
+      id: z.string(),
+      label: z.string(),
+      path: z.string(),
+    })).optional(),
   }).optional(),
 });
 
@@ -49,26 +55,62 @@ interface EditDataSourceFormProps {
 }
 
 function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
+  const [filePaths, setFilePaths] = useState<Array<{id: string, label: string, path: string}>>([]);
+
   const form = useForm<EditDataSourceFormData>({
     resolver: zodResolver(editDataSourceSchema),
     defaultValues: {
       name: dataSource.name,
-      description: dataSource.description || "",
+      description: (dataSource as any).description || "",
       type: dataSource.type as any,
       config: {
-        host: dataSource.config?.host || "",
-        port: dataSource.config?.port || 22,
-        username: dataSource.config?.username || "",
+        host: (dataSource.config as any)?.host || "",
+        port: (dataSource.config as any)?.port || 22,
+        username: (dataSource.config as any)?.username || "",
         password: "",
-        url: dataSource.config?.url || "",
-        apiKey: dataSource.config?.apiKey || "",
+        url: (dataSource.config as any)?.url || "",
+        apiKey: (dataSource.config as any)?.apiKey || "",
+        filePaths: (dataSource.config as any)?.filePaths || [],
       },
     },
   });
 
+  // Initialize file paths from data source config
+  React.useEffect(() => {
+    const configFilePaths = (dataSource.config as any)?.filePaths || [];
+    setFilePaths(configFilePaths);
+  }, [dataSource]);
+
+  const addFilePath = () => {
+    const newPath = {
+      id: Date.now().toString(),
+      label: "",
+      path: "",
+    };
+    setFilePaths([...filePaths, newPath]);
+  };
+
+  const removeFilePath = (id: string) => {
+    setFilePaths(filePaths.filter(fp => fp.id !== id));
+  };
+
+  const updateFilePath = (id: string, field: 'label' | 'path', value: string) => {
+    setFilePaths(filePaths.map(fp => 
+      fp.id === id ? { ...fp, [field]: value } : fp
+    ));
+  };
+
   const updateMutation = useMutation({
     mutationFn: async (data: EditDataSourceFormData) => {
-      return await apiRequest("PUT", `/api/datasources/${dataSource.id}`, data);
+      // Include file paths in the config
+      const updateData = {
+        ...data,
+        config: {
+          ...data.config,
+          filePaths: filePaths,
+        },
+      };
+      return await apiRequest("PUT", `/api/datasources/${dataSource.id}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
@@ -243,6 +285,76 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
               )}
             />
           </>
+        )}
+
+        {/* File Paths Management for SFTP/FTP */}
+        {(form.watch("type") === "sftp" || form.watch("type") === "ftp") && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <FormLabel className="text-base font-medium">File Paths</FormLabel>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addFilePath}
+                className="gap-1"
+              >
+                <Plus className="w-4 h-4" />
+                Add Path
+              </Button>
+            </div>
+            
+            {filePaths.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed">
+                <Database className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm">No file paths configured</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Add multiple file paths for different product categories or time periods
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filePaths.map((filePath) => (
+                  <div key={filePath.id} className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-gray-50">
+                    <div>
+                      <FormLabel className="text-sm font-medium text-gray-700 mb-1 block">Label</FormLabel>
+                      <Input
+                        placeholder="Main Catalog"
+                        value={filePath.label}
+                        onChange={(e) => updateFilePath(filePath.id, 'label', e.target.value)}
+                        className="bg-white"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-sm font-medium text-gray-700 mb-1 block">File Path</Label>
+                        <Input
+                          placeholder="/ecodata/out/catalog.csv"
+                          value={filePath.path}
+                          onChange={(e) => updateFilePath(filePath.id, 'path', e.target.value)}
+                          className="bg-white"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeFilePath(filePath.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              Add multiple file paths for different product categories or time periods
+            </p>
+          </div>
         )}
 
         <div className="flex justify-end gap-2 pt-4">
