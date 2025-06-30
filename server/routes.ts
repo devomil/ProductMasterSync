@@ -23,7 +23,7 @@ import {
   mappingTemplates,
   suppliers
 } from "@shared/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql, desc } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1094,13 +1094,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get the latest mapping template for this data source
-      const [mappingTemplate] = await db
+      // Get the latest mapping template for this data source type 
+      const mappingTemplateResults = await db
         .select()
         .from(mappingTemplates)
-        .where(eq(mappingTemplates.supplierId, dataSource.supplierId))
-        .orderBy(sql`${mappingTemplates.updatedAt} DESC`)
+        .where(eq(mappingTemplates.sourceType, 'sftp'))
+        .orderBy(desc(mappingTemplates.updatedAt))
         .limit(1);
+        
+      if (mappingTemplateResults.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No mapping template found. Please complete field mapping walkthrough first.' 
+        });
+      }
+      
+      const mappingTemplate = mappingTemplateResults[0];
         
       if (!mappingTemplate) {
         return res.status(400).json({ 
@@ -1125,7 +1134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Pulled ${sampleResult.data.length} records from source`);
       
       // Apply field mappings to transform the data
-      const fieldMappings = mappingTemplate.fieldMappings || {};
+      const fieldMappings = (mappingTemplate.mappings as any) || {};
       const transformedProducts = [];
       
       for (let i = 0; i < Math.min(limit, sampleResult.data.length); i++) {
@@ -1137,7 +1146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         // Apply field mappings
-        Object.entries(fieldMappings).forEach(([sourceField, targetField]) => {
+        Object.entries(fieldMappings as Record<string, string>).forEach(([sourceField, targetField]) => {
           if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
             let value = sourceRecord[sourceField];
             
@@ -1205,7 +1214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imported: insertedProducts.length,
         products: insertedProducts.slice(0, 10), // Return first 10 for preview
         mappingTemplateId: mappingTemplate.id,
-        fieldMappings: Object.keys(fieldMappings).length
+        fieldMappings: Object.keys(fieldMappings as object).length
       });
       
     } catch (error) {
@@ -1213,7 +1222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: 'Failed to pull and import sample data',
-        error: error.message 
+        error: (error as Error).message 
       });
     }
   });
