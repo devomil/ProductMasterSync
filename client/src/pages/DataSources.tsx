@@ -1,11 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff } from "lucide-react";
 import type { DataSource } from "@shared/schema";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import DataSourceWizard from "@/components/data-sources/DataSourceWizard";
 import { MappingWalkthrough } from "@/components/mapping/MappingWalkthrough";
@@ -15,6 +23,8 @@ export default function DataSources() {
   const [showMappingWalkthrough, setShowMappingWalkthrough] = useState(false);
   const [currentDataSource, setCurrentDataSource] = useState<any>(null);
   const [sampleData, setSampleData] = useState<any[]>([]);
+  const [editingDataSource, setEditingDataSource] = useState<DataSource | null>(null);
+  const [deletingDataSource, setDeletingDataSource] = useState<DataSource | null>(null);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -24,6 +34,74 @@ export default function DataSources() {
   const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery({
     queryKey: ['/api/suppliers'],
     select: (data) => data || []
+  });
+
+  // Mutation for toggling data source active status
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/datasources/${id}/status`, { active });
+      return response;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
+      toast({
+        title: "Status Updated",
+        description: `Data source ${variables.active ? 'activated' : 'deactivated'} successfully`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update data source status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation for deleting data source
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/datasources/${id}`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
+      setDeletingDataSource(null);
+      toast({
+        title: "Data Source Deleted",
+        description: "Data source has been permanently removed"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete data source",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation for updating data source
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<DataSource> }) => {
+      const response = await apiRequest("PUT", `/api/datasources/${id}`, data);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
+      setEditingDataSource(null);
+      toast({
+        title: "Data Source Updated",
+        description: "Changes have been saved successfully"
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update data source",
+        variant: "destructive"
+      });
+    }
   });
 
   const handleDataSourceCreated = (newDataSource: any) => {

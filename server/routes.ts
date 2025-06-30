@@ -925,6 +925,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn("Connections routes not available:", error);
   }
 
+  // Data Sources CRUD operations
+  app.get("/api/datasources", async (req, res) => {
+    try {
+      const dataSources = await storage.getDataSources();
+      res.json(dataSources);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/datasources/:id", async (req, res) => {
+    try {
+      const dataSource = await storage.getDataSource(Number(req.params.id));
+      if (!dataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      res.json(dataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/datasources", async (req, res) => {
+    try {
+      // Parse the config from a string to an object if it's passed as a string
+      let dataSourceData = { ...req.body };
+      
+      if (typeof dataSourceData.config === 'string') {
+        try {
+          dataSourceData.config = JSON.parse(dataSourceData.config);
+        } catch (e) {
+          dataSourceData.config = { data: dataSourceData.config };
+        }
+      }
+      
+      // Convert supplier_id to supplierId if needed
+      if (dataSourceData.supplier_id && !dataSourceData.supplierId) {
+        dataSourceData.supplierId = dataSourceData.supplier_id;
+        delete dataSourceData.supplier_id;
+      }
+      
+      // Validate with zod schema
+      const validatedData = insertDataSourceSchema.parse(dataSourceData);
+      const dataSource = await storage.createDataSource(validatedData);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "create",
+        entityType: "dataSource",
+        entityId: dataSource.id,
+        details: { dataSource }
+      });
+      
+      res.status(201).json(dataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.put("/api/datasources/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      
+      // Parse the config from a string to an object if it's passed as a string
+      let dataSourceData = { ...req.body };
+      
+      if (typeof dataSourceData.config === 'string') {
+        try {
+          dataSourceData.config = JSON.parse(dataSourceData.config);
+        } catch (e) {
+          dataSourceData.config = { data: dataSourceData.config };
+        }
+      }
+      
+      // Convert supplier_id to supplierId if needed
+      if (dataSourceData.supplier_id && !dataSourceData.supplierId) {
+        dataSourceData.supplierId = dataSourceData.supplier_id;
+        delete dataSourceData.supplier_id;
+      }
+      
+      // Validate with zod schema
+      const validatedData = insertDataSourceSchema.partial().parse(dataSourceData);
+      const updatedDataSource = await storage.updateDataSource(id, validatedData);
+      
+      if (!updatedDataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "update",
+        entityType: "dataSource",
+        entityId: id,
+        details: { 
+          before: await storage.getDataSource(id),
+          after: updatedDataSource
+        }
+      });
+      
+      res.json(updatedDataSource);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.patch("/api/datasources/:id/status", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { active } = req.body;
+      
+      if (typeof active !== 'boolean') {
+        return res.status(400).json({ message: "Active status must be a boolean" });
+      }
+      
+      const updatedDataSource = await storage.updateDataSource(id, { active });
+      
+      if (!updatedDataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: active ? "activate" : "deactivate",
+        entityType: "dataSource",
+        entityId: id,
+        details: { active }
+      });
+      
+      res.json({ success: true, active: updatedDataSource.active });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.delete("/api/datasources/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const dataSource = await storage.getDataSource(id);
+      
+      if (!dataSource) {
+        return res.status(404).json({ message: "Data source not found" });
+      }
+      
+      const success = await storage.deleteDataSource(id);
+      
+      if (success) {
+        // Create audit log
+        await storage.createAuditLog({
+          action: "delete",
+          entityType: "dataSource",
+          entityId: id,
+          details: { dataSource }
+        });
+      }
+      
+      res.json({ success });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Get sample data from data source (for field mapping)
   app.get("/api/datasources/:id/sample-data", async (req, res) => {
     try {
