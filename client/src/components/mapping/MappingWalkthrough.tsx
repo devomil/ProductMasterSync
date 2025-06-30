@@ -784,13 +784,54 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
       {/* Current Category */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <IconComponent className="h-5 w-5" />
-            {CATEGORY_LABELS[currentCategory]}
-            <Badge variant={categoryStats.complete ? "default" : "secondary"}>
-              {categoryStats.mapped}/{categoryStats.total} mapped
-            </Badge>
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <IconComponent className="h-5 w-5" />
+              {CATEGORY_LABELS[currentCategory]}
+              <Badge variant={categoryStats.complete ? "default" : "secondary"}>
+                {categoryStats.mapped}/{categoryStats.total} mapped
+              </Badge>
+            </CardTitle>
+            
+            <div className="flex items-center gap-2">
+              {aiConfidence > 0 && (
+                <Badge variant="outline" className="text-blue-600">
+                  <Brain className="h-3 w-3 mr-1" />
+                  {Math.round(aiConfidence * 100)}% AI Confidence
+                </Badge>
+              )}
+              
+              <Button
+                onClick={handleAIAutoMap}
+                disabled={isAIMapping || sourceFields.length === 0}
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                {isAIMapping ? (
+                  <>
+                    <Zap className="h-4 w-4 mr-1 animate-pulse" />
+                    AI Mapping...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    AI Auto-Map
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+          
+          {aiMappings.length > 0 && (
+            <Alert className="mt-4">
+              <Brain className="h-4 w-4" />
+              <AlertDescription>
+                AI found {aiMappings.length} mapping suggestions. High confidence mappings (≥80%) have been auto-applied.
+                Review suggestions below and click to apply others.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {currentFields.map((field) => {
@@ -861,6 +902,90 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
           )}
         </CardContent>
       </Card>
+
+      {/* AI Suggestions */}
+      {aiMappings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-blue-600" />
+              AI Mapping Suggestions
+              <Badge variant="secondary">{aiMappings.length} suggestions</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {aiMappings.map((suggestion: any, index: number) => {
+              const isAlreadyMapped = Object.values(mappings).some(m => 
+                m.sourceField === suggestion.sourceField && m.targetField === suggestion.targetField
+              );
+              const isHighConfidence = suggestion.confidence >= 0.8;
+              const isMediumConfidence = suggestion.confidence >= 0.6;
+              
+              return (
+                <div 
+                  key={index}
+                  className={`border rounded-lg p-4 space-y-3 ${
+                    isAlreadyMapped 
+                      ? 'bg-green-50 border-green-200' 
+                      : isHighConfidence 
+                        ? 'bg-blue-50 border-blue-200'
+                        : isMediumConfidence
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm">
+                        <span className="font-mono text-blue-700">"{suggestion.sourceField}"</span>
+                        <ArrowRight className="h-4 w-4 mx-2 inline text-gray-400" />
+                        <span className="font-mono text-green-700">"{suggestion.targetField}"</span>
+                      </div>
+                      
+                      <Badge 
+                        variant={isHighConfidence ? "default" : isMediumConfidence ? "secondary" : "outline"}
+                        className={`${
+                          isHighConfidence 
+                            ? 'bg-green-100 text-green-800' 
+                            : isMediumConfidence
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {Math.round(suggestion.confidence * 100)}% confidence
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {isAlreadyMapped ? (
+                        <Badge variant="outline" className="text-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Applied
+                        </Badge>
+                      ) : (
+                        <Button
+                          onClick={() => applyAISuggestion(suggestion)}
+                          size="sm"
+                          variant="outline"
+                          className="text-blue-600 hover:bg-blue-50"
+                        >
+                          Apply
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {suggestion.reasoning && (
+                    <div className="text-sm text-gray-600 bg-white/70 p-2 rounded border">
+                      <span className="font-medium">AI Reasoning:</span> {suggestion.reasoning}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Navigation */}
       <div className="flex justify-between">

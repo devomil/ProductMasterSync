@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { FallbackMappingService } from "./fallback-mapping";
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable is required");
@@ -121,11 +122,11 @@ Provide intelligent mapping suggestions with confidence scores.`
 
     } catch (error) {
       console.error('AI mapping error:', error);
-      return {
-        mappings: [],
-        unmapped: sourceFields,
-        totalConfidence: 0
-      };
+      
+      // Use fallback mapping when OpenAI quota is exceeded or API fails
+      console.log('Using fallback pattern-based mapping...');
+      const fallbackService = FallbackMappingService.getInstance();
+      return fallbackService.autoMapFields(sourceFields, targetFields);
     }
   }
 
