@@ -525,6 +525,11 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
       console.log('Available source fields from CWR data:', fields);
       setSourceFields(fields);
     }
+    
+    // Log comprehensive mapping categories for testing
+    console.log('Enhanced mapping categories available:', Object.keys(REQUIRED_MAPPINGS));
+    const totalFields = Object.values(REQUIRED_MAPPINGS).reduce((acc, fields) => acc + fields.length, 0);
+    console.log('Total target fields across all categories:', totalFields);
   }, [sampleData]);
 
   const updateMapping = (fieldId: string, sourceField: string) => {
