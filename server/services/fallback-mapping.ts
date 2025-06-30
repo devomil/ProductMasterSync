@@ -43,6 +43,7 @@ export class FallbackMappingService {
     'original price': { target: 'originalPriceSale', confidence: 0.90, category: 'pricing' },
 
     // Product identification
+    'cwr part number': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
     'cwrpart number': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
     'cwrpartnumber': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
     'part number': { target: 'usin', confidence: 0.90, category: 'master_catalog' },
@@ -109,7 +110,11 @@ export class FallbackMappingService {
 
     // Documentation fields
     'image (300x300) url': { target: 'image300x300', confidence: 0.98, category: 'documentation' },
+    'image 300x300 url': { target: 'image300x300', confidence: 0.95, category: 'documentation' },
+    'image300x300url': { target: 'image300x300', confidence: 0.95, category: 'documentation' },
     'image (1000x1000) url': { target: 'image1000x1000', confidence: 0.98, category: 'documentation' },
+    'image 1000x1000 url': { target: 'image1000x1000', confidence: 0.95, category: 'documentation' },
+    'image1000x1000url': { target: 'image1000x1000', confidence: 0.95, category: 'documentation' },
     'image url': { target: 'image300x300', confidence: 0.85, category: 'documentation' },
     'image': { target: 'image300x300', confidence: 0.80, category: 'documentation' },
     'quick specs': { target: 'quickSpecs', confidence: 0.95, category: 'documentation' },
