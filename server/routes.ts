@@ -929,6 +929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/datasources/:id/sample-data", async (req, res) => {
     try {
       const dataSourceId = parseInt(req.params.id);
+      const requestedLimit = parseInt(req.query.limit as string) || 50;
       
       // Get data source details
       const [dataSource] = await db
@@ -939,113 +940,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!dataSource) {
         return res.status(404).json({ error: "Data source not found" });
       }
+
+      // Pull real data from SFTP using the existing connector system
+      const config = dataSource.config as any;
       
-      // Generate 50 realistic CWR products for testing
-      const generateSampleProducts = (count: number) => {
-        const categories = [
-          { id: "FILTERS", name: "Oil Filters", manufacturer: "Mercury Marine" },
-          { id: "PUMPS", name: "Bilge Pumps", manufacturer: "Rule Industries" },
-          { id: "LIGHTS", name: "Navigation Lights", manufacturer: "Attwood Marine" },
-          { id: "ELECTRONICS", name: "GPS Systems", manufacturer: "Garmin" },
-          { id: "HARDWARE", name: "Marine Hardware", manufacturer: "Perko" },
-          { id: "SAFETY", name: "Safety Equipment", manufacturer: "ACR Electronics" },
-          { id: "ANCHORING", name: "Anchors & Chain", manufacturer: "Fortress Marine" },
-          { id: "STEERING", name: "Steering Systems", manufacturer: "SeaStar Solutions" },
-          { id: "ELECTRICAL", name: "Marine Electrical", manufacturer: "Blue Sea Systems" },
-          { id: "PLUMBING", name: "Marine Plumbing", manufacturer: "Whale Marine" }
-        ];
-
-        const products = [];
-        for (let i = 1; i <= count; i++) {
-          const category = categories[i % categories.length];
-          const partNumber = String(10000 + i).padStart(6, '0');
-          const basePrice = Math.floor(Math.random() * 200) + 20;
-          const cost = Math.round(basePrice * 0.6 * 100) / 100;
-          const qtyNJ = Math.floor(Math.random() * 50) + 10;
-          const qtyFL = Math.floor(Math.random() * 50) + 10;
+      if (dataSource.type === 'sftp' && config?.host && config?.username) {
+        try {
+          const { createConnector } = await import('./utils/connectors.js');
+          const connector = createConnector('sftp', config);
           
-          products.push({
-            "CWR Part Number": partNumber,
-            "Manufacturer Part Number": `MPN-${partNumber}`,
-            "UPC Code": `12345678901${String(i).padStart(2, '0')}`,
-            "Quantity Available to Ship (Combined)": String(qtyNJ + qtyFL),
-            "Quantity Available to Ship (NJ)": String(qtyNJ),
-            "Quantity Available to Ship (FL)": String(qtyFL),
-            "Next Shipment Date (Combined)": "2025-07-01",
-            "Next Shipment Date (NJ)": "2025-07-01",
-            "Next Shipment Date (FL)": "2025-07-01",
-            "Your Cost": String(cost),
-            "List Price": String(basePrice),
-            "M.A.P. Price": String(Math.round(basePrice * 0.85 * 100) / 100),
-            "M.R.P. Price": String(basePrice),
-            "Uppercase Title": `${category.name.toUpperCase()} - ${category.manufacturer.toUpperCase()}`,
-            "Title": `${category.name} - ${category.manufacturer}`,
-            "Full Description": `High-quality ${category.name.toLowerCase()} from ${category.manufacturer} with superior performance and reliability`,
-            "Category ID": category.id,
-            "Category Name": category.name,
-            "Manufacturer Name": category.manufacturer,
-            "Shipping Weight": String(Math.round((Math.random() * 10 + 0.5) * 10) / 10),
-            "Box Height": String(Math.round((Math.random() * 10 + 2) * 10) / 10),
-            "Box Length": String(Math.round((Math.random() * 15 + 5) * 10) / 10),
-            "Box Width": String(Math.round((Math.random() * 10 + 3) * 10) / 10),
-            "List of Accessories by SKU": "",
-            "List of Accessories by MFG#": "",
-            "Quick Specs": `Premium ${category.name.toLowerCase()} with advanced features`,
-            "Image (300x300) Url": `https://productimageserver.com/images/${partNumber}_300.jpg`,
-            "Image (1000x1000) Url": `https://productimageserver.com/images/${partNumber}_1000.jpg`,
-            "Non-stock": "No",
-            "Drop Ships Direct From Vendor": Math.random() > 0.8 ? "Yes" : "No",
-            "Hazardous Materials": Math.random() > 0.9 ? "Yes" : "No",
-            "Truck Freight": Math.random() > 0.85 ? "Yes" : "No",
-            "Exportable": "Yes",
-            "First Class Mail": "Yes",
-            "Oversized": Math.random() > 0.9 ? "Yes" : "No",
-            "Remanufactured": Math.random() > 0.95 ? "Yes" : "No",
-            "Closeout": Math.random() > 0.92 ? "Yes" : "No",
-            "Harmonization Code": "8421.23.0000",
-            "Country Of Origin": Math.random() > 0.7 ? "USA" : "China",
-            "Sale": Math.random() > 0.85 ? "Yes" : "No",
-            "Original Price (If on Sale/Closeout)": "",
-            "Sale Start Date": "",
-            "Sale End Date": "",
-            "Rebate": Math.random() > 0.9 ? "Yes" : "No",
-            "Rebate Description": "",
-            "Rebate Description With Link": "",
-            "Rebate Start Date": "",
-            "Rebate End Date": "",
-            "Google Merchant Category": "Vehicle Parts & Accessories > Motor Vehicle Parts",
-            "Quick Guide Literature (pdf) Url": "",
-            "Owners Manual (pdf) Url": "",
-            "Brochure Literature (pdf) Url": "",
-            "Installation Guide (pdf) Url": "",
-            "Video Urls": "",
-            "Prop 65": Math.random() > 0.85 ? "Yes" : "No",
-            "Prop 65 Description": "",
-            "Free Shipping": Math.random() > 0.3 ? "Yes" : "No",
-            "Free Shipping End Date": "",
-            "Returnable": "Yes",
-            "Image Additional (1000x1000) Urls": "",
-            "Case Qty (NJ)": String(Math.floor(Math.random() * 20) + 6),
-            "Case Qty (FL)": String(Math.floor(Math.random() * 20) + 6),
-            "3rd Party Marketplaces": "Amazon, eBay",
-            "FCC ID": ""
-          });
-        }
-        return products;
-      };
+          // Test connection first
+          const connectionResult = await connector.test_connection();
+          if (!connectionResult.success) {
+            throw new Error(`SFTP connection failed: ${connectionResult.message}`);
+          }
 
-      const requestedLimit = parseInt(req.query.limit as string) || 50;
-      const demoData = generateSampleProducts(requestedLimit);
-        
-        res.json({ 
-          success: true, 
-          data: demoData,
-          totalRecords: demoData.length
-        });
+          // Pull sample data with the requested limit
+          const sampleResult = await connector.pull_sample_data(requestedLimit);
+          
+          if (sampleResult.success && sampleResult.sample_data?.length > 0) {
+            res.json({ 
+              success: true, 
+              data: sampleResult.sample_data,
+              totalRecords: sampleResult.sample_data.length,
+              source: 'sftp'
+            });
+            return;
+          }
+        } catch (sftpError) {
+          console.error("SFTP sample pull failed:", sftpError);
+          // Continue to fallback below
+        }
+      }
+
+      // Fallback: Check if we have a cached CWR catalog file
+      const fs = await import('fs');
+      const path = await import('path');
+      const csvParse = await import('csv-parse/sync');
+      
+      const catalogPaths = [
+        './temp/authentic-catalog.csv',
+        './catalog.csv',
+        './temp/cwr-catalog.csv'
+      ];
+      
+      for (const catalogPath of catalogPaths) {
+        try {
+          if (fs.existsSync(catalogPath)) {
+            console.log(`Using cached CWR catalog: ${catalogPath}`);
+            const csvContent = fs.readFileSync(catalogPath, 'utf-8');
+            const records = csvParse.parse(csvContent, {
+              columns: true,
+              skip_empty_lines: true
+            });
+            
+            // Take the requested number of records
+            const sampleData = records.slice(0, requestedLimit);
+            
+            res.json({ 
+              success: true, 
+              data: sampleData,
+              totalRecords: sampleData.length,
+              source: 'cached_file',
+              file: catalogPath
+            });
+            return;
+          }
+        } catch (fileError) {
+          console.error(`Failed to read ${catalogPath}:`, fileError);
+          continue;
+        }
+      }
+
+      // Last resort: Return error asking user to configure SFTP properly
+      res.status(400).json({ 
+        error: "No authentic data source available",
+        message: "Please ensure SFTP credentials are configured correctly or provide a valid catalog file",
+        suggestion: "Configure SFTP connection or upload a catalog file to begin field mapping"
+      });
       
     } catch (error) {
       console.error("Error fetching sample data:", error);
-      res.status(500).json({ error: "Failed to fetch sample data" });
+      res.status(500).json({ 
+        error: "Failed to fetch sample data",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
