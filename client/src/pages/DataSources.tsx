@@ -57,6 +57,19 @@ interface EditDataSourceFormProps {
 function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
   const [filePaths, setFilePaths] = useState<Array<{id: string, label: string, path: string}>>([]);
 
+  // Parse config if it's a JSON string
+  const parsedConfig = React.useMemo(() => {
+    if (typeof dataSource.config === 'string') {
+      try {
+        return JSON.parse(dataSource.config);
+      } catch (e) {
+        console.error('Failed to parse config:', e);
+        return {};
+      }
+    }
+    return dataSource.config || {};
+  }, [dataSource.config]);
+
   const form = useForm<EditDataSourceFormData>({
     resolver: zodResolver(editDataSourceSchema),
     defaultValues: {
@@ -64,22 +77,38 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
       description: (dataSource as any).description || "",
       type: dataSource.type as any,
       config: {
-        host: (dataSource.config as any)?.host || "",
-        port: (dataSource.config as any)?.port || 22,
-        username: (dataSource.config as any)?.username || "",
-        password: "",
-        url: (dataSource.config as any)?.url || "",
-        apiKey: (dataSource.config as any)?.apiKey || "",
-        filePaths: (dataSource.config as any)?.filePaths || [],
+        host: parsedConfig?.host || "",
+        port: parsedConfig?.port || 22,
+        username: parsedConfig?.username || "",
+        password: "", // Always blank for security
+        url: parsedConfig?.url || "",
+        apiKey: parsedConfig?.apiKey || "",
+        filePaths: parsedConfig?.filePaths || [],
       },
     },
   });
 
-  // Initialize file paths from data source config
+  // Initialize file paths and reset form when parsedConfig changes
   React.useEffect(() => {
-    const configFilePaths = (dataSource.config as any)?.filePaths || [];
+    const configFilePaths = parsedConfig?.filePaths || [];
     setFilePaths(configFilePaths);
-  }, [dataSource]);
+    
+    // Reset form with actual parsed config values
+    form.reset({
+      name: dataSource.name,
+      description: (dataSource as any).description || "",
+      type: dataSource.type as any,
+      config: {
+        host: parsedConfig?.host || "",
+        port: parsedConfig?.port || 22,
+        username: parsedConfig?.username || "",
+        password: "", // Always blank for security
+        url: parsedConfig?.url || "",
+        apiKey: parsedConfig?.apiKey || "",
+        filePaths: parsedConfig?.filePaths || [],
+      },
+    });
+  }, [parsedConfig, dataSource, form]);
 
   const addFilePath = () => {
     const newPath = {
