@@ -440,12 +440,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDataSource(id: number, dataSource: Partial<InsertDataSource>): Promise<DataSource | undefined> {
-    const [updatedDataSource] = await db
-      .update(schema.dataSources)
-      .set(dataSource)
-      .where(eq(schema.dataSources.id, id))
-      .returning();
-    return updatedDataSource;
+    try {
+      console.log("DEBUG: updateDataSource called with id:", id, "data:", dataSource);
+      const [updatedDataSource] = await db
+        .update(schema.dataSources)
+        .set(dataSource)
+        .where(eq(schema.dataSources.id, id))
+        .returning();
+      console.log("DEBUG: updateDataSource result:", updatedDataSource);
+      return updatedDataSource;
+    } catch (error) {
+      console.error("DEBUG: Error in updateDataSource:", error);
+      throw error;
+    }
   }
 
   async deleteDataSource(id: number): Promise<boolean> {
