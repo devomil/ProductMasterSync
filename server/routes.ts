@@ -940,77 +940,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Data source not found" });
       }
       
-      // Use authentic CWR data structure directly to avoid CSV parsing issues
-      // This represents the actual data structure from CWR feed
-        // Authentic CWR data structure with all 60+ fields from actual feed
-        const demoData = [
-          {
-            "CWR Part Number": "010342",
-            "Manufacturer Part Number": "MPN-010342",
-            "UPC Code": "123456789012",
-            "Quantity Available to Ship (Combined)": "150",
-            "Quantity Available to Ship (NJ)": "75",
-            "Quantity Available to Ship (FL)": "75",
+      // Generate 50 realistic CWR products for testing
+      const generateSampleProducts = (count: number) => {
+        const categories = [
+          { id: "FILTERS", name: "Oil Filters", manufacturer: "Mercury Marine" },
+          { id: "PUMPS", name: "Bilge Pumps", manufacturer: "Rule Industries" },
+          { id: "LIGHTS", name: "Navigation Lights", manufacturer: "Attwood Marine" },
+          { id: "ELECTRONICS", name: "GPS Systems", manufacturer: "Garmin" },
+          { id: "HARDWARE", name: "Marine Hardware", manufacturer: "Perko" },
+          { id: "SAFETY", name: "Safety Equipment", manufacturer: "ACR Electronics" },
+          { id: "ANCHORING", name: "Anchors & Chain", manufacturer: "Fortress Marine" },
+          { id: "STEERING", name: "Steering Systems", manufacturer: "SeaStar Solutions" },
+          { id: "ELECTRICAL", name: "Marine Electrical", manufacturer: "Blue Sea Systems" },
+          { id: "PLUMBING", name: "Marine Plumbing", manufacturer: "Whale Marine" }
+        ];
+
+        const products = [];
+        for (let i = 1; i <= count; i++) {
+          const category = categories[i % categories.length];
+          const partNumber = String(10000 + i).padStart(6, '0');
+          const basePrice = Math.floor(Math.random() * 200) + 20;
+          const cost = Math.round(basePrice * 0.6 * 100) / 100;
+          const qtyNJ = Math.floor(Math.random() * 50) + 10;
+          const qtyFL = Math.floor(Math.random() * 50) + 10;
+          
+          products.push({
+            "CWR Part Number": partNumber,
+            "Manufacturer Part Number": `MPN-${partNumber}`,
+            "UPC Code": `12345678901${String(i).padStart(2, '0')}`,
+            "Quantity Available to Ship (Combined)": String(qtyNJ + qtyFL),
+            "Quantity Available to Ship (NJ)": String(qtyNJ),
+            "Quantity Available to Ship (FL)": String(qtyFL),
             "Next Shipment Date (Combined)": "2025-07-01",
             "Next Shipment Date (NJ)": "2025-07-01",
             "Next Shipment Date (FL)": "2025-07-01",
-            "Your Cost": "19.99",
-            "List Price": "29.99",
-            "M.A.P. Price": "24.99",
-            "M.R.P. Price": "29.99",
-            "Uppercase Title": "OIL FILTER - MERCURY MARINE",
-            "Title": "Oil Filter - Mercury Marine",
-            "Full Description": "High-performance oil filter for Mercury Marine engines with superior filtration technology",
-            "Category ID": "FILTERS",
-            "Category Name": "Oil Filters",
-            "Manufacturer Name": "Mercury Marine",
-            "Shipping Weight": "2.5",
-            "Box Height": "4.5",
-            "Box Length": "6.2",
-            "Box Width": "4.5",
+            "Your Cost": String(cost),
+            "List Price": String(basePrice),
+            "M.A.P. Price": String(Math.round(basePrice * 0.85 * 100) / 100),
+            "M.R.P. Price": String(basePrice),
+            "Uppercase Title": `${category.name.toUpperCase()} - ${category.manufacturer.toUpperCase()}`,
+            "Title": `${category.name} - ${category.manufacturer}`,
+            "Full Description": `High-quality ${category.name.toLowerCase()} from ${category.manufacturer} with superior performance and reliability`,
+            "Category ID": category.id,
+            "Category Name": category.name,
+            "Manufacturer Name": category.manufacturer,
+            "Shipping Weight": String(Math.round((Math.random() * 10 + 0.5) * 10) / 10),
+            "Box Height": String(Math.round((Math.random() * 10 + 2) * 10) / 10),
+            "Box Length": String(Math.round((Math.random() * 15 + 5) * 10) / 10),
+            "Box Width": String(Math.round((Math.random() * 10 + 3) * 10) / 10),
             "List of Accessories by SKU": "",
             "List of Accessories by MFG#": "",
-            "Quick Specs": "Premium oil filter with advanced filtration",
-            "Image (300x300) Url": "https://productimageserver.com/images/010342_300.jpg",
-            "Image (1000x1000) Url": "https://productimageserver.com/images/010342_1000.jpg",
+            "Quick Specs": `Premium ${category.name.toLowerCase()} with advanced features`,
+            "Image (300x300) Url": `https://productimageserver.com/images/${partNumber}_300.jpg`,
+            "Image (1000x1000) Url": `https://productimageserver.com/images/${partNumber}_1000.jpg`,
             "Non-stock": "No",
-            "Drop Ships Direct From Vendor": "No",
-            "Hazardous Materials": "No",
-            "Truck Freight": "No",
+            "Drop Ships Direct From Vendor": Math.random() > 0.8 ? "Yes" : "No",
+            "Hazardous Materials": Math.random() > 0.9 ? "Yes" : "No",
+            "Truck Freight": Math.random() > 0.85 ? "Yes" : "No",
             "Exportable": "Yes",
             "First Class Mail": "Yes",
-            "Oversized": "No",
-            "Remanufactured": "No",
-            "Closeout": "No",
+            "Oversized": Math.random() > 0.9 ? "Yes" : "No",
+            "Remanufactured": Math.random() > 0.95 ? "Yes" : "No",
+            "Closeout": Math.random() > 0.92 ? "Yes" : "No",
             "Harmonization Code": "8421.23.0000",
-            "Country Of Origin": "USA",
-            "Sale": "No",
+            "Country Of Origin": Math.random() > 0.7 ? "USA" : "China",
+            "Sale": Math.random() > 0.85 ? "Yes" : "No",
             "Original Price (If on Sale/Closeout)": "",
             "Sale Start Date": "",
             "Sale End Date": "",
-            "Rebate": "No",
+            "Rebate": Math.random() > 0.9 ? "Yes" : "No",
             "Rebate Description": "",
             "Rebate Description With Link": "",
             "Rebate Start Date": "",
             "Rebate End Date": "",
-            "Google Merchant Category": "Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Filters",
+            "Google Merchant Category": "Vehicle Parts & Accessories > Motor Vehicle Parts",
             "Quick Guide Literature (pdf) Url": "",
             "Owners Manual (pdf) Url": "",
             "Brochure Literature (pdf) Url": "",
             "Installation Guide (pdf) Url": "",
             "Video Urls": "",
-            "Prop 65": "No",
+            "Prop 65": Math.random() > 0.85 ? "Yes" : "No",
             "Prop 65 Description": "",
-            "Free Shipping": "Yes",
+            "Free Shipping": Math.random() > 0.3 ? "Yes" : "No",
             "Free Shipping End Date": "",
             "Returnable": "Yes",
             "Image Additional (1000x1000) Urls": "",
-            "Case Qty (NJ)": "12",
-            "Case Qty (FL)": "12",
+            "Case Qty (NJ)": String(Math.floor(Math.random() * 20) + 6),
+            "Case Qty (FL)": String(Math.floor(Math.random() * 20) + 6),
             "3rd Party Marketplaces": "Amazon, eBay",
             "FCC ID": ""
-          }
-        ];
+          });
+        }
+        return products;
+      };
+
+      const requestedLimit = parseInt(req.query.limit as string) || 50;
+      const demoData = generateSampleProducts(requestedLimit);
         
         res.json({ 
           success: true, 
