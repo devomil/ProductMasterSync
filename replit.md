@@ -148,6 +148,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Supplier Delete Functionality Complete (2025-06-30)**:
+  - Added complete delete supplier functionality to supplier management page
+  - Implemented proper Express API endpoint (/api/suppliers/:id DELETE) with JSON response
+  - Fixed "Unexpected token" error by ensuring proper response format
+  - Added deleteSupplier method to DatabaseStorage with Drizzle ORM integration
+  - Included audit logging for delete operations and proper error handling
+  - Successfully tested - suppliers can now be deleted with confirmation dialog
 - **Enhanced Edit Data Source Dialog Complete (2025-06-30)**:
   - Fixed credential display in edit dialog to show authentic stored database values
   - Added comprehensive file paths management with add/remove functionality matching connection setup wizard
