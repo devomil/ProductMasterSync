@@ -148,6 +148,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Enhanced Edit Data Source Dialog Complete (2025-06-30)**:
+  - Fixed credential display in edit dialog to show authentic stored database values
+  - Added comprehensive file paths management with add/remove functionality matching connection setup wizard
+  - Resolved form initialization issue with proper config parsing and form reset
+  - Password fields remain masked for security while showing stored connection details
+  - File paths interface includes label/path inputs with visual empty state and proper validation
+  - Edit dialog now displays real credentials (host: ftp.cwrdist.com, username: mdm_user) from database
 - **Data Source Management System Fixed (2025-06-30)**:
   - Resolved route conflicts between connections and data_sources tables
   - Fixed API endpoints to return correct database data (IDs 6, 7) instead of mock data
