@@ -59,6 +59,37 @@ export default function SuppliersSimple() {
     },
   });
 
+  // Delete supplier functionality
+  const deleteSupplierMutation = useMutation({
+    mutationFn: async (supplierId: number) => {
+      const response = await fetch(`/api/suppliers/${supplierId}`, {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete supplier");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Supplier Deleted",
+        description: "The supplier has been deleted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/statistics"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete supplier: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const [viewDetailsSupplier, setViewDetailsSupplier] = useState<any>(null);
 
   const handleViewDetails = (supplierId: number) => {
@@ -69,11 +100,11 @@ export default function SuppliersSimple() {
   };
 
   const handleDeleteSupplier = (supplierId: number) => {
-    if (window.confirm("Are you sure you want to delete this supplier?")) {
-      toast({
-        title: "Delete Supplier",
-        description: "Supplier deletion functionality will be implemented.",
-      });
+    const supplier = (suppliers && Array.isArray(suppliers)) ? suppliers.find((s: any) => s.id === supplierId) : null;
+    const supplierName = supplier ? supplier.name : 'this supplier';
+    
+    if (window.confirm(`Are you sure you want to delete ${supplierName}? This action cannot be undone.`)) {
+      deleteSupplierMutation.mutate(supplierId);
     }
   };
 
