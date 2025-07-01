@@ -64,6 +64,14 @@ export class DatabaseStorage implements IStorage {
     return updatedSupplier;
   }
 
+  async deleteSupplier(id: number): Promise<boolean> {
+    const [deletedSupplier] = await db
+      .delete(schema.suppliers)
+      .where(eq(schema.suppliers.id, id))
+      .returning();
+    return !!deletedSupplier;
+  }
+
   // Category management
   async getCategories(): Promise<Category[]> {
     const categoriesWithCounts = await db

@@ -30,6 +30,7 @@ export interface IStorage {
   getSupplier(id: number): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: number, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined>;
+  deleteSupplier(id: number): Promise<boolean>;
 
   // Category management
   getCategories(): Promise<Category[]>;

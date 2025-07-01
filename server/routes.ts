@@ -317,6 +317,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/suppliers/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const supplier = await storage.getSupplier(id);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      const success = await storage.deleteSupplier(id);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete supplier" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        action: "delete",
+        entityType: "supplier",
+        entityId: id,
+        details: { before: supplier }
+      });
+      
+      res.json({ 
+        success: true, 
+        message: `Supplier ${supplier.name} has been deleted`,
+        supplierId: id 
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Categories API
   app.get("/api/categories", async (req, res) => {
     try {
