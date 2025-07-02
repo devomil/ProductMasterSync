@@ -964,6 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/datasources", async (req, res) => {
     try {
       const dataSources = await storage.getDataSources();
+      console.log("Raw dataSources from database:", JSON.stringify(dataSources, null, 2));
       res.json(dataSources);
     } catch (error) {
       handleError(res, error);
@@ -984,13 +985,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/datasources", async (req, res) => {
     try {
+      console.log("Creating data source with payload:", JSON.stringify(req.body, null, 2));
+      
       // Parse the config from a string to an object if it's passed as a string
       let dataSourceData = { ...req.body };
       
       if (typeof dataSourceData.config === 'string') {
         try {
           dataSourceData.config = JSON.parse(dataSourceData.config);
+          console.log("Parsed config:", JSON.stringify(dataSourceData.config, null, 2));
         } catch (e) {
+          console.error("Failed to parse config:", e);
           dataSourceData.config = { data: dataSourceData.config };
         }
       }
@@ -1003,6 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validate with zod schema
       const validatedData = insertDataSourceSchema.parse(dataSourceData);
+      
       const dataSource = await storage.createDataSource(validatedData);
       
       // Create audit log

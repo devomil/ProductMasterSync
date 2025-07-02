@@ -1658,7 +1658,7 @@ export const registerConnectionsRoutes = (app: any) => {
   app.post('/api/connections/sample-data', pullSampleData); // Added alias for client compatibility
   app.post('/api/data-sources/:id/sync-inventory', syncInventoryForDataSource);
   
-  // Data source endpoints
-  app.get('/api/datasources', getDataSources);
-  app.post('/api/datasources', createDataSource);
+  // Data source endpoints - disabled to prevent conflicts with main routes
+  // app.get('/api/datasources', getDataSources);
+  // app.post('/api/datasources', createDataSource);
 };
