@@ -826,9 +826,30 @@ export class DatabaseStorage implements IStorage {
           isDefault: true,
           costRules: [],
           weightRules: [
-            { minWeight: 1, maxWeight: 20, shippingCost: 15.99 },
-            { minWeight: 21, maxWeight: 100, shippingCost: 49.99 }
+            { minWeight: 0.1, maxWeight: 20, shippingCost: 15.99 },
+            { minWeight: 20.01, maxWeight: 100, shippingCost: 49.99 }
           ],
+          combinedRules: [],
+          flatRate: null,
+          freeShippingThreshold: 500,
+          oversizedSurcharge: 0,
+          hazmatSurcharge: 0
+        }
+      ];
+    } else if (supplierId === 1) { // Test Marine Supply Co
+      return [
+        {
+          id: 1,
+          name: "Test Marine Supply Co",
+          supplierId: 1,
+          method: "cost_based", 
+          isDefault: true,
+          costRules: [
+            { minCost: 1, maxCost: 100, shippingCost: 12.99 },
+            { minCost: 101, maxCost: 500, shippingCost: 8.99 },
+            { minCost: 501, maxCost: 1500, shippingCost: 0 }
+          ],
+          weightRules: [],
           combinedRules: [],
           flatRate: null,
           freeShippingThreshold: 500,

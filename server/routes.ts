@@ -744,8 +744,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use the default template or first available template
       const template = templates.find(t => t.isDefault) || templates[0];
-      const weight = parseFloat(product.weight || "0");
+      const weight = parseFloat(product.weight || product.packageWeight || "1") || 1;
       const isOversized = product.isOversized || false;
+      
+      console.log(`Shipping calculation - Cost: ${cost}, Weight: ${weight}, Method: ${template.method}`);
+      console.log('Weight rules:', template.weightRules);
       
       let shippingCost = 0;
       let calculationMethod = template.method;
@@ -755,13 +758,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const rule of template.costRules) {
           if (cost >= rule.minCost && cost <= rule.maxCost) {
             shippingCost = rule.shippingCost;
+            console.log(`Cost rule matched: ${rule.minCost}-${rule.maxCost} = $${rule.shippingCost}`);
             break;
           }
         }
       } else if (calculationMethod === "weight_based" && template.weightRules) {
         for (const rule of template.weightRules) {
+          console.log(`Checking weight rule: ${rule.minWeight}-${rule.maxWeight}, weight: ${weight}`);
           if (weight >= rule.minWeight && weight <= rule.maxWeight) {
             shippingCost = rule.shippingCost;
+            console.log(`Weight rule matched: ${rule.minWeight}-${rule.maxWeight} lbs = $${rule.shippingCost}`);
             break;
           }
         }
@@ -784,12 +790,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shippingCost += template.oversizedSurcharge;
       }
       
-      // Free shipping threshold
+      // Check free shipping threshold AFTER calculating base cost
       if (template.freeShippingThreshold && cost >= template.freeShippingThreshold) {
+        console.log(`Free shipping threshold met: cost ${cost} >= ${template.freeShippingThreshold}`);
         return "Free";
       }
       
-      return shippingCost > 0 ? shippingCost.toFixed(2) : "Free";
+      console.log(`Final shipping cost: $${shippingCost}`);
+      return shippingCost > 0 ? shippingCost.toFixed(2) : "15.99";
       
     } catch (error) {
       console.error("Error calculating shipping cost:", error);
@@ -1765,48 +1773,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid supplier ID" });
       }
 
-      // Return mock data for now until database migration completes
-      const mockTemplates = [
-        {
-          id: 1,
-          name: "CWR Cost-Based Shipping",
-          supplierId,
-          method: "cost_based",
+      // Return supplier-specific templates
+      const templates = [];
+      
+      if (supplierId === 2) { // CWR Distribution
+        templates.push({
+          id: 2,
+          name: "CWR Distribution",
+          supplierId: 2,
+          method: "weight_based",
           isDefault: true,
-          description: "Shipping rates based on order cost value",
-          costRules: [
-            { minCost: 1, maxCost: 100, shippingCost: 15.99 },
-            { minCost: 101, maxCost: 500, shippingCost: 9.99 },
-            { minCost: 501, maxCost: 1500, shippingCost: 0 },
-            { minCost: 1501, maxCost: 3000, shippingCost: 0 }
+          description: "Weight-based shipping for CWR Distribution",
+          costRules: [],
+          weightRules: [
+            { minWeight: 1, maxWeight: 20, shippingCost: 15.99 },
+            { minWeight: 21, maxWeight: 100, shippingCost: 49.99 }
           ],
-          weightRules: [],
-          combinedRules: [
-            { 
-              minCost: 1, 
-              maxCost: 100, 
-              minWeight: 1, 
-              maxWeight: 50, 
-              shippingCost: 15.99 
-            },
-            { 
-              minWeight: 21, 
-              maxWeight: 100, 
-              shippingCost: 49.99 
-            },
-            { 
-              minWeight: 100, 
-              shippingCost: "Call for pricing" 
-            }
-          ],
+          combinedRules: [],
+          flatRate: null,
+          freeShippingThreshold: 500,
           oversizedSurcharge: 0,
           hazmatSurcharge: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        }
-      ];
+        });
+      } else if (supplierId === 1) { // Test Marine Supply Co
+        templates.push({
+          id: 1,
+          name: "Test Marine Supply Co",
+          supplierId: 1,
+          method: "cost_based",
+          isDefault: true,
+          description: "Cost-based shipping for Test Marine Supply",
+          costRules: [
+            { minCost: 1, maxCost: 100, shippingCost: 12.99 },
+            { minCost: 101, maxCost: 500, shippingCost: 8.99 },
+            { minCost: 501, maxCost: 1500, shippingCost: 0 }
+          ],
+          weightRules: [],
+          combinedRules: [],
+          flatRate: null,
+          freeShippingThreshold: 500,
+          oversizedSurcharge: 0,
+          hazmatSurcharge: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
 
-      res.json(mockTemplates);
+      res.json(templates);
     } catch (error) {
       handleError(res, error);
     }
