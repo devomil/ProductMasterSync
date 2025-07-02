@@ -514,9 +514,7 @@ export default function DataSources() {
       }
       
       const result = await response.json();
-      console.log('Sample data API response:', result);
       let sampleData = result.data || [];
-      console.log('Extracted sample data:', sampleData);
       
       // Fallback to demo data structure if API fails
       if (!sampleData.length) {
@@ -569,9 +567,7 @@ export default function DataSources() {
         ];
       }
 
-      console.log('Setting sample data to state:', sampleData.length, 'records');
       setSampleData(sampleData);
-      console.log('Setting showMappingWalkthrough to true');
       setShowMappingWalkthrough(true);
       
     } catch (error) {
