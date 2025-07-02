@@ -1288,6 +1288,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mapping Templates endpoints
+  app.get("/api/mapping-templates", async (req, res) => {
+    try {
+      const mappingTemplates = await storage.getMappingTemplates();
+      res.json(mappingTemplates);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/mapping-templates/:id", async (req, res) => {
+    try {
+      const mappingTemplate = await storage.getMappingTemplate(Number(req.params.id));
+      if (!mappingTemplate) {
+        return res.status(404).json({ message: "Mapping template not found" });
+      }
+      res.json(mappingTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/mapping-templates", async (req, res) => {
+    try {
+      const mappingTemplateData = req.body;
+      console.log('Creating mapping template with data:', JSON.stringify(mappingTemplateData, null, 2));
+      const mappingTemplate = await storage.createMappingTemplate(mappingTemplateData);
+      console.log('Created mapping template:', mappingTemplate);
+      res.status(201).json(mappingTemplate);
+    } catch (error) {
+      console.error('Error creating mapping template:', error);
+      handleError(res, error);
+    }
+  });
+
+  app.put("/api/mapping-templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid mapping template ID" });
+      }
+      const mappingTemplateData = req.body;
+      const updatedMappingTemplate = await storage.updateMappingTemplate(id, mappingTemplateData);
+      res.json(updatedMappingTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.delete("/api/mapping-templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid mapping template ID" });
+      }
+      await storage.deleteMappingTemplate(id);
+      res.status(204).send();
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Sample pull with mapping endpoint
   app.post('/api/datasources/:id/sample-pull-with-mapping', async (req, res) => {
     try {
@@ -1310,12 +1372,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the latest mapping template for this data source type 
+      console.log('Looking for mapping template with sourceType:', dataSource.type);
       const mappingTemplateResults = await db
         .select()
         .from(mappingTemplates)
-        .where(eq(mappingTemplates.sourceType, 'sftp'))
+        .where(eq(mappingTemplates.sourceType, dataSource.type))
         .orderBy(desc(mappingTemplates.updatedAt))
         .limit(1);
+      
+      console.log('Found mapping templates:', mappingTemplateResults.length);
         
       if (mappingTemplateResults.length === 0) {
         return res.status(400).json({ 
