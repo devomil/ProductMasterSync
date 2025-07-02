@@ -27,6 +27,16 @@ const shippingTemplateSchema = z.object({
   freeShippingThreshold: z.number().optional(),
   oversizedSurcharge: z.number().default(0),
   hazmatSurcharge: z.number().default(0),
+  costRules: z.array(z.object({
+    minCost: z.number().min(0),
+    maxCost: z.number().min(0),
+    shippingCost: z.number().min(0)
+  })).optional().default([]),
+  weightRules: z.array(z.object({
+    minWeight: z.number().min(0),
+    maxWeight: z.number().min(0),
+    shippingCost: z.number().min(0)
+  })).optional().default([]),
 });
 
 type ShippingTemplateFormData = z.infer<typeof shippingTemplateSchema>;
@@ -58,6 +68,7 @@ interface Supplier {
 export default function ShippingTemplates() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShippingTemplate | null>(null);
   const [calculatorData, setCalculatorData] = useState({
     cost: 0,
@@ -65,6 +76,44 @@ export default function ShippingTemplates() {
     isOversized: false,
     isHazmat: false
   });
+  
+  // Form state for cost and weight rules
+  const [costRules, setCostRules] = useState([
+    { minCost: 1, maxCost: 100, shippingCost: 15.99 },
+    { minCost: 101, maxCost: 500, shippingCost: 9.99 },
+    { minCost: 501, maxCost: 1500, shippingCost: 0 },
+    { minCost: 1501, maxCost: 3000, shippingCost: 0 }
+  ]);
+  
+  const [weightRules, setWeightRules] = useState([
+    { minWeight: 1, maxWeight: 20, shippingCost: 15.99 },
+    { minWeight: 21, maxWeight: 100, shippingCost: 49.99 }
+  ]);
+
+  // Function to open edit dialog with template data
+  const openEditDialog = (template: ShippingTemplate) => {
+    setEditingTemplate(template);
+    
+    // Populate form with existing template data
+    form.reset({
+      name: template.name,
+      method: template.method as any,
+      description: template.description || "",
+      isDefault: template.isDefault,
+      oversizedSurcharge: template.oversizedSurcharge,
+      hazmatSurcharge: template.hazmatSurcharge,
+      flatRate: template.flatRate,
+    });
+
+    // Set the rules based on template method
+    if (template.method === "cost_based" && template.costRules) {
+      setCostRules(template.costRules);
+    } else if (template.method === "weight_based" && template.weightRules) {
+      setWeightRules(template.weightRules);
+    }
+    
+    setIsEditDialogOpen(true);
+  };
 
   const queryClient = useQueryClient();
 
@@ -162,14 +211,57 @@ export default function ShippingTemplates() {
       isDefault: false,
       oversizedSurcharge: 0,
       hazmatSurcharge: 0,
+      costRules: costRules,
+      weightRules: weightRules,
     },
   });
 
+  // Update rules when method changes
+  const selectedMethod = form.watch("method");
+
+  // Helper functions for managing rules
+  const addCostRule = () => {
+    setCostRules([...costRules, { minCost: 0, maxCost: 0, shippingCost: 0 }]);
+  };
+
+  const removeCostRule = (index: number) => {
+    setCostRules(costRules.filter((_, i) => i !== index));
+  };
+
+  const updateCostRule = (index: number, field: string, value: number) => {
+    const updated = [...costRules];
+    updated[index] = { ...updated[index], [field]: value };
+    setCostRules(updated);
+    form.setValue("costRules", updated);
+  };
+
+  const addWeightRule = () => {
+    setWeightRules([...weightRules, { minWeight: 0, maxWeight: 0, shippingCost: 0 }]);
+  };
+
+  const removeWeightRule = (index: number) => {
+    setWeightRules(weightRules.filter((_, i) => i !== index));
+  };
+
+  const updateWeightRule = (index: number, field: string, value: number) => {
+    const updated = [...weightRules];
+    updated[index] = { ...updated[index], [field]: value };
+    setWeightRules(updated);
+    form.setValue("weightRules", updated);
+  };
+
   const onSubmit = (data: ShippingTemplateFormData) => {
+    const templateData = {
+      ...data,
+      supplierId: selectedSupplierId!,
+      costRules: selectedMethod === "cost_based" ? costRules : [],
+      weightRules: selectedMethod === "weight_based" ? weightRules : [],
+    };
+
     if (editingTemplate) {
-      updateTemplateMutation.mutate({ id: editingTemplate.id, data });
+      updateTemplateMutation.mutate({ id: editingTemplate.id, data: templateData });
     } else {
-      createTemplateMutation.mutate(data);
+      createTemplateMutation.mutate(templateData);
     }
   };
 
@@ -346,6 +438,143 @@ export default function ShippingTemplates() {
                             )}
                           />
 
+                          {/* Cost-Based Rules */}
+                          {selectedMethod === "cost_based" && (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Cost Value Rules</Label>
+                                <Button type="button" onClick={addCostRule} variant="outline" size="sm">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Rule
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                {costRules.map((rule, index) => (
+                                  <div key={index} className="grid grid-cols-3 gap-3 items-end p-3 border rounded-lg">
+                                    <div>
+                                      <Label className="text-sm">Min Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minCost}
+                                        onChange={(e) => updateCostRule(index, "minCost", parseFloat(e.target.value) || 0)}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxCost}
+                                        onChange={(e) => updateCostRule(index, "maxCost", parseFloat(e.target.value) || 0)}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <div className="flex-1">
+                                        <Label className="text-sm">Shipping Cost ($)</Label>
+                                        <Input
+                                          type="number"
+                                          value={rule.shippingCost}
+                                          onChange={(e) => updateCostRule(index, "shippingCost", parseFloat(e.target.value) || 0)}
+                                          step="0.01"
+                                        />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => removeCostRule(index)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-6"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Weight-Based Rules */}
+                          {selectedMethod === "weight_based" && (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Weight Rules</Label>
+                                <Button type="button" onClick={addWeightRule} variant="outline" size="sm">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Rule
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                {weightRules.map((rule, index) => (
+                                  <div key={index} className="grid grid-cols-3 gap-3 items-end p-3 border rounded-lg">
+                                    <div>
+                                      <Label className="text-sm">Min Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minWeight}
+                                        onChange={(e) => updateWeightRule(index, "minWeight", parseFloat(e.target.value) || 0)}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxWeight}
+                                        onChange={(e) => updateWeightRule(index, "maxWeight", parseFloat(e.target.value) || 0)}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <div className="flex-1">
+                                        <Label className="text-sm">Shipping Cost ($)</Label>
+                                        <Input
+                                          type="number"
+                                          value={rule.shippingCost}
+                                          onChange={(e) => updateWeightRule(index, "shippingCost", parseFloat(e.target.value) || 0)}
+                                          step="0.01"
+                                        />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => removeWeightRule(index)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-6"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Flat Rate */}
+                          {selectedMethod === "flat_rate" && (
+                            <FormField
+                              control={form.control}
+                              name="flatRate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Flat Rate Amount ($)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
+
                           <FormField
                             control={form.control}
                             name="description"
@@ -359,6 +588,47 @@ export default function ShippingTemplates() {
                               </FormItem>
                             )}
                           />
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="oversizedSurcharge"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Oversized Surcharge ($)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="hazmatSurcharge"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Hazmat Surcharge ($)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
 
                           <FormField
                             control={form.control}
@@ -384,6 +654,280 @@ export default function ShippingTemplates() {
                             </Button>
                             <Button type="submit" disabled={createTemplateMutation.isPending}>
                               {createTemplateMutation.isPending ? "Creating..." : "Create Template"}
+                            </Button>
+                          </div>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Edit Dialog */}
+                  <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Edit Shipping Template</DialogTitle>
+                        <DialogDescription>
+                          Update shipping cost calculation rules for this template
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Template Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., Standard Shipping" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="method"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Calculation Method</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select calculation method" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="cost_based">Cost-Based</SelectItem>
+                                    <SelectItem value="weight_based">Weight-Based</SelectItem>
+                                    <SelectItem value="combined">Combined (Cost + Weight)</SelectItem>
+                                    <SelectItem value="flat_rate">Flat Rate</SelectItem>
+                                    <SelectItem value="free">Free Shipping</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  How shipping costs should be calculated
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Same rule sections as create dialog */}
+                          {selectedMethod === "cost_based" && (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Cost Value Rules</Label>
+                                <Button type="button" onClick={addCostRule} variant="outline" size="sm">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Rule
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                {costRules.map((rule, index) => (
+                                  <div key={index} className="grid grid-cols-3 gap-3 items-end p-3 border rounded-lg">
+                                    <div>
+                                      <Label className="text-sm">Min Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minCost}
+                                        onChange={(e) => updateCostRule(index, "minCost", parseFloat(e.target.value) || 0)}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxCost}
+                                        onChange={(e) => updateCostRule(index, "maxCost", parseFloat(e.target.value) || 0)}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <div className="flex-1">
+                                        <Label className="text-sm">Shipping Cost ($)</Label>
+                                        <Input
+                                          type="number"
+                                          value={rule.shippingCost}
+                                          onChange={(e) => updateCostRule(index, "shippingCost", parseFloat(e.target.value) || 0)}
+                                          step="0.01"
+                                        />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => removeCostRule(index)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-6"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedMethod === "weight_based" && (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Weight Rules</Label>
+                                <Button type="button" onClick={addWeightRule} variant="outline" size="sm">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Rule
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                {weightRules.map((rule, index) => (
+                                  <div key={index} className="grid grid-cols-3 gap-3 items-end p-3 border rounded-lg">
+                                    <div>
+                                      <Label className="text-sm">Min Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minWeight}
+                                        onChange={(e) => updateWeightRule(index, "minWeight", parseFloat(e.target.value) || 0)}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxWeight}
+                                        onChange={(e) => updateWeightRule(index, "maxWeight", parseFloat(e.target.value) || 0)}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <div className="flex-1">
+                                        <Label className="text-sm">Shipping Cost ($)</Label>
+                                        <Input
+                                          type="number"
+                                          value={rule.shippingCost}
+                                          onChange={(e) => updateWeightRule(index, "shippingCost", parseFloat(e.target.value) || 0)}
+                                          step="0.01"
+                                        />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => removeWeightRule(index)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-6"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedMethod === "flat_rate" && (
+                            <FormField
+                              control={form.control}
+                              name="flatRate"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Flat Rate Amount ($)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
+
+                          <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Optional description..." {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="oversizedSurcharge"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Oversized Surcharge ($)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="hazmatSurcharge"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Hazmat Surcharge ($)</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="isDefault"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                  <FormLabel className="text-base">Default Template</FormLabel>
+                                  <FormDescription>
+                                    Use this template as the default for this supplier
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={updateTemplateMutation.isPending}>
+                              {updateTemplateMutation.isPending ? "Updating..." : "Update Template"}
                             </Button>
                           </div>
                         </form>
@@ -431,7 +975,7 @@ export default function ShippingTemplates() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setEditingTemplate(template)}
+                              onClick={() => openEditDialog(template)}
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>

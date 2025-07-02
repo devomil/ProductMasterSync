@@ -148,6 +148,17 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Sophisticated Shipping Template Editor with Detailed Rule Configuration (2025-07-02)**:
+  - Enhanced shipping template creation with dynamic cost and weight rule interfaces
+  - Added detailed form components allowing users to create multiple cost-based rules ($1-100: $15.99, $101-500: $9.99, etc.)
+  - Implemented weight-based rule configuration with granular pound ranges and shipping costs
+  - Built comprehensive edit functionality with pre-populated forms for existing templates
+  - Added real-time rule management: add, remove, and modify cost/weight ranges with live updates
+  - Integrated oversized and hazmat surcharge configuration fields for additional shipping fees
+  - Created dual dialog system: separate create and edit dialogs with identical sophisticated interfaces
+  - Templates support flat rate, free shipping, cost-based, weight-based, and combined calculation methods
+  - Rule-based interface matches user requirements with min/max cost ranges and corresponding shipping costs
+  - Form validation and error handling for all shipping calculation parameters
 - **Supplier-Specific Shipping Templates System Implemented (2025-07-02)**:
   - Created comprehensive shipping template management system for cost and weight-based shipping calculations
   - Added dedicated Shipping Templates page (/shipping-templates) with tabbed interface for template management and shipping calculator
