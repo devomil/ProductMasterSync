@@ -131,7 +131,7 @@ export default function ShippingTemplates() {
 
   // Fetch shipping templates for selected supplier
   const { data: templates = [], isLoading } = useQuery<ShippingTemplate[]>({
-    queryKey: ["/api/suppliers", selectedSupplierId, "shipping-templates"],
+    queryKey: [`/api/suppliers/${selectedSupplierId}/shipping-templates`],
     enabled: !!selectedSupplierId,
   });
 
@@ -147,7 +147,7 @@ export default function ShippingTemplates() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers", selectedSupplierId, "shipping-templates"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/suppliers/${selectedSupplierId}/shipping-templates`] });
       setIsCreateDialogOpen(false);
     },
   });
@@ -164,7 +164,7 @@ export default function ShippingTemplates() {
       return response.json();
     },
     onSuccess: (updatedTemplate) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers", selectedSupplierId, "shipping-templates"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/suppliers/${selectedSupplierId}/shipping-templates`] });
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
       setIsEditDialogOpen(false);
       setEditingTemplate(null);
@@ -195,7 +195,7 @@ export default function ShippingTemplates() {
       return;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers", selectedSupplierId, "shipping-templates"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/suppliers/${selectedSupplierId}/shipping-templates`] });
     },
   });
 
