@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Edit2, Trash2, Calculator, DollarSign, Package, Settings } from "lucide-react";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // Shipping template form schema
 const shippingTemplateSchema = z.object({
@@ -66,6 +67,7 @@ interface Supplier {
 }
 
 export default function ShippingTemplates() {
+  const { toast } = useToast();
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -161,9 +163,27 @@ export default function ShippingTemplates() {
       if (!response.ok) throw new Error("Failed to update template");
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedTemplate) => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers", selectedSupplierId, "shipping-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      setIsEditDialogOpen(false);
       setEditingTemplate(null);
+      form.reset();
+      
+      // Show success toast
+      toast({
+        title: "Template Updated Successfully",
+        description: `"${updatedTemplate.name}" has been updated and will now be used for shipping calculations throughout your catalog.`,
+        duration: 5000,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update shipping template. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
     },
   });
 
@@ -261,6 +281,7 @@ export default function ShippingTemplates() {
       supplierId: selectedSupplierId!,
       costRules: selectedMethod === "cost_based" ? costRules : [],
       weightRules: selectedMethod === "weight_based" ? weightRules : [],
+      combinedRules: selectedMethod === "combined" ? combinedRules : [],
     };
 
     if (editingTemplate) {
