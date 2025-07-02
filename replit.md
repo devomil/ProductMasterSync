@@ -148,6 +148,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Supplier-Specific Shipping Template Filtering Fixed (2025-07-02)**:
+  - Fixed frontend API query structure to properly filter shipping templates by selected supplier
+  - Updated React Query cache invalidation to use correct endpoint format
+  - Enhanced shipping cost calculation with improved weight parsing and debug logging
+  - Templates now correctly show only for selected supplier (CWR Distribution shows only CWR template)
+  - Weight-based shipping rules working properly: 0.1-20 lbs = $15.99, 20+ lbs = $49.99
+  - Shipping cost calculation displays correctly in product warehouse details modal
 - **Sophisticated Shipping Template Editor with Detailed Rule Configuration (2025-07-02)**:
   - Enhanced shipping template creation with dynamic cost and weight rule interfaces
   - Added detailed form components allowing users to create multiple cost-based rules ($1-100: $15.99, $101-500: $9.99, etc.)
