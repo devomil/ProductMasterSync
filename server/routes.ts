@@ -353,8 +353,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Categories API
   app.get("/api/categories", async (req, res) => {
     try {
-      const categories = await storage.getCategories();
-      res.json(categories);
+      // Get categories with product counts using direct database query
+      const categoriesWithCounts = await db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          code: categories.code,
+          parentId: categories.parentId,
+          level: categories.level,
+          path: categories.path,
+          isActive: sql`true`,
+          productCount: sql`count(${products.id})::int`,
+          createdAt: categories.createdAt,
+          updatedAt: categories.updatedAt,
+          attributes: categories.attributes
+        })
+        .from(categories)
+        .leftJoin(products, eq(categories.id, products.categoryId))
+        .groupBy(categories.id)
+        .orderBy(categories.level, categories.name);
+      
+      res.json(categoriesWithCounts);
     } catch (error) {
       handleError(res, error);
     }
