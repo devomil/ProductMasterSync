@@ -148,6 +148,12 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Image Handling During Sample and Full Pulls Fixed (2025-07-02)**:
+  - Fixed image field mappings in CWR mapping template to use correct database field names
+  - Updated mappings: imageUrl ← "Image (300x300) Url", imageUrlLarge ← "Image (1000x1000) Url", additionalImages ← "Image Additional (1000x1000) Urls"
+  - All products now properly store authentic CWR supplier images from productimageserver.com during import process
+  - Product Gallery tab displays high-quality images (300x300 and 1000x1000 resolution) instead of "No Images Available"
+  - Image import works for both sample pulls and full catalog imports using corrected field mapping template
 - **Categories Page Product Count Display Fixed (2025-07-02)**:
   - Fixed TypeScript interface issues preventing product counts from displaying in Categories page
   - Updated Categories.tsx to use proper CategoryWithProductCount interface matching API response structure
