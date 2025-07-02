@@ -655,20 +655,24 @@ export default function DataSources() {
         description: "Pulling 50 products using your saved field mappings..."
       });
 
-      const response = await apiRequest("POST", `/api/datasources/${dataSource.id}/sample-pull-with-mapping`, {
-        limit: 50
+      const response = await fetch(`/api/datasources/${dataSource.id}/sample-pull-with-mapping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 50 })
       });
+      
+      const result = await response.json();
 
-      if (response.success) {
+      if (result.success) {
         toast({
           title: "Sample Pull Complete",
-          description: `Successfully imported ${response.imported} products using field mappings!`
+          description: `Successfully imported ${result.imported} products using field mappings!`
         });
         
         // Refresh products data
         queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       } else {
-        throw new Error(response.message || 'Sample pull failed');
+        throw new Error(result.message || 'Sample pull failed');
       }
     } catch (error) {
       console.error('Sample pull with mapping error:', error);

@@ -1427,7 +1427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         // Apply field mappings
-        Object.entries(fieldMappings as Record<string, string>).forEach(([sourceField, targetField]) => {
+        Object.entries(fieldMappings as Record<string, string>).forEach(([targetField, sourceField]) => {
           if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
             let value = sourceRecord[sourceField];
             
