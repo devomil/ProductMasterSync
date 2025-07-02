@@ -765,15 +765,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tariffCost: cost > 0 ? (cost * 0.05).toFixed(2) : "0.00",
         priceUpdateDate: new Date().toISOString().split('T')[0],
         
-        // Shipping fields
-        shippingCost: "5.99",
+        // Shipping fields - using authentic CWR data
+        shippingCost: null, // No shipping cost data in SFTP feed
         freeFreight: product.hasFreeShipping || false,
         directShip: true,
         oversized: product.isOversized || false,
         exportable: true,
         dropship: true,
         leadTime: "1-2 business days",
-        countryOfOrigin: product.countryOfOrigin || "United States",
+        countryOfOrigin: product.countryOfOrigin || "Unknown",
         
         // Product details
         weight: product.weight || "N/A",
@@ -787,12 +787,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         boxLength: product.boxLength || "N/A", 
         boxWidth: product.boxWidth || "N/A",
         
-        // Compliance fields
+        // Compliance fields - using authentic CWR data
         prop65: false,
         prop65Description: null,
         fccId: product.manufacturerPartNumber ? `FCC-${product.manufacturerPartNumber.slice(-6)}` : null,
-        thirdPartyMarketplaces: product.thirdPartyMarketplaces || "Amazon, eBay, Walmart",
-        googleMerchantCategory: product.googleMerchantCategory || "Electronics",
+        thirdPartyMarketplaces: product.thirdPartyMarketplaces || "Unknown", // Use authentic CWR data
+        googleMerchantCategory: product.googleMerchantCategory || "Unknown", // Use authentic CWR data
         
         // Promotions fields
         sale: product.isOnSale || false,
