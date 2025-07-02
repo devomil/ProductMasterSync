@@ -148,6 +148,17 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Supplier-Specific Shipping Templates System Implemented (2025-07-02)**:
+  - Created comprehensive shipping template management system for cost and weight-based shipping calculations
+  - Added dedicated Shipping Templates page (/shipping-templates) with tabbed interface for template management and shipping calculator
+  - Implemented API endpoints for CRUD operations on shipping templates with authentic CWR supplier shipping rules
+  - Built shipping cost calculator supporting cost-based, weight-based, combined, flat rate, and free shipping methods
+  - Added smart calculation logic: $15.99 shipping under $100, $9.99 for $101-500, free over $500, with weight surcharges for 20+ lbs
+  - Integrated oversized and hazmat surcharge calculations for accurate shipping cost estimation
+  - Connected to supplier dropdown navigation for easy access to shipping template management
+  - Templates support multiple rule types: cost rules, weight rules, combined rules with proper breakdown display
+  - Calculator provides detailed cost breakdown showing base cost, weight surcharge, oversized surcharge, and hazmat fees
+  - System designed to replace suppliers who don't provide per-item shipping costs with calculated estimates
 - **Unique EDC SKU Generation System Implemented (2025-07-02)**:
   - Replaced supplier part number-based SKU generation with unique sequential system
   - EDC SKUs now use sequential format: EDC100001, EDC100002, etc., independent of supplier part numbers

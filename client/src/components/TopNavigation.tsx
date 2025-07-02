@@ -17,7 +17,8 @@ import {
   ShoppingCart,
   Zap,
   Brain,
-  FolderTree
+  FolderTree,
+  Truck
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -141,6 +142,12 @@ const TopNavigation = () => {
                   <Link to="/suppliers-advanced" className="flex items-center gap-2 w-full">
                     <BarChart3 className="h-4 w-4" />
                     Advanced Supplier Analytics
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/shipping-templates" className="flex items-center gap-2 w-full">
+                    <Truck className="h-4 w-4" />
+                    Shipping Templates
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

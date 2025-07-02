@@ -416,6 +416,40 @@ export const supplierAutomation = pgTable("supplier_automation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Shipping Templates for supplier-specific shipping calculations
+export const shippingMethodEnum = pgEnum('shipping_method', [
+  'cost_based', 'weight_based', 'combined', 'flat_rate', 'free'
+]);
+
+export const shippingTemplates = pgTable("shipping_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
+  method: shippingMethodEnum("method").notNull(),
+  isDefault: boolean("is_default").default(false),
+  description: text("description"),
+  
+  // Cost-based rules
+  costRules: json("cost_rules").default([]), // Array of {minCost, maxCost, shippingCost}
+  
+  // Weight-based rules  
+  weightRules: json("weight_rules").default([]), // Array of {minWeight, maxWeight, shippingCost}
+  
+  // Combined rules (cost AND weight conditions)
+  combinedRules: json("combined_rules").default([]), // Array of {minCost, maxCost, minWeight, maxWeight, shippingCost}
+  
+  // Flat rate or free shipping
+  flatRate: real("flat_rate"), // For flat_rate method
+  freeShippingThreshold: real("free_shipping_threshold"), // Minimum order for free shipping
+  
+  // Special handling
+  oversizedSurcharge: real("oversized_surcharge").default(0),
+  hazmatSurcharge: real("hazmat_surcharge").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const amazonSyncLogs = pgTable("amazon_sync_logs", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id),
@@ -908,3 +942,22 @@ export type AmazonPriceHistory = typeof amazonPriceHistory.$inferSelect;
 export type AmazonCompetitiveAnalysis = typeof amazonCompetitiveAnalysis.$inferSelect;
 export type MultiAsinOpportunity = typeof multiAsinOpportunities.$inferSelect;
 export type SupplierAsinPerformance = typeof supplierAsinPerformance.$inferSelect;
+
+// Shipping template types
+export type ShippingTemplate = typeof shippingTemplates.$inferSelect;
+
+// Shipping template Zod schemas
+export const insertShippingTemplateSchema = createInsertSchema(shippingTemplates);
+export type InsertShippingTemplate = z.infer<typeof insertShippingTemplateSchema>;
+
+// Shipping template relations
+export const shippingTemplatesRelations = relations(shippingTemplates, ({ one }) => ({
+  supplier: one(suppliers, {
+    fields: [shippingTemplates.supplierId],
+    references: [suppliers.id],
+  }),
+}));
+
+export const suppliersShippingRelations = relations(suppliers, ({ many }) => ({
+  shippingTemplates: many(shippingTemplates),
+}));

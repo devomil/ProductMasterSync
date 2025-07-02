@@ -1683,6 +1683,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Shipping Templates endpoints
+  app.get("/api/suppliers/:supplierId/shipping-templates", async (req, res) => {
+    try {
+      const supplierId = parseInt(req.params.supplierId);
+      if (isNaN(supplierId)) {
+        return res.status(400).json({ message: "Invalid supplier ID" });
+      }
+
+      // Return mock data for now until database migration completes
+      const mockTemplates = [
+        {
+          id: 1,
+          name: "CWR Cost-Based Shipping",
+          supplierId,
+          method: "cost_based",
+          isDefault: true,
+          description: "Shipping rates based on order cost value",
+          costRules: [
+            { minCost: 1, maxCost: 100, shippingCost: 15.99 },
+            { minCost: 101, maxCost: 500, shippingCost: 9.99 },
+            { minCost: 501, maxCost: 1500, shippingCost: 0 },
+            { minCost: 1501, maxCost: 3000, shippingCost: 0 }
+          ],
+          weightRules: [],
+          combinedRules: [
+            { 
+              minCost: 1, 
+              maxCost: 100, 
+              minWeight: 1, 
+              maxWeight: 50, 
+              shippingCost: 15.99 
+            },
+            { 
+              minWeight: 21, 
+              maxWeight: 100, 
+              shippingCost: 49.99 
+            },
+            { 
+              minWeight: 100, 
+              shippingCost: "Call for pricing" 
+            }
+          ],
+          oversizedSurcharge: 0,
+          hazmatSurcharge: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+
+      res.json(mockTemplates);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/suppliers/:supplierId/shipping-templates", async (req, res) => {
+    try {
+      const supplierId = parseInt(req.params.supplierId);
+      if (isNaN(supplierId)) {
+        return res.status(400).json({ message: "Invalid supplier ID" });
+      }
+
+      const templateData = req.body;
+      
+      // Validate required fields
+      if (!templateData.name || !templateData.method) {
+        return res.status(400).json({ message: "Name and method are required" });
+      }
+
+      // For now, return mock response
+      const newTemplate = {
+        id: Date.now(),
+        supplierId,
+        ...templateData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      res.status(201).json(newTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.put("/api/shipping-templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      const updates = req.body;
+      
+      // For now, return updated mock response
+      const updatedTemplate = {
+        id,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+
+      res.json(updatedTemplate);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.delete("/api/shipping-templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      // For now, return success
+      res.status(204).send();
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // Calculate shipping cost for a product using supplier's shipping template
+  app.post("/api/suppliers/:supplierId/calculate-shipping", async (req, res) => {
+    try {
+      const supplierId = parseInt(req.params.supplierId);
+      const { cost, weight, isOversized, isHazmat } = req.body;
+
+      if (isNaN(supplierId)) {
+        return res.status(400).json({ message: "Invalid supplier ID" });
+      }
+
+      // Mock calculation based on CWR example
+      let shippingCost = 0;
+      let method = "cost_based";
+
+      // Cost-based calculation
+      if (cost <= 100) {
+        shippingCost = 15.99;
+      } else if (cost <= 500) {
+        shippingCost = 9.99;
+      } else {
+        shippingCost = 0; // Free shipping
+      }
+
+      // Weight-based additional charges
+      if (weight && weight > 100) {
+        method = "call_for_pricing";
+        shippingCost = "Call for pricing";
+      } else if (weight && weight > 20) {
+        shippingCost = Math.max(shippingCost, 49.99);
+      }
+
+      // Surcharges
+      if (isOversized) {
+        shippingCost = typeof shippingCost === 'number' ? shippingCost + 25 : shippingCost;
+      }
+      if (isHazmat) {
+        shippingCost = typeof shippingCost === 'number' ? shippingCost + 15 : shippingCost;
+      }
+
+      res.json({
+        supplierId,
+        shippingCost,
+        method,
+        breakdown: {
+          baseCost: cost <= 100 ? 15.99 : cost <= 500 ? 9.99 : 0,
+          weightSurcharge: weight > 20 ? (weight > 100 ? "Call for pricing" : 49.99 - (cost <= 100 ? 15.99 : 9.99)) : 0,
+          oversizedSurcharge: isOversized ? 25 : 0,
+          hazmatSurcharge: isHazmat ? 15 : 0
+        }
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Basic health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ 
