@@ -148,6 +148,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Unique EDC SKU Generation System Implemented (2025-07-02)**:
+  - Replaced supplier part number-based SKU generation with unique sequential system
+  - EDC SKUs now use sequential format: EDC100001, EDC100002, etc., independent of supplier part numbers
+  - Original supplier part numbers stored separately in USIN field for reference
+  - Prevents SKU conflicts when multiple suppliers have overlapping part numbers
+  - Each product receives globally unique EDC identifier regardless of supplier data
+  - Updated sample pull and mapping system to use new sequential SKU generation
 - **Image Handling During Sample and Full Pulls Fixed (2025-07-02)**:
   - Fixed image field mappings in CWR mapping template to use correct database field names
   - Updated mappings: imageUrl ← "Image (300x300) Url", imageUrlLarge ← "Image (1000x1000) Url", additionalImages ← "Image Additional (1000x1000) Urls"

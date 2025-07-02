@@ -1422,6 +1422,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Function to get the next available EDC number for unique SKU generation
+  async function getNextEDCNumber(): Promise<number> {
+    try {
+      // Query for the highest existing EDC SKU
+      const existingProducts = await db.select({
+        sku: products.sku
+      })
+      .from(products)
+      .where(sql`${products.sku} LIKE 'EDC%'`)
+      .orderBy(sql`CAST(SUBSTRING(${products.sku}, 4) AS INTEGER) DESC`)
+      .limit(1);
+
+      if (existingProducts.length === 0) {
+        // No existing EDC products, start from 100001
+        return 100001;
+      }
+
+      // Extract the number from the highest EDC SKU
+      const highestSKU = existingProducts[0].sku;
+      const numberPart = highestSKU.replace('EDC', '');
+      const highestNumber = parseInt(numberPart);
+      
+      return (isNaN(highestNumber) ? 100000 : highestNumber) + 1;
+    } catch (error) {
+      console.error('Error getting next EDC number:', error);
+      // Fallback to timestamp-based unique number
+      return 100000 + Math.floor(Date.now() / 1000) % 900000;
+    }
+  }
+
   // Sample pull with mapping endpoint
   app.post('/api/datasources/:id/sample-pull-with-mapping', async (req, res) => {
     try {
@@ -1545,11 +1575,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                    sourceRecord['Uppercase Title'] || 
                                    sourceRecord['Product Name'] || 
                                    'Imported Product';
-        }
-        
-        // Ensure SKU is always present
-        if (!transformedRecord.sku) {
-          transformedRecord.sku = `PRODUCT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
         
         transformedProducts.push(transformedRecord);
