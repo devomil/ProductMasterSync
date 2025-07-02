@@ -1491,6 +1491,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Sample source record:', sampleResult.data[0]);
       const transformedProducts = [];
       
+      // Get the next available EDC number for unique SKU generation
+      let nextEDCNumber = await getNextEDCNumber();
+      
       for (let i = 0; i < Math.min(limit, sampleResult.data.length); i++) {
         const sourceRecord = sampleResult.data[i];
         const transformedRecord: any = {
@@ -1499,14 +1502,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: new Date()
         };
         
+        // Generate unique EDC SKU (independent of supplier part numbers)
+        const edcSKU = `EDC${String(nextEDCNumber).padStart(6, '0')}`;
+        transformedRecord.sku = edcSKU;
+        nextEDCNumber++;
+        
+        console.log(`Generated unique EDC SKU: ${edcSKU}`);
+        
         // Apply field mappings
         Object.entries(fieldMappings as Record<string, string>).forEach(([targetField, sourceField]) => {
           if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
             let value = sourceRecord[sourceField];
             
-            // Debug USIN mapping
+            // Debug USIN mapping (now stores supplier part number, doesn't affect SKU)
             if (targetField === 'usin') {
-              console.log(`Mapping USIN: ${sourceField} = "${value}" -> SKU: EDC${value}`);
+              console.log(`Mapping USIN (supplier part number): ${sourceField} = "${value}" -> stored separately from SKU`);
             }
             
             // Type conversions based on target field
@@ -1519,21 +1529,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (targetField === 'description' || targetField === 'fullDescription') {
                 value = value.replace(/<[^>]*>/g, '').trim();
               }
-              // Generate EDC SKU for USIN field
-              if (targetField === 'usin' && value) {
-                transformedRecord.sku = `EDC${value}`;
-                console.log(`Generated SKU: ${transformedRecord.sku}`);
-              }
             }
             
             transformedRecord[targetField] = value;
           }
         });
         
-        // Ensure required fields are populated
-        if (!transformedRecord.sku && transformedRecord.usin) {
-          transformedRecord.sku = `EDC${transformedRecord.usin}`;
-        }
+        // Ensure required fields are populated (SKU is already set to unique EDC number above)
         if (!transformedRecord.name) {
           // Try multiple field mappings for name
           transformedRecord.name = transformedRecord.title || 
