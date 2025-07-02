@@ -1536,6 +1536,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Transformed ${transformedProducts.length} products`);
       
+      // Create categories from the mapped categoryName field
+      const categoryMap = new Map();
+      let categoriesCreated = 0;
+      
+      for (const product of transformedProducts) {
+        if (product.categoryName && typeof product.categoryName === 'string') {
+          const categoryName = product.categoryName.trim();
+          
+          // Skip if category already processed
+          if (categoryMap.has(categoryName)) {
+            product.categoryId = categoryMap.get(categoryName);
+            continue;
+          }
+          
+          try {
+            // Check if category already exists
+            const [existingCategory] = await db
+              .select()
+              .from(categories)
+              .where(eq(categories.name, categoryName))
+              .limit(1);
+            
+            if (existingCategory) {
+              categoryMap.set(categoryName, existingCategory.id);
+              product.categoryId = existingCategory.id;
+            } else {
+              // Create new category
+              const categoryCode = categoryName
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '_')
+                .substring(0, 20);
+              
+              const [newCategory] = await db
+                .insert(categories)
+                .values({
+                  name: categoryName,
+                  code: categoryCode,
+                  level: 0,
+                  attributes: {},
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                })
+                .returning();
+              
+              categoryMap.set(categoryName, newCategory.id);
+              product.categoryId = newCategory.id;
+              categoriesCreated++;
+              
+              console.log(`Created category: ${categoryName} (ID: ${newCategory.id})`);
+            }
+          } catch (categoryError) {
+            console.error(`Error creating category ${categoryName}:`, categoryError);
+            // Continue without category link
+          }
+        }
+      }
+      
+      if (categoriesCreated > 0) {
+        console.log(`Created ${categoriesCreated} new categories`);
+      }
+      
       // Insert products into database with de-duplication
       const insertedProducts = [];
       for (const product of transformedProducts) {

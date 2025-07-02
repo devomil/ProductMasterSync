@@ -148,6 +148,13 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Category Auto-Creation During Sample Pull Complete (2025-07-02)**:
+  - Enhanced sample pull with mapping process to automatically create product categories
+  - Added category lookup and creation logic to prevent duplicate categories during imports
+  - Categories now created from CWR "Category Name" field with proper code generation
+  - Products automatically linked to appropriate categories during import process
+  - Successfully tested with 5 products showing correct category associations (Lighting | Bulbs, Paddlesports | Safety, etc.)
+  - Category creation includes proper database structure with unique codes and timestamps
 - **Field Mapping Bug Fix Complete (2025-07-02)**:
   - Fixed critical field mapping iteration bug causing incorrect SKU generation
   - Corrected mapping format from [sourceField, targetField] to [targetField, sourceField]
