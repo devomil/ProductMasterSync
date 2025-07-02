@@ -1191,22 +1191,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (fs.existsSync(catalogPath)) {
             console.log(`Using cached CWR catalog: ${catalogPath}`);
             const csvContent = fs.readFileSync(catalogPath, 'utf-8');
-            const records = csvParse.parse(csvContent, {
-              columns: true,
-              skip_empty_lines: true
-            });
             
-            // Take the requested number of records
-            const sampleData = records.slice(0, requestedLimit);
+            try {
+              const records = csvParse.parse(csvContent, {
+                columns: true,
+                skip_empty_lines: true,
+                relax_column_count: true,
+                relax_quotes: true
+              });
             
-            res.json({ 
-              success: true, 
-              data: sampleData,
-              totalRecords: sampleData.length,
-              source: 'cached_file',
-              file: catalogPath
-            });
-            return;
+              // Take the requested number of records
+              const sampleData = records.slice(0, requestedLimit);
+              
+              res.json({ 
+                success: true, 
+                data: sampleData,
+                totalRecords: sampleData.length,
+                source: 'cached_file',
+                file: catalogPath
+              });
+              return;
+              
+            } catch (csvError) {
+              console.error(`CSV parsing failed for ${catalogPath}:`, csvError.message);
+              continue; // Try next file
+            }
           }
         } catch (fileError) {
           console.error(`Failed to read ${catalogPath}:`, fileError);
