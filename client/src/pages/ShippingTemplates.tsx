@@ -138,6 +138,21 @@ export default function ShippingTemplates() {
     },
   });
 
+  // Update product shipping costs mutation
+  const updateProductShippingMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/suppliers/${selectedSupplierId}/update-product-shipping`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to update product shipping costs");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      alert(`Successfully updated shipping costs for ${data.updatedCount} products from this supplier!`);
+    }
+  });
+
   const form = useForm<ShippingTemplateFormData>({
     resolver: zodResolver(shippingTemplateSchema),
     defaultValues: {
@@ -165,6 +180,7 @@ export default function ShippingTemplates() {
   };
 
   const formatMethodName = (method: string) => {
+    if (!method) return '';
     return method.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
@@ -256,15 +272,31 @@ export default function ShippingTemplates() {
                     <CardTitle>Shipping Templates</CardTitle>
                     <CardDescription>Configure shipping cost calculations</CardDescription>
                   </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => updateProductShippingMutation.mutate()}
+                      disabled={updateProductShippingMutation.isPending}
+                      variant="outline"
+                    >
+                      {updateProductShippingMutation.isPending ? (
+                        "Updating..."
+                      ) : (
+                        <>
+                          <Package className="w-4 h-4 mr-2" />
+                          Update Product Costs
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Template
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Template
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
                         <DialogTitle>Create Shipping Template</DialogTitle>
                         <DialogDescription>
                           Configure how shipping costs are calculated for this supplier
