@@ -90,6 +90,11 @@ export default function ShippingTemplates() {
     { minWeight: 21, maxWeight: 100, shippingCost: 49.99 }
   ]);
 
+  const [combinedRules, setCombinedRules] = useState([
+    { minCost: 1, maxCost: 100, minWeight: 1, maxWeight: 20, shippingCost: 15.99 },
+    { minCost: 101, maxCost: 500, minWeight: 1, maxWeight: 50, shippingCost: 9.99 }
+  ]);
+
   // Function to open edit dialog with template data
   const openEditDialog = (template: ShippingTemplate) => {
     setEditingTemplate(template);
@@ -552,6 +557,115 @@ export default function ShippingTemplates() {
                             </div>
                           )}
 
+                          {/* Combined Rules (Cost + Weight) */}
+                          {selectedMethod === "combined" && (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Combined Rules (Cost + Weight)</Label>
+                                <Button type="button" onClick={() => {
+                                  const newRule = { minCost: 0, maxCost: 0, minWeight: 0, maxWeight: 0, shippingCost: 0 };
+                                  const updated = [...combinedRules, newRule];
+                                  setCombinedRules(updated);
+                                  form.setValue("combinedRules", updated);
+                                }} variant="outline" size="sm">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Combined Rule
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                {combinedRules.map((rule, index) => (
+                                  <div key={index} className="grid grid-cols-5 gap-3 items-end p-3 border rounded-lg">
+                                    <div>
+                                      <Label className="text-sm">Min Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minCost}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], minCost: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxCost}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], maxCost: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Min Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minWeight}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], minWeight: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxWeight}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], maxWeight: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <div className="flex-1">
+                                        <Label className="text-sm">Shipping Cost ($)</Label>
+                                        <Input
+                                          type="number"
+                                          value={rule.shippingCost}
+                                          onChange={(e) => {
+                                            const updated = [...combinedRules];
+                                            updated[index] = { ...updated[index], shippingCost: parseFloat(e.target.value) || 0 };
+                                            setCombinedRules(updated);
+                                            form.setValue("combinedRules", updated);
+                                          }}
+                                          step="0.01"
+                                        />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = combinedRules.filter((_, i) => i !== index);
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-6"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Flat Rate */}
                           {selectedMethod === "flat_rate" && (
                             <FormField
@@ -814,6 +928,115 @@ export default function ShippingTemplates() {
                                       <Button
                                         type="button"
                                         onClick={() => removeWeightRule(index)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-6"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Combined Rules (Cost + Weight) - Edit Dialog */}
+                          {selectedMethod === "combined" && (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Combined Rules (Cost + Weight)</Label>
+                                <Button type="button" onClick={() => {
+                                  const newRule = { minCost: 0, maxCost: 0, minWeight: 0, maxWeight: 0, shippingCost: 0 };
+                                  const updated = [...combinedRules, newRule];
+                                  setCombinedRules(updated);
+                                  form.setValue("combinedRules", updated);
+                                }} variant="outline" size="sm">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Combined Rule
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                {combinedRules.map((rule, index) => (
+                                  <div key={index} className="grid grid-cols-5 gap-3 items-end p-3 border rounded-lg">
+                                    <div>
+                                      <Label className="text-sm">Min Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minCost}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], minCost: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Cost ($)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxCost}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], maxCost: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.01"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Min Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.minWeight}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], minWeight: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm">Max Weight (lbs)</Label>
+                                      <Input
+                                        type="number"
+                                        value={rule.maxWeight}
+                                        onChange={(e) => {
+                                          const updated = [...combinedRules];
+                                          updated[index] = { ...updated[index], maxWeight: parseFloat(e.target.value) || 0 };
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
+                                        step="0.1"
+                                      />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <div className="flex-1">
+                                        <Label className="text-sm">Shipping Cost ($)</Label>
+                                        <Input
+                                          type="number"
+                                          value={rule.shippingCost}
+                                          onChange={(e) => {
+                                            const updated = [...combinedRules];
+                                            updated[index] = { ...updated[index], shippingCost: parseFloat(e.target.value) || 0 };
+                                            setCombinedRules(updated);
+                                            form.setValue("combinedRules", updated);
+                                          }}
+                                          step="0.01"
+                                        />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = combinedRules.filter((_, i) => i !== index);
+                                          setCombinedRules(updated);
+                                          form.setValue("combinedRules", updated);
+                                        }}
                                         variant="outline"
                                         size="sm"
                                         className="mt-6"
