@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -648,6 +648,38 @@ export default function DataSources() {
     queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
   };
 
+  const handleSamplePullWithMapping = async (dataSource: DataSource) => {
+    try {
+      toast({
+        title: "Starting Sample Pull",
+        description: "Pulling 50 products using your saved field mappings..."
+      });
+
+      const response = await apiRequest("POST", `/api/datasources/${dataSource.id}/sample-pull-with-mapping`, {
+        limit: 50
+      });
+
+      if (response.success) {
+        toast({
+          title: "Sample Pull Complete",
+          description: `Successfully imported ${response.imported} products using field mappings!`
+        });
+        
+        // Refresh products data
+        queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      } else {
+        throw new Error(response.message || 'Sample pull failed');
+      }
+    } catch (error) {
+      console.error('Sample pull with mapping error:', error);
+      toast({
+        variant: "destructive",
+        title: "Sample Pull Failed",
+        description: error instanceof Error ? error.message : "Failed to pull sample data with mappings"
+      });
+    }
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'sftp':
@@ -832,6 +864,17 @@ export default function DataSources() {
                         </Button>
                         <Button size="sm" className="flex-1">
                           Pull Sample (50)
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 mb-2">
+                        <Button 
+                          size="sm" 
+                          variant="default" 
+                          className="flex-1 gap-1"
+                          onClick={() => handleSamplePullWithMapping(dataSource)}
+                        >
+                          <Download className="w-4 h-4" />
+                          Sample Pull with Mapping
                         </Button>
                       </div>
                       <Button 
