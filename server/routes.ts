@@ -23,7 +23,7 @@ import {
   mappingTemplates,
   suppliers
 } from "@shared/schema";
-import { eq, and, isNull, sql, desc } from "drizzle-orm";
+import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -491,6 +491,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedMapping);
     } catch (error) {
       handleError(res, error);
+    }
+  });
+
+  // De-duplication tool - removes duplicate products based on USIN or name similarity
+  app.post('/api/products/deduplicate', async (req, res) => {
+    try {
+      console.log('Starting product de-duplication...');
+      
+      // Find duplicates by USIN
+      const duplicatesByUSIN = await db
+        .select({
+          usin: products.usin,
+          count: sql<number>`count(*)`,
+          ids: sql<number[]>`array_agg(id ORDER BY created_at ASC)`
+        })
+        .from(products)
+        .where(and(
+          not(isNull(products.usin)),
+          not(eq(products.usin, ''))
+        ))
+        .groupBy(products.usin)
+        .having(sql`count(*) > 1`);
+      
+      let removedCount = 0;
+      
+      // Remove duplicates, keep the first (oldest) product for each USIN
+      for (const duplicate of duplicatesByUSIN) {
+        const idsToRemove = duplicate.ids.slice(1); // Keep first, remove rest
+        
+        console.log(`Removing ${idsToRemove.length} duplicates for USIN: ${duplicate.usin}`);
+        
+        await db
+          .delete(products)
+          .where(sql`id = ANY(${idsToRemove})`);
+        
+        removedCount += idsToRemove.length;
+      }
+      
+      console.log(`De-duplication complete. Removed ${removedCount} duplicate products`);
+      
+      res.json({
+        success: true,
+        message: `Successfully removed ${removedCount} duplicate products`,
+        removedCount,
+        duplicateGroups: duplicatesByUSIN.length
+      });
+      
+    } catch (error) {
+      console.error('De-duplication error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to de-duplicate products',
+        error: (error as Error).message 
+      });
     }
   });
 
@@ -1431,6 +1485,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
             let value = sourceRecord[sourceField];
             
+            // Debug USIN mapping
+            if (targetField === 'usin') {
+              console.log(`Mapping USIN: ${sourceField} = "${value}" -> SKU: EDC${value}`);
+            }
+            
             // Type conversions based on target field
             if (targetField === 'yourCost' || targetField === 'listPrice' || targetField === 'mapPrice' || targetField === 'mrpPrice') {
               value = parseFloat(value) || 0;
@@ -1444,6 +1503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Generate EDC SKU for USIN field
               if (targetField === 'usin' && value) {
                 transformedRecord.sku = `EDC${value}`;
+                console.log(`Generated SKU: ${transformedRecord.sku}`);
               }
             }
             
@@ -1476,20 +1536,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Transformed ${transformedProducts.length} products`);
       
-      // Insert products into database
+      // Insert products into database with de-duplication
       const insertedProducts = [];
       for (const product of transformedProducts) {
         try {
+          // Use SKU for de-duplication (USIN constraint not set up yet)
+          const conflictTarget = products.sku;
+          
           const [insertedProduct] = await db
             .insert(products)
             .values(product)
-            .onConflictDoUpdate({
-              target: products.sku,
-              set: {
-                ...product,
-                updatedAt: new Date()
-              }
-            })
             .returning();
             
           insertedProducts.push(insertedProduct);

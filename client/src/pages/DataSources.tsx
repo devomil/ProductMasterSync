@@ -485,6 +485,32 @@ export default function DataSources() {
     }
   });
 
+  // Mutation for removing duplicate products
+  const deduplicateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/products/deduplicate", {});
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      toast({
+        title: "Duplicates Removed",
+        description: `Removed ${data.duplicatesRemoved || 0} duplicate products. ${data.productsKept || 0} unique products remain.`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to remove duplicate products",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleDeduplicate = () => {
+    deduplicateMutation.mutate();
+  };
+
   const handleDataSourceCreated = (newDataSource: any) => {
     queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
     setShowWizard(false);
@@ -738,10 +764,21 @@ export default function DataSources() {
           <h1 className="text-2xl font-bold">Data Sources</h1>
           <p className="text-gray-500">Manage your data connections and sources</p>
         </div>
-        <Button onClick={() => setShowWizard(true)} className="gap-2">
-          <Plus size={16} />
-          Add Data Source
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleDeduplicate}
+            className="gap-2"
+            disabled={deduplicateMutation.isPending}
+          >
+            <Trash2 size={16} />
+            {deduplicateMutation.isPending ? "Removing Duplicates..." : "Remove Duplicates"}
+          </Button>
+          <Button onClick={() => setShowWizard(true)} className="gap-2">
+            <Plus size={16} />
+            Add Data Source
+          </Button>
+        </div>
       </div>
 
       {isLoadingDataSources ? (
