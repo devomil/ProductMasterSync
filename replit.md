@@ -148,6 +148,12 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Categories Page Product Count Display Fixed (2025-07-02)**:
+  - Fixed TypeScript interface issues preventing product counts from displaying in Categories page
+  - Updated Categories.tsx to use proper CategoryWithProductCount interface matching API response structure
+  - Corrected table column alignment and fixed import paths for proper type definitions
+  - Product counts now display accurately using database JOIN queries from backend API
+  - Categories page now shows real product counts (e.g., "Lighting | Bulbs: 3 products", "Paddlesports | Safety: 1 product")
 - **Category Auto-Creation During Sample Pull Complete (2025-07-02)**:
   - Enhanced sample pull with mapping process to automatically create product categories
   - Added category lookup and creation logic to prevent duplicate categories during imports
