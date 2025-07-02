@@ -726,6 +726,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to calculate shipping cost using supplier templates
+  async function calculateProductShippingCost(product: any, price: number, cost: number): Promise<string> {
+    try {
+      // Get supplier ID from product (assuming CWR Distribution is supplier ID 2)
+      const supplierId = 2; // CWR Distribution
+      
+      // Get shipping templates for this supplier
+      const templates = await storage.getShippingTemplatesForSupplier(supplierId);
+      
+      if (!templates || templates.length === 0) {
+        // Fallback to default CWR calculation if no templates
+        if (cost <= 100) return "15.99";
+        if (cost <= 500) return "9.99";
+        return "Free";
+      }
+      
+      // Use the default template or first available template
+      const template = templates.find(t => t.isDefault) || templates[0];
+      const weight = parseFloat(product.weight || "0");
+      const isOversized = product.isOversized || false;
+      
+      let shippingCost = 0;
+      let calculationMethod = template.method;
+      
+      // Calculate based on template method
+      if (calculationMethod === "cost_based" && template.costRules) {
+        for (const rule of template.costRules) {
+          if (cost >= rule.minCost && cost <= rule.maxCost) {
+            shippingCost = rule.shippingCost;
+            break;
+          }
+        }
+      } else if (calculationMethod === "weight_based" && template.weightRules) {
+        for (const rule of template.weightRules) {
+          if (weight >= rule.minWeight && weight <= rule.maxWeight) {
+            shippingCost = rule.shippingCost;
+            break;
+          }
+        }
+      } else if (calculationMethod === "combined" && template.combinedRules) {
+        for (const rule of template.combinedRules) {
+          const costMatch = !rule.minCost || !rule.maxCost || (cost >= rule.minCost && cost <= rule.maxCost);
+          const weightMatch = !rule.minWeight || !rule.maxWeight || (weight >= rule.minWeight && weight <= rule.maxWeight);
+          
+          if (costMatch && weightMatch) {
+            shippingCost = typeof rule.shippingCost === 'string' ? parseFloat(rule.shippingCost) || 0 : rule.shippingCost;
+            break;
+          }
+        }
+      } else if (calculationMethod === "flat_rate") {
+        shippingCost = template.flatRate || 0;
+      }
+      
+      // Add surcharges
+      if (isOversized && template.oversizedSurcharge) {
+        shippingCost += template.oversizedSurcharge;
+      }
+      
+      // Free shipping threshold
+      if (template.freeShippingThreshold && cost >= template.freeShippingThreshold) {
+        return "Free";
+      }
+      
+      return shippingCost > 0 ? shippingCost.toFixed(2) : "Free";
+      
+    } catch (error) {
+      console.error("Error calculating shipping cost:", error);
+      // Fallback to default calculation
+      if (cost <= 100) return "15.99";
+      if (cost <= 500) return "9.99";
+      return "Free";
+    }
+  }
+
   // Warehouse modal specific endpoint with comprehensive CWR fields
   app.get("/api/products/:id/warehouse-details", async (req, res) => {
     try {
@@ -765,8 +839,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tariffCost: cost > 0 ? (cost * 0.05).toFixed(2) : "0.00",
         priceUpdateDate: new Date().toISOString().split('T')[0],
         
-        // Shipping fields - using authentic CWR data
-        shippingCost: null, // No shipping cost data in SFTP feed
+        // Shipping fields - calculate using shipping templates
+        shippingCost: await calculateProductShippingCost(product, price, cost),
         freeFreight: product.hasFreeShipping || false,
         directShip: true,
         oversized: product.isOversized || false,

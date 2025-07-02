@@ -811,4 +811,32 @@ export class DatabaseStorage implements IStorage {
       isLowStock: (product.inventoryQuantity || 0) <= (product.reorderThreshold || 10)
     };
   }
+
+  // Shipping template management
+  async getShippingTemplatesForSupplier(supplierId: number): Promise<any[]> {
+    // For now, return mock shipping templates based on the templates created in the UI
+    // In a real implementation, we'd query the shipping_templates table
+    if (supplierId === 2) { // CWR Distribution
+      return [
+        {
+          id: 2,
+          name: "CWR Distribution",
+          supplierId: 2,
+          method: "weight_based",
+          isDefault: true,
+          costRules: [],
+          weightRules: [
+            { minWeight: 1, maxWeight: 20, shippingCost: 15.99 },
+            { minWeight: 21, maxWeight: 100, shippingCost: 49.99 }
+          ],
+          combinedRules: [],
+          flatRate: null,
+          freeShippingThreshold: 500,
+          oversizedSurcharge: 0,
+          hazmatSurcharge: 0
+        }
+      ];
+    }
+    return [];
+  }
 }

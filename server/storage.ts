@@ -141,6 +141,9 @@ export interface IStorage {
   getProductFulfillment(productId: number): Promise<any | undefined>;
   updateProductFulfillment(productId: number, fulfillment: any): Promise<any>;
   getProductStock(productId: number): Promise<any>;
+  
+  // Shipping template management
+  getShippingTemplatesForSupplier(supplierId: number): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1385,6 +1388,12 @@ export class MemStorage implements IStorage {
     }
     
     return stockData;
+  }
+
+  // Shipping template management
+  async getShippingTemplatesForSupplier(supplierId: number): Promise<any[]> {
+    // Return empty array for memory storage - this would come from database in real implementation
+    return [];
   }
 }
 
