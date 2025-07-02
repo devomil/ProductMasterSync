@@ -448,8 +448,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDataSource(id: number): Promise<boolean> {
-    await db.delete(schema.dataSources).where(eq(schema.dataSources.id, id));
-    return true;
+    const [deletedDataSource] = await db
+      .delete(schema.dataSources)
+      .where(eq(schema.dataSources.id, id))
+      .returning();
+    return !!deletedDataSource;
   }
   
   // Schedule management

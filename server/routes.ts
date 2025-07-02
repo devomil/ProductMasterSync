@@ -1013,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: { dataSource }
       });
       
-      res.status(201).json(dataSource);
+      res.status(201).json({ success: true, id: dataSource.id, message: "Data source created successfully", dataSource });
     } catch (error) {
       handleError(res, error);
     }

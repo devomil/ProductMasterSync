@@ -80,9 +80,9 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
         host: parsedConfig?.host || "",
         port: parsedConfig?.port || 22,
         username: parsedConfig?.username || "",
-        password: "", // Always blank for security
+        password: parsedConfig?.password ? "••••••••" : "", // Show masked password if exists
         url: parsedConfig?.url || "",
-        apiKey: parsedConfig?.apiKey || "",
+        apiKey: parsedConfig?.apiKey ? "••••••••" : "", // Show masked API key if exists
         filePaths: parsedConfig?.filePaths || [],
       },
     },
@@ -102,9 +102,9 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
         host: parsedConfig?.host || "",
         port: parsedConfig?.port || 22,
         username: parsedConfig?.username || "",
-        password: "", // Always blank for security
+        password: parsedConfig?.password ? "••••••••" : "", // Show masked password if exists
         url: parsedConfig?.url || "",
-        apiKey: parsedConfig?.apiKey || "",
+        apiKey: parsedConfig?.apiKey ? "••••••••" : "", // Show masked API key if exists
         filePaths: parsedConfig?.filePaths || [],
       },
     });
