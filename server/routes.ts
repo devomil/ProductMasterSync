@@ -1181,6 +1181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const csvParse = await import('csv-parse/sync');
       
       const catalogPaths = [
+        './temp/fresh-catalog.csv',
         './temp/authentic-catalog.csv',
         './catalog.csv',
         './temp/cwr-catalog.csv'
@@ -1313,9 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/mapping-templates", async (req, res) => {
     try {
       const mappingTemplateData = req.body;
-      console.log('Creating mapping template with data:', JSON.stringify(mappingTemplateData, null, 2));
       const mappingTemplate = await storage.createMappingTemplate(mappingTemplateData);
-      console.log('Created mapping template:', mappingTemplate);
       res.status(201).json(mappingTemplate);
     } catch (error) {
       console.error('Error creating mapping template:', error);
@@ -1400,8 +1399,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Found mapping template:', mappingTemplate.id);
       
-      // Pull sample data from the data source
-      const sampleDataResponse = await fetch(`http://localhost:5000/api/datasources/${dataSourceId}/sample-data`);
+      // Pull sample data from the data source with specified limit
+      const sampleDataResponse = await fetch(`http://localhost:5000/api/datasources/${dataSourceId}/sample-data?limit=${limit}`);
       const sampleResult = await sampleDataResponse.json();
       
       if (!sampleResult.success || !sampleResult.data) {
