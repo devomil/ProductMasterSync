@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Field Mapping Bug Fix Complete (2025-07-02)**:
+  - Fixed critical field mapping iteration bug causing incorrect SKU generation
+  - Corrected mapping format from [sourceField, targetField] to [targetField, sourceField]
+  - Successfully implemented EDC SKU auto-generation using USIN field mapping
+  - Product catalog cleared and rebuilt with 50 products using correct field transformations
+  - All Master Catalog fields now populate correctly: description, UPC, manufacturer, price, cost, weight
+  - EDC SKUs (EDC10020, EDC10021, etc.) generated from CWR Part Numbers with USIN preservation
+  - Added functional de-duplication tool to prevent duplicate product imports
+  - Field mapping template ID 13 validated and working for CWR Distribution data source
 - **Supplier Delete Functionality Complete (2025-06-30)**:
   - Added complete delete supplier functionality to supplier management page
   - Implemented proper Express API endpoint (/api/suppliers/:id DELETE) with JSON response
