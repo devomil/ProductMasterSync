@@ -34,12 +34,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Category } from "@shared/schema";
 import CategoryMappingIntelligence from "@/components/category/CategoryMappingIntelligence";
+
+interface CategoryWithProductCount {
+  id: number;
+  name: string;
+  code: string;
+  parentId: number | null;
+  level: number;
+  path: string | null;
+  productCount: number;
+  attributes: Record<string, any>;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
 
 // Component to display the category tree
 const CategoryTree = () => {
-  const { data: categories = [], isLoading } = useQuery<Category[]>({
+  const { data: categories = [], isLoading } = useQuery<CategoryWithProductCount[]>({
     queryKey: ['/api/categories'],
   });
 
@@ -55,7 +67,7 @@ const CategoryTree = () => {
   // Root level categories
   const rootCategories = getCategoryChildren(null);
 
-  const renderCategoryNode = (category: Category) => {
+  const renderCategoryNode = (category: CategoryWithProductCount) => {
     const children = getCategoryChildren(category.id);
     const hasChildren = children.length > 0;
 
@@ -107,7 +119,7 @@ const CategoryTree = () => {
 };
 
 // Component to display the category attributes
-const CategoryAttributes = ({ selectedCategory }: { selectedCategory?: Category }) => {
+const CategoryAttributes = ({ selectedCategory }: { selectedCategory?: CategoryWithProductCount }) => {
   if (!selectedCategory || !selectedCategory.attributes) {
     return (
       <div className="text-center py-6 text-neutral-500">
@@ -143,9 +155,9 @@ const CategoryAttributes = ({ selectedCategory }: { selectedCategory?: Category 
 const Categories = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState("list");
-  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryWithProductCount | undefined>(undefined);
 
-  const { data: categories = [], isLoading } = useQuery<Category[]>({
+  const { data: categories = [], isLoading } = useQuery<CategoryWithProductCount[]>({
     queryKey: ['/api/categories'],
   });
 
@@ -208,6 +220,7 @@ const Categories = () => {
                       <TableHead>Code</TableHead>
                       <TableHead>Level</TableHead>
                       <TableHead>Path</TableHead>
+                      <TableHead>Products</TableHead>
                       <TableHead>Attributes</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -220,13 +233,14 @@ const Categories = () => {
                           <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-8 ml-auto" /></TableCell>
                         </TableRow>
                       ))
                     ) : filteredCategories.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-neutral-500">
+                        <TableCell colSpan={7} className="text-center py-6 text-neutral-500">
                           {searchQuery ? "No categories matching your search" : "No categories available"}
                         </TableCell>
                       </TableRow>
@@ -237,6 +251,11 @@ const Categories = () => {
                           <TableCell>{category.code}</TableCell>
                           <TableCell>{category.level}</TableCell>
                           <TableCell>{category.path}</TableCell>
+                          <TableCell>
+                            <Badge variant={category.productCount > 0 ? "default" : "secondary"}>
+                              {category.productCount || 0}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             {category.attributes && Object.keys(category.attributes as Record<string, any>).length > 0 ? (
                               <Badge variant="secondary">
