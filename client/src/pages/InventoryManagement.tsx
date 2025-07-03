@@ -14,7 +14,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Clock, Play, Pause, Settings, AlertTriangle, CheckCircle, XCircle, RotateCcw, Database, Calendar, Activity } from "lucide-react";
+import { Clock, Play, Pause, Settings, AlertTriangle, CheckCircle, XCircle, RotateCcw, Database, Calendar, Activity, Folder, Trash2, Plus } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -714,37 +715,44 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<AutomationSchedule>({
-    resolver: zodResolver(automationScheduleSchema),
-    defaultValues: {
-      name: schedule.name || "",
-      isActive: schedule.isActive || true,
-      catalogEnabled: schedule.catalogEnabled || true,
-      catalogFilePath: schedule.catalogFilePath || "",
-      catalogFrequency: schedule.catalogFrequency || "daily",
-      catalogTimesPerDay: schedule.catalogTimesPerDay || 1,
-      catalogScheduleTimes: schedule.catalogScheduleTimes || ["02:00"],
-      inventoryEnabled: schedule.inventoryEnabled || true,
-      inventoryFilePath: schedule.inventoryFilePath || "",
-      inventoryFrequency: schedule.inventoryFrequency || "hourly",
-      inventoryTimesPerDay: schedule.inventoryTimesPerDay || 12,
-      inventoryStartTime: schedule.inventoryStartTime || "06:00",
-      inventoryEndTime: schedule.inventoryEndTime || "22:00",
-      waitForCatalogCompletion: schedule.waitForCatalogCompletion || true,
-      catalogTimeoutMinutes: schedule.catalogTimeoutMinutes || 30,
-      inventoryDelayAfterCatalog: schedule.inventoryDelayAfterCatalog || 10,
-      maxRetryAttempts: schedule.maxRetryAttempts || 3,
-      retryDelayMinutes: schedule.retryDelayMinutes || 30,
-      pauseOnConsecutiveFailures: schedule.pauseOnConsecutiveFailures || 5,
-      notifyOnSuccess: schedule.notifyOnSuccess || false,
-      notifyOnFailure: schedule.notifyOnFailure || true,
-      notificationEmails: schedule.notificationEmails || []
-    }
-  });
+  // New per-file path state
+  const [automationName, setAutomationName] = useState(schedule.name || '');
+  const [isActive, setIsActive] = useState(schedule.isActive || true);
+  const [filePaths, setFilePaths] = useState(schedule.filePaths || []);
+  const [maxRetryAttempts, setMaxRetryAttempts] = useState(schedule.maxRetryAttempts || 3);
+  const [retryDelayMinutes, setRetryDelayMinutes] = useState(schedule.retryDelayMinutes || 30);
+  const [pauseOnConsecutiveFailures, setPauseOnConsecutiveFailures] = useState(schedule.pauseOnConsecutiveFailures || 5);
+  const [notifyOnSuccess, setNotifyOnSuccess] = useState(schedule.notifyOnSuccess || false);
+  const [notifyOnFailure, setNotifyOnFailure] = useState(schedule.notifyOnFailure || true);
+  const [notificationEmails, setNotificationEmails] = useState(schedule.notificationEmails || []);
+
+  const addFilePath = () => {
+    const newFilePath = {
+      id: Date.now(),
+      label: '',
+      filePath: '',
+      fileType: 'catalog',
+      isEnabled: true,
+      frequency: 'daily',
+      timesPerDay: 1,
+      startTime: '06:00',
+      endTime: '22:00',
+      processingOrder: filePaths.length + 1
+    };
+    setFilePaths([...filePaths, newFilePath]);
+  };
+
+  const removeFilePath = (id: number) => {
+    setFilePaths(filePaths.filter((fp: any) => fp.id !== id));
+  };
+
+  const updateFilePath = (id: number, updates: any) => {
+    setFilePaths(filePaths.map((fp: any) => fp.id === id ? { ...fp, ...updates } : fp));
+  };
 
   const updateAutomation = useMutation({
-    mutationFn: async (data: AutomationSchedule) => {
-      return apiRequest(`/api/supplier-automation/${schedule.id}`, {
+    mutationFn: async (data: any) => {
+      return apiRequest(`/api/automations/${schedule.id}`, {
         method: "PUT",
         body: JSON.stringify(data),
       });
@@ -753,7 +761,7 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
       queryClient.invalidateQueries({ queryKey: ["/api/supplier-automation"] });
       toast({
         title: "Automation Updated",
-        description: `${form.getValues().name} has been updated successfully.`,
+        description: `${automationName} has been updated successfully.`,
       });
       setIsOpen(false);
     },
@@ -766,7 +774,28 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
     },
   });
 
-  const onSubmit = (data: AutomationSchedule) => {
+  const onSubmit = () => {
+    const data = {
+      name: automationName,
+      isActive,
+      maxRetryAttempts,
+      retryDelayMinutes,
+      pauseOnConsecutiveFailures,
+      notifyOnSuccess,
+      notifyOnFailure,
+      notificationEmails,
+      filePaths: filePaths.map((fp: any) => ({
+        label: fp.label,
+        filePath: fp.filePath,
+        fileType: fp.fileType,
+        isEnabled: fp.isEnabled,
+        frequency: fp.frequency,
+        timesPerDay: fp.timesPerDay,
+        startTime: fp.startTime,
+        endTime: fp.endTime,
+        processingOrder: fp.processingOrder
+      }))
+    };
     updateAutomation.mutate(data);
   };
 
@@ -785,188 +814,244 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
             Modify the automation configuration for {schedule.name}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Settings */}
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Automation Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="CWR Distribution Automation" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active</FormLabel>
-                      <FormDescription>
-                        Enable or disable this automation
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Catalog Configuration */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Catalog Processing</h3>
+        
+        <div className="space-y-6">
+          {/* Basic Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Basic Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="catalogFilePath"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Catalog File Path</FormLabel>
-                      <FormControl>
-                        <Input placeholder="/eco8/out/catalog.csv" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="catalogFrequency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Frequency</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="once">Once</SelectItem>
-                          <SelectItem value="hourly">Hourly</SelectItem>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div>
+                  <Label htmlFor="name">Automation Name</Label>
+                  <Input
+                    id="name"
+                    value={automationName}
+                    onChange={(e) => setAutomationName(e.target.value)}
+                    placeholder="e.g., CWR Distribution Automation"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="active"
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                  />
+                  <Label htmlFor="active">Enable automation</Label>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Inventory Configuration */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Inventory Processing</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="inventoryFilePath"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Inventory File Path</FormLabel>
-                      <FormControl>
-                        <Input placeholder="/eco8/out/inventory.csv" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="inventoryFrequency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Frequency</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="hourly">Hourly</SelectItem>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="inventoryTimesPerDay"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Times per Day</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min="1" 
-                          max="24" 
-                          {...field} 
-                          onChange={e => field.onChange(parseInt(e.target.value))}
+          {/* File Path Configurations */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Folder className="h-5 w-5" />
+                  File Path Schedules
+                </span>
+                <Button onClick={addFilePath} size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add File Path
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {filePaths.map((filePath: any, index: number) => (
+                <Card key={filePath.id} className="border-l-4 border-l-blue-500">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={filePath.isEnabled}
+                          onCheckedChange={(checked) => updateFilePath(filePath.id, { isEnabled: checked })}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="inventoryStartTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="inventoryEndTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+                        <span className="font-medium">{filePath.label || `File Path ${index + 1}`}</span>
+                      </div>
+                      <Button
+                        onClick={() => removeFilePath(filePath.id)}
+                        size="sm"
+                        variant="destructive"
+                        disabled={filePaths.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateAutomation.isPending}>
-                {updateAutomation.isPending ? "Updating..." : "Update Automation"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <Label>Label</Label>
+                        <Input
+                          value={filePath.label}
+                          onChange={(e) => updateFilePath(filePath.id, { label: e.target.value })}
+                          placeholder="e.g., Main Catalog"
+                        />
+                      </div>
+                      <div>
+                        <Label>File Path</Label>
+                        <Input
+                          value={filePath.filePath}
+                          onChange={(e) => updateFilePath(filePath.id, { filePath: e.target.value })}
+                          placeholder="e.g., /eco8/out/catalog.csv"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <Label>File Type</Label>
+                        <Select
+                          value={filePath.fileType}
+                          onValueChange={(value) => updateFilePath(filePath.id, { fileType: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="catalog">Catalog</SelectItem>
+                            <SelectItem value="inventory">Inventory</SelectItem>
+                            <SelectItem value="pricing">Pricing</SelectItem>
+                            <SelectItem value="images">Images</SelectItem>
+                            <SelectItem value="specifications">Specifications</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Frequency</Label>
+                        <Select
+                          value={filePath.frequency}
+                          onValueChange={(value) => updateFilePath(filePath.id, { frequency: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hourly">Hourly</SelectItem>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Times per Day
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="24"
+                          value={filePath.timesPerDay}
+                          onChange={(e) => updateFilePath(filePath.id, { timesPerDay: parseInt(e.target.value) || 1 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Start Time</Label>
+                        <Input
+                          type="time"
+                          value={filePath.startTime}
+                          onChange={(e) => updateFilePath(filePath.id, { startTime: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>End Time</Label>
+                        <Input
+                          type="time"
+                          value={filePath.endTime}
+                          onChange={(e) => updateFilePath(filePath.id, { endTime: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {filePath.frequency === 'hourly' && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-700">
+                        This file will run {filePath.timesPerDay} times between {filePath.startTime} and {filePath.endTime}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Advanced Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Advanced Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Max Retry Attempts</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={maxRetryAttempts}
+                    onChange={(e) => setMaxRetryAttempts(parseInt(e.target.value) || 3)}
+                  />
+                </div>
+                <div>
+                  <Label>Retry Delay (minutes)</Label>
+                  <Input
+                    type="number"
+                    min="5"
+                    max="120"
+                    value={retryDelayMinutes}
+                    onChange={(e) => setRetryDelayMinutes(parseInt(e.target.value) || 30)}
+                  />
+                </div>
+                <div>
+                  <Label>Pause After Failures</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={pauseOnConsecutiveFailures}
+                    onChange={(e) => setPauseOnConsecutiveFailures(parseInt(e.target.value) || 5)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={notifyOnSuccess}
+                    onCheckedChange={setNotifyOnSuccess}
+                  />
+                  <Label>Notify on Success</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={notifyOnFailure}
+                    onCheckedChange={setNotifyOnFailure}
+                  />
+                  <Label>Notify on Failure</Label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={onSubmit}
+              disabled={updateAutomation.isPending || !automationName}
+            >
+              {updateAutomation.isPending ? "Updating..." : "Update Automation"}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
