@@ -860,4 +860,187 @@ export class DatabaseStorage implements IStorage {
     }
     return [];
   }
+
+  // Supplier Automation Methods
+  async getSupplierAutomations() {
+    // Return mock automation data for demonstration
+    return [
+      {
+        id: 1,
+        name: "CWR Distribution Automation",
+        supplierId: 2,
+        dataSourceId: 10,
+        isActive: true,
+        catalogEnabled: true,
+        catalogFilePath: "/eco8/out/catalog.csv",
+        catalogFrequency: "daily",
+        catalogTimesPerDay: 2,
+        catalogScheduleTimes: ["02:00", "14:00"],
+        inventoryEnabled: true,
+        inventoryFilePath: "/eco8/out/inventory.csv",
+        inventoryFrequency: "hourly",
+        inventoryTimesPerDay: 12,
+        inventoryStartTime: "06:00",
+        inventoryEndTime: "22:00",
+        waitForCatalogCompletion: true,
+        catalogTimeoutMinutes: 30,
+        inventoryDelayAfterCatalog: 10,
+        maxRetryAttempts: 3,
+        retryDelayMinutes: 30,
+        pauseOnConsecutiveFailures: 5,
+        notifyOnSuccess: false,
+        notifyOnFailure: true,
+        lastCatalogPull: new Date(Date.now() - 32400000), // 9 hours ago
+        lastInventoryPull: new Date(Date.now() - 7200000), // 2 hours ago
+        nextCatalogPull: new Date(Date.now() + 3600000), // 1 hour from now
+        nextInventoryPull: new Date(Date.now() + 1800000), // 30 minutes from now
+        consecutiveFailures: 0,
+        totalSuccessfulPulls: 247,
+        totalFailedPulls: 3,
+        averageProcessingTimeMinutes: 8.5,
+        createdAt: new Date(Date.now() - 2592000000), // 30 days ago
+        updatedAt: new Date(Date.now() - 86400000) // Yesterday
+      }
+    ];
+  }
+
+  async getSupplierAutomation(id: number) {
+    // Return mock data for now since tables don't exist yet
+    return {
+      id,
+      name: "CWR Distribution Automation",
+      supplierId: 2,
+      dataSourceId: 10,
+      catalogFilePath: "/eco8/out/catalog.csv",
+      inventoryFilePath: "/eco8/out/inventory.csv"
+    };
+  }
+
+  async createSupplierAutomation(data: any) {
+    // Return mock created automation for now
+    return {
+      id: Date.now(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async updateSupplierAutomation(id: number, data: any) {
+    // Return mock updated automation for now
+    return {
+      id,
+      ...data,
+      updatedAt: new Date()
+    };
+  }
+
+  async deleteSupplierAutomation(id: number) {
+    // Mock deletion success
+    return true;
+  }
+
+  // Data Pull Jobs Methods
+  async getDataPullJobs(filters: { 
+    limit?: number, 
+    status?: string, 
+    supplierId?: number, 
+    jobType?: string 
+  }) {
+    // Return mock job data for demonstration
+    return [
+      {
+        id: 1,
+        supplierId: 2,
+        dataSourceId: 10,
+        jobType: "catalog",
+        filePath: "/eco8/out/catalog.csv",
+        status: "completed",
+        scheduledAt: new Date(Date.now() - 86400000), // Yesterday
+        recordsProcessed: 28453,
+        recordsInserted: 156,
+        recordsUpdated: 28297
+      },
+      {
+        id: 2,
+        supplierId: 2,
+        dataSourceId: 10,
+        jobType: "inventory",
+        filePath: "/eco8/out/inventory.csv",
+        status: "completed",
+        scheduledAt: new Date(Date.now() - 7200000), // 2 hours ago
+        recordsProcessed: 28453,
+        recordsUpdated: 28453
+      },
+      {
+        id: 3,
+        supplierId: 2,
+        dataSourceId: 10,
+        jobType: "inventory",
+        filePath: "/eco8/out/inventory.csv",
+        status: "running",
+        scheduledAt: new Date(),
+        recordsProcessed: 12000
+      }
+    ].filter(job => {
+      if (filters.status && job.status !== filters.status) return false;
+      if (filters.supplierId && job.supplierId !== filters.supplierId) return false;
+      if (filters.jobType && job.jobType !== filters.jobType) return false;
+      return true;
+    }).slice(0, filters.limit || 50);
+  }
+
+  async createDataPullJob(data: any) {
+    // Return mock created job for now
+    return {
+      id: Date.now(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async updateDataPullJobStatus(id: number, updates: {
+    status?: string,
+    errorMessage?: string,
+    recordsProcessed?: number,
+    completedAt?: Date
+  }) {
+    // Return mock updated job for now
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date()
+    };
+  }
+
+  // Inventory Snapshots Methods  
+  async getInventorySnapshots(productId: number) {
+    // Return mock inventory data for now
+    return [];
+  }
+
+  async createInventorySnapshot(data: any) {
+    // Return mock created snapshot for now
+    return {
+      id: Date.now(),
+      ...data,
+      createdAt: new Date()
+    };
+  }
+
+  // Automation Logs Methods
+  async getAutomationLogs(automationId: number, filters: { limit?: number, level?: string }) {
+    // Return mock logs for now
+    return [];
+  }
+
+  async createAutomationLog(data: any) {
+    // Return mock created log for now
+    return {
+      id: Date.now(),
+      ...data,
+      createdAt: new Date()
+    };
+  }
 }

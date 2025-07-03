@@ -372,11 +372,57 @@ export const dataSourcePaths = pgTable("data_source_paths", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Enhanced data pull job system for catalog and inventory management
+export const dataPullJobsEnum = pgEnum('data_pull_job_status', [
+  'pending', 'running', 'completed', 'failed', 'cancelled', 'timeout'
+]);
+
+export const dataPullJobs = pgTable("data_pull_jobs", {
+  id: serial("id").primaryKey(),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  dataSourceId: integer("data_source_id").notNull().references(() => dataSources.id),
+  
+  // Job identification
+  jobType: fileTypeEnum("job_type").notNull(), // catalog, inventory, pricing, etc.
+  filePath: text("file_path").notNull(),
+  status: dataPullJobsEnum("status").default("pending"),
+  
+  // Scheduling information
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Processing results
+  recordsProcessed: integer("records_processed").default(0),
+  recordsInserted: integer("records_inserted").default(0),
+  recordsUpdated: integer("records_updated").default(0),
+  recordsSkipped: integer("records_skipped").default(0),
+  recordsError: integer("records_error").default(0),
+  
+  // Error handling
+  errorMessage: text("error_message"),
+  errorDetails: json("error_details"),
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  
+  // File metadata
+  fileSize: integer("file_size"), // bytes
+  checksumMd5: text("checksum_md5"),
+  lastModified: timestamp("last_modified"),
+  
+  // Dependency tracking
+  dependsOnJobId: integer("depends_on_job_id").references(() => dataPullJobs.id),
+  triggeredByJobId: integer("triggered_by_job_id").references(() => dataPullJobs.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Supplier automation schedules for catalog and inventory workflows
 export const supplierAutomation = pgTable("supplier_automation", {
   id: serial("id").primaryKey(),
   supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
-  connectionId: integer("connection_id").notNull().references(() => connections.id),
+  dataSourceId: integer("data_source_id").notNull().references(() => dataSources.id),
   
   // General settings
   name: text("name").notNull(), // "CWR Distribution Automation"
@@ -384,6 +430,7 @@ export const supplierAutomation = pgTable("supplier_automation", {
   
   // Catalog processing (primary data - must complete first)
   catalogEnabled: boolean("catalog_enabled").default(true),
+  catalogFilePath: text("catalog_file_path"), // /eco8/out/catalog.csv
   catalogFrequency: scheduleFrequencyEnum("catalog_frequency").default("daily"),
   catalogTimesPerDay: integer("catalog_times_per_day").default(1), // 1-2 times daily
   catalogScheduleTimes: json("catalog_schedule_times").default(['02:00']), // Array of times
@@ -391,6 +438,7 @@ export const supplierAutomation = pgTable("supplier_automation", {
   
   // Inventory processing (dependent on catalog completion)
   inventoryEnabled: boolean("inventory_enabled").default(true),
+  inventoryFilePath: text("inventory_file_path"), // /eco8/out/inventory.csv
   inventoryFrequency: scheduleFrequencyEnum("inventory_frequency").default("hourly"),
   inventoryTimesPerDay: integer("inventory_times_per_day").default(12), // 1-12 times daily
   inventoryStartTime: text("inventory_start_time").default("06:00"),
@@ -412,8 +460,81 @@ export const supplierAutomation = pgTable("supplier_automation", {
   notifyOnFailure: boolean("notify_on_failure").default(true),
   notificationEmails: json("notification_emails").default([]),
   
+  // Performance tracking
+  lastCatalogPull: timestamp("last_catalog_pull"),
+  lastInventoryPull: timestamp("last_inventory_pull"),
+  nextCatalogPull: timestamp("next_catalog_pull"),
+  nextInventoryPull: timestamp("next_inventory_pull"),
+  
+  // Health monitoring
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  totalSuccessfulPulls: integer("total_successful_pulls").default(0),
+  totalFailedPulls: integer("total_failed_pulls").default(0),
+  averageProcessingTimeMinutes: real("average_processing_time_minutes"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Inventory snapshots for tracking product availability over time
+export const inventorySnapshots = pgTable("inventory_snapshots", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  
+  // Inventory levels
+  availableQuantity: integer("available_quantity").default(0),
+  backorderQuantity: integer("backorder_quantity").default(0),
+  onHandQuantity: integer("on_hand_quantity").default(0),
+  committedQuantity: integer("committed_quantity").default(0),
+  
+  // Pricing information
+  cost: real("cost"),
+  listPrice: real("list_price"),
+  mapPrice: real("map_price"), // Minimum Advertised Price
+  msrp: real("msrp"), // Manufacturer's Suggested Retail Price
+  
+  // Stock status
+  inStock: boolean("in_stock").default(false),
+  isDiscontinued: boolean("is_discontinued").default(false),
+  leadTimeDays: integer("lead_time_days").default(0),
+  
+  // Tracking information
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  dataSource: text("data_source").default("sftp"), // sftp, api, manual
+  pullJobId: integer("pull_job_id").references(() => dataPullJobs.id),
+  
+  // Change tracking
+  priceChanged: boolean("price_changed").default(false),
+  quantityChanged: boolean("quantity_changed").default(false),
+  previousCost: real("previous_cost"),
+  previousListPrice: real("previous_list_price"),
+  previousQuantity: integer("previous_quantity"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Automation job execution logs for monitoring and debugging
+export const automationLogs = pgTable("automation_logs", {
+  id: serial("id").primaryKey(),
+  automationId: integer("automation_id").notNull().references(() => supplierAutomation.id),
+  jobId: integer("job_id").references(() => dataPullJobs.id),
+  
+  // Log details
+  level: text("level").notNull(), // info, warning, error, debug
+  message: text("message").notNull(),
+  details: json("details"),
+  
+  // Context
+  jobType: fileTypeEnum("job_type"), // catalog, inventory, pricing
+  filePath: text("file_path"),
+  recordsAffected: integer("records_affected"),
+  
+  // Timing
+  executionTimeMs: integer("execution_time_ms"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Shipping Templates for supplier-specific shipping calculations

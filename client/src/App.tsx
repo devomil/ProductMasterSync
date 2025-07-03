@@ -42,6 +42,7 @@ import MarketplaceOverview from "@/pages/MarketplaceOverview";
 import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
 import ShippingTemplates from "@/pages/ShippingTemplates";
+import InventoryManagement from "@/pages/InventoryManagement";
 import NotFound from "@/pages/not-found";
 import TopNavigation from "@/components/TopNavigation";
 
@@ -57,6 +58,7 @@ function Router() {
 
       <Route path="/suppliers" component={SuppliersSimple} />
       <Route path="/shipping-templates" component={ShippingTemplates} />
+      <Route path="/inventory-management" component={InventoryManagement} />
       <Route path="/data-imports" component={DataImports} />
       <Route path="/data-exports" component={DataExports} />
       <Route path="/data-sources" component={DataSources} />

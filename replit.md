@@ -148,6 +148,21 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Comprehensive Inventory Management System (2025-07-02)**:
+  - Built complete inventory automation system with catalog and inventory file scheduling
+  - Created dedicated `/inventory-management` page with four-tab interface (Overview, Schedules, Jobs, Monitoring)
+  - Implemented automated data pull job system supporting catalog (every 9 hours) and inventory (every 2 hours) workflows
+  - Added comprehensive API endpoints for supplier automation, data pull jobs, inventory snapshots, and automation logs
+  - Built sophisticated scheduling system: catalog pulls 1-2 times daily, inventory pulls 1-12 times hourly with configurable windows
+  - Implemented dependency management ensuring catalog files process before inventory files
+  - Added comprehensive error handling with retry logic, consecutive failure thresholds, and notification systems
+  - Created real-time monitoring dashboard showing active schedules, today's jobs, success rates, and system health
+  - Built automation creation dialog with full configuration: file paths, frequencies, error handling, notifications
+  - Added performance tracking: processing times, success/failure counts, health monitoring for hundreds of thousands of products
+  - Enhanced database schema with inventory snapshots, pull job tracking, and automation logging
+  - Integrated with existing CWR Distribution data source showing realistic automation schedules
+  - System designed to handle numerous suppliers with hundreds of thousands of products efficiently
+  - Added navigation link in Suppliers dropdown for easy access to inventory management interface
 - **Supplier-Specific Shipping Template Filtering Fixed (2025-07-02)**:
   - Fixed frontend API query structure to properly filter shipping templates by selected supplier
   - Updated React Query cache invalidation to use correct endpoint format

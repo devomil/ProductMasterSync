@@ -2067,6 +2067,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Supplier Automation Routes
+  app.get('/api/supplier-automation', async (req, res) => {
+    try {
+      const automations = await storage.getSupplierAutomations();
+      res.json(automations);
+    } catch (error) {
+      console.error('Error fetching supplier automations:', error);
+      res.status(500).json({ error: 'Failed to fetch supplier automations' });
+    }
+  });
+
+  app.post('/api/supplier-automation', async (req, res) => {
+    try {
+      const automation = await storage.createSupplierAutomation(req.body);
+      res.json(automation);
+    } catch (error) {
+      console.error('Error creating supplier automation:', error);
+      res.status(500).json({ error: 'Failed to create supplier automation' });
+    }
+  });
+
+  app.put('/api/supplier-automation/:id', async (req, res) => {
+    try {
+      const automation = await storage.updateSupplierAutomation(parseInt(req.params.id), req.body);
+      res.json(automation);
+    } catch (error) {
+      console.error('Error updating supplier automation:', error);
+      res.status(500).json({ error: 'Failed to update supplier automation' });
+    }
+  });
+
+  app.delete('/api/supplier-automation/:id', async (req, res) => {
+    try {
+      await storage.deleteSupplierAutomation(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting supplier automation:', error);
+      res.status(500).json({ error: 'Failed to delete supplier automation' });
+    }
+  });
+
+  // Data Pull Jobs Routes
+  app.get('/api/data-pull-jobs', async (req, res) => {
+    try {
+      const { limit = 50, status, supplierId, jobType } = req.query;
+      const jobs = await storage.getDataPullJobs({ 
+        limit: parseInt(limit as string), 
+        status: status as string,
+        supplierId: supplierId ? parseInt(supplierId as string) : undefined,
+        jobType: jobType as string
+      });
+      res.json(jobs);
+    } catch (error) {
+      console.error('Error fetching data pull jobs:', error);
+      res.status(500).json({ error: 'Failed to fetch data pull jobs' });
+    }
+  });
+
+  app.post('/api/data-pull-jobs', async (req, res) => {
+    try {
+      const job = await storage.createDataPullJob(req.body);
+      res.json(job);
+    } catch (error) {
+      console.error('Error creating data pull job:', error);
+      res.status(500).json({ error: 'Failed to create data pull job' });
+    }
+  });
+
+  app.put('/api/data-pull-jobs/:id/status', async (req, res) => {
+    try {
+      const { status, errorMessage, recordsProcessed } = req.body;
+      const job = await storage.updateDataPullJobStatus(parseInt(req.params.id), {
+        status,
+        errorMessage,
+        recordsProcessed,
+        completedAt: status === 'completed' ? new Date() : undefined
+      });
+      res.json(job);
+    } catch (error) {
+      console.error('Error updating data pull job status:', error);
+      res.status(500).json({ error: 'Failed to update data pull job status' });
+    }
+  });
+
+  // Manual trigger for supplier automation
+  app.post('/api/supplier-automation/:id/trigger', async (req, res) => {
+    try {
+      const { jobType = 'catalog' } = req.body; // catalog or inventory
+      const automationId = parseInt(req.params.id);
+      
+      // Get automation details
+      const automation = await storage.getSupplierAutomation(automationId);
+      if (!automation) {
+        return res.status(404).json({ error: 'Automation not found' });
+      }
+
+      // Create a new job
+      const filePath = jobType === 'catalog' ? automation.catalogFilePath : automation.inventoryFilePath;
+      const job = await storage.createDataPullJob({
+        supplierId: automation.supplierId,
+        dataSourceId: automation.dataSourceId,
+        jobType,
+        filePath,
+        scheduledAt: new Date(),
+        status: 'pending'
+      });
+
+      res.json({ job, message: `${jobType} pull triggered successfully` });
+    } catch (error) {
+      console.error('Error triggering automation:', error);
+      res.status(500).json({ error: 'Failed to trigger automation' });
+    }
+  });
+
   // Basic health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ 
