@@ -259,10 +259,12 @@ export default function InventoryManagement() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
+                      <EditAutomationDialog 
+                        schedule={schedule} 
+                        suppliers={suppliers} 
+                        dataSources={dataSources} 
+                      />
+                      <TestInventoryDialog schedule={schedule} />
                       <Button variant="outline" size="sm">
                         {schedule.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </Button>
@@ -701,6 +703,375 @@ function CreateAutomationDialog({ suppliers, dataSources }: { suppliers: any[], 
             </DialogFooter>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Edit Automation Dialog Component
+function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: any, suppliers: any[], dataSources: any[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const form = useForm<AutomationSchedule>({
+    resolver: zodResolver(automationScheduleSchema),
+    defaultValues: {
+      name: schedule.name || "",
+      isActive: schedule.isActive || true,
+      catalogEnabled: schedule.catalogEnabled || true,
+      catalogFilePath: schedule.catalogFilePath || "",
+      catalogFrequency: schedule.catalogFrequency || "daily",
+      catalogTimesPerDay: schedule.catalogTimesPerDay || 1,
+      catalogScheduleTimes: schedule.catalogScheduleTimes || ["02:00"],
+      inventoryEnabled: schedule.inventoryEnabled || true,
+      inventoryFilePath: schedule.inventoryFilePath || "",
+      inventoryFrequency: schedule.inventoryFrequency || "hourly",
+      inventoryTimesPerDay: schedule.inventoryTimesPerDay || 12,
+      inventoryStartTime: schedule.inventoryStartTime || "06:00",
+      inventoryEndTime: schedule.inventoryEndTime || "22:00",
+      waitForCatalogCompletion: schedule.waitForCatalogCompletion || true,
+      catalogTimeoutMinutes: schedule.catalogTimeoutMinutes || 30,
+      inventoryDelayAfterCatalog: schedule.inventoryDelayAfterCatalog || 10,
+      maxRetryAttempts: schedule.maxRetryAttempts || 3,
+      retryDelayMinutes: schedule.retryDelayMinutes || 30,
+      pauseOnConsecutiveFailures: schedule.pauseOnConsecutiveFailures || 5,
+      notifyOnSuccess: schedule.notifyOnSuccess || false,
+      notifyOnFailure: schedule.notifyOnFailure || true,
+      notificationEmails: schedule.notificationEmails || []
+    }
+  });
+
+  const updateAutomation = useMutation({
+    mutationFn: async (data: AutomationSchedule) => {
+      return apiRequest(`/api/supplier-automation/${schedule.id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/supplier-automation"] });
+      toast({
+        title: "Automation Updated",
+        description: `${form.getValues().name} has been updated successfully.`,
+      });
+      setIsOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update automation schedule. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: AutomationSchedule) => {
+    updateAutomation.mutate(data);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Settings className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Automation Schedule</DialogTitle>
+          <DialogDescription>
+            Modify the automation configuration for {schedule.name}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Basic Settings */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Automation Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="CWR Distribution Automation" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Active</FormLabel>
+                      <FormDescription>
+                        Enable or disable this automation
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Catalog Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Catalog Processing</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="catalogFilePath"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Catalog File Path</FormLabel>
+                      <FormControl>
+                        <Input placeholder="/eco8/out/catalog.csv" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="catalogFrequency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Frequency</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="once">Once</SelectItem>
+                          <SelectItem value="hourly">Hourly</SelectItem>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Inventory Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Inventory Processing</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="inventoryFilePath"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Inventory File Path</FormLabel>
+                      <FormControl>
+                        <Input placeholder="/eco8/out/inventory.csv" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="inventoryFrequency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Frequency</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="hourly">Hourly</SelectItem>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="inventoryTimesPerDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Times per Day</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          max="24" 
+                          {...field} 
+                          onChange={e => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="inventoryStartTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="inventoryEndTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateAutomation.isPending}>
+                {updateAutomation.isPending ? "Updating..." : "Update Automation"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+// Test Inventory Updates Dialog Component  
+function TestInventoryDialog({ schedule }: { schedule: any }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isTestRunning, setIsTestRunning] = useState(false);
+  const [testResults, setTestResults] = useState<any>(null);
+  const { toast } = useToast();
+
+  const runInventoryTest = async () => {
+    setIsTestRunning(true);
+    setTestResults(null);
+
+    try {
+      const response = await apiRequest(`/api/test-inventory-pull/${schedule.id}`, {
+        method: "POST",
+        body: JSON.stringify({ testMode: true })
+      });
+
+      setTestResults(response);
+      toast({
+        title: "Inventory Test Complete",
+        description: `Updated ${response.updatedProducts || 0} products successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Test Failed", 
+        description: "Failed to run inventory test. Please check your automation configuration.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestRunning(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Database className="h-4 w-4 mr-2" />
+          Test
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Test Inventory Updates</DialogTitle>
+          <DialogDescription>
+            Run a test inventory pull to see how your existing products will be updated
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="p-4 border rounded-lg">
+            <h4 className="font-medium mb-2">Test Configuration</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Inventory Path:</span>
+                <span className="font-mono">{schedule.inventoryFilePath}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Frequency:</span>
+                <span>{schedule.inventoryFrequency}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Times per Day:</span>
+                <span>{schedule.inventoryTimesPerDay}</span>
+              </div>
+            </div>
+          </div>
+
+          {testResults && (
+            <div className="p-4 border rounded-lg bg-green-50">
+              <h4 className="font-medium mb-2 text-green-800">Test Results</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Products Updated:</span>
+                  <span className="font-medium">{testResults.updatedProducts || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Processing Time:</span>
+                  <span className="font-medium">{testResults.processingTimeMs}ms</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <Badge variant="default">{testResults.status}</Badge>
+                </div>
+                {testResults.updatedProducts > 0 && (
+                  <div className="mt-3 text-xs text-green-700">
+                    <p>✓ Inventory levels and pricing updated for your CWR products</p>
+                    <p>✓ Changes can be viewed in product details pages</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+            Close
+          </Button>
+          <Button onClick={runInventoryTest} disabled={isTestRunning}>
+            {isTestRunning ? "Running Test..." : "Run Test"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

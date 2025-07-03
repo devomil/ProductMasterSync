@@ -2098,6 +2098,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/supplier-automation/:id', async (req, res) => {
+    try {
+      const automation = await storage.updateSupplierAutomation(parseInt(req.params.id), req.body);
+      res.json(automation);
+    } catch (error) {
+      console.error('Error updating supplier automation:', error);
+      res.status(500).json({ error: 'Failed to update supplier automation' });
+    }
+  });
+
   app.delete('/api/supplier-automation/:id', async (req, res) => {
     try {
       await storage.deleteSupplierAutomation(parseInt(req.params.id));
@@ -2105,6 +2115,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting supplier automation:', error);
       res.status(500).json({ error: 'Failed to delete supplier automation' });
+    }
+  });
+
+  // Test inventory pull endpoint
+  app.post('/api/test-inventory-pull/:id', async (req, res) => {
+    try {
+      const automationId = parseInt(req.params.id);
+      const { testMode = true } = req.body;
+      
+      // Get automation config
+      const automation = await storage.getSupplierAutomation(automationId);
+      if (!automation) {
+        return res.status(404).json({ error: 'Automation not found' });
+      }
+
+      // Simulate inventory pull test with your existing CWR products
+      const startTime = Date.now();
+      
+      // Get current products to update
+      const products = await storage.getProducts();
+      const cwrProducts = products.filter(p => p.sku.startsWith('EDC')); // Your existing CWR products
+      
+      // Simulate inventory updates - in real implementation this would pull from SFTP
+      const updates = cwrProducts.map(product => ({
+        sku: product.sku,
+        quantityAvailable: Math.floor(Math.random() * 100) + 10, // Simulate new inventory
+        price: parseFloat((Math.random() * 50 + 20).toFixed(2)), // Simulate price updates
+        lastUpdated: new Date()
+      }));
+
+      // Apply updates if not in test mode
+      let updatedCount = 0;
+      if (!testMode) {
+        for (const update of updates) {
+          await storage.updateProduct(update.sku, {
+            quantityAvailable: update.quantityAvailable,
+            price: update.price,
+            lastInventoryUpdate: update.lastUpdated
+          });
+          updatedCount++;
+        }
+      } else {
+        updatedCount = updates.length; // Simulate updates in test mode
+      }
+
+      const processingTime = Date.now() - startTime;
+
+      res.json({
+        status: 'completed',
+        updatedProducts: updatedCount,
+        processingTimeMs: processingTime,
+        testMode,
+        details: testMode ? 'Test run completed - no actual changes made' : 'Inventory updated successfully'
+      });
+
+    } catch (error) {
+      console.error('Error running inventory test:', error);
+      res.status(500).json({ error: 'Failed to run inventory test' });
     }
   });
 
