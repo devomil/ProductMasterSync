@@ -2138,23 +2138,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cwrProducts = products.filter(p => p.sku.startsWith('EDC')); // Your existing CWR products
       
       // Simulate inventory updates - in real implementation this would pull from SFTP
-      const updates = cwrProducts.map(product => ({
-        sku: product.sku,
-        quantityAvailable: Math.floor(Math.random() * 100) + 10, // Simulate new inventory
-        price: parseFloat((Math.random() * 50 + 20).toFixed(2)), // Simulate price updates
-        lastUpdated: new Date()
-      }));
+      const updates = cwrProducts.map(product => {
+        const currentPrice = parseFloat(product.price || '0') || 0;
+        const newPrice = currentPrice > 0 ? (currentPrice * (0.9 + Math.random() * 0.2)).toFixed(2) : '0.00';
+        return {
+          sku: product.sku,
+          newPrice: parseFloat(newPrice),
+          simulatedInventory: Math.floor(Math.random() * 100) + 10,
+          lastUpdated: new Date()
+        };
+      });
 
       // Apply updates if not in test mode
       let updatedCount = 0;
       if (!testMode) {
         for (const update of updates) {
-          await storage.updateProduct(update.sku, {
-            quantityAvailable: update.quantityAvailable,
-            price: update.price,
-            lastInventoryUpdate: update.lastUpdated
-          });
-          updatedCount++;
+          const product = cwrProducts.find(p => p.sku === update.sku);
+          if (product) {
+            // Update only the price field since it exists in the schema
+            await storage.updateProduct(product.id, {
+              price: update.newPrice.toString()
+            });
+            updatedCount++;
+          }
         }
       } else {
         updatedCount = updates.length; // Simulate updates in test mode
