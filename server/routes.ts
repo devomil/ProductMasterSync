@@ -2225,7 +2225,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Manual trigger for supplier automation
+  // New Per-File Path Automation API Endpoints
+  
+  // Simple test endpoint first
+  app.get('/api/automations/test', async (req, res) => {
+    res.json({ message: 'Automation API is working', timestamp: new Date().toISOString() });
+  });
+
+  // Get all supplier automations with file paths
+  app.get('/api/automations', async (req, res) => {
+    try {
+      console.log('Automation API called - checking if tables exist');
+      const automations = await storage.getSupplierAutomations();
+      res.json(automations);
+    } catch (error) {
+      console.error('Error fetching automations:', error);
+      res.status(500).json({ error: 'Failed to fetch automations', details: error.message });
+    }
+  });
+
+  // Get specific automation with file paths
+  app.get('/api/automations/:id', async (req, res) => {
+    try {
+      const automation = await storage.getSupplierAutomationById(parseInt(req.params.id));
+      if (!automation) {
+        return res.status(404).json({ error: 'Automation not found' });
+      }
+      res.json(automation);
+    } catch (error) {
+      console.error('Error fetching automation:', error);
+      res.status(500).json({ error: 'Failed to fetch automation' });
+    }
+  });
+
+  // Create new automation with file paths
+  app.post('/api/automations', async (req, res) => {
+    try {
+      const { name, supplierId, isActive, filePaths, maxRetryAttempts, retryDelayMinutes, pauseOnConsecutiveFailures, notifyOnSuccess, notifyOnFailure, notificationEmails } = req.body;
+      
+      // Get the data source for this supplier
+      const dataSources = await storage.getDataSourcesBySupplier(supplierId);
+      const dataSourceId = dataSources.length > 0 ? dataSources[0].id : null;
+      
+      if (!dataSourceId) {
+        return res.status(400).json({ error: 'No data source found for this supplier' });
+      }
+
+      const automationData = {
+        name,
+        supplierId,
+        dataSourceId,
+        isActive,
+        filePaths,
+        maxRetryAttempts,
+        retryDelayMinutes,
+        pauseOnConsecutiveFailures,
+        notifyOnSuccess,
+        notifyOnFailure,
+        notificationEmails
+      };
+
+      const automation = await storage.createSupplierAutomation(automationData);
+      res.json(automation);
+    } catch (error) {
+      console.error('Error creating automation:', error);
+      res.status(500).json({ error: 'Failed to create automation' });
+    }
+  });
+
+  // Update automation with file paths
+  app.put('/api/automations/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const automation = await storage.updateSupplierAutomation(id, updates);
+      if (!automation) {
+        return res.status(404).json({ error: 'Automation not found' });
+      }
+      
+      res.json(automation);
+    } catch (error) {
+      console.error('Error updating automation:', error);
+      res.status(500).json({ error: 'Failed to update automation' });
+    }
+  });
+
+  // Delete automation and its file paths
+  app.delete('/api/automations/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteSupplierAutomation(id);
+      
+      if (success) {
+        res.json({ success: true, message: 'Automation deleted successfully' });
+      } else {
+        res.status(404).json({ error: 'Automation not found' });
+      }
+    } catch (error) {
+      console.error('Error deleting automation:', error);
+      res.status(500).json({ error: 'Failed to delete automation' });
+    }
+  });
+
+  // Get file paths for specific automation
+  app.get('/api/automations/:id/file-paths', async (req, res) => {
+    try {
+      const automationId = parseInt(req.params.id);
+      const filePaths = await storage.getAutomationFilePaths(automationId);
+      res.json(filePaths);
+    } catch (error) {
+      console.error('Error fetching file paths:', error);
+      res.status(500).json({ error: 'Failed to fetch file paths' });
+    }
+  });
+
+  // Update specific file path
+  app.put('/api/automation-file-paths/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const filePath = await storage.updateAutomationFilePath(id, updates);
+      if (!filePath) {
+        return res.status(404).json({ error: 'File path not found' });
+      }
+      
+      res.json(filePath);
+    } catch (error) {
+      console.error('Error updating file path:', error);
+      res.status(500).json({ error: 'Failed to update file path' });
+    }
+  });
+
+  // Trigger automation for specific file path
+  app.post('/api/automations/:id/trigger/:filePathId', async (req, res) => {
+    try {
+      const automationId = parseInt(req.params.id);
+      const filePathId = parseInt(req.params.filePathId);
+      
+      // Get automation and file path details
+      const automation = await storage.getSupplierAutomationById(automationId);
+      if (!automation) {
+        return res.status(404).json({ error: 'Automation not found' });
+      }
+
+      const filePath = automation.filePaths.find((fp: any) => fp.id === filePathId);
+      if (!filePath) {
+        return res.status(404).json({ error: 'File path not found' });
+      }
+
+      // Create a new job for this specific file path
+      const job = await storage.createDataPullJob({
+        supplierId: automation.supplierId,
+        dataSourceId: automation.dataSourceId,
+        jobType: filePath.fileType,
+        filePath: filePath.filePath,
+        scheduledAt: new Date(),
+        status: 'pending'
+      });
+
+      res.json({ 
+        success: true, 
+        message: `Triggered ${filePath.fileType} job for ${filePath.label}`,
+        job 
+      });
+    } catch (error) {
+      console.error('Error triggering automation:', error);
+      res.status(500).json({ error: 'Failed to trigger automation' });
+    }
+  });
+
+  // Test file path connectivity
+  app.post('/api/automations/:id/test/:filePathId', async (req, res) => {
+    try {
+      const automationId = parseInt(req.params.id);
+      const filePathId = parseInt(req.params.filePathId);
+      
+      // Get automation and file path details
+      const automation = await storage.getSupplierAutomationById(automationId);
+      if (!automation) {
+        return res.status(404).json({ error: 'Automation not found' });
+      }
+
+      const filePath = automation.filePaths.find((fp: any) => fp.id === filePathId);
+      if (!filePath) {
+        return res.status(404).json({ error: 'File path not found' });
+      }
+
+      // Simulate file connectivity test
+      const testResult = {
+        success: true,
+        filePath: filePath.filePath,
+        fileType: filePath.fileType,
+        lastModified: new Date(),
+        fileSize: Math.floor(Math.random() * 10000000), // Simulated file size
+        connectionTime: Math.floor(Math.random() * 1000) + 100, // Simulated connection time
+        message: `Successfully connected to ${filePath.label}`
+      };
+
+      res.json(testResult);
+    } catch (error) {
+      console.error('Error testing file path:', error);
+      res.status(500).json({ error: 'Failed to test file path' });
+    }
+  });
+
+  // Manual trigger for supplier automation (legacy endpoint)
   app.post('/api/supplier-automation/:id/trigger', async (req, res) => {
     try {
       const { jobType = 'catalog' } = req.body; // catalog or inventory

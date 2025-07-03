@@ -554,6 +554,189 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  // New Automation System - Per-File Path Configuration
+  async createSupplierAutomation(automationData: any): Promise<any> {
+    const [automation] = await db
+      .insert(schema.supplierAutomation)
+      .values({
+        name: automationData.name,
+        supplierId: automationData.supplierId,
+        dataSourceId: automationData.dataSourceId,
+        isActive: automationData.isActive,
+        maxRetryAttempts: automationData.maxRetryAttempts || 3,
+        retryDelayMinutes: automationData.retryDelayMinutes || 30,
+        pauseOnConsecutiveFailures: automationData.pauseOnConsecutiveFailures || 5,
+        notifyOnSuccess: automationData.notifyOnSuccess || false,
+        notifyOnFailure: automationData.notifyOnFailure || true,
+        notificationEmails: automationData.notificationEmails || []
+      })
+      .returning();
+
+    // Create file path configurations
+    if (automationData.filePaths && automationData.filePaths.length > 0) {
+      const filePathInserts = automationData.filePaths.map((fp: any) => ({
+        automationId: automation.id,
+        label: fp.label,
+        filePath: fp.filePath,
+        fileType: fp.fileType,
+        isEnabled: fp.isEnabled,
+        frequency: fp.frequency,
+        timesPerDay: fp.timesPerDay,
+        startTime: fp.startTime,
+        endTime: fp.endTime,
+        scheduleTimes: fp.scheduleTimes || [fp.startTime],
+        customSchedule: fp.customSchedule,
+        dependsOnFileType: fp.dependsOnFileType,
+        processingOrder: fp.processingOrder,
+        delayAfterDependency: fp.delayAfterDependency || 10
+      }));
+
+      await db.insert(schema.automationFilePaths).values(filePathInserts);
+    }
+
+    return automation;
+  }
+
+  async getSupplierAutomations(): Promise<any[]> {
+    const automations = await db
+      .select()
+      .from(schema.supplierAutomation)
+      .leftJoin(schema.suppliers, eq(schema.supplierAutomation.supplierId, schema.suppliers.id))
+      .orderBy(desc(schema.supplierAutomation.createdAt));
+
+    // Get file paths for each automation
+    const automationsWithPaths = await Promise.all(
+      automations.map(async (automation) => {
+        const filePaths = await db
+          .select()
+          .from(schema.automationFilePaths)
+          .where(eq(schema.automationFilePaths.automationId, automation.supplier_automation.id))
+          .orderBy(schema.automationFilePaths.processingOrder);
+
+        return {
+          ...automation.supplier_automation,
+          supplier: automation.suppliers,
+          filePaths
+        };
+      })
+    );
+
+    return automationsWithPaths;
+  }
+
+  async getSupplierAutomationById(id: number): Promise<any | undefined> {
+    const [automation] = await db
+      .select()
+      .from(schema.supplierAutomation)
+      .leftJoin(schema.suppliers, eq(schema.supplierAutomation.supplierId, schema.suppliers.id))
+      .where(eq(schema.supplierAutomation.id, id));
+
+    if (!automation) return undefined;
+
+    const filePaths = await db
+      .select()
+      .from(schema.automationFilePaths)
+      .where(eq(schema.automationFilePaths.automationId, id))
+      .orderBy(schema.automationFilePaths.processingOrder);
+
+    return {
+      ...automation.supplier_automation,
+      supplier: automation.suppliers,
+      filePaths
+    };
+  }
+
+  async updateSupplierAutomation(id: number, updates: any): Promise<any | undefined> {
+    const [updatedAutomation] = await db
+      .update(schema.supplierAutomation)
+      .set({
+        name: updates.name,
+        isActive: updates.isActive,
+        maxRetryAttempts: updates.maxRetryAttempts,
+        retryDelayMinutes: updates.retryDelayMinutes,
+        pauseOnConsecutiveFailures: updates.pauseOnConsecutiveFailures,
+        notifyOnSuccess: updates.notifyOnSuccess,
+        notifyOnFailure: updates.notifyOnFailure,
+        notificationEmails: updates.notificationEmails,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.supplierAutomation.id, id))
+      .returning();
+
+    // Update file paths if provided
+    if (updates.filePaths) {
+      // Delete existing file paths
+      await db.delete(schema.automationFilePaths).where(eq(schema.automationFilePaths.automationId, id));
+
+      // Insert new file paths
+      if (updates.filePaths.length > 0) {
+        const filePathInserts = updates.filePaths.map((fp: any) => ({
+          automationId: id,
+          label: fp.label,
+          filePath: fp.filePath,
+          fileType: fp.fileType,
+          isEnabled: fp.isEnabled,
+          frequency: fp.frequency,
+          timesPerDay: fp.timesPerDay,
+          startTime: fp.startTime,
+          endTime: fp.endTime,
+          scheduleTimes: fp.scheduleTimes || [fp.startTime],
+          customSchedule: fp.customSchedule,
+          dependsOnFileType: fp.dependsOnFileType,
+          processingOrder: fp.processingOrder,
+          delayAfterDependency: fp.delayAfterDependency || 10
+        }));
+
+        await db.insert(schema.automationFilePaths).values(filePathInserts);
+      }
+    }
+
+    return updatedAutomation;
+  }
+
+  async deleteSupplierAutomation(id: number): Promise<boolean> {
+    // Delete file paths first (due to foreign key constraint)
+    await db.delete(schema.automationFilePaths).where(eq(schema.automationFilePaths.automationId, id));
+    
+    // Delete automation
+    await db.delete(schema.supplierAutomation).where(eq(schema.supplierAutomation.id, id));
+    
+    return true;
+  }
+
+  async getAutomationFilePaths(automationId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(schema.automationFilePaths)
+      .where(eq(schema.automationFilePaths.automationId, automationId))
+      .orderBy(schema.automationFilePaths.processingOrder);
+  }
+
+  async updateAutomationFilePath(id: number, updates: any): Promise<any | undefined> {
+    const [updatedFilePath] = await db
+      .update(schema.automationFilePaths)
+      .set({
+        label: updates.label,
+        filePath: updates.filePath,
+        fileType: updates.fileType,
+        isEnabled: updates.isEnabled,
+        frequency: updates.frequency,
+        timesPerDay: updates.timesPerDay,
+        startTime: updates.startTime,
+        endTime: updates.endTime,
+        scheduleTimes: updates.scheduleTimes,
+        customSchedule: updates.customSchedule,
+        dependsOnFileType: updates.dependsOnFileType,
+        processingOrder: updates.processingOrder,
+        delayAfterDependency: updates.delayAfterDependency,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.automationFilePaths.id, id))
+      .returning();
+
+    return updatedFilePath;
+  }
+
   // Other methods - simplified implementations
   // For the methods below, we'll provide simplified implementations just to make the interface work
 
