@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Redesigned Per-File Path Automation Architecture (2025-07-03)**:
+  - Fixed major design flaw where only inventory files had timing settings while catalog files lacked proper scheduling control
+  - Redesigned automation schema to use separate automationFilePaths table where each file path gets complete scheduling configuration
+  - Every file path now has its own: times per day, start time, end time, frequency, and dependency settings
+  - Eliminated hardcoded catalog/inventory split in favor of flexible file type system (catalog, inventory, pricing, images, specifications)
+  - Created NewAutomationDialog component with intuitive per-file scheduling interface
+  - Users can now add unlimited file paths with individual timing configurations instead of forced catalog/inventory structure
+  - System supports proper dependency management where any file type can depend on completion of another file type
+  - More logical and flexible architecture that scales to any number of file types and scheduling requirements
 - **Comprehensive Inventory Management System (2025-07-02)**:
   - Built complete inventory automation system with catalog and inventory file scheduling
   - Created dedicated `/inventory-management` page with four-tab interface (Overview, Schedules, Jobs, Monitoring)

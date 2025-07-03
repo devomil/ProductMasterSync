@@ -418,7 +418,7 @@ export const dataPullJobs = pgTable("data_pull_jobs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Supplier automation schedules for catalog and inventory workflows
+// Supplier automation schedules - redesigned for flexible per-file configuration
 export const supplierAutomation = pgTable("supplier_automation", {
   id: serial("id").primaryKey(),
   supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
@@ -428,29 +428,7 @@ export const supplierAutomation = pgTable("supplier_automation", {
   name: text("name").notNull(), // "CWR Distribution Automation"
   isActive: boolean("is_active").default(true),
   
-  // Catalog processing (primary data - must complete first)
-  catalogEnabled: boolean("catalog_enabled").default(true),
-  catalogFilePath: text("catalog_file_path"), // /eco8/out/catalog.csv
-  catalogFrequency: scheduleFrequencyEnum("catalog_frequency").default("daily"),
-  catalogTimesPerDay: integer("catalog_times_per_day").default(1), // 1-2 times daily
-  catalogScheduleTimes: json("catalog_schedule_times").default(['02:00']), // Array of times
-  catalogCustomSchedule: text("catalog_custom_schedule"), // Cron for weekly/monthly
-  
-  // Inventory processing (dependent on catalog completion)
-  inventoryEnabled: boolean("inventory_enabled").default(true),
-  inventoryFilePath: text("inventory_file_path"), // /eco8/out/inventory.csv
-  inventoryFrequency: scheduleFrequencyEnum("inventory_frequency").default("hourly"),
-  inventoryTimesPerDay: integer("inventory_times_per_day").default(12), // 1-12 times daily
-  inventoryStartTime: text("inventory_start_time").default("06:00"),
-  inventoryEndTime: text("inventory_end_time").default("22:00"),
-  inventoryCustomSchedule: text("inventory_custom_schedule"),
-  
-  // Processing rules and dependencies
-  waitForCatalogCompletion: boolean("wait_for_catalog_completion").default(true),
-  catalogTimeoutMinutes: integer("catalog_timeout_minutes").default(30),
-  inventoryDelayAfterCatalog: integer("inventory_delay_after_catalog").default(10), // Minutes
-  
-  // Error handling
+  // Global error handling settings
   maxRetryAttempts: integer("max_retry_attempts").default(3),
   retryDelayMinutes: integer("retry_delay_minutes").default(30),
   pauseOnConsecutiveFailures: integer("pause_on_consecutive_failures").default(5),
@@ -460,17 +438,45 @@ export const supplierAutomation = pgTable("supplier_automation", {
   notifyOnFailure: boolean("notify_on_failure").default(true),
   notificationEmails: json("notification_emails").default([]),
   
-  // Performance tracking
-  lastCatalogPull: timestamp("last_catalog_pull"),
-  lastInventoryPull: timestamp("last_inventory_pull"),
-  nextCatalogPull: timestamp("next_catalog_pull"),
-  nextInventoryPull: timestamp("next_inventory_pull"),
-  
   // Health monitoring
   consecutiveFailures: integer("consecutive_failures").default(0),
   totalSuccessfulPulls: integer("total_successful_pulls").default(0),
   totalFailedPulls: integer("total_failed_pulls").default(0),
   averageProcessingTimeMinutes: real("average_processing_time_minutes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual file path automation - each file gets its own complete scheduling
+export const automationFilePaths = pgTable("automation_file_paths", {
+  id: serial("id").primaryKey(),
+  automationId: integer("automation_id").notNull().references(() => supplierAutomation.id),
+  
+  // File identification
+  label: text("label").notNull(), // "Main Catalog", "Inventory Updates", "Pricing Feed"
+  filePath: text("file_path").notNull(), // "/eco8/out/catalog.csv"
+  fileType: fileTypeEnum("file_type").notNull(), // catalog, inventory, pricing
+  isEnabled: boolean("is_enabled").default(true),
+  
+  // Complete scheduling configuration - every file gets these settings
+  frequency: scheduleFrequencyEnum("frequency").default("daily"),
+  timesPerDay: integer("times_per_day").default(1), // 1-12 times daily
+  startTime: text("start_time").default("06:00"),
+  endTime: text("end_time").default("22:00"),
+  scheduleTimes: json("schedule_times").default(['06:00']), // Specific times for daily
+  customSchedule: text("custom_schedule"), // Cron expression
+  
+  // Processing dependencies
+  dependsOnFileType: fileTypeEnum("depends_on_file_type"), // Wait for this file type
+  processingOrder: integer("processing_order").default(1), // Processing sequence
+  delayAfterDependency: integer("delay_after_dependency").default(10), // Minutes
+  
+  // Performance tracking per file
+  lastSuccessfulPull: timestamp("last_successful_pull"),
+  nextScheduledPull: timestamp("next_scheduled_pull"),
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  averageProcessingTime: real("average_processing_time"), // Minutes
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
