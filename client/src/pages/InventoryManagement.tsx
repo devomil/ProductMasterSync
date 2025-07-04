@@ -715,12 +715,50 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch full automation details including file paths
-  const { data: fullAutomation, isLoading } = useQuery({
-    queryKey: ['/api/automations', schedule.id],
-    queryFn: () => apiRequest(`/api/automations/${schedule.id}`),
-    enabled: isOpen, // Only fetch when dialog is open
-  });
+  // Convert old automation format to new format with file paths
+  const convertToNewFormat = (oldSchedule: any) => {
+    const filePaths = [];
+    
+    // Add catalog file path if enabled
+    if (oldSchedule.catalogEnabled && oldSchedule.catalogFilePath) {
+      filePaths.push({
+        id: Date.now(),
+        label: 'Catalog Processing',
+        filePath: oldSchedule.catalogFilePath,
+        fileType: 'catalog',
+        isEnabled: true,
+        frequency: oldSchedule.catalogFrequency || 'daily',
+        timesPerDay: oldSchedule.catalogTimesPerDay || 1,
+        startTime: oldSchedule.catalogScheduleTimes?.[0] || '02:00',
+        endTime: '22:00',
+        processingOrder: 1
+      });
+    }
+    
+    // Add inventory file path if enabled
+    if (oldSchedule.inventoryEnabled && oldSchedule.inventoryFilePath) {
+      filePaths.push({
+        id: Date.now() + 1,
+        label: 'Inventory Processing',
+        filePath: oldSchedule.inventoryFilePath,
+        fileType: 'inventory',
+        isEnabled: true,
+        frequency: oldSchedule.inventoryFrequency || 'hourly',
+        timesPerDay: oldSchedule.inventoryTimesPerDay || 12,
+        startTime: oldSchedule.inventoryStartTime || '06:00',
+        endTime: oldSchedule.inventoryEndTime || '22:00',
+        processingOrder: 2
+      });
+    }
+    
+    return {
+      ...oldSchedule,
+      filePaths
+    };
+  };
+
+  const fullAutomation = convertToNewFormat(schedule);
+  const isLoading = false;
 
   // New per-file path state - initialize from fetched data
   const [automationName, setAutomationName] = useState('');
