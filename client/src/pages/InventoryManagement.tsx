@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -715,16 +715,39 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // New per-file path state
-  const [automationName, setAutomationName] = useState(schedule.name || '');
-  const [isActive, setIsActive] = useState(schedule.isActive || true);
-  const [filePaths, setFilePaths] = useState(schedule.filePaths || []);
-  const [maxRetryAttempts, setMaxRetryAttempts] = useState(schedule.maxRetryAttempts || 3);
-  const [retryDelayMinutes, setRetryDelayMinutes] = useState(schedule.retryDelayMinutes || 30);
-  const [pauseOnConsecutiveFailures, setPauseOnConsecutiveFailures] = useState(schedule.pauseOnConsecutiveFailures || 5);
-  const [notifyOnSuccess, setNotifyOnSuccess] = useState(schedule.notifyOnSuccess || false);
-  const [notifyOnFailure, setNotifyOnFailure] = useState(schedule.notifyOnFailure || true);
-  const [notificationEmails, setNotificationEmails] = useState(schedule.notificationEmails || []);
+  // Fetch full automation details including file paths
+  const { data: fullAutomation, isLoading } = useQuery({
+    queryKey: ['/api/automations', schedule.id],
+    queryFn: () => apiRequest(`/api/automations/${schedule.id}`),
+    enabled: isOpen, // Only fetch when dialog is open
+  });
+
+  // New per-file path state - initialize from fetched data
+  const [automationName, setAutomationName] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [filePaths, setFilePaths] = useState<any[]>([]);
+  const [maxRetryAttempts, setMaxRetryAttempts] = useState(3);
+  const [retryDelayMinutes, setRetryDelayMinutes] = useState(30);
+  const [pauseOnConsecutiveFailures, setPauseOnConsecutiveFailures] = useState(5);
+  const [notifyOnSuccess, setNotifyOnSuccess] = useState(false);
+  const [notifyOnFailure, setNotifyOnFailure] = useState(true);
+  const [notificationEmails, setNotificationEmails] = useState<string[]>([]);
+
+  // Update state when fullAutomation data is loaded
+  useEffect(() => {
+    if (fullAutomation) {
+      const data = fullAutomation as any; // Type assertion for API response
+      setAutomationName(data.name || '');
+      setIsActive(data.isActive || true);
+      setFilePaths(data.filePaths || []);
+      setMaxRetryAttempts(data.maxRetryAttempts || 3);
+      setRetryDelayMinutes(data.retryDelayMinutes || 30);
+      setPauseOnConsecutiveFailures(data.pauseOnConsecutiveFailures || 5);
+      setNotifyOnSuccess(data.notifyOnSuccess || false);
+      setNotifyOnFailure(data.notifyOnFailure || true);
+      setNotificationEmails(data.notificationEmails || []);
+    }
+  }, [fullAutomation]);
 
   const addFilePath = () => {
     const newFilePath = {
@@ -815,6 +838,14 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
           </DialogDescription>
         </DialogHeader>
         
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">Loading automation details...</p>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-6">
           {/* Basic Configuration */}
           <Card>
@@ -1052,6 +1083,7 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );
