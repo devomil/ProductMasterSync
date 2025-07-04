@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -757,10 +757,10 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
     };
   };
 
-  const fullAutomation = convertToNewFormat(schedule);
   const isLoading = false;
 
-  // New per-file path state - initialize from fetched data
+  // Initialize state from converted data - only run once when dialog opens
+  const [initialized, setInitialized] = useState(false);
   const [automationName, setAutomationName] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [filePaths, setFilePaths] = useState<any[]>([]);
@@ -771,10 +771,11 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
   const [notifyOnFailure, setNotifyOnFailure] = useState(true);
   const [notificationEmails, setNotificationEmails] = useState<string[]>([]);
 
-  // Update state when fullAutomation data is loaded
+  // Initialize state once when dialog opens
   useEffect(() => {
-    if (fullAutomation) {
-      const data = fullAutomation as any; // Type assertion for API response
+    if (isOpen && !initialized) {
+      const fullAutomation = convertToNewFormat(schedule);
+      const data = fullAutomation as any;
       setAutomationName(data.name || '');
       setIsActive(data.isActive || true);
       setFilePaths(data.filePaths || []);
@@ -784,8 +785,14 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
       setNotifyOnSuccess(data.notifyOnSuccess || false);
       setNotifyOnFailure(data.notifyOnFailure || true);
       setNotificationEmails(data.notificationEmails || []);
+      setInitialized(true);
     }
-  }, [fullAutomation]);
+    
+    // Reset initialized state when dialog closes
+    if (!isOpen && initialized) {
+      setInitialized(false);
+    }
+  }, [isOpen, initialized, schedule]);
 
   const addFilePath = () => {
     const newFilePath = {
