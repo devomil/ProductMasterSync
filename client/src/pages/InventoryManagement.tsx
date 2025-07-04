@@ -820,13 +820,11 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
 
   const updateAutomation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest(`/api/automations/${schedule.id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PUT", `/api/automations/${schedule.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supplier-automation"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/data-pull-jobs"] });
       toast({
         title: "Automation Updated",
         description: `${automationName} has been updated successfully.`,
@@ -834,6 +832,7 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
       setIsOpen(false);
     },
     onError: (error) => {
+      console.error("Update automation error:", error);
       toast({
         title: "Update Failed",
         description: "Failed to update automation schedule. Please try again.",
