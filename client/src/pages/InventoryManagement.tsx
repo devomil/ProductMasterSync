@@ -54,7 +54,7 @@ export default function InventoryManagement() {
 
   // Fetch automation schedules
   const { data: automationSchedules = [], isLoading: isLoadingSchedules } = useQuery({
-    queryKey: ["/api/supplier-automation"],
+    queryKey: ["/api/automations"],
   });
 
   // Fetch recent jobs
