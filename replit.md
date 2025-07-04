@@ -148,6 +148,14 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Fixed Edit Automation Dialog Database Timeouts and Update Functionality (2025-07-04)**:
+  - Resolved PostgreSQL connection timeout issues causing API failures during automation editing
+  - Eliminated problematic database calls by converting automation data locally instead of additional API requests
+  - Fixed infinite re-render loop in EditAutomationDialog by implementing proper state initialization
+  - Corrected API request format from object structure to proper parameter order: (method, url, data)
+  - Updated query cache invalidation to use correct endpoints: /api/automations and /api/data-pull-jobs
+  - Edit dialog now loads instantly, displays file path configurations properly, and saves changes successfully
+  - Users can now modify automation scheduling parameters (frequency, times per day, time windows) without console errors
 - **Completed Per-File Path Automation System Implementation (2025-07-03)**:
   - **Database Architecture**: Created new supplier_automation and automation_file_paths tables with complete schema
   - **Backend API**: Implemented full CRUD operations for per-file path automation system with 8 new endpoints
