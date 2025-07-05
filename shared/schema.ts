@@ -1443,13 +1443,11 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 
 export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
-  manufacturer: one(manufacturers, { fields: [products.manufacturerId], references: [manufacturers.id] }),
   suppliers: many(supplierProducts),
   attributes: many(productAttributes),
   identifiers: many(productIdentifiers),
   images: many(productImages),
   asinMappings: many(productAsinMapping),
-  warehouseStock: many(warehouseStock),
   inventorySnapshots: many(inventorySnapshots),
   opportunities: many(multiAsinOpportunities),
   confidenceScores: many(confidenceScores),
