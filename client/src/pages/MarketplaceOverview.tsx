@@ -192,6 +192,16 @@ export default function MarketplaceOverview() {
             </div>
           </div>
           
+          {amazonConfig?.configValid && (
+            <Alert className="mt-4 border-amber-200 bg-amber-50">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>
+                Amazon SP-API credentials are configured but may need updating. 
+                If sync fails, you may need to refresh your Amazon SP-API refresh token or verify credentials.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {!amazonConfig?.configValid && (
             <Alert className="mt-4">
               <AlertCircle className="h-4 w-4" />
@@ -221,24 +231,44 @@ export default function MarketplaceOverview() {
                 className="bg-orange-500 hover:bg-orange-600"
                 onClick={async () => {
                   try {
-                    // Trigger batch sync for a sample of products
-                    const response = await fetch('/api/marketplace/amazon/batch-sync', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ 
-                        batchSize: 5,
-                        productIds: products.slice(0, 5).map((p: any) => p.id)
-                      })
-                    });
-                    const result = await response.json();
-                    console.log('Batch sync result:', result);
+                    // First test with a single UPC to verify authentication
+                    const testProduct = products.find((p: any) => p.usin || p.upc);
+                    if (testProduct) {
+                      const testResponse = await fetch('/api/marketplace/amazon/test-upc', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                          upc: testProduct.usin || testProduct.upc 
+                        })
+                      });
+                      
+                      if (testResponse.ok) {
+                        // If test passes, do batch sync
+                        const response = await fetch('/api/marketplace/amazon/batch-sync', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ 
+                            batchSize: 3,
+                            productIds: products.slice(0, 3).map((p: any) => p.id)
+                          })
+                        });
+                        const result = await response.json();
+                        console.log('Batch sync result:', result);
+                        alert(`Amazon sync started! Batch ID: ${result.batchId}`);
+                      } else {
+                        const error = await testResponse.json();
+                        console.error('Amazon authentication test failed:', error);
+                        alert(`Amazon authentication issue: ${error.error}. Please check your SP-API credentials.`);
+                      }
+                    }
                   } catch (error) {
-                    console.error('Batch sync failed:', error);
+                    console.error('Amazon sync failed:', error);
+                    alert('Amazon sync failed. Please check your connection and credentials.');
                   }
                 }}
               >
                 <TrendingUp className="h-4 w-4 mr-2" />
-                Sync 5 Products
+                Test Amazon Sync
               </Button>
             )}
           </div>

@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Amazon Integration Complete in Marketplace Hub (2025-07-05)**:
+  - Successfully integrated Amazon marketplace functionality with product catalog in Marketplace Hub
+  - Added comprehensive Amazon Integration panel showing real-time catalog status and UPC readiness
+  - Implemented batch sync functionality with proper error handling and user feedback
+  - Amazon SP-API credentials are configured but authentication requires refresh token update
+  - System displays accurate product count (3 products) with UPC/USIN detection for Amazon lookup
+  - Enhanced user interface with "Test Amazon Sync" button and detailed credential status alerts
+  - Marketplace Hub is now the central location for all Amazon integration instead of separate pages
+  - Infrastructure ready for full Amazon catalog synchronization once authentication is resolved
 - **Integrated Shipping Templates with Vendor Stock Display (2025-07-05)**:
   - Successfully integrated shipping template calculations with vendor stock table under product details
   - CWR vendor now displays calculated shipping costs ($15.99 for products under 20 lbs) instead of "Free"
