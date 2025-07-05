@@ -1174,4 +1174,60 @@ router.get('/rate-limiter-status', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /marketplace/amazon/enhanced-fetch/:productId
+ * Test enhanced SP-API SDK functionality with comprehensive data
+ */
+router.post('/amazon/enhanced-fetch/:productId', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    if (isNaN(productId)) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+
+    // Get product UPC and MPN
+    const [product] = await db
+      .select({ 
+        upc: products.upc, 
+        usin: products.usin,
+        manufacturerPartNumber: products.manufacturerPartNumber 
+      })
+      .from(products)
+      .where(eq(products.id, productId));
+
+    if (!product?.upc) {
+      return res.status(400).json({ error: 'Product UPC not found' });
+    }
+
+    console.log(`Testing enhanced SP-API for product ${productId} with UPC: ${product.upc}`);
+
+    // Use enhanced SP-API service
+    const result = await syncProductWithAmazon(
+      productId, 
+      product.upc, 
+      product.manufacturerPartNumber || product.usin
+    );
+    
+    return res.json({
+      ...result,
+      testInfo: {
+        productId,
+        upc: product.upc,
+        mpn: product.manufacturerPartNumber || product.usin,
+        timestamp: new Date().toISOString(),
+        apiVersion: 'Enhanced SP-API SDK 2022-04-01'
+      }
+    });
+  } catch (error) {
+    console.error('Error in enhanced Amazon fetch:', error);
+    return res.status(500).json({ 
+      error: (error as Error).message,
+      testInfo: {
+        failed: true,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 export default router;
