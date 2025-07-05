@@ -319,11 +319,11 @@ export default function MarketplaceAmazon() {
                           <div key={idx} className="bg-white rounded border p-3">
                             <div className="flex items-start gap-4 mb-3">
                               <div className="flex-shrink-0">
-                                {asinMapping.asinData?.imageUrl || asinMapping.asinData?.primaryImageUrl ? (
+                                {asinMapping.asinData?.primaryImageUrl ? (
                                   <img 
-                                    src={asinMapping.asinData.primaryImageUrl || asinMapping.asinData.imageUrl}
+                                    src={asinMapping.asinData.primaryImageUrl}
                                     alt={asinMapping.asinData?.title || 'Amazon product'}
-                                    className="w-16 h-16 object-contain rounded border bg-white"
+                                    className="w-16 h-16 object-contain rounded border bg-white shadow-sm"
                                     onError={(e) => {
                                       // If image fails to load, show ASIN badge
                                       const target = e.currentTarget;
