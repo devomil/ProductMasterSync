@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Integrated Shipping Templates with Vendor Stock Display (2025-07-05)**:
+  - Successfully integrated shipping template calculations with vendor stock table under product details
+  - CWR vendor now displays calculated shipping costs ($15.99 for products under 20 lbs) instead of "Free"
+  - Added real-time shipping cost calculation using weight-based shipping rules from CWR shipping templates
+  - Fixed weight calculation logic to handle products under 1 lb (0.1 lb products use first shipping rule)
+  - Enhanced vendor data structure with consistent shippingCost properties across all suppliers
+  - Shipping costs calculated dynamically: weight-based rules determine $15.99 (1-20 lbs) or $49.99 (21-100 lbs)
+  - Other suppliers (Ingram Micro, TD/Synnex) show $0.00 shipping cost indicating free shipping
+  - System provides accurate shipping cost information for purchasing decisions in both vendor stock table and supplier info modal
 - **Enhanced Inventory Display with Matched Results and Dynamic Warehouse Locations (2025-07-05)**:
   - Updated Test Inventory Sync to display matched product results showing catalog vs supplier inventory quantities
   - Added sample matched products display with SKU, product name, and quantity comparisons
