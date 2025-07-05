@@ -133,7 +133,8 @@ const getVendorStockData = (product: any, inventoryData?: any, shippingCosts?: a
       stock: `cost ${parseFloat(product.cost * 1.1).toFixed(2)}`,
       cost: parseFloat(product.cost * 1.1),
       quantity: 8,
-      type: "cost"
+      type: "cost",
+      shippingCost: 0 // Free shipping for Ingram Micro
     });
   }
   
@@ -142,7 +143,8 @@ const getVendorStockData = (product: any, inventoryData?: any, shippingCosts?: a
     stock: "Free Shipping",
     cost: 0,
     quantity: 29,
-    type: "shipping"
+    type: "shipping",
+    shippingCost: 0 // Free shipping for TD/Synnex
   });
   
   return vendors;
@@ -179,18 +181,15 @@ export default function ProductDetails() {
       const cost = parseFloat(product.cost) || 0;
       const weight = parseFloat(product.weight) || 0.1;
       
-      console.log('Calculating shipping cost:', { cost, weight, method: template.method });
-      
       if (template.method === 'flat_rate') {
         cwrShippingCost = template.flatRate;
       } else if (template.method === 'free_shipping') {
         cwrShippingCost = 0;
       } else if (template.method === 'weight_based' && template.weightRules) {
         for (const rule of template.weightRules) {
-          console.log('Checking weight rule:', rule, 'against weight:', weight);
-          if (weight >= rule.minWeight && weight <= rule.maxWeight) {
+          // Adjust comparison to handle products lighter than 1 lb (use first rule for anything under 1 lb)
+          if ((weight < 1 && rule.minWeight <= 1) || (weight >= rule.minWeight && weight <= rule.maxWeight)) {
             cwrShippingCost = rule.shippingCost;
-            console.log('Weight rule matched:', rule.shippingCost);
             break;
           }
         }
@@ -202,8 +201,6 @@ export default function ProductDetails() {
           }
         }
       }
-      
-      console.log('Final calculated shipping cost:', cwrShippingCost);
       setShippingCosts({
         CWR: cwrShippingCost
       });
