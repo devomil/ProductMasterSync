@@ -59,6 +59,17 @@ export default function MarketplaceAmazon() {
     select: (data) => data.filter((p: any) => p.usin && p.status === 'active').slice(0, 50)
   });
 
+  // Fetch selected product details
+  const { data: selectedProductData } = useQuery({
+    queryKey: ['/api/products', selectedProduct],
+    enabled: !!selectedProduct,
+    queryFn: async () => {
+      const response = await fetch(`/api/products/${selectedProduct}`);
+      if (!response.ok) throw new Error('Failed to fetch product');
+      return response.json();
+    }
+  });
+
   // Fetch Amazon API response for selected product
   const { data: amazonData, isLoading: amazonLoading, refetch: refetchAmazon } = useQuery({
     queryKey: ['/api/marketplace/amazon', selectedProduct],
@@ -197,6 +208,33 @@ export default function MarketplaceAmazon() {
                   {amazonLoading ? 'Testing...' : 'Test API Call'}
                 </Button>
 
+                {selectedProduct && selectedProductData && (
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <img 
+                          src={selectedProductData.imageUrl || selectedProductData.imageUrlLarge} 
+                          alt={selectedProductData.name}
+                          className="w-20 h-20 object-contain rounded border bg-white"
+                          onError={(e) => {
+                            e.currentTarget.src = '/api/placeholder/80/80';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground mb-1">
+                          {selectedProductData.sku} - {selectedProductData.name?.replace(/&[^;]+;/g, '') || 'No name'}
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div><strong>UPC:</strong> {selectedProductData.upc}</div>
+                          <div><strong>Manufacturer:</strong> {selectedProductData.manufacturerName}</div>
+                          <div><strong>Price:</strong> ${selectedProductData.price}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {selectedProduct && (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
@@ -227,17 +265,48 @@ export default function MarketplaceAmazon() {
                     <div className="space-y-4">
                       <div className="bg-blue-50 p-3 rounded-lg mb-4">
                         <h4 className="font-medium mb-2">Amazon ASINs Found: {amazonData.length}</h4>
-                        <div className="text-sm text-gray-600">Multiple marketplace matches discovered</div>
+                        <div className="text-sm text-gray-600">
+                          {selectedProductData ? 
+                            `Marketplace matches for ${selectedProductData.sku} (UPC: ${selectedProductData.upc})` :
+                            'Multiple marketplace matches discovered'
+                          }
+                        </div>
                       </div>
                       
                       <div className="space-y-3">
                         {amazonData.map((asinMapping: any, idx: number) => (
                           <div key={idx} className="bg-white rounded border p-3">
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <div className="font-medium font-mono text-blue-600">{asinMapping.asin}</div>
-                                <div className="text-gray-600 text-sm">{asinMapping.asinData?.title || 'No title available'}</div>
-                                <div className="flex gap-1 mt-2">
+                            <div className="flex items-start gap-4 mb-3">
+                              <div className="flex-shrink-0">
+                                <img 
+                                  src={asinMapping.asinData?.primaryImageUrl || `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01.L.jpg`}
+                                  alt={asinMapping.asinData?.title || 'Amazon product'}
+                                  className="w-16 h-16 object-contain rounded border bg-white"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/api/placeholder/64/64';
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <div className="font-medium font-mono text-blue-600">{asinMapping.asin}</div>
+                                    <div className="text-gray-900 text-sm font-medium">{asinMapping.asinData?.title || 'No title available'}</div>
+                                    {asinMapping.asinData?.description && (
+                                      <div className="text-gray-600 text-xs mt-1 line-clamp-2">{asinMapping.asinData.description}</div>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-green-600 font-medium">
+                                      {asinMapping.matchConfidence || 0}% Confidence
+                                    </div>
+                                    <Badge variant="default" className="text-xs">
+                                      Active Mapping
+                                    </Badge>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex gap-1 mb-2">
                                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                                     {asinMapping.matchMethod || 'Unknown match'}
                                   </Badge>
@@ -247,27 +316,19 @@ export default function MarketplaceAmazon() {
                                     </Badge>
                                   )}
                                 </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-green-600 font-medium">
-                                  {asinMapping.matchConfidence || 0}% Confidence
-                                </div>
-                                <Badge variant="default" className="text-xs">
-                                  Active Mapping
-                                </Badge>
+                                
+                                {asinMapping.asinData && (
+                                  <div className="border rounded p-3 bg-gray-50">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div><strong>Brand:</strong> {asinMapping.asinData.brand || 'Not specified'}</div>
+                                      <div><strong>Category:</strong> {asinMapping.asinData.category || 'Not specified'}</div>
+                                      <div><strong>Stock:</strong> {asinMapping.intelligence?.inStock ? 'In Stock' : 'Out of Stock'}</div>
+                                      <div><strong>Prime:</strong> {asinMapping.intelligence?.isPrime ? 'Yes' : 'No'}</div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            
-                            {asinMapping.asinData && (
-                              <div className="border rounded p-3 bg-gray-50">
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  <div><strong>Brand:</strong> {asinMapping.asinData.brand || 'Not specified'}</div>
-                                  <div><strong>Category:</strong> {asinMapping.asinData.category || 'Not specified'}</div>
-                                  <div><strong>Stock:</strong> {asinMapping.intelligence?.inStock ? 'In Stock' : 'Out of Stock'}</div>
-                                  <div><strong>Prime:</strong> {asinMapping.intelligence?.isPrime ? 'Yes' : 'No'}</div>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
@@ -278,6 +339,19 @@ export default function MarketplaceAmazon() {
                           {JSON.stringify(amazonData, null, 2)}
                         </pre>
                       </div>
+                    </div>
+                  ) : selectedProduct ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+                      <div className="text-muted-foreground">No Amazon marketplace data found</div>
+                      <div className="text-sm text-gray-500">
+                        {selectedProductData ? 
+                          `No ASIN mappings exist for ${selectedProductData.sku} (UPC: ${selectedProductData.upc})` :
+                          'No ASIN mappings found for this product'
+                        }
+                      </div>
+                      <Button variant="outline" size="sm" onClick={testAPICall}>
+                        Try Live Amazon Search
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
