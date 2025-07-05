@@ -3,6 +3,13 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { AIMappingService } from "./services/ai-mapping";
+import { 
+  analyzeProfitability, 
+  checkProductRestrictions, 
+  calculateMatchConfidence, 
+  generateAutomationFlags, 
+  getPurchasingRecommendations 
+} from "./services/purchasing-ai";
 import { z } from "zod";
 import { 
   insertProductSchema, 
@@ -1439,6 +1446,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("AI suggestion error:", error);
       res.status(500).json({ 
         error: "Failed to generate AI suggestion",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Purchasing AI endpoints
+  app.get("/api/purchasing/recommendations", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const recommendations = await getPurchasingRecommendations(limit);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error getting purchasing recommendations:", error);
+      res.status(500).json({ 
+        error: "Failed to get purchasing recommendations",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/purchasing/profitability/:productId", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.productId);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+      
+      const analysis = await analyzeProfitability(productId);
+      if (!analysis) {
+        return res.status(404).json({ error: "Product not found or insufficient data" });
+      }
+      
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing profitability:", error);
+      res.status(500).json({ 
+        error: "Failed to analyze profitability",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/purchasing/restrictions/:asin", async (req, res) => {
+    try {
+      const asin = req.params.asin;
+      const restrictions = await checkProductRestrictions(asin);
+      res.json(restrictions);
+    } catch (error) {
+      console.error("Error checking restrictions:", error);
+      res.status(500).json({ 
+        error: "Failed to check product restrictions",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/purchasing/confidence/:productId/:asin", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.productId);
+      const asin = req.params.asin;
+      
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+      
+      const confidence = await calculateMatchConfidence(productId, asin);
+      res.json(confidence);
+    } catch (error) {
+      console.error("Error calculating match confidence:", error);
+      res.status(500).json({ 
+        error: "Failed to calculate match confidence",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get("/api/purchasing/automation-flags/:productId", async (req, res) => {
+    try {
+      const productId = parseInt(req.params.productId);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+      
+      const flags = await generateAutomationFlags(productId);
+      if (!flags) {
+        return res.status(404).json({ error: "Product not found or insufficient data" });
+      }
+      
+      res.json(flags);
+    } catch (error) {
+      console.error("Error generating automation flags:", error);
+      res.status(500).json({ 
+        error: "Failed to generate automation flags",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }
