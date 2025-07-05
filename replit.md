@@ -174,6 +174,14 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Enhanced SP-API SDK Integration Complete (2025-07-05)**:
+  - Successfully installed official Amazon SP-API SDK packages (@sp-api-sdk/auth, @sp-api-sdk/catalog-items-api-2022-04-01)
+  - Created comprehensive amazon-spapi-service.ts with official SDK integration
+  - Implemented searchCatalogItemsByUPC and getCatalogItem functions with rich data access
+  - Added built-in rate limiting, retry logic, and proper authentication
+  - Enhanced service ready for future marketplace features requiring detailed product data
+  - Current marketplace system continues working with existing custom SP-API implementation
+  - System now has both approaches available: current stable system + enhanced SDK for advanced features
 - **Database Schema Stability Fix and System Restart (2025-07-05)**:
   - Fixed critical database schema errors preventing application startup
   - Removed problematic references to non-existent manufacturers and warehouseStock tables
