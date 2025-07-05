@@ -406,6 +406,9 @@ export default function DataSources() {
   const [sampleData, setSampleData] = useState<any[]>([]);
   const [editingDataSource, setEditingDataSource] = useState<DataSource | null>(null);
   const [deletingDataSource, setDeletingDataSource] = useState<DataSource | null>(null);
+  const [showSampleSizeDialog, setShowSampleSizeDialog] = useState(false);
+  const [selectedDataSourceForSample, setSelectedDataSourceForSample] = useState<DataSource | null>(null);
+  const [sampleSize, setSampleSize] = useState(50);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -480,6 +483,32 @@ export default function DataSources() {
       toast({
         title: "Error",
         description: "Failed to update data source",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation for sample pull
+  const samplePullMutation = useMutation({
+    mutationFn: async ({ dataSourceId, limit }: { dataSourceId: number; limit: number }) => {
+      const response = await apiRequest("POST", `/api/datasources/${dataSourceId}/sample-pull-with-mapping`, { 
+        limit 
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      setShowSampleSizeDialog(false);
+      setSelectedDataSourceForSample(null);
+      toast({
+        title: "Sample Pull Complete",
+        description: `Successfully imported ${data.productsImported || sampleSize} products from supplier data`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Sample Pull Failed",
+        description: "Failed to pull sample data. Please check your connection settings.",
         variant: "destructive"
       });
     }
@@ -903,8 +932,16 @@ export default function DataSources() {
                         <Button size="sm" variant="outline" className="flex-1">
                           Test Connection
                         </Button>
-                        <Button size="sm" className="flex-1">
-                          Pull Sample (50)
+                        <Button 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedDataSourceForSample(dataSource);
+                            setShowSampleSizeDialog(true);
+                          }}
+                          disabled={samplePullMutation.isPending}
+                        >
+                          {samplePullMutation.isPending ? "Pulling..." : "Pull Sample"}
                         </Button>
                       </div>
                       <div className="flex gap-2 mb-2">
@@ -984,6 +1021,71 @@ export default function DataSources() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete Data Source"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sample Size Selection Dialog */}
+      <Dialog open={showSampleSizeDialog} onOpenChange={setShowSampleSizeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Sample Size</DialogTitle>
+            <DialogDescription>
+              Choose how many products to pull from "{selectedDataSourceForSample?.name}". 
+              Larger samples provide better testing coverage but may take longer to process.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[50, 100, 500, 1000, 5000].map((size) => (
+                <Button
+                  key={size}
+                  variant={sampleSize === size ? "default" : "outline"}
+                  className="h-12"
+                  onClick={() => setSampleSize(size)}
+                >
+                  <div className="text-center">
+                    <div className="font-semibold">{size} Products</div>
+                    <div className="text-xs text-muted-foreground">
+                      {size <= 100 ? "Quick test" : size <= 1000 ? "Medium test" : "Large scale"}
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-900">Sample Size Guide:</p>
+                  <p className="text-blue-700">
+                    • 50-100: Quick validation and field mapping
+                    <br />
+                    • 500-1000: Comprehensive testing before full import
+                    <br />
+                    • 5000: Large-scale validation for production readiness
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSampleSizeDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedDataSourceForSample) {
+                  samplePullMutation.mutate({
+                    dataSourceId: selectedDataSourceForSample.id,
+                    limit: sampleSize
+                  });
+                }
+              }}
+              disabled={samplePullMutation.isPending}
+            >
+              {samplePullMutation.isPending ? "Pulling Sample..." : `Pull ${sampleSize} Products`}
             </Button>
           </DialogFooter>
         </DialogContent>

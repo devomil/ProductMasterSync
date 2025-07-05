@@ -1,5 +1,5 @@
-import { db } from "@/server/db";
-import { products, amazonProducts } from "@shared/schema";
+import { db } from "../db";
+import { products, amazonMarketIntelligence } from "@shared/schema";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
 
 interface ProfitabilityAnalysis {
@@ -82,16 +82,16 @@ export async function getPurchasingRecommendations(limit: number = 20): Promise<
         productName: products.name,
         costPrice: products.cost,
         upc: products.upc,
-        asin: amazonProducts.asin,
-        amazonPrice: amazonProducts.currentPrice,
-        salesRank: amazonProducts.salesRank
+        asin: amazonMarketIntelligence.asin,
+        amazonPrice: amazonMarketIntelligence.currentPrice,
+        salesRank: amazonMarketIntelligence.salesRank
       })
       .from(products)
-      .leftJoin(amazonProducts, eq(products.upc, amazonProducts.upc))
+      .leftJoin(amazonMarketIntelligence, eq(products.upc, amazonMarketIntelligence.upc))
       .where(and(
         isNotNull(products.cost),
-        isNotNull(amazonProducts.asin),
-        isNotNull(amazonProducts.currentPrice)
+        isNotNull(amazonMarketIntelligence.asin),
+        isNotNull(amazonMarketIntelligence.currentPrice)
       ))
       .limit(limit);
 
@@ -173,11 +173,11 @@ export async function analyzeProfitability(productId: number): Promise<Profitabi
         productId: products.id,
         costPrice: products.cost,
         upc: products.upc,
-        asin: amazonProducts.asin,
-        amazonPrice: amazonProducts.currentPrice
+        asin: amazonMarketIntelligence.asin,
+        amazonPrice: amazonMarketIntelligence.currentPrice
       })
       .from(products)
-      .leftJoin(amazonProducts, eq(products.upc, amazonProducts.upc))
+      .leftJoin(amazonMarketIntelligence, eq(products.upc, amazonMarketIntelligence.upc))
       .where(eq(products.id, productId))
       .limit(1);
 
