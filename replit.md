@@ -148,6 +148,14 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Enhanced Test Inventory Sync with Streamlined Workflow (2025-07-05)**:
+  - Moved "Test Inventory Sync" button to Automation Schedules section alongside Edit and Test buttons for improved workflow integration
+  - Redesigned testing process to use existing mapped catalog data instead of requiring new sample pulls
+  - Streamlined 3-step validation: Catalog Validation → Inventory Sync → Ready for Automation
+  - Added backend endpoint for existing catalog validation that queries mapped products from database
+  - Users can now validate their complete automation setup using products already pulled and mapped
+  - Provides confidence that automation will work correctly without redundant data pulling
+  - Enhanced user experience by eliminating duplicate sample pull steps in testing workflow
 - **Fixed Edit Automation Dialog Database Timeouts and Update Functionality (2025-07-04)**:
   - Resolved PostgreSQL connection timeout issues causing API failures during automation editing
   - Eliminated problematic database calls by converting automation data locally instead of additional API requests

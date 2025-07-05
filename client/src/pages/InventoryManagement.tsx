@@ -63,26 +63,23 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
     setSelectedSupplier('');
   };
 
-  const runSamplePull = useMutation({
+  const validateExistingCatalog = useMutation({
     mutationFn: async (supplierId: string) => {
-      const response = await apiRequest("POST", `/api/suppliers/${supplierId}/test-pull`, {
-        limit: 10,
-        includeInventory: true
-      });
+      const response = await apiRequest("GET", `/api/suppliers/${supplierId}/existing-catalog-validation`);
       return response.json();
     },
     onSuccess: (data) => {
-      setTestResults(prev => ({ ...prev, samplePull: data }));
+      setTestResults(prev => ({ ...prev, catalogValidation: data }));
       setTestStep(2);
       toast({
-        title: "Sample Pull Complete",
-        description: `Successfully pulled ${data.recordCount || 0} sample products`
+        title: "Catalog Validation Complete",
+        description: `Found ${data.productCount || 0} mapped products ready for inventory sync`
       });
     },
     onError: () => {
       toast({
-        title: "Sample Pull Failed",
-        description: "Unable to pull sample data. Check your data source configuration.",
+        title: "Catalog Validation Failed",
+        description: "No existing catalog data found. Please complete sample pull and mapping first.",
         variant: "destructive"
       });
     }
@@ -185,14 +182,14 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
               </Card>
 
               {/* Test Steps Progress */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Card className={`${testStep >= 1 ? 'border-blue-500' : ''}`}>
                   <CardContent className="p-4 text-center">
-                    <FileText className={`h-8 w-8 mx-auto mb-2 ${testStep >= 1 ? 'text-blue-500' : 'text-gray-400'}`} />
-                    <div className="text-sm font-medium">Sample Pull</div>
-                    {testResults.samplePull && (
+                    <CheckCircle className={`h-8 w-8 mx-auto mb-2 ${testStep >= 1 ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <div className="text-sm font-medium">Catalog Validation</div>
+                    {testResults.catalogValidation && (
                       <div className="text-xs text-green-600 mt-1">
-                        ✓ {testResults.samplePull.recordCount} products
+                        ✓ {testResults.catalogValidation.productCount} mapped products
                       </div>
                     )}
                   </CardContent>
@@ -222,11 +219,11 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
                   </CardContent>
                 </Card>
 
-                <Card className={`${testStep >= 4 ? 'border-green-500' : ''}`}>
+                <Card className={`${testStep >= 3 ? 'border-green-500' : ''}`}>
                   <CardContent className="p-4 text-center">
-                    <CheckCircle className={`h-8 w-8 mx-auto mb-2 ${testStep >= 4 ? 'text-green-500' : 'text-gray-400'}`} />
-                    <div className="text-sm font-medium">Complete</div>
-                    {testStep >= 4 && (
+                    <CheckCircle className={`h-8 w-8 mx-auto mb-2 ${testStep >= 3 ? 'text-green-500' : 'text-gray-400'}`} />
+                    <div className="text-sm font-medium">Ready</div>
+                    {testStep >= 3 && (
                       <div className="text-xs text-green-600 mt-1">
                         ✓ Ready for automation
                       </div>
@@ -242,13 +239,13 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
                     <CardTitle className="text-lg">Test Results</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {testResults.samplePull && (
+                    {testResults.catalogValidation && (
                       <div>
-                        <h4 className="font-medium text-sm text-green-600 mb-2">✓ Sample Pull Results</h4>
+                        <h4 className="font-medium text-sm text-green-600 mb-2">✓ Catalog Validation Results</h4>
                         <div className="text-sm text-muted-foreground">
-                          • {testResults.samplePull.recordCount} products pulled successfully
-                          • Data sources: {testResults.samplePull.sources?.join(', ')}
-                          • Fields mapped: {testResults.samplePull.fieldsValidated} of {testResults.samplePull.totalFields}
+                          • {testResults.catalogValidation.productCount} mapped products found
+                          • Mapping template: {testResults.catalogValidation.mappingTemplate}
+                          • Last updated: {testResults.catalogValidation.lastUpdated}
                         </div>
                       </div>
                     )}
@@ -286,10 +283,10 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
                 <div className="flex gap-2">
                   {testStep === 1 && (
                     <Button 
-                      onClick={() => runSamplePull.mutate(selectedSupplier)}
-                      disabled={runSamplePull.isPending}
+                      onClick={() => validateExistingCatalog.mutate(selectedSupplier)}
+                      disabled={validateExistingCatalog.isPending}
                     >
-                      {runSamplePull.isPending ? "Pulling..." : "Start Sample Pull"}
+                      {validateExistingCatalog.isPending ? "Validating..." : "Validate Existing Catalog"}
                     </Button>
                   )}
                   {testStep === 2 && (
@@ -301,16 +298,8 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
                     </Button>
                   )}
                   {testStep === 3 && (
-                    <Button 
-                      onClick={() => validateDataFlow.mutate()}
-                      disabled={validateDataFlow.isPending}
-                    >
-                      {validateDataFlow.isPending ? "Validating..." : "Validate Data Flow"}
-                    </Button>
-                  )}
-                  {testStep === 4 && (
                     <Button onClick={() => setIsOpen(false)}>
-                      Setup Automation
+                      Ready for Automation
                     </Button>
                   )}
                 </div>
