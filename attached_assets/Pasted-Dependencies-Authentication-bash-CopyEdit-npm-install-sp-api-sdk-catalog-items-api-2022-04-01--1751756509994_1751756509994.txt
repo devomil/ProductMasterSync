@@ -1,0 +1,84 @@
+Dependencies & Authentication
+bash
+CopyEdit
+npm install @sp-api-sdk/catalog-items-api-2022-04-01 @sp-api-sdk/auth
+Use AWS LWA credentials:
+js
+CopyEdit
+import {SellingPartnerApiAuth} from '@sp-api-sdk/auth';
+import {CatalogItemsApiClient} from '@sp-api-sdk/catalog-items-api-2022-04-01';
+
+const auth = new SellingPartnerApiAuth({
+  clientId: process.env.LWA_CLIENT_ID,
+  clientSecret: process.env.LWA_CLIENT_SECRET,
+  refreshToken: process.env.LWA_REFRESH_TOKEN
+});
+const client = new CatalogItemsApiClient({ auth, region: 'na' });
+github.com+9npmjs.com+9developer-docs.amazon.com+9
+________________________________________
+2. Implement searchCatalogItems
+•	Searches by identifier(s) or keywords.
+•	Accepts up to 20 identifiers per request; max results per page = 20.
+•	Include includedData: summaries, attributes, identifiers, images, classifications, dimensions, salesRanks, relationships.
+js
+CopyEdit
+const res = await client.searchCatalogItems({
+  marketplaceIds: ['ATVPDKIKX0DER'],
+  identifiers: ['791659022283'],
+  identifiersType: 'UPC',
+  includedData: ['summaries','identifiers','images','classifications','salesRanks']
+});
+const items = res.items;
+Note rate limit: 5 req/sec (burst 5) github.com+3developer-docs.amazon.com+3developer-docs.amazon.com+3
+________________________________________
+3. Implement getCatalogItem
+•	Retrieves full details for one ASIN.
+•	includedData supports same values as above.
+js
+CopyEdit
+const itemDetail = await client.getCatalogItem({
+  asin: 'B0012TNXKC',
+  marketplaceIds: ['ATVPDKIKX0DER'],
+  includedData: ['attributes','identifiers','images','dimensions','classifications','relationships','salesRanks']
+});
+Watch out: including too many includedData options might throw InvalidInput; see GitHub issue developer-docs.amazon.com+1developer-docs.amazon.com+1developer-docs.amazon.com+2github.com+2developer-docs.amazon.com+2
+________________________________________
+4. Parsing Response
+API returns complex nested objects:
+•	item.identifiers (UPC, EAN, etc.)
+•	item.images with variant and link
+•	item.salesRanks grouped by marketplace, classification, display group
+•	item.relationships (e.g. variation parents/children)
+•	item.attributes, item.dimensions, and item.classifications
+Map these into your relational schema:
+•	identifiers → product_identifiers
+•	images → product_images
+•	classifications → browse_nodes + mapping table
+•	relationships → variation links
+•	salesRanks → sales_rankings
+•	attributes/dimensions → product_attributes
+________________________________________
+5. Rate Limiting & Retry Strategy
+•	Use built-in rateLimiting config in SDK:
+js
+CopyEdit
+const client = new CatalogItemsApiClient({
+  auth, region: 'na',
+  rateLimiting: { retry: true }
+});
+•	429 responses honored automatically. developer-docs.amazon.com+3developer-docs.amazon.com+3developer-docs.amazon.com+3npmjs.com
+________________________________________
+6. Integration Workflow
+•  Call searchCatalogItems
+•  Extract asin, matchConfidence, identifiers, images, etc.
+•  For each promising asin, optionally call getCatalogItem for deeper data
+•  Store results into your DB tables
+•  Use confidence scoring + profitability + restriction logic to flag autotrade items
+
+Step	Action	Notes
+1	Setup SDK & Auth	Use @sp-api-sdk types
+2	searchCatalogItems	Up to 20 identifiers, include rich datasets
+3	getCatalogItem	Fetch additional details optionally
+4	Parse & Normalize	Populate relational tables
+5	Retry Logic	Auto retry on 429
+6	DB Insert & Compute	Match, score, flag for purchase

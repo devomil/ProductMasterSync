@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { fetchAmazonDataByUpc, getAmazonDataForProduct, batchSyncAmazonData } from './amazon-service';
+import { syncProductWithAmazon } from './amazon-spapi-service';
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
 import { scheduler } from '../utils/scheduler';
 import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct } from './repository';
