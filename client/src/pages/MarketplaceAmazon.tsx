@@ -286,7 +286,6 @@ export default function MarketplaceAmazon() {
                               onClick={async () => {
                                 if (!selectedProductData) return;
                                 
-                                setAmazonLoading(true);
                                 try {
                                   console.log(`Fetching live Amazon data for UPC: ${selectedProductData.upc}`);
                                   const response = await fetch(`/api/marketplace/amazon/fetch/${selectedProduct}`, {
@@ -299,14 +298,12 @@ export default function MarketplaceAmazon() {
                                     const result = await response.json();
                                     console.log('Live search result:', result);
                                     // Refresh the existing data
-                                    await amazonQuery.refetch();
+                                    await refetchAmazon();
                                   } else {
                                     console.error('Live search failed:', await response.text());
                                   }
                                 } catch (error) {
                                   console.error('Error fetching live data:', error);
-                                } finally {
-                                  setAmazonLoading(false);
                                 }
                               }}
                               disabled={amazonLoading || !selectedProductData?.upc}
@@ -323,18 +320,25 @@ export default function MarketplaceAmazon() {
                             <div className="flex items-start gap-4 mb-3">
                               <div className="flex-shrink-0">
                                 <img 
-                                  src={asinMapping.asinData?.primaryImageUrl || `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01.L.jpg`}
+                                  src={`https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01._SX150_.jpg`}
                                   alt={asinMapping.asinData?.title || 'Amazon product'}
-                                  className="w-16 h-16 object-contain rounded border bg-white"
+                                  className="w-16 h-16 object-contain rounded border bg-gray-50"
                                   onError={(e) => {
-                                    // Try alternative Amazon image URLs
-                                    const currentSrc = e.currentTarget.src;
-                                    if (currentSrc.includes('.01.L.jpg')) {
-                                      e.currentTarget.src = `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01._SX300_SY300_QL70_.jpg`;
-                                    } else if (currentSrc.includes('_SX300_SY300_')) {
-                                      e.currentTarget.src = `https://m.media-amazon.com/images/I/${asinMapping.asin}.jpg`;
+                                    const target = e.currentTarget;
+                                    const currentSrc = target.src;
+                                    
+                                    if (currentSrc.includes('_SX150_')) {
+                                      target.src = `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01.L.jpg`;
+                                    } else if (currentSrc.includes('.01.L.jpg')) {
+                                      target.src = `https://m.media-amazon.com/images/I/${asinMapping.asin}.jpg`;
+                                    } else if (currentSrc.includes('m.media-amazon.com')) {
+                                      target.src = `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.jpg`;
                                     } else {
-                                      e.currentTarget.style.display = 'none';
+                                      // Show placeholder on final failure
+                                      target.style.display = 'none';
+                                      target.parentElement?.insertAdjacentHTML('beforeend', 
+                                        '<div class="w-16 h-16 bg-gray-200 rounded border flex items-center justify-center text-xs text-gray-500">No Image</div>'
+                                      );
                                     }
                                   }}
                                 />
