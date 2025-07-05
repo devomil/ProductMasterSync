@@ -1451,6 +1451,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import purchasing AI functions
+  const { 
+    getPurchasingRecommendations,
+    analyzeProfitability,
+    checkProductRestrictions,
+    calculateMatchConfidence,
+    generateAutomationFlags
+  } = await import("./services/purchasing-ai");
+
   // Purchasing AI endpoints
   app.get("/api/purchasing/recommendations", async (req, res) => {
     try {
