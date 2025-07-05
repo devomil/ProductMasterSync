@@ -957,25 +957,555 @@ export const amazonCompetitiveAnalysis = pgTable("amazon_competitive_analysis", 
   // Market trends
   priceVolatility: integer("price_volatility"), // Standard deviation of prices
   marketConcentration: integer("market_concentration"), // 0-100, how concentrated the market is
-  competitionLevel: text("competition_level"), // "low", "medium", "high", "saturated"
+  competitionLevel: text("competition_level"), // "low", "medium", "high"
   
-  // Strategic recommendations
-  recommendedStrategy: text("recommended_strategy"), // "enter", "avoid", "monitor", "undercut"
-  opportunityScore: integer("opportunity_score"), // 0-100 overall opportunity rating
-  riskFactors: json("risk_factors").default([]), // Array of identified risks
-  keyInsights: json("key_insights").default([]), // Array of strategic insights
+  // Opportunity scoring
+  overallOpportunityScore: integer("overall_opportunity_score"), // 1-100
+  priceOpportunityScore: integer("price_opportunity_score"), // 1-100
+  brandOpportunityScore: integer("brand_opportunity_score"), // 1-100
   
-  // Metadata
-  dataQuality: integer("data_quality").default(100), // 0-100 completeness of analysis
-  nextAnalysisDate: timestamp("next_analysis_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
-    upcAnalysisIdx: uniqueIndex("amazon_competitive_analysis_upc_idx").on(table.upc, table.analysisDate),
-    opportunityIdx: uniqueIndex("amazon_competitive_analysis_opportunity_idx").on(table.opportunityScore),
+    upcIdx: index("amazon_competitive_analysis_upc_idx").on(table.upc),
+    dateIdx: index("amazon_competitive_analysis_date_idx").on(table.analysisDate),
+    opportunityIdx: index("amazon_competitive_analysis_opportunity_idx").on(table.overallOpportunityScore),
   };
 });
+
+// Enhanced supplier-product relationships with confidence scoring
+export const supplierProducts = pgTable("supplier_products", {
+  id: serial("id").primaryKey(),
+  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  
+  // Supplier-specific product details
+  supplierSku: text("supplier_sku"), // Supplier's internal SKU
+  supplierPartNumber: text("supplier_part_number"), // Supplier's part number
+  supplierName: text("supplier_name"), // Supplier's name for this product
+  supplierCategory: text("supplier_category"), // Supplier's category
+  
+  // Pricing from this supplier
+  cost: real("cost"),
+  listPrice: real("list_price"),
+  mapPrice: real("map_price"), // Minimum Advertised Price
+  msrp: real("msrp"), // Manufacturer's Suggested Retail Price
+  
+  // Inventory and availability
+  availableQuantity: integer("available_quantity").default(0),
+  leadTimeDays: integer("lead_time_days").default(0),
+  minimumOrderQuantity: integer("minimum_order_quantity").default(1),
+  orderMultiple: integer("order_multiple").default(1),
+  
+  // Confidence scoring for product matching
+  matchConfidence: real("match_confidence").default(1.0), // 0.0 to 1.0
+  matchMethod: text("match_method"), // "exact_upc", "exact_mpn", "fuzzy_name", "manual"
+  matchScore: integer("match_score").default(100), // 0-100 percentage
+  
+  // Data quality indicators
+  hasUpc: boolean("has_upc").default(false),
+  hasManufacturerPartNumber: boolean("has_manufacturer_part_number").default(false),
+  hasImage: boolean("has_image").default(false),
+  hasDescription: boolean("has_description").default(false),
+  dataQualityScore: integer("data_quality_score").default(0), // 0-100
+  
+  // Supplier performance metrics
+  isActive: boolean("is_active").default(true),
+  isPrimarySupplier: boolean("is_primary_supplier").default(false),
+  supplierRank: integer("supplier_rank").default(1), // 1 = best supplier for this product
+  
+  // Last sync information
+  lastSyncAt: timestamp("last_sync_at").defaultNow(),
+  lastPriceUpdate: timestamp("last_price_update"),
+  lastInventoryUpdate: timestamp("last_inventory_update"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    supplierProductIdx: uniqueIndex("supplier_products_supplier_product_idx").on(table.supplierId, table.productId),
+    supplierIdx: index("supplier_products_supplier_idx").on(table.supplierId),
+    productIdx: index("supplier_products_product_idx").on(table.productId),
+    confidenceIdx: index("supplier_products_confidence_idx").on(table.matchConfidence),
+    activeIdx: index("supplier_products_active_idx").on(table.isActive),
+  };
+});
+
+// Product attributes table for flexible attribute management
+export const productAttributes = pgTable("product_attributes", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  
+  // Attribute details
+  attributeName: text("attribute_name").notNull(), // "color", "size", "weight", "material"
+  attributeValue: text("attribute_value").notNull(), // "red", "large", "2.5 lbs", "steel"
+  attributeType: text("attribute_type").default("text"), // "text", "number", "boolean", "date"
+  
+  // Attribute metadata
+  category: text("category"), // "physical", "technical", "marketing", "compliance"
+  unit: text("unit"), // "lbs", "inches", "volts", "degrees"
+  source: text("source"), // "supplier", "amazon", "manual", "calculated"
+  
+  // Confidence and quality
+  confidence: real("confidence").default(1.0), // 0.0 to 1.0
+  isVerified: boolean("is_verified").default(false),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Marketplace usage
+  useForAmazon: boolean("use_for_amazon").default(true),
+  useForWalmart: boolean("use_for_walmart").default(true),
+  useForEbay: boolean("use_for_ebay").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("product_attributes_product_idx").on(table.productId),
+    nameIdx: index("product_attributes_name_idx").on(table.attributeName),
+    categoryIdx: index("product_attributes_category_idx").on(table.category),
+    productNameIdx: index("product_attributes_product_name_idx").on(table.productId, table.attributeName),
+  };
+});
+
+// Browse categories for marketplace classification
+export const browseCategories = pgTable("browse_categories", {
+  id: serial("id").primaryKey(),
+  categoryId: text("category_id").notNull().unique(), // Amazon browse node ID
+  categoryName: text("category_name").notNull(),
+  
+  // Category hierarchy
+  parentCategoryId: text("parent_category_id"),
+  level: integer("level").default(0),
+  categoryPath: text("category_path"), // Full path from root
+  
+  // Marketplace specific
+  marketplace: marketplaceEnum("marketplace").default("amazon"),
+  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
+  
+  // Category metadata
+  isActive: boolean("is_active").default(true),
+  productCount: integer("product_count").default(0),
+  avgSalesRank: integer("avg_sales_rank"),
+  
+  // Requirements and restrictions
+  requiresApproval: boolean("requires_approval").default(false),
+  hasGating: boolean("has_gating").default(false),
+  isRestrictedCategory: boolean("is_restricted_category").default(false),
+  
+  // Category performance
+  competitionLevel: text("competition_level"), // "low", "medium", "high"
+  avgProfitMargin: real("avg_profit_margin"),
+  opportunityScore: integer("opportunity_score"), // 1-100
+  
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    categoryIdIdx: uniqueIndex("browse_categories_category_id_idx").on(table.categoryId),
+    parentIdx: index("browse_categories_parent_idx").on(table.parentCategoryId),
+    marketplaceIdx: index("browse_categories_marketplace_idx").on(table.marketplace),
+    opportunityIdx: index("browse_categories_opportunity_idx").on(table.opportunityScore),
+  };
+});
+
+// Sales rankings table for tracking marketplace performance
+export const salesRankings = pgTable("sales_rankings", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull().references(() => amazonAsins.asin),
+  
+  // Ranking data
+  overallRank: integer("overall_rank"),
+  categoryRank: integer("category_rank"),
+  categoryId: text("category_id"), // Browse node ID
+  categoryName: text("category_name"),
+  
+  // Performance metrics
+  rankChange: integer("rank_change"), // Change from previous measurement
+  rankTrend: text("rank_trend"), // "improving", "declining", "stable"
+  velocityScore: integer("velocity_score"), // Sales velocity indicator
+  
+  // Estimated sales data
+  estimatedSalesPerDay: integer("estimated_sales_per_day"),
+  estimatedSalesPerMonth: integer("estimated_sales_per_month"),
+  estimatedRevenue: integer("estimated_revenue"), // Monthly revenue in cents
+  
+  // Marketplace metadata
+  marketplace: marketplaceEnum("marketplace").default("amazon"),
+  marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
+  
+  // Data capture info
+  capturedAt: timestamp("captured_at").defaultNow(),
+  dataSource: text("data_source"), // "sp_api", "keepa", "jungle_scout", "manual"
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    asinIdx: index("sales_rankings_asin_idx").on(table.asin),
+    overallRankIdx: index("sales_rankings_overall_rank_idx").on(table.overallRank),
+    categoryRankIdx: index("sales_rankings_category_rank_idx").on(table.categoryRank),
+    capturedAtIdx: index("sales_rankings_captured_at_idx").on(table.capturedAt),
+    asinDateIdx: index("sales_rankings_asin_date_idx").on(table.asin, table.capturedAt),
+  };
+});
+
+// Product identifiers table for comprehensive identifier management
+export const productIdentifiers = pgTable("product_identifiers", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  
+  // Identifier details
+  identifierType: text("identifier_type").notNull(), // "upc", "ean", "isbn", "mpn", "asin", "gtin"
+  identifierValue: text("identifier_value").notNull(),
+  
+  // Identifier metadata
+  isPrimary: boolean("is_primary").default(false), // Primary identifier for this type
+  isVerified: boolean("is_verified").default(false),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Source information
+  source: text("source"), // "supplier", "amazon", "manual", "calculated"
+  confidence: real("confidence").default(1.0), // 0.0 to 1.0
+  
+  // Usage tracking
+  useForAmazonLookup: boolean("use_for_amazon_lookup").default(true),
+  useForWalmartLookup: boolean("use_for_walmart_lookup").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("product_identifiers_product_idx").on(table.productId),
+    typeIdx: index("product_identifiers_type_idx").on(table.identifierType),
+    valueIdx: index("product_identifiers_value_idx").on(table.identifierValue),
+    productTypeIdx: index("product_identifiers_product_type_idx").on(table.productId, table.identifierType),
+    primaryIdx: index("product_identifiers_primary_idx").on(table.isPrimary),
+  };
+});
+
+// Product restrictions table for marketplace compliance
+export const productRestrictions = pgTable("product_restrictions", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id),
+  asin: text("asin").references(() => amazonAsins.asin),
+  
+  // Restriction details
+  marketplace: marketplaceEnum("marketplace").default("amazon"),
+  restrictionType: text("restriction_type"), // "gating", "approval", "hazmat", "age_restricted"
+  restrictionLevel: text("restriction_level"), // "blocked", "approval_required", "warning"
+  
+  // Restriction metadata
+  reasonCode: text("reason_code"), // Marketplace-specific reason code
+  reasonMessage: text("reason_message"), // Human-readable reason
+  restrictionSource: text("restriction_source"), // "sp_api", "manual", "policy_check"
+  
+  // Resolution tracking
+  canBeResolved: boolean("can_be_resolved").default(true),
+  resolutionSteps: json("resolution_steps").default([]),
+  resolutionStatus: text("resolution_status").default("pending"), // "pending", "in_progress", "resolved", "permanent"
+  
+  // Timing information
+  detectedAt: timestamp("detected_at").defaultNow(),
+  lastCheckedAt: timestamp("last_checked_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Impact assessment
+  blocksListing: boolean("blocks_listing").default(true),
+  impactLevel: text("impact_level"), // "low", "medium", "high", "critical"
+  
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("product_restrictions_product_idx").on(table.productId),
+    asinIdx: index("product_restrictions_asin_idx").on(table.asin),
+    marketplaceIdx: index("product_restrictions_marketplace_idx").on(table.marketplace),
+    typeIdx: index("product_restrictions_type_idx").on(table.restrictionType),
+    activeIdx: index("product_restrictions_active_idx").on(table.isActive),
+  };
+});
+
+// Enhanced confidence scores table for AI-driven product matching
+export const confidenceScores = pgTable("confidence_scores", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  
+  // Matching targets
+  targetType: text("target_type").notNull(), // "asin", "supplier_product", "upc", "mpn"
+  targetId: text("target_id").notNull(), // ID of the target being matched
+  
+  // Confidence scoring
+  overallConfidence: real("overall_confidence").notNull(), // 0.0 to 1.0
+  
+  // Individual confidence components
+  upcMatchConfidence: real("upc_match_confidence"),
+  mpnMatchConfidence: real("mpn_match_confidence"),
+  nameMatchConfidence: real("name_match_confidence"),
+  brandMatchConfidence: real("brand_match_confidence"),
+  categoryMatchConfidence: real("category_match_confidence"),
+  
+  // Calculated scores
+  matchScore: integer("match_score").default(0), // 0-100 percentage
+  qualityScore: integer("quality_score").default(0), // 0-100 data quality
+  commercialScore: integer("commercial_score").default(0), // 0-100 commercial viability
+  
+  // Matching algorithm details
+  algorithm: text("algorithm"), // "exact", "fuzzy", "ml_model", "rule_based"
+  algorithmVersion: text("algorithm_version"),
+  matchingRules: json("matching_rules").default([]),
+  
+  // AI insights
+  aiRecommendation: text("ai_recommendation"), // "accept", "review", "reject"
+  aiConfidence: real("ai_confidence"), // AI model confidence
+  aiReasoning: text("ai_reasoning"), // Why AI made this recommendation
+  
+  // Verification status
+  isVerified: boolean("is_verified").default(false),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Performance tracking
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow(),
+  calculationDuration: integer("calculation_duration"), // Milliseconds
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("confidence_scores_product_idx").on(table.productId),
+    targetIdx: index("confidence_scores_target_idx").on(table.targetType, table.targetId),
+    confidenceIdx: index("confidence_scores_confidence_idx").on(table.overallConfidence),
+    scoreIdx: index("confidence_scores_score_idx").on(table.matchScore),
+    verifiedIdx: index("confidence_scores_verified_idx").on(table.isVerified),
+    productTargetIdx: uniqueIndex("confidence_scores_product_target_idx").on(table.productId, table.targetType, table.targetId),
+  };
+});
+
+// Product images table for comprehensive image management
+export const productImages = pgTable("product_images", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  
+  // Image details
+  imageUrl: text("image_url").notNull(),
+  imageName: text("image_name"),
+  imageType: text("image_type"), // "primary", "additional", "swatch", "lifestyle"
+  
+  // Image metadata
+  width: integer("width"),
+  height: integer("height"),
+  fileSize: integer("file_size"), // Bytes
+  format: text("format"), // "jpg", "png", "gif", "webp"
+  
+  // Source information
+  source: text("source"), // "supplier", "amazon", "manual", "generated"
+  sourceUrl: text("source_url"), // Original URL if different
+  
+  // Quality and processing
+  quality: text("quality"), // "high", "medium", "low"
+  isProcessed: boolean("is_processed").default(false),
+  processingNotes: text("processing_notes"),
+  
+  // Usage tracking
+  useForAmazon: boolean("use_for_amazon").default(true),
+  useForWalmart: boolean("use_for_walmart").default(true),
+  useForEbay: boolean("use_for_ebay").default(true),
+  
+  // Display order
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("product_images_product_idx").on(table.productId),
+    typeIdx: index("product_images_type_idx").on(table.imageType),
+    orderIdx: index("product_images_order_idx").on(table.displayOrder),
+    activeIdx: index("product_images_active_idx").on(table.isActive),
+  };
+});
+
+// AI automation reports table for tracking automated decisions
+export const aiAutomationReports = pgTable("ai_automation_reports", {
+  id: serial("id").primaryKey(),
+  
+  // Report metadata
+  reportType: text("report_type").notNull(), // "purchasing_opportunities", "price_optimization", "inventory_forecast"
+  reportDate: timestamp("report_date").defaultNow(),
+  
+  // Scope and filters
+  productFilter: json("product_filter").default({}), // Filters used for this report
+  marketplaceFilter: json("marketplace_filter").default({}),
+  supplierFilter: json("supplier_filter").default({}),
+  
+  // Results summary
+  totalProducts: integer("total_products").default(0),
+  highOpportunityProducts: integer("high_opportunity_products").default(0),
+  mediumOpportunityProducts: integer("medium_opportunity_products").default(0),
+  lowOpportunityProducts: integer("low_opportunity_products").default(0),
+  
+  // Profit potential
+  totalProfitPotential: integer("total_profit_potential").default(0), // In cents
+  avgProfitMargin: real("avg_profit_margin").default(0),
+  topOpportunityProduct: json("top_opportunity_product").default({}),
+  
+  // Recommendations
+  recommendedActions: json("recommended_actions").default([]),
+  priorityRecommendations: json("priority_recommendations").default([]),
+  automationSuggestions: json("automation_suggestions").default([]),
+  
+  // Performance metrics
+  processingTimeMs: integer("processing_time_ms").default(0),
+  dataQualityScore: integer("data_quality_score").default(0), // 0-100
+  confidenceScore: integer("confidence_score").default(0), // 0-100
+  
+  // Report status
+  reportStatus: text("report_status").default("completed"), // "processing", "completed", "error"
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    typeIdx: index("ai_automation_reports_type_idx").on(table.reportType),
+    dateIdx: index("ai_automation_reports_date_idx").on(table.reportDate),
+    statusIdx: index("ai_automation_reports_status_idx").on(table.reportStatus),
+    opportunityIdx: index("ai_automation_reports_opportunity_idx").on(table.highOpportunityProducts),
+  };
+});
+
+// Marketplace sync status table for tracking integration health
+export const marketplaceSyncStatus = pgTable("marketplace_sync_status", {
+  id: serial("id").primaryKey(),
+  
+  // Sync identification
+  marketplace: marketplaceEnum("marketplace").notNull(),
+  syncType: text("sync_type").notNull(), // "full", "incremental", "pricing", "inventory"
+  
+  // Sync results
+  syncStatus: text("sync_status").default("pending"), // "pending", "running", "completed", "failed"
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  
+  // Processing metrics
+  totalProducts: integer("total_products").default(0),
+  processedProducts: integer("processed_products").default(0),
+  successfulProducts: integer("successful_products").default(0),
+  failedProducts: integer("failed_products").default(0),
+  
+  // Error tracking
+  errorCount: integer("error_count").default(0),
+  errorDetails: json("error_details").default([]),
+  lastError: text("last_error"),
+  
+  // Performance metrics
+  avgProcessingTime: real("avg_processing_time"), // Seconds per product
+  totalProcessingTime: integer("total_processing_time"), // Total seconds
+  
+  // Rate limiting
+  rateLimitHits: integer("rate_limit_hits").default(0),
+  rateLimitDelay: integer("rate_limit_delay").default(0), // Seconds
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    marketplaceIdx: index("marketplace_sync_status_marketplace_idx").on(table.marketplace),
+    statusIdx: index("marketplace_sync_status_status_idx").on(table.syncStatus),
+    dateIdx: index("marketplace_sync_status_date_idx").on(table.startedAt),
+    typeIdx: index("marketplace_sync_status_type_idx").on(table.syncType),
+  };
+});
+
+// Relations for all tables
+export const usersRelations = relations(users, ({ many }) => ({
+  // User relations can be added here if needed
+}));
+
+export const suppliersRelations = relations(suppliers, ({ many }) => ({
+  products: many(supplierProducts),
+  dataSources: many(dataSources),
+  automations: many(supplierAutomation),
+  asinPerformance: many(supplierAsinPerformance),
+}));
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  parent: one(categories, { fields: [categories.parentId], references: [categories.id] }),
+  children: many(categories),
+  products: many(products),
+  mappings: many(supplierCategoryMappings),
+}));
+
+export const productsRelations = relations(products, ({ one, many }) => ({
+  category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
+  manufacturer: one(manufacturers, { fields: [products.manufacturerId], references: [manufacturers.id] }),
+  suppliers: many(supplierProducts),
+  attributes: many(productAttributes),
+  identifiers: many(productIdentifiers),
+  images: many(productImages),
+  asinMappings: many(productAsinMapping),
+  warehouseStock: many(warehouseStock),
+  inventorySnapshots: many(inventorySnapshots),
+  opportunities: many(multiAsinOpportunities),
+  confidenceScores: many(confidenceScores),
+  restrictions: many(productRestrictions),
+}));
+
+export const supplierProductsRelations = relations(supplierProducts, ({ one }) => ({
+  supplier: one(suppliers, { fields: [supplierProducts.supplierId], references: [suppliers.id] }),
+  product: one(products, { fields: [supplierProducts.productId], references: [products.id] }),
+}));
+
+export const amazonAsinsRelations = relations(amazonAsins, ({ many }) => ({
+  marketIntelligence: many(amazonMarketIntelligence),
+  priceHistory: many(amazonPriceHistory),
+  productMappings: many(productAsinMapping),
+  salesRankings: many(salesRankings),
+  restrictions: many(productRestrictions),
+}));
+
+export const productAsinMappingRelations = relations(productAsinMapping, ({ one }) => ({
+  product: one(products, { fields: [productAsinMapping.productId], references: [products.id] }),
+  asin: one(amazonAsins, { fields: [productAsinMapping.asin], references: [amazonAsins.asin] }),
+}));
+
+export const confidenceScoresRelations = relations(confidenceScores, ({ one }) => ({
+  product: one(products, { fields: [confidenceScores.productId], references: [products.id] }),
+}));
+
+export const productAttributesRelations = relations(productAttributes, ({ one }) => ({
+  product: one(products, { fields: [productAttributes.productId], references: [products.id] }),
+}));
+
+export const productIdentifiersRelations = relations(productIdentifiers, ({ one }) => ({
+  product: one(products, { fields: [productIdentifiers.productId], references: [products.id] }),
+}));
+
+export const productImagesRelations = relations(productImages, ({ one }) => ({
+  product: one(products, { fields: [productImages.productId], references: [products.id] }),
+}));
+
+export const productRestrictionsRelations = relations(productRestrictions, ({ one }) => ({
+  product: one(products, { fields: [productRestrictions.productId], references: [products.id] }),
+  asin: one(amazonAsins, { fields: [productRestrictions.asin], references: [amazonAsins.asin] }),
+}));
+
+export const amazonMarketIntelligenceRelations = relations(amazonMarketIntelligence, ({ one }) => ({
+  asin: one(amazonAsins, { fields: [amazonMarketIntelligence.asin], references: [amazonAsins.asin] }),
+}));
+
+export const amazonPriceHistoryRelations = relations(amazonPriceHistory, ({ one }) => ({
+  asin: one(amazonAsins, { fields: [amazonPriceHistory.asin], references: [amazonAsins.asin] }),
+}));
+
+export const salesRankingsRelations = relations(salesRankings, ({ one }) => ({
+  asin: one(amazonAsins, { fields: [salesRankings.asin], references: [amazonAsins.asin] }),
+}));
 
 // Schemas for insertions
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
