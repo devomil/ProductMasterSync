@@ -45,11 +45,22 @@ export async function createAsinRecord(asinData: any): Promise<void> {
  * @param productId 
  */
 export async function getAmazonDataForProduct(productId: number): Promise<any[]> {
-  return await db
-    .select()
-    .from(amazonMarketIntelligence)
-    .where(eq(amazonMarketIntelligence.asin, productId.toString()))
-    .orderBy(desc(amazonMarketIntelligence.updatedAt));
+  // Get all ASINs mapped to this product and their data
+  const mappings = await db
+    .select({
+      asin: productAsinMapping.asin,
+      matchMethod: productAsinMapping.matchMethod,
+      matchConfidence: productAsinMapping.matchConfidence,
+      isVerified: productAsinMapping.isVerified,
+      asinData: amazonAsins,
+      intelligence: amazonMarketIntelligence
+    })
+    .from(productAsinMapping)
+    .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
+    .leftJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+    .where(eq(productAsinMapping.productId, productId));
+
+  return mappings;
 }
 
 /**
