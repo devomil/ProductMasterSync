@@ -319,29 +319,16 @@ export default function MarketplaceAmazon() {
                           <div key={idx} className="bg-white rounded border p-3">
                             <div className="flex items-start gap-4 mb-3">
                               <div className="flex-shrink-0">
-                                <img 
-                                  src={`https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01._SX150_.jpg`}
-                                  alt={asinMapping.asinData?.title || 'Amazon product'}
-                                  className="w-16 h-16 object-contain rounded border bg-gray-50"
-                                  onError={(e) => {
-                                    const target = e.currentTarget;
-                                    const currentSrc = target.src;
-                                    
-                                    if (currentSrc.includes('_SX150_')) {
-                                      target.src = `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01.L.jpg`;
-                                    } else if (currentSrc.includes('.01.L.jpg')) {
-                                      target.src = `https://m.media-amazon.com/images/I/${asinMapping.asin}.jpg`;
-                                    } else if (currentSrc.includes('m.media-amazon.com')) {
-                                      target.src = `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.jpg`;
-                                    } else {
-                                      // Show placeholder on final failure
-                                      target.style.display = 'none';
-                                      target.parentElement?.insertAdjacentHTML('beforeend', 
-                                        '<div class="w-16 h-16 bg-gray-200 rounded border flex items-center justify-center text-xs text-gray-500">No Image</div>'
-                                      );
-                                    }
-                                  }}
-                                />
+                                <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-200 rounded border flex items-center justify-center">
+                                  <div className="text-center">
+                                    <div className="text-orange-600 text-xs font-bold">
+                                      {asinMapping.asin.slice(0,3)}
+                                    </div>
+                                    <div className="text-orange-500 text-xs">
+                                      ASIN
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                               <div className="flex-1">
                                 <div className="flex justify-between items-start mb-2">
