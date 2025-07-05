@@ -1230,4 +1230,169 @@ router.post('/amazon/enhanced-fetch/:productId', async (req, res) => {
   }
 });
 
+/**
+ * Bulk Processing Routes for Large-Scale Amazon Operations
+ */
+
+import { amazonBulkProcessor } from './amazon-bulk-processor';
+
+/**
+ * POST /marketplace/amazon/bulk-process
+ * Start bulk processing for thousands of products with advanced rate limiting
+ */
+router.post('/amazon/bulk-process', async (req, res) => {
+  try {
+    const { productIds, options = {} } = req.body;
+    
+    // Get products with UPCs for processing
+    let productData = [];
+    
+    if (productIds && Array.isArray(productIds)) {
+      // Process specific products
+      for (const id of productIds) {
+        const [product] = await db
+          .select({ id: products.id, upc: products.upc })
+          .from(products)
+          .where(eq(products.id, id))
+          .limit(1);
+        
+        if (product && product.upc) {
+          productData.push(product);
+        }
+      }
+    } else {
+      // Auto-discover products that need Amazon lookup
+      productData = await db
+        .select({ id: products.id, upc: products.upc })
+        .from(products)
+        .leftJoin(amazonMarketIntelligence, eq(products.upc, amazonMarketIntelligence.upc))
+        .where(and(
+          isNotNull(products.upc),
+          isNull(amazonMarketIntelligence.asin)
+        ))
+        .limit(options.maxProducts || 1000);
+    }
+
+    if (!productData.length) {
+      return res.json({
+        success: false,
+        message: 'No products with UPCs found for processing',
+        discovered: 0
+      });
+    }
+
+    // Start bulk processing job
+    const jobId = await amazonBulkProcessor.startBulkProcessing(productData, options);
+    
+    return res.json({
+      success: true,
+      jobId,
+      totalProducts: productData.length,
+      message: `Started bulk processing job for ${productData.length} products`,
+      options: {
+        batchSize: options.batchSize || 50,
+        maxConcurrent: options.maxConcurrent || 3,
+        retryAttempts: options.retryAttempts || 3
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error starting bulk process:', error);
+    return res.status(500).json({ 
+      error: (error as Error).message 
+    });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/bulk-status/:jobId
+ * Get status and progress of a bulk processing job
+ */
+router.get('/amazon/bulk-status/:jobId', (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+    const job = amazonBulkProcessor.getJobStatus(jobId);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const progressPercent = (job.processedCount / job.totalCount) * 100;
+    
+    return res.json({
+      ...job,
+      progressPercent: Math.round(progressPercent * 100) / 100,
+      estimatedTimeRemaining: job.status === 'running' && job.startedAt 
+        ? this.calculateEstimatedTime(job)
+        : null
+    });
+    
+  } catch (error) {
+    console.error('Error getting bulk job status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/amazon/bulk-control/:jobId
+ * Control bulk processing job (pause/resume)
+ */
+router.post('/amazon/bulk-control/:jobId', (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+    const { action } = req.body; // 'pause' or 'resume'
+    
+    let success = false;
+    if (action === 'pause') {
+      success = amazonBulkProcessor.pauseJob(jobId);
+    } else if (action === 'resume') {
+      success = amazonBulkProcessor.resumeJob(jobId);
+    }
+    
+    if (!success) {
+      return res.status(400).json({ 
+        error: `Cannot ${action} job ${jobId}` 
+      });
+    }
+    
+    return res.json({
+      success: true,
+      message: `Job ${jobId} ${action}d successfully`
+    });
+    
+  } catch (error) {
+    console.error('Error controlling bulk job:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/bulk-jobs
+ * Get all active bulk processing jobs
+ */
+router.get('/amazon/bulk-jobs', (req, res) => {
+  try {
+    const jobs = amazonBulkProcessor.getAllJobs();
+    
+    return res.json({
+      jobs: jobs.map(job => ({
+        id: job.id,
+        status: job.status,
+        processedCount: job.processedCount,
+        totalCount: job.totalCount,
+        progressPercent: Math.round((job.processedCount / job.totalCount) * 10000) / 100,
+        successfulSyncs: job.successfulSyncs,
+        failedSyncs: job.failedSyncs,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        errorCount: job.errors.length
+      }))
+    });
+    
+  } catch (error) {
+    console.error('Error getting bulk jobs:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

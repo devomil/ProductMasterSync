@@ -174,6 +174,18 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Advanced Amazon Bulk Processing System with Enterprise Rate Limiting (2025-07-05)**:
+  - Created comprehensive AmazonBulkProcessor class for processing thousands of products safely
+  - Implemented advanced rate limiting with token bucket algorithm (20 req/sec, 40 burst capacity)
+  - Added intelligent batch processing with configurable batch sizes, concurrent limits, and retry logic
+  - Built exponential backoff system for error handling and API resilience
+  - Created semaphore-based concurrency control to prevent API overload
+  - Added job management system with pause/resume functionality for long-running operations
+  - Implemented progress tracking, error logging, and comprehensive status reporting
+  - **API Endpoints**: `/bulk-process`, `/bulk-status/:jobId`, `/bulk-control/:jobId`, `/bulk-jobs`
+  - **Enterprise Features**: Queue management, job persistence, retry strategies, performance monitoring
+  - **Rate Limiting**: Dual-layer protection with official SDK retry + custom token bucket algorithm
+  - **Scale Ready**: Designed to handle 5,000+ product processing jobs with proper resource management
 - **Enhanced SP-API SDK Integration Complete (2025-07-05)**:
   - Successfully installed official Amazon SP-API SDK packages (@sp-api-sdk/auth, @sp-api-sdk/catalog-items-api-2022-04-01)
   - Created comprehensive amazon-spapi-service.ts with official SDK integration
