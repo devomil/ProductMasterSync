@@ -283,10 +283,33 @@ export default function MarketplaceAmazon() {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              onClick={() => {
-                                // TODO: Implement live Amazon search by UPC
-                                console.log(`Fetching live Amazon data for UPC: ${selectedProductData.upc}`);
+                              onClick={async () => {
+                                if (!selectedProductData) return;
+                                
+                                setAmazonLoading(true);
+                                try {
+                                  console.log(`Fetching live Amazon data for UPC: ${selectedProductData.upc}`);
+                                  const response = await fetch(`/api/marketplace/amazon/fetch/${selectedProduct}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ upc: selectedProductData.upc })
+                                  });
+                                  
+                                  if (response.ok) {
+                                    const result = await response.json();
+                                    console.log('Live search result:', result);
+                                    // Refresh the existing data
+                                    await amazonQuery.refetch();
+                                  } else {
+                                    console.error('Live search failed:', await response.text());
+                                  }
+                                } catch (error) {
+                                  console.error('Error fetching live data:', error);
+                                } finally {
+                                  setAmazonLoading(false);
+                                }
                               }}
+                              disabled={amazonLoading || !selectedProductData?.upc}
                             >
                               🔍 Fetch Live Amazon Data
                             </Button>

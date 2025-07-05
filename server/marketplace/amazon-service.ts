@@ -138,8 +138,64 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
  * @param productId 
  */
 export async function getAmazonDataForProduct(productId: number) {
-  // Import as a named import to avoid recursive call
-  return await import('./repository').then(repo => repo.getAmazonDataForProduct(productId));
+  const { getAmazonDataForProduct: getExistingData } = await import('./repository');
+  const { db } = await import('../db');
+  const { products } = await import('../../shared/schema');
+  const { eq } = await import('drizzle-orm');
+  
+  // First check if we have existing mappings
+  const existingMappings = await getExistingData(productId);
+  
+  // If we have existing mappings, return them
+  if (existingMappings && existingMappings.length > 0) {
+    return existingMappings;
+  }
+  
+  // If no mappings exist, get the product details and perform live search
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+    
+  if (!product) {
+    throw new Error(`Product with ID ${productId} not found`);
+  }
+  
+  // Only perform live search if product has UPC or MPN
+  if (!product.upc && !product.manufacturerPartNumber) {
+    return []; // No UPC or MPN available for search
+  }
+  
+  console.log(`🔍 No existing ASIN mappings found for product ${productId} (${product.sku})`);
+  console.log(`📋 Product details: UPC=${product.upc}, MPN=${product.manufacturerPartNumber}`);
+  
+  // Try to fetch live data using UPC first, then MPN
+  let liveResults = [];
+  
+  if (product.upc) {
+    console.log(`🔎 Searching Amazon by UPC: ${product.upc}`);
+    try {
+      liveResults = await fetchAmazonDataByUpc(productId, product.upc);
+    } catch (error) {
+      console.error(`Error searching by UPC: ${error}`);
+    }
+  }
+  
+  // If no results from UPC and we have MPN, try searching by MPN
+  if (liveResults.length === 0 && product.manufacturerPartNumber) {
+    console.log(`🔎 Searching Amazon by MPN: ${product.manufacturerPartNumber}`);
+    try {
+      // Note: We'll use UPC search for now, but in a full implementation
+      // you'd want to add MPN-specific search functionality
+      liveResults = await fetchAmazonDataByUpc(productId, product.manufacturerPartNumber);
+    } catch (error) {
+      console.error(`Error searching by MPN: ${error}`);
+    }
+  }
+  
+  // Return live results or empty array
+  return liveResults.length > 0 ? await getExistingData(productId) : [];
 }
 
 /**
