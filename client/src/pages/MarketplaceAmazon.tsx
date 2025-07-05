@@ -271,6 +271,27 @@ export default function MarketplaceAmazon() {
                             'Multiple marketplace matches discovered'
                           }
                         </div>
+                        {selectedProductData && amazonData.some((asin: any) => 
+                          asin.asinData?.upc && asin.asinData.upc !== selectedProductData.upc
+                        ) && (
+                          <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-800">
+                            <strong>Warning:</strong> Some ASINs have different UPCs than the selected product. These may not be exact matches.
+                          </div>
+                        )}
+                        {selectedProductData && (
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                // TODO: Implement live Amazon search by UPC
+                                console.log(`Fetching live Amazon data for UPC: ${selectedProductData.upc}`);
+                              }}
+                            >
+                              🔍 Fetch Live Amazon Data
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="space-y-3">
@@ -283,7 +304,15 @@ export default function MarketplaceAmazon() {
                                   alt={asinMapping.asinData?.title || 'Amazon product'}
                                   className="w-16 h-16 object-contain rounded border bg-white"
                                   onError={(e) => {
-                                    e.currentTarget.src = '/api/placeholder/64/64';
+                                    // Try alternative Amazon image URLs
+                                    const currentSrc = e.currentTarget.src;
+                                    if (currentSrc.includes('.01.L.jpg')) {
+                                      e.currentTarget.src = `https://images-na.ssl-images-amazon.com/images/P/${asinMapping.asin}.01._SX300_SY300_QL70_.jpg`;
+                                    } else if (currentSrc.includes('_SX300_SY300_')) {
+                                      e.currentTarget.src = `https://m.media-amazon.com/images/I/${asinMapping.asin}.jpg`;
+                                    } else {
+                                      e.currentTarget.style.display = 'none';
+                                    }
                                   }}
                                 />
                               </div>
@@ -311,8 +340,16 @@ export default function MarketplaceAmazon() {
                                     {asinMapping.matchMethod || 'Unknown match'}
                                   </Badge>
                                   {asinMapping.asinData?.upc && (
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={
+                                        selectedProductData && asinMapping.asinData.upc !== selectedProductData.upc
+                                          ? "bg-red-50 text-red-700 border-red-200"
+                                          : "bg-blue-50 text-blue-700 border-blue-200"
+                                      }
+                                    >
                                       UPC: {asinMapping.asinData.upc}
+                                      {selectedProductData && asinMapping.asinData.upc !== selectedProductData.upc && " ⚠️"}
                                     </Badge>
                                   )}
                                 </div>
