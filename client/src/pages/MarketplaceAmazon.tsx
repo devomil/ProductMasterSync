@@ -181,7 +181,7 @@ export default function MarketplaceAmazon() {
                     </SelectTrigger>
                     <SelectContent>
                       {products.map((product: any, index: number) => (
-                        <SelectItem key={`${product.id}-${index}`} value={product.usin}>
+                        <SelectItem key={`${product.id}-${index}`} value={product.id.toString()}>
                           {product.sku} - {product.name}
                         </SelectItem>
                       ))}
@@ -201,7 +201,11 @@ export default function MarketplaceAmazon() {
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Testing ASIN: {selectedProduct}
+                      Testing Product ID: {selectedProduct}
+                      {(() => {
+                        const product = products.find((p: any) => p.id.toString() === selectedProduct);
+                        return product ? ` (${product.sku})` : '';
+                      })()}
                     </AlertDescription>
                   </Alert>
                 )}
