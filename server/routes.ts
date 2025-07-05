@@ -2614,8 +2614,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test inventory sync endpoint with matched products
-  app.get('/api/inventory/test-sync', async (req, res) => {
+  // Test inventory sync endpoint with matched products (must come before /:sku route)
+  app.get('/api/test/inventory-sync', async (req, res) => {
     try {
       // Get existing products to match against supplier inventory
       const existingProducts = await db.select().from(products)

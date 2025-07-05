@@ -87,8 +87,8 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
 
   const testInventoryUpdate = useMutation({
     mutationFn: async () => {
-      // Simulate inventory update by checking current inventory levels
-      const response = await apiRequest("GET", `/api/inventory/test-sync`);
+      // Test inventory sync with matched products data
+      const response = await fetch(`/api/test/inventory-sync`);
       return response.json();
     },
     onSuccess: (data) => {
