@@ -45,8 +45,50 @@ const removeEdcPrefix = (sku: string): string => {
   return sku.replace(/^EDC/i, '');
 };
 
+// Calculate shipping cost using shipping templates
+const calculateShippingCost = async (supplierId: number, cost: number, weight: number) => {
+  try {
+    const response = await fetch(`/api/suppliers/${supplierId}/shipping-templates`);
+    const templates = await response.json();
+    
+    if (!templates.length) return null;
+    
+    const template = templates[0]; // Use first template for now
+    const config = template.config;
+    
+    if (config.method === 'flat_rate') {
+      return config.flatRate;
+    }
+    
+    if (config.method === 'free_shipping') {
+      return 0;
+    }
+    
+    if (config.method === 'weight_based' && config.weightRules) {
+      for (const rule of config.weightRules) {
+        if (weight >= rule.minWeight && weight <= rule.maxWeight) {
+          return rule.shippingCost;
+        }
+      }
+    }
+    
+    if (config.method === 'cost_based' && config.costRules) {
+      for (const rule of config.costRules) {
+        if (cost >= rule.minCost && cost <= rule.maxCost) {
+          return rule.shippingCost;
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error calculating shipping cost:', error);
+    return null;
+  }
+};
+
 // Authentic vendor stock data from CWR supplier information
-const getVendorStockData = (product: any, inventoryData?: any) => {
+const getVendorStockData = (product: any, inventoryData?: any, shippingCosts?: any) => {
   if (!product) return [];
   
   const vendors = [];
@@ -80,7 +122,8 @@ const getVendorStockData = (product: any, inventoryData?: any) => {
       stock: "Live Inventory",
       cost: parseFloat(product.cost) || 0,
       quantity: stockDisplay,
-      type: "authentic"
+      type: "authentic",
+      shippingCost: shippingCosts?.CWR || null
     });
   }
   
@@ -117,12 +160,61 @@ export default function ProductDetails() {
     queryKey: [`/api/inventory/${product?.sku}`],
     enabled: !!product?.sku,
   }) as { data: any };
+
+  // Fetch shipping templates for suppliers
+  const { data: shippingTemplates } = useQuery({
+    queryKey: [`/api/suppliers/2/shipping-templates`], // CWR Distribution ID
+    enabled: !!product,
+  }) as { data: any };
+
+  // Calculate shipping costs for vendors
+  const [shippingCosts, setShippingCosts] = useState<any>({});
+
+  // Calculate shipping costs when data is available
+  useEffect(() => {
+    if (product && shippingTemplates?.length) {
+      const template = shippingTemplates[0];
+      
+      let cwrShippingCost = null;
+      const cost = parseFloat(product.cost) || 0;
+      const weight = parseFloat(product.weight) || 0.1;
+      
+      console.log('Calculating shipping cost:', { cost, weight, method: template.method });
+      
+      if (template.method === 'flat_rate') {
+        cwrShippingCost = template.flatRate;
+      } else if (template.method === 'free_shipping') {
+        cwrShippingCost = 0;
+      } else if (template.method === 'weight_based' && template.weightRules) {
+        for (const rule of template.weightRules) {
+          console.log('Checking weight rule:', rule, 'against weight:', weight);
+          if (weight >= rule.minWeight && weight <= rule.maxWeight) {
+            cwrShippingCost = rule.shippingCost;
+            console.log('Weight rule matched:', rule.shippingCost);
+            break;
+          }
+        }
+      } else if (template.method === 'cost_based' && template.costRules) {
+        for (const rule of template.costRules) {
+          if (cost >= rule.minCost && cost <= rule.maxCost) {
+            cwrShippingCost = rule.shippingCost;
+            break;
+          }
+        }
+      }
+      
+      console.log('Final calculated shipping cost:', cwrShippingCost);
+      setShippingCosts({
+        CWR: cwrShippingCost
+      });
+    }
+  }, [product, shippingTemplates]);
   
   // Get mapping templates to display all mapped fields
   const { mappingTemplates, isLoading: templatesLoading } = useMappingTemplates();
   const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
   
-  const vendorStockData = getVendorStockData(product, inventoryData);
+  const vendorStockData = getVendorStockData(product, inventoryData, shippingCosts);
   
   // Helper function to get product field value with proper mapping
   const getProductFieldValue = (fieldName: string): string => {
