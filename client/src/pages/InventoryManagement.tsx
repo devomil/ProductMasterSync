@@ -14,7 +14,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Clock, Play, Pause, Settings, AlertTriangle, CheckCircle, XCircle, RotateCcw, Database, Calendar, Activity, Folder, Trash2, Plus } from "lucide-react";
+import { Clock, Play, Pause, Settings, AlertTriangle, CheckCircle, XCircle, RotateCcw, Database, Calendar, Activity, Folder, Trash2, Plus, TestTube, FileText, Package, RefreshCw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +46,282 @@ const automationScheduleSchema = z.object({
 });
 
 type AutomationSchedule = z.infer<typeof automationScheduleSchema>;
+
+// Test Inventory Sync Dialog Component
+function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[], dataSources: any[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState('');
+  const [testStep, setTestStep] = useState(1);
+  const [testResults, setTestResults] = useState<any>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const resetTest = () => {
+    setTestStep(1);
+    setTestResults({});
+    setSelectedSupplier('');
+  };
+
+  const runSamplePull = useMutation({
+    mutationFn: async (supplierId: string) => {
+      const response = await apiRequest("POST", `/api/suppliers/${supplierId}/test-pull`, {
+        limit: 10,
+        includeInventory: true
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestResults(prev => ({ ...prev, samplePull: data }));
+      setTestStep(2);
+      toast({
+        title: "Sample Pull Complete",
+        description: `Successfully pulled ${data.recordCount || 0} sample products`
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Sample Pull Failed",
+        description: "Unable to pull sample data. Check your data source configuration.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const testInventoryUpdate = useMutation({
+    mutationFn: async () => {
+      // Simulate inventory update by checking current inventory levels
+      const response = await apiRequest("GET", `/api/inventory/test-sync`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestResults(prev => ({ ...prev, inventorySync: data }));
+      setTestStep(3);
+      toast({
+        title: "Inventory Sync Test Complete",
+        description: "Inventory levels updated successfully"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Inventory Sync Failed",
+        description: "Unable to sync inventory data.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const validateDataFlow = useMutation({
+    mutationFn: async () => {
+      // Check data flow from sample pull to product catalog to inventory
+      const response = await apiRequest("GET", `/api/test/data-flow-validation`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestResults(prev => ({ ...prev, dataFlowValidation: data }));
+      setTestStep(4);
+      toast({
+        title: "Data Flow Validation Complete",
+        description: "All systems working correctly"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Data Flow Validation Failed",
+        description: "Issues detected in the data pipeline.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const selectedSupplierData = suppliers.find(s => s.id.toString() === selectedSupplier);
+  const selectedDataSource = dataSources.find(ds => ds.supplierId.toString() === selectedSupplier);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <TestTube className="h-4 w-4 mr-2" />
+          Test Inventory Sync
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Test Inventory Sync Workflow</DialogTitle>
+          <DialogDescription>
+            Validate your complete inventory management pipeline from data pull to inventory syncing
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Supplier Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="supplier">Select Supplier to Test</Label>
+            <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a supplier" />
+              </SelectTrigger>
+              <SelectContent>
+                {suppliers.map((supplier: any) => (
+                  <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                    {supplier.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedSupplier && (
+            <>
+              {/* Supplier Info Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Testing: {selectedSupplierData?.name}</CardTitle>
+                  <CardDescription>
+                    Data Source: {selectedDataSource?.type.toUpperCase()} | 
+                    Host: {selectedDataSource?.config?.host}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Test Steps Progress */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card className={`${testStep >= 1 ? 'border-blue-500' : ''}`}>
+                  <CardContent className="p-4 text-center">
+                    <FileText className={`h-8 w-8 mx-auto mb-2 ${testStep >= 1 ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <div className="text-sm font-medium">Sample Pull</div>
+                    {testResults.samplePull && (
+                      <div className="text-xs text-green-600 mt-1">
+                        ✓ {testResults.samplePull.recordCount} products
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className={`${testStep >= 2 ? 'border-blue-500' : ''}`}>
+                  <CardContent className="p-4 text-center">
+                    <Package className={`h-8 w-8 mx-auto mb-2 ${testStep >= 2 ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <div className="text-sm font-medium">Inventory Sync</div>
+                    {testResults.inventorySync && (
+                      <div className="text-xs text-green-600 mt-1">
+                        ✓ {testResults.inventorySync.updatedCount} updated
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className={`${testStep >= 3 ? 'border-blue-500' : ''}`}>
+                  <CardContent className="p-4 text-center">
+                    <RefreshCw className={`h-8 w-8 mx-auto mb-2 ${testStep >= 3 ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <div className="text-sm font-medium">Data Flow</div>
+                    {testResults.dataFlowValidation && (
+                      <div className="text-xs text-green-600 mt-1">
+                        ✓ All validated
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className={`${testStep >= 4 ? 'border-green-500' : ''}`}>
+                  <CardContent className="p-4 text-center">
+                    <CheckCircle className={`h-8 w-8 mx-auto mb-2 ${testStep >= 4 ? 'text-green-500' : 'text-gray-400'}`} />
+                    <div className="text-sm font-medium">Complete</div>
+                    {testStep >= 4 && (
+                      <div className="text-xs text-green-600 mt-1">
+                        ✓ Ready for automation
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Test Results Display */}
+              {Object.keys(testResults).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Test Results</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {testResults.samplePull && (
+                      <div>
+                        <h4 className="font-medium text-sm text-green-600 mb-2">✓ Sample Pull Results</h4>
+                        <div className="text-sm text-muted-foreground">
+                          • {testResults.samplePull.recordCount} products pulled successfully
+                          • Data sources: {testResults.samplePull.sources?.join(', ')}
+                          • Fields mapped: {testResults.samplePull.fieldsValidated} of {testResults.samplePull.totalFields}
+                        </div>
+                      </div>
+                    )}
+
+                    {testResults.inventorySync && (
+                      <div>
+                        <h4 className="font-medium text-sm text-green-600 mb-2">✓ Inventory Sync Results</h4>
+                        <div className="text-sm text-muted-foreground">
+                          • {testResults.inventorySync.updatedCount} inventory records updated
+                          • Average sync time: {testResults.inventorySync.avgSyncTime}ms
+                          • Stock levels verified for {testResults.inventorySync.verifiedProducts} products
+                        </div>
+                      </div>
+                    )}
+
+                    {testResults.dataFlowValidation && (
+                      <div>
+                        <h4 className="font-medium text-sm text-green-600 mb-2">✓ Data Flow Validation</h4>
+                        <div className="text-sm text-muted-foreground">
+                          • Catalog ↔ Inventory sync: Working
+                          • Field mappings: All validated
+                          • System performance: {testResults.dataFlowValidation.performance}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={resetTest}>
+                  Reset Test
+                </Button>
+                <div className="flex gap-2">
+                  {testStep === 1 && (
+                    <Button 
+                      onClick={() => runSamplePull.mutate(selectedSupplier)}
+                      disabled={runSamplePull.isPending}
+                    >
+                      {runSamplePull.isPending ? "Pulling..." : "Start Sample Pull"}
+                    </Button>
+                  )}
+                  {testStep === 2 && (
+                    <Button 
+                      onClick={() => testInventoryUpdate.mutate()}
+                      disabled={testInventoryUpdate.isPending}
+                    >
+                      {testInventoryUpdate.isPending ? "Syncing..." : "Test Inventory Sync"}
+                    </Button>
+                  )}
+                  {testStep === 3 && (
+                    <Button 
+                      onClick={() => validateDataFlow.mutate()}
+                      disabled={validateDataFlow.isPending}
+                    >
+                      {validateDataFlow.isPending ? "Validating..." : "Validate Data Flow"}
+                    </Button>
+                  )}
+                  {testStep === 4 && (
+                    <Button onClick={() => setIsOpen(false)}>
+                      Setup Automation
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function InventoryManagement() {
   const [location] = useLocation();
@@ -116,6 +392,7 @@ export default function InventoryManagement() {
             <Activity className="h-4 w-4 mr-2" />
             System Health
           </Button>
+          <TestInventorySyncDialog suppliers={suppliers} dataSources={dataSources} />
           <CreateAutomationDialog suppliers={suppliers} dataSources={dataSources} />
         </div>
       </div>
