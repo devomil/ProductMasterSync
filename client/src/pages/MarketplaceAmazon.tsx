@@ -61,10 +61,10 @@ export default function MarketplaceAmazon() {
 
   // Fetch Amazon API response for selected product
   const { data: amazonData, isLoading: amazonLoading, refetch: refetchAmazon } = useQuery({
-    queryKey: ['/api/marketplace/amazon/product', selectedProduct],
+    queryKey: ['/api/marketplace/amazon', selectedProduct],
     enabled: !!selectedProduct,
     queryFn: async () => {
-      const response = await fetch(`/api/marketplace/amazon/product/${selectedProduct}`);
+      const response = await fetch(`/api/marketplace/amazon/${selectedProduct}`);
       if (!response.ok) throw new Error('Failed to fetch Amazon data');
       return response.json();
     }
