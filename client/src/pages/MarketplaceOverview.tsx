@@ -1,13 +1,16 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye } from 'lucide-react';
+import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 interface MarketplaceStatus {
   name: string;
@@ -21,6 +24,10 @@ interface MarketplaceStatus {
 }
 
 export default function MarketplaceOverview() {
+  const { toast } = useToast();
+  const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState(false);
+  const [bulkJobId, setBulkJobId] = useState<string | null>(null);
+
   // Fetch product catalog data
   const { data: products = [] } = useQuery({
     queryKey: ['/api/products']
@@ -29,6 +36,37 @@ export default function MarketplaceOverview() {
   // Fetch Amazon configuration status
   const { data: amazonConfig } = useQuery({
     queryKey: ['/api/marketplace/amazon/config-status']
+  });
+
+  // Fetch bulk job status if there's an active job
+  const { data: bulkJobStatus } = useQuery({
+    queryKey: ['/api/marketplace/amazon/bulk-status', bulkJobId],
+    enabled: !!bulkJobId,
+    refetchInterval: 3000, // Refresh every 3 seconds
+  });
+
+  // Bulk processing mutation
+  const bulkProcessMutation = useMutation({
+    mutationFn: async (options: any) => {
+      return apiRequest('/api/marketplace/amazon/bulk-process', {
+        method: 'POST',
+        body: JSON.stringify(options)
+      });
+    },
+    onSuccess: (data: any) => {
+      setBulkJobId(data.jobId);
+      toast({
+        title: 'Amazon Auto-Sync Started',
+        description: `Processing ${data.totalProducts} products with advanced rate limiting`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Auto-Sync Failed',
+        description: error.message || 'Failed to start automatic Amazon sync',
+        variant: 'destructive'
+      });
+    }
   });
 
   // Fetch marketplace status data using real product catalog information
@@ -225,53 +263,147 @@ export default function MarketplaceOverview() {
                 View Products
               </Button>
             </Link>
-            {amazonConfig?.configValid && products.length > 0 && (
-              <Button 
-                size="sm" 
-                className="bg-orange-500 hover:bg-orange-600"
-                onClick={async () => {
-                  try {
-                    // First test with a single UPC to verify authentication
-                    const testProduct = products.find((p: any) => p.usin || p.upc);
-                    if (testProduct) {
-                      const testResponse = await fetch('/api/marketplace/amazon/test-upc', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                          upc: testProduct.usin || testProduct.upc 
-                        })
-                      });
-                      
-                      if (testResponse.ok) {
-                        // If test passes, do batch sync
-                        const response = await fetch('/api/marketplace/amazon/batch-sync', {
+            {amazonConfig?.configValid && (products as any[]).length > 0 && (
+              <>
+                <Button 
+                  size="sm" 
+                  className="bg-orange-500 hover:bg-orange-600"
+                  onClick={async () => {
+                    try {
+                      // First test with a single UPC to verify authentication
+                      const testProduct = (products as any[]).find((p: any) => p.usin || p.upc);
+                      if (testProduct) {
+                        const testResponse = await fetch('/api/marketplace/amazon/test-upc', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ 
-                            batchSize: 3,
-                            productIds: products.slice(0, 3).map((p: any) => p.id)
+                            upc: testProduct.usin || testProduct.upc 
                           })
                         });
-                        const result = await response.json();
-                        console.log('Batch sync result:', result);
-                        alert(`Amazon sync started! Batch ID: ${result.batchId}`);
-                      } else {
-                        const error = await testResponse.json();
-                        console.error('Amazon authentication test failed:', error);
-                        alert(`Amazon authentication issue: ${error.error}. Please check your SP-API credentials.`);
+                        
+                        if (testResponse.ok) {
+                          // If test passes, do batch sync
+                          const response = await fetch('/api/marketplace/amazon/batch-sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              batchSize: 3,
+                              productIds: (products as any[]).slice(0, 3).map((p: any) => p.id)
+                            })
+                          });
+                          const result = await response.json();
+                          console.log('Batch sync result:', result);
+                          toast({
+                            title: 'Amazon Sync Test Started',
+                            description: `Testing sync with 3 products. Batch ID: ${result.batchId}`,
+                          });
+                        } else {
+                          const error = await testResponse.json();
+                          console.error('Amazon authentication test failed:', error);
+                          toast({
+                            title: 'Authentication Failed',
+                            description: `Amazon authentication issue: ${error.error}. Please check your SP-API credentials.`,
+                            variant: 'destructive'
+                          });
+                        }
                       }
+                    } catch (error) {
+                      console.error('Amazon sync failed:', error);
+                      toast({
+                        title: 'Sync Failed',
+                        description: 'Amazon sync failed. Please check your connection and credentials.',
+                        variant: 'destructive'
+                      });
                     }
-                  } catch (error) {
-                    console.error('Amazon sync failed:', error);
-                    alert('Amazon sync failed. Please check your connection and credentials.');
-                  }
-                }}
-              >
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Test Amazon Sync
-              </Button>
+                  }}
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Test Amazon Sync
+                </Button>
+                
+                <Button 
+                  size="sm"
+                  variant={bulkJobStatus?.status === 'running' ? 'destructive' : 'default'}
+                  className={bulkJobStatus?.status === 'running' ? '' : 'bg-blue-600 hover:bg-blue-700'}
+                  disabled={bulkProcessMutation.isPending}
+                  onClick={() => {
+                    if (bulkJobStatus?.status === 'running') {
+                      // Pause the job
+                      apiRequest(`/api/marketplace/amazon/bulk-control/${bulkJobId}`, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'pause' })
+                      }).then(() => {
+                        toast({
+                          title: 'Auto-Sync Paused',
+                          description: 'Amazon auto-sync has been paused',
+                        });
+                      });
+                    } else {
+                      // Start auto-sync for all products with UPCs
+                      const productsWithUpc = (products as any[]).filter((p: any) => p.usin || p.upc);
+                      if (productsWithUpc.length === 0) {
+                        toast({
+                          title: 'No Products Available',
+                          description: 'No products with UPC codes found for Amazon sync',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      
+                      bulkProcessMutation.mutate({
+                        maxProducts: Math.min(productsWithUpc.length, 1000), // Limit to 1000 products for safety
+                        batchSize: 50,
+                        maxConcurrent: 3,
+                        retryAttempts: 3
+                      });
+                      setIsAutoSyncEnabled(true);
+                    }
+                  }}
+                >
+                  {bulkJobStatus?.status === 'running' ? (
+                    <>
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Pause Auto-Sync
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Enable Auto-Sync
+                    </>
+                  )}
+                </Button>
+              </>
             )}
           </div>
+          
+          {/* Auto-Sync Progress Display */}
+          {bulkJobStatus && (
+            <div className="mt-4 p-4 border rounded-lg bg-blue-50 border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-blue-900">Amazon Auto-Sync Progress</h4>
+                <Badge 
+                  variant={bulkJobStatus.status === 'running' ? 'default' : 'secondary'}
+                  className={bulkJobStatus.status === 'running' ? 'bg-blue-600' : ''}
+                >
+                  {bulkJobStatus.status?.toUpperCase()}
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-blue-700">
+                  <span>Progress: {bulkJobStatus.processedCount || 0} / {bulkJobStatus.totalCount || 0} products</span>
+                  <span>{bulkJobStatus.progressPercent || 0}%</span>
+                </div>
+                <Progress 
+                  value={bulkJobStatus.progressPercent || 0} 
+                  className="h-2"
+                />
+                <div className="flex justify-between text-xs text-blue-600">
+                  <span>✓ {bulkJobStatus.successfulSyncs || 0} successful</span>
+                  <span>✗ {bulkJobStatus.failedSyncs || 0} failed</span>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
