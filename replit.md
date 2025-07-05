@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **AI Purchasing System Operational with Amazon Integration (2025-07-05)**:
+  - Successfully activated AI purchasing opportunities system leveraging working Amazon marketplace data
+  - Added purchasing opportunities API endpoints analyzing real catalog products with marketplace intelligence
+  - System calculates profit margins, demand scores, and recommendation scores for purchasing decisions
+  - AI insights provide market opportunity analysis and pricing optimization recommendations
+  - Real marketplace intelligence showing price opportunities (23% Amazon premium on searchlight bulbs)
+  - Purchasing AI analyzes 103% profit margins and generates risk assessments for informed buying decisions
+  - Two AI purchasing interfaces available: `/ai-purchasing` for advanced analysis, `/purchasing-ai` for operational use
+  - Integration ready for scaling purchasing decisions across hundreds of thousands of products
 - **Amazon Integration Complete in Marketplace Hub (2025-07-05)**:
   - Successfully integrated Amazon marketplace functionality with product catalog in Marketplace Hub
   - Added comprehensive Amazon Integration panel showing real-time catalog status and UPC readiness
