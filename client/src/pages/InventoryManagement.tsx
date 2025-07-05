@@ -392,7 +392,6 @@ export default function InventoryManagement() {
             <Activity className="h-4 w-4 mr-2" />
             System Health
           </Button>
-          <TestInventorySyncDialog suppliers={suppliers} dataSources={dataSources} />
           <CreateAutomationDialog suppliers={suppliers} dataSources={dataSources} />
         </div>
       </div>
@@ -543,6 +542,7 @@ export default function InventoryManagement() {
                         dataSources={dataSources} 
                       />
                       <TestInventoryDialog schedule={schedule} />
+                      <TestInventorySyncDialog suppliers={suppliers} dataSources={dataSources} />
                       <Button variant="outline" size="sm">
                         {schedule.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </Button>

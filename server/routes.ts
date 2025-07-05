@@ -2470,7 +2470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { limit = 10, includeInventory = false } = req.body;
       
       // Get supplier and data source
-      const supplier = await storage.getSupplierById(supplierId);
+      const supplier = await storage.getSupplier(supplierId);
       if (!supplier) {
         return res.status(404).json({ error: 'Supplier not found' });
       }
