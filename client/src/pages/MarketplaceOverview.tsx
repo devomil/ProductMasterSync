@@ -48,10 +48,8 @@ export default function MarketplaceOverview() {
   // Bulk processing mutation
   const bulkProcessMutation = useMutation({
     mutationFn: async (options: any) => {
-      return apiRequest('/api/marketplace/amazon/bulk-process', {
-        method: 'POST',
-        body: JSON.stringify(options)
-      });
+      const response = await apiRequest('POST', '/api/marketplace/amazon/bulk-process', options);
+      return response.json();
     },
     onSuccess: (data: any) => {
       setBulkJobId(data.jobId);
@@ -329,15 +327,20 @@ export default function MarketplaceOverview() {
                   onClick={() => {
                     if (bulkJobStatus?.status === 'running') {
                       // Pause the job
-                      apiRequest(`/api/marketplace/amazon/bulk-control/${bulkJobId}`, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'pause' })
-                      }).then(() => {
-                        toast({
-                          title: 'Auto-Sync Paused',
-                          description: 'Amazon auto-sync has been paused',
+                      apiRequest('POST', `/api/marketplace/amazon/bulk-control/${bulkJobId}`, { action: 'pause' })
+                        .then(() => {
+                          toast({
+                            title: 'Auto-Sync Paused',
+                            description: 'Amazon auto-sync has been paused',
+                          });
+                        })
+                        .catch((error) => {
+                          toast({
+                            title: 'Pause Failed',
+                            description: 'Failed to pause auto-sync: ' + error.message,
+                            variant: 'destructive'
+                          });
                         });
-                      });
                     } else {
                       // Start auto-sync for all products with UPCs
                       const productsWithUpc = (products as any[]).filter((p: any) => p.usin || p.upc);
