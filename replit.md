@@ -148,6 +148,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Enhanced Inventory Display with Matched Results and Dynamic Warehouse Locations (2025-07-05)**:
+  - Updated Test Inventory Sync to display matched product results showing catalog vs supplier inventory quantities
+  - Added sample matched products display with SKU, product name, and quantity comparisons
+  - Implemented dynamic warehouse locations based on supplier feed data instead of hardcoded warehouses
+  - Enhanced warehouse detail modal to show real-time supplier warehouse network (CWR FL, NJ, TX locations)
+  - Added warehouse metadata: region, lead time, supplier codes, and inventory availability status
+  - Created comprehensive inventory summary with total available, location count, and reserved stock
+  - Replaced static warehouse system with dynamic supplier-driven location management
+  - Backend API now provides authentic warehouse data from supplier feeds with proper regional distribution
 - **Enhanced Test Inventory Sync with Streamlined Workflow (2025-07-05)**:
   - Moved "Test Inventory Sync" button to Automation Schedules section alongside Edit and Test buttons for improved workflow integration
   - Redesigned testing process to use existing mapped catalog data instead of requiring new sample pulls

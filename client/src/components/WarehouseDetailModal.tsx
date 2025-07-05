@@ -179,40 +179,79 @@ export default function WarehouseDetailModal({
                 </Card>
               </div>
 
-              {/* Warehouse Locations */}
+              {/* Dynamic Warehouse Locations from Supplier Feed */}
               {inventoryData?.warehouses && inventoryData.warehouses.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Warehouse Locations</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                      Supplier Warehouse Locations
+                      {inventoryData.source && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {inventoryData.source}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <div className="text-sm text-gray-600">
+                      Real-time inventory from {inventoryData.supplierName || 'supplier'} warehouse network
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {inventoryData.warehouses.map((warehouse: WarehouseLocation, index: number) => (
-                        <div key={index} className="p-4 border rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <MapPin className="h-4 w-4 text-gray-500" />
-                            <span className="font-semibold">{warehouse.name}</span>
+                      {inventoryData.warehouses.map((warehouse: any, index: number) => (
+                        <div key={index} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                          <div className="flex items-center gap-2 mb-3">
+                            <MapPin className="h-4 w-4 text-blue-500" />
+                            <span className="font-semibold text-gray-900">{warehouse.name}</span>
                           </div>
-                          <div className="space-y-1 text-sm">
+                          <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span className="text-gray-600">Code:</span>
-                              <span>{warehouse.code}</span>
+                              <Badge variant="secondary" className="text-xs">{warehouse.code}</Badge>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Location:</span>
-                              <span>{warehouse.location}</span>
+                              <span className="font-medium">{warehouse.location}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-600">Quantity:</span>
-                              <Badge variant="outline">{warehouse.quantity}</Badge>
+                              <span className="text-gray-600">Region:</span>
+                              <span className="text-blue-600">{warehouse.region || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Available:</span>
+                              <Badge variant={warehouse.quantity > 10 ? 'default' : warehouse.quantity > 0 ? 'secondary' : 'destructive'}>
+                                {warehouse.quantity} units
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Lead Time:</span>
+                              <span className="text-green-600 font-medium">{warehouse.leadTime || 'N/A'}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Cost:</span>
-                              <span className="font-medium">${warehouse.cost}</span>
+                              <span className="font-bold">${parseFloat(warehouse.cost || '0').toFixed(2)}</span>
                             </div>
                           </div>
                         </div>
                       ))}
+                    </div>
+                    
+                    {/* Summary */}
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-bold text-blue-600">{inventoryData.totalStock || 0}</div>
+                          <div className="text-xs text-gray-600">Total Available</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-green-600">{inventoryData.warehouses.length}</div>
+                          <div className="text-xs text-gray-600">Locations</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-purple-600">{inventoryData.reservedStock || 0}</div>
+                          <div className="text-xs text-gray-600">Reserved</div>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

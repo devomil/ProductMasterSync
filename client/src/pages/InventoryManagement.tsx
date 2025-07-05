@@ -253,11 +253,37 @@ function TestInventorySyncDialog({ suppliers, dataSources }: { suppliers: any[],
                     {testResults.inventorySync && (
                       <div>
                         <h4 className="font-medium text-sm text-green-600 mb-2">✓ Inventory Sync Results</h4>
-                        <div className="text-sm text-muted-foreground">
-                          • {testResults.inventorySync.updatedCount} inventory records updated
+                        <div className="text-sm text-muted-foreground mb-3">
+                          • {testResults.inventorySync.totalMatches} products matched with supplier inventory
                           • Average sync time: {testResults.inventorySync.avgSyncTime}ms
-                          • Stock levels verified for {testResults.inventorySync.verifiedProducts} products
+                          • {testResults.inventorySync.unmatchedCount} unmatched products
                         </div>
+                        
+                        {testResults.inventorySync.matchedProducts && testResults.inventorySync.matchedProducts.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            <h5 className="text-xs font-medium text-gray-700">Sample Matched Products:</h5>
+                            <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                              {testResults.inventorySync.matchedProducts.slice(0, 3).map((product: any, idx: number) => (
+                                <div key={idx} className="text-xs bg-gray-50 p-2 rounded border">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium">{product.sku}</span>
+                                    <span className="text-green-600">✓ Matched</span>
+                                  </div>
+                                  <div className="text-gray-600 truncate">{product.name}</div>
+                                  <div className="flex justify-between text-gray-500">
+                                    <span>Catalog: {product.catalogQuantity}</span>
+                                    <span>Supplier: {product.supplierQuantity}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {testResults.inventorySync.matchedProducts.length > 3 && (
+                              <div className="text-xs text-gray-500">
+                                +{testResults.inventorySync.matchedProducts.length - 3} more products matched...
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
