@@ -14,7 +14,7 @@ import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct } from './repos
 import { amazonListingsRestrictionsService } from './amazon-listings-restrictions';
 import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
-import { eq, and, isNotNull, sql } from 'drizzle-orm';
+import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
 import { amazonPricingServiceV2022 } from '../services/amazon-pricing-v2022';
 
