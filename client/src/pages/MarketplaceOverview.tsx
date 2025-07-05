@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap } from 'lucide-react';
+import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap, Activity } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
@@ -42,7 +42,7 @@ export default function MarketplaceOverview() {
   const { data: bulkJobStatus } = useQuery({
     queryKey: ['/api/marketplace/amazon/bulk-status', bulkJobId],
     enabled: !!bulkJobId,
-    refetchInterval: 3000, // Refresh every 3 seconds
+    refetchInterval: 3000, // Refresh every 3 seconds while job exists
   });
 
   // Bulk processing mutation
@@ -171,6 +171,48 @@ export default function MarketplaceOverview() {
           <p className="text-muted-foreground">Manage multi-platform marketplace integrations and data mapping</p>
         </div>
       </div>
+
+      {/* Auto-Sync Status Indicator */}
+      {(bulkJobStatus || isAutoSyncEnabled) && (
+        <Card className="border-l-4 border-l-blue-500 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-full ${
+                  bulkJobStatus?.status === 'running' 
+                    ? 'bg-blue-500 animate-pulse' 
+                    : bulkJobStatus?.status === 'completed'
+                      ? 'bg-green-500'
+                      : 'bg-gray-400'
+                }`}>
+                  <Activity className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <div className="font-medium text-blue-900">
+                    Amazon Auto-Sync {bulkJobStatus?.status === 'running' ? 'Active' : 
+                      bulkJobStatus?.status === 'completed' ? 'Complete' : 'Ready'}
+                  </div>
+                  <div className="text-sm text-blue-700">
+                    {bulkJobStatus?.status === 'running' 
+                      ? `Processing ${bulkJobStatus.processedCount || 0}/${bulkJobStatus.totalCount || 0} products`
+                      : bulkJobStatus?.status === 'completed'
+                      ? `Successfully processed ${bulkJobStatus.successfulSyncs || 0} products`
+                      : 'Automation system ready for bulk processing'
+                    }
+                  </div>
+                </div>
+              </div>
+              <Badge 
+                variant={bulkJobStatus?.status === 'running' ? 'default' : 'secondary'}
+                className={bulkJobStatus?.status === 'running' ? 'bg-blue-600 animate-pulse' : ''}
+              >
+                {bulkJobStatus?.status === 'running' ? 'ACTIVE' : 
+                 bulkJobStatus?.status === 'completed' ? 'COMPLETE' : 'READY'}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Amazon Integration Quick Panel */}
       <Card className="border-blue-200 bg-blue-50/50">
