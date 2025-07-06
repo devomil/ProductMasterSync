@@ -187,11 +187,25 @@ export class AmazonBulkProcessor {
     } catch (error) {
       console.error(`✗ Failed to process product ${product.id} (attempt ${attemptNumber}):`, error);
       
+      // Handle specific Amazon API errors
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('QuotaExceeded') || errorMessage.includes('429')) {
+        // For rate limit errors, wait longer before retry
+        const rateLimitBackoff = 5000 + (attemptNumber * 2000); // 5-11 seconds
+        console.log(`Rate limit hit for product ${product.id}, waiting ${rateLimitBackoff}ms...`);
+        await this.sleep(rateLimitBackoff);
+      } else if (errorMessage.includes('InvalidInput') || errorMessage.includes('Missing required')) {
+        // Skip products with invalid UPCs - don't retry
+        console.log(`Skipping product ${product.id} due to invalid UPC`);
+        job.failedSyncs++;
+        return;
+      }
+      
       if (attemptNumber < options.retryAttempts) {
         // Calculate backoff time
         const backoffTime = options.exponentialBackoff 
-          ? Math.min(1000 * Math.pow(2, attemptNumber - 1), 30000) // Max 30 seconds
-          : 1000;
+          ? Math.min(2000 * Math.pow(2, attemptNumber - 1), 60000) // Max 60 seconds, start at 2s
+          : 2000;
         
         console.log(`Retrying product ${product.id} in ${backoffTime}ms...`);
         await this.sleep(backoffTime);
