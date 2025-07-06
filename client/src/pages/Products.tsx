@@ -315,10 +315,21 @@ const Products = () => {
     return fieldMap[field] || product[field] || '-';
   };
 
+  // Helper function to check if any meaningful filters are applied
+  const hasActiveFilters = () => {
+    return filters.query || 
+           (filters.category && filters.category !== '') ||
+           (filters.supplier && filters.supplier !== '') ||
+           (filters.manufacturer && filters.manufacturer !== '') ||
+           (filters.inventoryStatus && filters.inventoryStatus !== 'all') ||
+           filters.isRemanufactured || filters.isCloseout || filters.isOnSale || 
+           filters.hasRebate || filters.hasFreeShipping;
+  };
+
   // Filtering logic
   const filteredProducts = products.filter(product => {
     // Simple search without filters
-    if (searchQuery && !Object.values(filters).some(v => v && v !== '' && v !== 'all')) {
+    if (searchQuery && !hasActiveFilters()) {
       return product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -328,7 +339,7 @@ const Products = () => {
     }
 
     // Advanced filtering
-    if (Object.values(filters).some(v => v && v !== '' && v !== 'all')) {
+    if (hasActiveFilters()) {
       let matches = true;
 
       // Text search based on searchType
@@ -512,6 +523,104 @@ const Products = () => {
 
       <div className="mt-6">
         <div className="space-y-4">
+          {/* Quick filter chips */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={!hasActiveFilters() ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                dispatchFilters({ type: 'RESET_FILTERS' });
+                setSearchQuery('');
+              }}
+              className="h-8"
+            >
+              All Products
+            </Button>
+            
+            <Button
+              variant={filters.inventoryStatus === 'inStock' ? "default" : "outline"}
+              size="sm"
+              onClick={() => dispatchFilters({
+                type: 'SET_FILTER',
+                field: 'inventoryStatus',
+                value: filters.inventoryStatus === 'inStock' ? 'all' : 'inStock'
+              })}
+              className="h-8"
+            >
+              In Stock
+            </Button>
+            
+            <Button
+              variant={filters.isOnSale ? "default" : "outline"}
+              size="sm"
+              onClick={() => dispatchFilters({
+                type: 'SET_FILTER',
+                field: 'isOnSale',
+                value: !filters.isOnSale
+              })}
+              className="h-8"
+            >
+              <Tag className="mr-1 h-3 w-3" />
+              On Sale
+            </Button>
+            
+            <Button
+              variant={filters.hasRebate ? "default" : "outline"}
+              size="sm"
+              onClick={() => dispatchFilters({
+                type: 'SET_FILTER',
+                field: 'hasRebate',
+                value: !filters.hasRebate
+              })}
+              className="h-8"
+            >
+              <BadgePercent className="mr-1 h-3 w-3" />
+              Has Rebate
+            </Button>
+            
+            <Button
+              variant={filters.hasFreeShipping ? "default" : "outline"}
+              size="sm"
+              onClick={() => dispatchFilters({
+                type: 'SET_FILTER',
+                field: 'hasFreeShipping',
+                value: !filters.hasFreeShipping
+              })}
+              className="h-8"
+            >
+              <Truck className="mr-1 h-3 w-3" />
+              Free Shipping
+            </Button>
+            
+            <Button
+              variant={filters.isCloseout ? "default" : "outline"}
+              size="sm"
+              onClick={() => dispatchFilters({
+                type: 'SET_FILTER',
+                field: 'isCloseout',
+                value: !filters.isCloseout
+              })}
+              className="h-8"
+            >
+              <Package2 className="mr-1 h-3 w-3" />
+              Closeout
+            </Button>
+            
+            <Button
+              variant={filters.isRemanufactured ? "default" : "outline"}
+              size="sm"
+              onClick={() => dispatchFilters({
+                type: 'SET_FILTER',
+                field: 'isRemanufactured',
+                value: !filters.isRemanufactured
+              })}
+              className="h-8"
+            >
+              <Gauge className="mr-1 h-3 w-3" />
+              Remanufactured
+            </Button>
+          </div>
+
           {/* Search bar and basic controls */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 sm:space-x-4">
             <div className="relative w-full sm:w-96">
