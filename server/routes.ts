@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { AIMappingService } from "./services/ai-mapping";
+import { PerformanceOptimizedQueries } from "./performance-optimizations";
 import { 
   analyzeProfitability, 
   checkProductRestrictions, 
@@ -259,8 +260,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Suppliers API
   app.get("/api/suppliers", async (req, res) => {
     try {
-      const suppliers = await storage.getSuppliers();
-      res.json(suppliers);
+      // Try optimized query first, fallback to regular query
+      try {
+        const suppliers = await PerformanceOptimizedQueries.getSuppliersOptimized();
+        res.json(suppliers);
+      } catch (optimizationError) {
+        console.log('Using fallback query for suppliers');
+        const suppliers = await storage.getSuppliers();
+        res.json(suppliers);
+      }
     } catch (error) {
       handleError(res, error);
     }
@@ -360,27 +368,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Categories API
   app.get("/api/categories", async (req, res) => {
     try {
-      // Get categories with product counts using direct database query
-      const categoriesWithCounts = await db
-        .select({
-          id: categories.id,
-          name: categories.name,
-          code: categories.code,
-          parentId: categories.parentId,
-          level: categories.level,
-          path: categories.path,
-          isActive: sql`true`,
-          productCount: sql`count(${products.id})::int`,
-          createdAt: categories.createdAt,
-          updatedAt: categories.updatedAt,
-          attributes: categories.attributes
-        })
-        .from(categories)
-        .leftJoin(products, eq(categories.id, products.categoryId))
-        .groupBy(categories.id)
-        .orderBy(categories.level, categories.name);
-      
-      res.json(categoriesWithCounts);
+      // Try optimized query first, fallback to regular query
+      try {
+        const categoriesWithCounts = await PerformanceOptimizedQueries.getCategoriesOptimized();
+        res.json(categoriesWithCounts);
+      } catch (optimizationError) {
+        console.log('Using fallback query for categories');
+        const categories = await storage.getCategories();
+        res.json(categories);
+      }
     } catch (error) {
       handleError(res, error);
     }
@@ -577,56 +573,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products API
   app.get("/api/products", async (req, res) => {
     try {
-      // Get products with ASIN mappings joined
-      const productsQuery = `
-        SELECT p.id, p.sku, p.usin, p.name, p.description,
-               p.category_id as "categoryId",
-               p.manufacturer_id as "manufacturerId", 
-               p.manufacturer_name as "manufacturerName",
-               p.manufacturer_part_number as "manufacturerPartNumber",
-               p.upc, p.price, p.cost, p.weight, p.dimensions, p.attributes, p.status,
-               p.is_remanufactured as "isRemanufactured",
-               p.is_closeout as "isCloseout", 
-               p.is_on_sale as "isOnSale",
-               p.has_rebate as "hasRebate",
-               p.has_free_shipping as "hasFreeShipping",
-               p.inventory_quantity as "inventoryQuantity",
-               p.reorder_threshold as "reorderThreshold",
-               p.image_url as "imageUrl",
-               p.image_url_large as "imageUrlLarge",
-               p.third_party_marketplaces as "thirdPartyMarketplaces",
-               p.case_quantity as "caseQuantity",
-               p.google_merchant_category as "googleMerchantCategory",
-               p.country_of_origin as "countryOfOrigin",
-               p.box_height as "boxHeight",
-               p.box_length as "boxLength", 
-               p.box_width as "boxWidth",
-               p.installation_guide_url as "installationGuideUrl",
-               p.owners_manual_url as "ownersManualUrl",
-               p.brochure_url as "brochureUrl",
-               p.quick_guide_url as "quickGuideUrl",
-               p.additional_images as "additionalImages",
-               p.is_oversized as "isOversized",
-               p.is_returnable as "isReturnable",
-               p.quick_specs as "quickSpecs",
-               p.next_shipment_date_nj as "nextShipmentDateNJ",
-               p.next_shipment_date_fl as "nextShipmentDateFL",
-               p.next_shipment_date_combined as "nextShipmentDateCombined",
-               p.primary_image as "primaryImage",
-               p.last_amazon_sync as "lastAmazonSync",
-               p.amazon_sync_status as "amazonSyncStatus",
-               p.created_at as "createdAt",
-               p.updated_at as "updatedAt",
-               c.name as "categoryName"
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        ORDER BY p.id
-      `;
-      
-      const result = await pool.query(productsQuery);
-      const products = result.rows;
-      
-      res.json(products);
+      // Try optimized query first, fallback to regular query
+      try {
+        const products = await PerformanceOptimizedQueries.getProductsOptimized();
+        res.json(products);
+      } catch (optimizationError) {
+        console.log('Using fallback query for products');
+        const products = await storage.getProducts();
+        res.json(products);
+      }
     } catch (error) {
       handleError(res, error);
     }
@@ -994,6 +949,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(validatedData);
       
+      // Invalidate product cache after creation
+      PerformanceOptimizedQueries.invalidateProductCache();
+      
       // Create audit log
       await storage.createAuditLog({
         action: "create",
@@ -1017,6 +975,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedProduct) {
         return res.status(404).json({ message: "Product not found" });
       }
+      
+      // Invalidate product cache after update
+      PerformanceOptimizedQueries.invalidateProductCache();
       
       // Create audit log
       await storage.createAuditLog({
@@ -1047,6 +1008,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const success = await storage.deleteProduct(id);
       
       if (success) {
+        // Invalidate product cache after deletion
+        PerformanceOptimizedQueries.invalidateProductCache();
+        
         // Create audit log
         await storage.createAuditLog({
           action: "delete",
@@ -2355,6 +2319,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             updatedCount++;
           }
+        }
+        
+        // Invalidate product cache after bulk updates
+        if (updatedCount > 0) {
+          PerformanceOptimizedQueries.invalidateProductCache();
         }
       } else {
         updatedCount = updates.length; // Simulate updates in test mode

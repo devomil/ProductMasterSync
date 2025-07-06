@@ -1,5 +1,6 @@
 import { db } from './db';
 import { eq, and, or, like, isNull, desc, asc, sql, count } from 'drizzle-orm';
+import { queryCache } from './query-cache';
 import * as schema from "@shared/schema";
 import type {
   User, InsertUser,
@@ -183,21 +184,26 @@ export class DatabaseStorage implements IStorage {
 
   // Product management
   async getProducts(): Promise<Product[]> {
-    return await db.select({
+    const cacheKey = 'products:all';
+    const cached = queryCache.get<Product[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Optimized query - only essential fields for product listing
+    const products = await db.select({
       id: schema.products.id,
       sku: schema.products.sku,
+      usin: schema.products.usin,
       name: schema.products.name,
       description: schema.products.description,
       categoryId: schema.products.categoryId,
-      manufacturerId: schema.products.manufacturerId,
       manufacturerName: schema.products.manufacturerName,
       manufacturerPartNumber: schema.products.manufacturerPartNumber,
       upc: schema.products.upc,
       price: schema.products.price,
       cost: schema.products.cost,
       weight: schema.products.weight,
-      dimensions: schema.products.dimensions,
-      attributes: schema.products.attributes,
       status: schema.products.status,
       isRemanufactured: schema.products.isRemanufactured,
       isCloseout: schema.products.isCloseout,
@@ -205,21 +211,18 @@ export class DatabaseStorage implements IStorage {
       hasRebate: schema.products.hasRebate,
       hasFreeShipping: schema.products.hasFreeShipping,
       inventoryQuantity: schema.products.inventoryQuantity,
-      reorderThreshold: schema.products.reorderThreshold,
       imageUrl: schema.products.imageUrl,
       imageUrlLarge: schema.products.imageUrlLarge,
       lastAmazonSync: schema.products.lastAmazonSync,
       amazonSyncStatus: schema.products.amazonSyncStatus,
-      thirdPartyMarketplaces: schema.products.thirdPartyMarketplaces,
-      caseQuantity: schema.products.caseQuantity,
-      googleMerchantCategory: schema.products.googleMerchantCategory,
-      countryOfOrigin: schema.products.countryOfOrigin,
-      boxHeight: schema.products.boxHeight,
-      boxLength: schema.products.boxLength,
-      boxWidth: schema.products.boxWidth,
       createdAt: schema.products.createdAt,
       updatedAt: schema.products.updatedAt,
-    }).from(schema.products);
+    }).from(schema.products)
+    .orderBy(desc(schema.products.id))
+    .limit(5000); // Limit result set for better performance
+
+    queryCache.set(cacheKey, products, 20000); // Cache for 20 seconds
+    return products;
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
