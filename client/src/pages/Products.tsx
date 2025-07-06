@@ -724,18 +724,19 @@ const Products = () => {
           {/* Products Table */}
           <div className="mt-6 overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
+              <Table className="min-w-full">
+                <TableHeader className="sticky top-0 bg-gray-50 z-10">
                   <TableRow>
                     {/* Render dynamic columns based on CWR mapping template */}
                     {dynamicColumns.length > 0 ? (
                       dynamicColumns.map((field, index) => (
-                        <TableHead key={field} className={`text-sm font-medium ${
+                        <TableHead key={field} className={`text-sm font-medium whitespace-nowrap px-4 py-3 ${
                           field === 'sku' ? 'w-[120px]' :
-                          field === 'product_name' ? 'min-w-[240px]' :
-                          field === 'description' ? 'min-w-[200px]' :
-                          field === 'category' ? 'min-w-[180px]' :
-                          field === 'brand' ? 'w-[140px]' :
+                          field === 'product_name' ? 'w-[280px]' :
+                          field === 'description' ? 'w-[400px]' :
+                          field === 'category' ? 'w-[200px]' :
+                          field === 'brand' ? 'w-[160px]' :
+                          field === 'upc' ? 'w-[140px]' :
                           'w-[120px]'
                         }`}>
                           {columnDisplayNames[field] || field.charAt(0).toUpperCase() + field.slice(1)}
@@ -744,20 +745,20 @@ const Products = () => {
                     ) : (
                       // Fallback to default columns if no mapping template
                       <>
-                        <TableHead className="w-[120px] text-sm font-medium">EDC</TableHead>
-                        <TableHead className="min-w-[240px] text-sm font-medium">Product Name</TableHead>
-                        <TableHead className="min-w-[200px] text-sm font-medium">Description</TableHead>
-                        <TableHead className="w-[120px] text-sm font-medium">UPC</TableHead>
-                        <TableHead className="w-[120px] text-sm font-medium">MPN</TableHead>
-                        <TableHead className="w-[140px] text-sm font-medium">Brand</TableHead>
-                        <TableHead className="min-w-[180px] text-sm font-medium">Category</TableHead>
-                        <TableHead className="w-[80px] text-sm font-medium">Cost</TableHead>
-                        <TableHead className="w-[80px] text-sm font-medium">Price</TableHead>
-                        <TableHead className="w-[120px] text-sm font-medium">Weight</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium whitespace-nowrap px-4 py-3">EDC</TableHead>
+                        <TableHead className="w-[280px] text-sm font-medium whitespace-nowrap px-4 py-3">Product Name</TableHead>
+                        <TableHead className="w-[400px] text-sm font-medium whitespace-nowrap px-4 py-3">Description</TableHead>
+                        <TableHead className="w-[140px] text-sm font-medium whitespace-nowrap px-4 py-3">UPC</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium whitespace-nowrap px-4 py-3">MPN</TableHead>
+                        <TableHead className="w-[160px] text-sm font-medium whitespace-nowrap px-4 py-3">Brand</TableHead>
+                        <TableHead className="w-[200px] text-sm font-medium whitespace-nowrap px-4 py-3">Category</TableHead>
+                        <TableHead className="w-[100px] text-sm font-medium whitespace-nowrap px-4 py-3">Cost</TableHead>
+                        <TableHead className="w-[100px] text-sm font-medium whitespace-nowrap px-4 py-3">Price</TableHead>
+                        <TableHead className="w-[120px] text-sm font-medium whitespace-nowrap px-4 py-3">Weight</TableHead>
                       </>
                     )}
-                    <TableHead className="w-[80px] text-sm font-medium">Status</TableHead>
-                    <TableHead className="w-[80px] text-right text-sm font-medium">Actions</TableHead>
+                    <TableHead className="w-[100px] text-sm font-medium whitespace-nowrap px-4 py-3">Status</TableHead>
+                    <TableHead className="w-[100px] text-right text-sm font-medium whitespace-nowrap px-4 py-3">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -784,26 +785,34 @@ const Products = () => {
                       {/* Render dynamic columns based on CWR mapping template */}
                       {dynamicColumns.length > 0 ? (
                         dynamicColumns.map((field, fieldIndex) => (
-                          <TableCell key={field} className={`text-sm ${
-                            field === 'sku' ? 'font-medium' :
-                            field === 'product_name' ? 'min-w-[240px]' :
-                            field === 'description' ? 'min-w-[200px]' :
-                            ''
+                          <TableCell key={field} className={`text-sm px-4 py-3 ${
+                            field === 'sku' ? 'font-medium w-[120px]' :
+                            field === 'product_name' ? 'w-[280px]' :
+                            field === 'description' ? 'w-[400px] max-w-[400px]' :
+                            field === 'category' ? 'w-[200px]' :
+                            field === 'brand' ? 'w-[160px]' :
+                            field === 'upc' ? 'w-[140px]' :
+                            'w-[120px]'
                           }`}>
                             {field === 'sku' ? (
                               <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                                 {getProductValue(product, field)}
                               </Link>
                             ) : field === 'product_name' ? (
-                              <div>
-                                <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline">
+                              <div className="w-[280px]">
+                                <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline block truncate">
                                   {getProductValue(product, field)}
                                 </Link>
                                 {getSpecialFlagComponents(product)}
                               </div>
                             ) : field === 'description' ? (
-                              <div className="text-sm text-gray-600 line-clamp-2" title={getProductValue(product, field)}>
-                                {getProductValue(product, field)}
+                              <div 
+                                className="text-sm text-gray-600 w-[400px] max-w-[400px] overflow-hidden"
+                                title={getProductValue(product, field)}
+                              >
+                                <div className="line-clamp-3 leading-tight">
+                                  {cleanHtmlTags(getProductValue(product, field) || '')}
+                                </div>
                               </div>
                             ) : field === 'primary_image' ? (
                               getProductValue(product, field) !== '-' ? (
@@ -815,7 +824,9 @@ const Products = () => {
                                 />
                               ) : '-'
                             ) : (
-                              getProductValue(product, field)
+                              <div className="truncate">
+                                {getProductValue(product, field)}
+                              </div>
                             )}
                           </TableCell>
                         ))
