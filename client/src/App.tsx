@@ -85,6 +85,7 @@ function Router() {
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
       <Route path="/marketplaces/overview" component={MarketplaceOverview} />
+      <Route path="/marketplace-overview" component={MarketplaceOverview} />
       <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />
       <Route path="/marketplace-amazon" component={MarketplaceAmazon} />
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />
