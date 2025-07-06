@@ -11,6 +11,7 @@ import { Link } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { useAutoSyncStatus } from '@/hooks/useAutoSyncStatus';
 
 interface MarketplaceStatus {
   name: string;
@@ -25,8 +26,16 @@ interface MarketplaceStatus {
 
 export default function MarketplaceOverview() {
   const { toast } = useToast();
-  const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState(false);
-  const [bulkJobId, setBulkJobId] = useState<string | null>(null);
+  
+  // Use persistent auto-sync status management
+  const { 
+    isEnabled: isAutoSyncEnabled, 
+    bulkJobId, 
+    bulkJobStatus, 
+    enableAutoSync, 
+    disableAutoSync,
+    lastCompletedTime
+  } = useAutoSyncStatus();
 
   // Fetch product catalog data
   const { data: products = [] } = useQuery({
@@ -38,13 +47,6 @@ export default function MarketplaceOverview() {
     queryKey: ['/api/marketplace/amazon/config-status']
   });
 
-  // Fetch bulk job status if there's an active job
-  const { data: bulkJobStatus } = useQuery({
-    queryKey: ['/api/marketplace/amazon/bulk-status', bulkJobId],
-    enabled: !!bulkJobId,
-    refetchInterval: 3000, // Refresh every 3 seconds while job exists
-  });
-
   // Bulk processing mutation
   const bulkProcessMutation = useMutation({
     mutationFn: async (options: any) => {
@@ -52,7 +54,7 @@ export default function MarketplaceOverview() {
       return response.json();
     },
     onSuccess: (data: any) => {
-      setBulkJobId(data.jobId);
+      enableAutoSync(data.jobId);
       toast({
         title: 'Amazon Auto-Sync Started',
         description: `Processing ${data.totalProducts} products with advanced rate limiting`,
@@ -401,7 +403,7 @@ export default function MarketplaceOverview() {
                         maxConcurrent: 3,
                         retryAttempts: 3
                       });
-                      setIsAutoSyncEnabled(true);
+                      // State will be updated by enableAutoSync call in mutation onSuccess
                     }
                   }}
                 >
