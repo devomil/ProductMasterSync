@@ -205,6 +205,10 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   
+  // State for view options
+  const [viewMode, setViewMode] = useState<'compact' | 'comfortable' | 'spacious'>('comfortable');
+  const [showFullDescriptions, setShowFullDescriptions] = useState(false);
+  
   // State for product drawers
   const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string, upc: string | null} | null>(null);
   const [fulfillmentDrawerOpen, setFulfillmentDrawerOpen] = useState(false);
@@ -295,6 +299,29 @@ const Products = () => {
     mpn: 'MPN'
   };
   
+  // Helper function to get column width classes based on view mode
+  const getColumnWidthClass = (field: string): string => {
+    if (viewMode === 'compact') {
+      return field === 'sku' ? 'w-[80px]' :
+             field === 'product_name' ? 'w-[200px]' :
+             field === 'description' ? 'w-[250px]' :
+             field === 'upc' ? 'w-[100px]' :
+             'w-[80px]';
+    } else if (viewMode === 'spacious') {
+      return field === 'sku' ? 'w-[140px]' :
+             field === 'product_name' ? 'w-[350px]' :
+             field === 'description' ? 'w-[500px]' :
+             field === 'upc' ? 'w-[160px]' :
+             'w-[140px]';
+    } else { // comfortable (default)
+      return field === 'sku' ? 'w-[120px]' :
+             field === 'product_name' ? 'w-[280px]' :
+             field === 'description' ? 'w-[300px]' :
+             field === 'upc' ? 'w-[140px]' :
+             'w-[120px]';
+    }
+  };
+
   // Helper function to get product field value
   const getProductValue = (product: any, field: string): string => {
     const fieldMap: Record<string, string> = {
@@ -634,6 +661,37 @@ const Products = () => {
               />
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* View Options */}
+              <div className="flex items-center space-x-1 border rounded-md p-1">
+                <Button
+                  variant={viewMode === 'compact' ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode('compact')}
+                  className="h-7 px-2"
+                  title="Compact View"
+                >
+                  <LayoutGrid className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant={viewMode === 'comfortable' ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode('comfortable')}
+                  className="h-7 px-2"
+                  title="Comfortable View"
+                >
+                  <AlignLeft className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant={viewMode === 'spacious' ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode('spacious')}
+                  className="h-7 px-2"
+                  title="Spacious View"
+                >
+                  <Package2 className="h-3 w-3" />
+                </Button>
+              </div>
+              
               <Button 
                 variant="outline" 
                 size="sm"
@@ -832,22 +890,18 @@ const Products = () => {
 
           {/* Products Table */}
           <div className="mt-6 overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-            <div className="overflow-x-auto">
-              <Table className="min-w-full">
+            <div className="overflow-x-auto max-h-[calc(100vh-300px)]">
+              <Table className={`min-w-full ${
+                viewMode === 'compact' ? 'table-fixed' : 
+                viewMode === 'spacious' ? 'table-auto' : 
+                'table-auto'
+              }`}>
                 <TableHeader className="sticky top-0 bg-gray-50 z-10">
                   <TableRow>
                     {/* Render dynamic columns based on CWR mapping template */}
                     {dynamicColumns.length > 0 ? (
                       dynamicColumns.map((field, index) => (
-                        <TableHead key={field} className={`text-sm font-medium whitespace-nowrap px-4 py-3 ${
-                          field === 'sku' ? 'w-[120px]' :
-                          field === 'product_name' ? 'w-[280px]' :
-                          field === 'description' ? 'w-[400px]' :
-                          field === 'category' ? 'w-[200px]' :
-                          field === 'brand' ? 'w-[160px]' :
-                          field === 'upc' ? 'w-[140px]' :
-                          'w-[120px]'
-                        }`}>
+                        <TableHead key={field} className={`text-sm font-medium whitespace-nowrap px-4 py-3 ${getColumnWidthClass(field)}`}>
                           {columnDisplayNames[field] || field.charAt(0).toUpperCase() + field.slice(1)}
                         </TableHead>
                       ))
@@ -890,25 +944,26 @@ const Products = () => {
                   ))
                 ) : (
                   filteredProducts.map((product, index) => (
-                    <TableRow key={`${product.id}-${index}`}>
+                    <TableRow key={`${product.id}-${index}`} className={`
+                      ${viewMode === 'compact' ? 'h-10' : 
+                        viewMode === 'spacious' ? 'h-16' : 
+                        'h-12'
+                      }
+                    `}>
                       {/* Render dynamic columns based on CWR mapping template */}
                       {dynamicColumns.length > 0 ? (
                         dynamicColumns.map((field, fieldIndex) => (
-                          <TableCell key={field} className={`text-sm px-4 py-3 ${
-                            field === 'sku' ? 'font-medium w-[120px]' :
-                            field === 'product_name' ? 'w-[280px]' :
-                            field === 'description' ? 'w-[400px] max-w-[400px]' :
-                            field === 'category' ? 'w-[200px]' :
-                            field === 'brand' ? 'w-[160px]' :
-                            field === 'upc' ? 'w-[140px]' :
-                            'w-[120px]'
-                          }`}>
+                          <TableCell key={field} className={`text-sm ${getColumnWidthClass(field)} ${
+                            viewMode === 'compact' ? 'px-2 py-1' : 
+                            viewMode === 'spacious' ? 'px-6 py-4' : 
+                            'px-4 py-3'
+                          } ${field === 'sku' ? 'font-medium' : ''}`}>
                             {field === 'sku' ? (
                               <Link href={`/products/${product.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                                 {getProductValue(product, field)}
                               </Link>
                             ) : field === 'product_name' ? (
-                              <div className="w-[280px]">
+                              <div className={getColumnWidthClass(field)}>
                                 <Link href={`/products/${product.id}`} className="font-medium text-sm leading-5 text-blue-600 hover:text-blue-800 hover:underline block truncate">
                                   {getProductValue(product, field)}
                                 </Link>
@@ -916,10 +971,10 @@ const Products = () => {
                               </div>
                             ) : field === 'description' ? (
                               <div 
-                                className="text-sm text-gray-600 w-[400px] max-w-[400px] overflow-hidden"
+                                className={`text-sm text-gray-600 ${getColumnWidthClass(field)} overflow-hidden`}
                                 title={getProductValue(product, field)}
                               >
-                                <div className="line-clamp-3 leading-tight">
+                                <div className={`leading-tight ${viewMode === 'compact' ? 'line-clamp-2' : 'line-clamp-3'}`}>
                                   {cleanHtmlTags(getProductValue(product, field) || '')}
                                 </div>
                               </div>
