@@ -1740,15 +1740,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`Mapping USIN (supplier part number): ${sourceField} = "${value}" -> stored separately from SKU`);
             }
             
-            // Type conversions based on target field
+            // Type conversions based on target field with proper null handling
             if (targetField === 'yourCost' || targetField === 'listPrice' || targetField === 'mapPrice' || targetField === 'mrpPrice') {
-              value = parseFloat(value) || 0;
+              // Handle empty strings and invalid numbers for price fields
+              const numValue = parseFloat(value);
+              value = isNaN(numValue) || value === '' || value === null ? null : numValue;
             } else if (targetField === 'shippingWeight' || targetField === 'caseQuantity') {
-              value = parseFloat(value) || 0;
+              // Handle empty strings and invalid numbers for numeric fields
+              const numValue = parseFloat(value);
+              value = isNaN(numValue) || value === '' || value === null ? null : numValue;
             } else if (typeof value === 'string') {
-              // Clean HTML tags from descriptions
-              if (targetField === 'description' || targetField === 'fullDescription') {
-                value = value.replace(/<[^>]*>/g, '').trim();
+              // Handle empty strings by converting to null for optional fields
+              if (value.trim() === '') {
+                value = null;
+              } else {
+                // Clean HTML tags from descriptions
+                if (targetField === 'description' || targetField === 'fullDescription') {
+                  value = value.replace(/<[^>]*>/g, '').trim();
+                }
               }
             }
             
