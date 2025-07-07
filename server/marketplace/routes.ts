@@ -52,6 +52,68 @@ router.get('/amazon/config-status', (req, res) => {
 });
 
 /**
+ * GET /marketplace/amazon/bulk-jobs
+ * Get all active bulk processing jobs
+ */
+router.get('/amazon/bulk-jobs', (req, res) => {
+  try {
+    const jobs = amazonBulkProcessor.getAllJobs();
+    
+    return res.json({
+      jobs: jobs.map(job => ({
+        id: job.id,
+        status: job.status,
+        processedCount: job.processedCount,
+        totalCount: job.totalCount,
+        progressPercent: Math.round((job.processedCount / job.totalCount) * 10000) / 100,
+        successfulSyncs: job.successfulSyncs,
+        failedSyncs: job.failedSyncs,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        errorCount: job.errors.length
+      }))
+    });
+    
+  } catch (error) {
+    console.error('Error getting bulk jobs:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/amazon/bulk-control/:jobId
+ * Control bulk processing job (pause/resume)
+ */
+router.post('/amazon/bulk-control/:jobId', (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+    const { action } = req.body; // 'pause' or 'resume'
+    
+    let success = false;
+    if (action === 'pause') {
+      success = amazonBulkProcessor.pauseJob(jobId);
+    } else if (action === 'resume') {
+      success = amazonBulkProcessor.resumeJob(jobId);
+    }
+    
+    if (!success) {
+      return res.status(400).json({ 
+        error: `Cannot ${action} job ${jobId}` 
+      });
+    }
+    
+    return res.json({
+      success: true,
+      message: `Job ${jobId} ${action}d successfully`
+    });
+    
+  } catch (error) {
+    console.error('Error controlling bulk job:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/amazon/:productId
  * Get Amazon marketplace data for a product
  */
@@ -1329,68 +1391,6 @@ router.get('/amazon/bulk-status/:jobId', (req, res) => {
     
   } catch (error) {
     console.error('Error getting bulk job status:', error);
-    return res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-/**
- * POST /marketplace/amazon/bulk-control/:jobId
- * Control bulk processing job (pause/resume)
- */
-router.post('/amazon/bulk-control/:jobId', (req, res) => {
-  try {
-    const jobId = req.params.jobId;
-    const { action } = req.body; // 'pause' or 'resume'
-    
-    let success = false;
-    if (action === 'pause') {
-      success = amazonBulkProcessor.pauseJob(jobId);
-    } else if (action === 'resume') {
-      success = amazonBulkProcessor.resumeJob(jobId);
-    }
-    
-    if (!success) {
-      return res.status(400).json({ 
-        error: `Cannot ${action} job ${jobId}` 
-      });
-    }
-    
-    return res.json({
-      success: true,
-      message: `Job ${jobId} ${action}d successfully`
-    });
-    
-  } catch (error) {
-    console.error('Error controlling bulk job:', error);
-    return res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-/**
- * GET /marketplace/amazon/bulk-jobs
- * Get all active bulk processing jobs
- */
-router.get('/amazon/bulk-jobs', (req, res) => {
-  try {
-    const jobs = amazonBulkProcessor.getAllJobs();
-    
-    return res.json({
-      jobs: jobs.map(job => ({
-        id: job.id,
-        status: job.status,
-        processedCount: job.processedCount,
-        totalCount: job.totalCount,
-        progressPercent: Math.round((job.processedCount / job.totalCount) * 10000) / 100,
-        successfulSyncs: job.successfulSyncs,
-        failedSyncs: job.failedSyncs,
-        startedAt: job.startedAt,
-        completedAt: job.completedAt,
-        errorCount: job.errors.length
-      }))
-    });
-    
-  } catch (error) {
-    console.error('Error getting bulk jobs:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

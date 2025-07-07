@@ -193,6 +193,15 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Bulk Processing Route Conflicts Resolved and Pause/Resume Functionality Complete (2025-07-07)**:
+  - Fixed critical routing conflicts where `/marketplace/amazon/:productId` routes intercepted bulk processing endpoints
+  - Moved specific bulk processing routes (`bulk-jobs`, `bulk-control`, `bulk-status`) to top of routes before parameterized routes
+  - Removed duplicate bulk route definitions that were causing endpoint conflicts
+  - Successfully tested real bulk processing job creation with job ID `bulk-1751907502800-k40lyp78w`
+  - Confirmed pause functionality properly changes job status from "running" to "paused"
+  - Validated resume functionality correctly restores job status to "running" and continues processing
+  - Real-time processing verified: 50 products processed successfully with proper Amazon rate limiting
+  - End-to-end bulk processing system now fully operational with complete pause/resume control
 - **Amazon Auto-Sync Status API Endpoints Fixed (2025-07-07)**:
   - Successfully resolved API endpoint routing conflicts that were preventing Auto-Sync status visibility
   - Fixed `/api/marketplace/amazon/bulk-status` and `/api/marketplace/amazon/bulk-jobs` endpoints to properly respond without requiring product ID parameters
