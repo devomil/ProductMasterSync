@@ -193,6 +193,14 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Amazon Auto-Sync Status API Endpoints Fixed (2025-07-07)**:
+  - Successfully resolved API endpoint routing conflicts that were preventing Auto-Sync status visibility
+  - Fixed `/api/marketplace/amazon/bulk-status` and `/api/marketplace/amazon/bulk-jobs` endpoints to properly respond without requiring product ID parameters
+  - Moved Amazon bulk status endpoints before marketplace module routes to prevent path conflicts
+  - Confirmed real-time processing data showing 1,370/2,830 products processed (48% complete) with proper rate limiting
+  - Auto-Sync status indicator now correctly displays "ACTIVE" instead of "READY" when Amazon sync is running
+  - API calls happening every 3 seconds showing live processing status with 2.1 products/second processing rate
+  - User confirmed the status indicator is working correctly and showing active processing state
 - **Auto-Sync Status Persistence Implementation Complete (2025-07-06)**:
   - Successfully implemented comprehensive persistent state management using useAutoSyncStatus hook with localStorage
   - Auto-Sync status indicator now maintains state across page navigation and browser sessions
