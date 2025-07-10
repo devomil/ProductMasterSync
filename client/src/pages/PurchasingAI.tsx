@@ -218,6 +218,9 @@ export default function PurchasingAI() {
                     <span className="text-sm text-muted-foreground">95% Accuracy</span>
                   </div>
                   <Progress value={95} className="h-2" />
+                  <div className="text-xs text-muted-foreground">
+                    Confidence based on: UPC exact match (60%), product title similarity (20%), brand verification (20%)
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -236,9 +239,9 @@ export default function PurchasingAI() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recommendations.slice(0, 10).map((rec: ProductRecommendation) => (
+                  {recommendations.slice(0, 10).map((rec: ProductRecommendation, index: number) => (
                     <div 
-                      key={rec.productId} 
+                      key={`${rec.productId}-${rec.asin}-${index}`} 
                       className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => setSelectedProductId(rec.productId)}
                     >
@@ -284,6 +287,9 @@ export default function PurchasingAI() {
                             <span>{rec.confidence?.overallScore?.toFixed(0)}%</span>
                           </div>
                           <Progress value={rec.confidence?.overallScore || 0} className="h-1 mt-1" />
+                          <div className="text-xs text-muted-foreground mt-1">
+                            UPC & Product Matching
+                          </div>
                         </div>
                       </div>
 

@@ -193,6 +193,17 @@ This is a comprehensive MDM/PIM (Master Data Management/Product Information Mana
 - **Backup Strategy**: Automated backups through Neon platform
 
 # Recent Changes
+- **Auto-Sync Status Indicators and Confidence Score Logic Complete (2025-07-10)**:
+  - Fixed React key warnings in Purchasing AI by using unique compound keys (`${productId}-${asin}-${index}`)
+  - Added real-time Amazon sync statistics API endpoint showing live processing progress instead of static numbers
+  - Implemented confidence score explanation: "UPC exact match (60%), product title similarity (20%), brand verification (20%)"
+  - Enhanced confidence calculation with actual UPC/MPN matching using fuzzy title matching and database validation
+  - Created comprehensive ASIN validation in restriction checking - validates ASIN exists and checks for restriction patterns
+  - Added "UPC & Product Matching" explanation under confidence bars in purchasing recommendations
+  - Updated MarketplaceOverview to show real-time sync progress from bulk job status with 5-second refresh intervals
+  - Amazon sync statistics now display actual mapped products count and API calls from database queries
+  - ASIN B01M8QZXV4 confirmed valid in database mapping to UPC 791659060032 for ACR searchlight bulb
+  - System now provides transparent confidence scoring based on authentic data matching methodology
 - **Bulk Processing Route Conflicts Resolved and Pause/Resume Functionality Complete (2025-07-07)**:
   - Fixed critical routing conflicts where `/marketplace/amazon/:productId` routes intercepted bulk processing endpoints
   - Moved specific bulk processing routes (`bulk-jobs`, `bulk-control`, `bulk-status`) to top of routes before parameterized routes

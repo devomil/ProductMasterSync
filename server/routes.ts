@@ -1428,6 +1428,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     generateAutomationFlags
   } = await import("./services/purchasing-ai");
 
+  // Amazon sync statistics endpoint
+  app.get("/api/marketplace/amazon/sync-statistics", async (req, res) => {
+    try {
+      const totalProducts = await db
+        .select({ count: sql`count(*)` })
+        .from(products);
+      
+      const mappedProducts = await db
+        .select({ count: sql`count(distinct p.id)` })
+        .from(products)
+        .innerJoin(amazonAsins, eq(products.upc, amazonAsins.upc))
+        .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin));
+      
+      const apiCallsToday = await db
+        .select({ count: sql`count(*)` })
+        .from(amazonMarketIntelligence)
+        .where(sql`created_at >= CURRENT_DATE`);
+      
+      res.json({
+        totalProducts: totalProducts[0]?.count || 0,
+        totalMapped: mappedProducts[0]?.count || 0,
+        apiCallsToday: apiCallsToday[0]?.count || 0,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error getting sync statistics:", error);
+      res.status(500).json({ error: "Failed to get sync statistics" });
+    }
+  });
+
   // Purchasing AI endpoints
   app.get("/api/purchasing/recommendations", async (req, res) => {
     try {
