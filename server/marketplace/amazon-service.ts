@@ -92,6 +92,24 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
       };
       
       const savedData = await saveAmazonMarketData(marketData);
+      
+      // CRITICAL FIX: Create the product ASIN mapping
+      const { createProductAsinMapping } = await import('./repository');
+      await createProductAsinMapping({
+        productId: productId,
+        asin: item.asin,
+        mappingSource: 'api_search',
+        matchMethod: 'upc_match',
+        matchConfidence: 95,
+        isActive: true,
+        isVerified: false,
+        isDirectCompetitor: true,
+        isSimilarProduct: false,
+        opportunityScore: marketData.opportunityScore,
+        confidenceScore: 0.85,
+        source: 'sp_api'
+      });
+      
       savedItems.push(savedData);
     }
     

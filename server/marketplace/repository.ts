@@ -100,9 +100,47 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
       const [existingData] = await db
         .select()
         .from(amazonMarketIntelligence)
-        .where(eq(amazonMarketIntelligence.asin, data.asin));
+        .where(eq(amazonMarketIntelligence.asin, data.asin))
+        .limit(1);
       return existingData;
     }
+    throw error;
+  }
+}
+
+/**
+ * Create a product-to-ASIN mapping
+ * @param mappingData 
+ */
+export async function createProductAsinMapping(mappingData: any): Promise<any> {
+  try {
+    const [savedMapping] = await db
+      .insert(productAsinMapping)
+      .values({
+        productId: mappingData.productId,
+        asin: mappingData.asin,
+        mappingSource: mappingData.mappingSource || 'api_search',
+        matchMethod: mappingData.matchMethod || 'upc_match',
+        matchConfidence: mappingData.matchConfidence || 95,
+        isActive: mappingData.isActive !== false,
+        isVerified: mappingData.isVerified || false,
+        isDirectCompetitor: mappingData.isDirectCompetitor || true,
+        isSimilarProduct: mappingData.isSimilarProduct || false,
+        opportunityScore: mappingData.opportunityScore,
+        confidenceScore: mappingData.confidenceScore || 0.85,
+        source: mappingData.source || 'sp_api'
+      })
+      .onConflictDoNothing()
+      .returning();
+    
+    console.log(`✅ Created product mapping: Product ${mappingData.productId} → ASIN ${mappingData.asin}`);
+    return savedMapping;
+  } catch (error: any) {
+    if (error.code === '23505') {
+      console.log(`🔄 Product mapping already exists: Product ${mappingData.productId} → ASIN ${mappingData.asin}`);
+      return null;
+    }
+    console.error('Error creating product ASIN mapping:', error);
     throw error;
   }
 }
