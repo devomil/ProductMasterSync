@@ -290,11 +290,13 @@ export default function AmazonScalingProgress() {
         </Alert>
       )}
 
-      <div className="text-xs text-muted-foreground">
+      <div className="text-xs text-muted-foreground bg-gray-100 p-2 rounded">
         Last updated: {new Date(scalingData.lastUpdated).toLocaleString()}
-        <span className="ml-4">
+        <br />
+        <span className="font-mono bg-blue-100 px-2 py-1 rounded mt-1 inline-block">
           API Status: {isLoading ? 'Loading...' : 'Connected'} • 
-          Next refresh: {countdown}s • Mapped: {scalingData.mappedProducts}
+          Next refresh: {countdown}s • Mapped: {scalingData.mappedProducts} • 
+          Auto-refresh: ACTIVE
         </span>
       </div>
     </div>
