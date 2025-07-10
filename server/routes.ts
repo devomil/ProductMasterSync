@@ -1117,6 +1117,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn("Marketplace routes not available:", error);
   }
 
+  // Load enhanced purchasing AI routes
+  try {
+    const { enhancedPurchasingAIRouter } = await import('./routes/enhanced-purchasing-ai.js');
+    app.use('/api/purchasing', enhancedPurchasingAIRouter);
+    console.log("✅ Enhanced Purchasing AI routes loaded successfully");
+  } catch (error) {
+    console.warn("Enhanced Purchasing AI routes not available:", error);
+  }
+
   // Commented out to prevent conflicts with data sources CRUD operations
   // Register connections routes for test connection functionality
   try {
