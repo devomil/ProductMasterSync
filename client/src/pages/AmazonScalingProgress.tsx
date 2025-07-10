@@ -31,7 +31,7 @@ export default function AmazonScalingProgress() {
   const [countdown, setCountdown] = useState(5);
   
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/purchasing/amazon-scaling-progress'],
+    queryKey: ['/api/purchasing/amazon-scaling-progress', Date.now()], // Force unique query key
     refetchInterval: 5000, // Auto-refresh every 5 seconds for faster updates
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
@@ -290,14 +290,20 @@ export default function AmazonScalingProgress() {
         </Alert>
       )}
 
-      <div className="text-xs text-muted-foreground bg-gray-100 p-2 rounded">
-        Last updated: {new Date(scalingData.lastUpdated).toLocaleString()}
-        <br />
-        <span className="font-mono bg-blue-100 px-2 py-1 rounded mt-1 inline-block">
-          API Status: {isLoading ? 'Loading...' : 'Connected'} • 
-          Next refresh: {countdown}s • Mapped: {scalingData.mappedProducts} • 
-          Auto-refresh: ACTIVE
-        </span>
+      <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 p-3 rounded">
+        <div className="font-semibold text-yellow-800 mb-2">🔄 Auto-Refresh Status</div>
+        <div>Last updated: {new Date(scalingData.lastUpdated).toLocaleString()}</div>
+        <div className="mt-2">
+          <span className="font-mono bg-green-100 px-3 py-2 rounded text-green-800 font-bold text-lg">
+            ⏱️ Next refresh: {countdown}s
+          </span>
+          <span className="ml-3 font-mono bg-blue-100 px-2 py-1 rounded text-blue-800">
+            Mapped: {scalingData.mappedProducts}
+          </span>
+          <span className="ml-3 font-mono bg-purple-100 px-2 py-1 rounded text-purple-800">
+            Auto-refresh: ACTIVE
+          </span>
+        </div>
       </div>
     </div>
   );
