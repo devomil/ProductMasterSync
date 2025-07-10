@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { products, amazonMarketIntelligence } from "@shared/schema";
+import { products, amazonMarketIntelligence, amazonAsins } from "@shared/schema";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
 
 interface ProfitabilityAnalysis {
@@ -75,7 +75,7 @@ function calculateAmazonFees(price: number, category: string = 'Electronics'): a
 
 export async function getPurchasingRecommendations(limit: number = 20): Promise<ProductRecommendation[]> {
   try {
-    // Get products with Amazon data for analysis
+    // Get products with Amazon data for analysis - join through amazon_asins table
     const productData = await db
       .select({
         productId: products.id,
@@ -87,17 +87,17 @@ export async function getPurchasingRecommendations(limit: number = 20): Promise<
         salesRank: amazonMarketIntelligence.salesRank
       })
       .from(products)
-      .leftJoin(amazonMarketIntelligence, eq(products.upc, amazonMarketIntelligence.upc))
+      .innerJoin(amazonAsins, eq(products.upc, amazonAsins.upc))
+      .innerJoin(amazonMarketIntelligence, eq(amazonAsins.asin, amazonMarketIntelligence.asin))
       .where(and(
         isNotNull(products.cost),
-        isNotNull(amazonMarketIntelligence.asin),
         isNotNull(amazonMarketIntelligence.currentPrice)
       ))
       .limit(limit);
 
     const recommendations: ProductRecommendation[] = productData.map(product => {
-      const costPrice = product.costPrice || 0;
-      const amazonPrice = product.amazonPrice || 0;
+      const costPrice = parseFloat(product.costPrice || '0');
+      const amazonPrice = (product.amazonPrice || 0) / 100; // Convert from cents to dollars
       
       if (costPrice <= 0 || amazonPrice <= 0) {
         return null;
