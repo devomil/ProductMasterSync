@@ -46,14 +46,15 @@ router.get('/enhanced-opportunities', async (req, res) => {
         fulfillmentMethod: amazonMarketIntelligence.fulfillmentMethod
       })
       .from(products)
-      .leftJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-      .leftJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
+      .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
       .where(
         and(
           isNotNull(products.upc),
           isNotNull(products.manufacturerPartNumber),
           isNotNull(products.cost),
-          isNotNull(products.price)
+          isNotNull(products.price),
+          isNotNull(amazonMarketIntelligence.opportunityScore)
         )
       )
       .orderBy(desc(amazonMarketIntelligence.opportunityScore))
