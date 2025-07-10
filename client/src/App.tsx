@@ -85,10 +85,7 @@ function Router() {
 
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
-      <Route path="/amazon-scaling-progress" component={() => {
-        const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
-        return <AmazonScalingProgress />;
-      }} />
+      <Route path="/amazon-scaling-progress" component={lazy(() => import('./pages/AmazonScalingProgress'))} />
       <Route path="/marketplaces/overview" component={MarketplaceOverview} />
       <Route path="/marketplace-overview" component={MarketplaceOverview} />
       <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />
