@@ -1077,6 +1077,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const marketplaceModule = await loadRouteModule("./marketplace/routes", "marketplace");
     if (marketplaceModule?.default) {
       app.use("/api/marketplace", marketplaceModule.default);
+      
+      // Marketplace readiness statistics
+      app.get('/api/marketplace/readiness-stats', async (req, res) => {
+        try {
+          const readinessStats = await db.select({
+            totalProducts: sql`COUNT(*)`,
+            upcReady: sql`COUNT(CASE WHEN ${products.upc} IS NOT NULL AND ${products.upc} != '' THEN 1 END)`,
+            mpnReady: sql`COUNT(CASE WHEN ${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '' THEN 1 END)`,
+            bothReady: sql`COUNT(CASE WHEN ${products.upc} IS NOT NULL AND ${products.upc} != '' AND ${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '' THEN 1 END)`,
+            amazonSynced: sql`COUNT(CASE WHEN ${products.lastAmazonSync} IS NOT NULL THEN 1 END)`
+          }).from(products);
+
+          const stats = readinessStats[0];
+          
+          res.json({
+            success: true,
+            stats: {
+              total: stats.totalProducts,
+              upcReady: stats.upcReady,
+              mpnReady: stats.mpnReady,
+              bothReady: stats.bothReady,
+              amazonSynced: stats.amazonSynced,
+              upcReadyPercent: Math.round((Number(stats.upcReady) / Number(stats.totalProducts)) * 100),
+              mpnReadyPercent: Math.round((Number(stats.mpnReady) / Number(stats.totalProducts)) * 100),
+              amazonSyncedPercent: Math.round((Number(stats.amazonSynced) / Number(stats.totalProducts)) * 100)
+            }
+          });
+        } catch (error) {
+          console.error('Error getting readiness stats:', error);
+          res.status(500).json({
+            success: false,
+            error: 'Failed to fetch marketplace readiness statistics'
+          });
+        }
+      });
     }
   } catch (error) {
     console.warn("Marketplace routes not available:", error);

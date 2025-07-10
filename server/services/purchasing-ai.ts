@@ -96,6 +96,12 @@ export async function getPurchasingRecommendations(limit: number = 20): Promise<
       .limit(limit);
 
     const recommendations: ProductRecommendation[] = productData.map(product => {
+      // Filter out problematic ASINs that consistently return 503 errors
+      const problematicAsins = ['B01M8QZXV4'];
+      if (problematicAsins.includes(product.asin || '')) {
+        return null;
+      }
+      
       const costPrice = parseFloat(product.costPrice || '0');
       const amazonPrice = (product.amazonPrice || 0) / 100; // Convert from cents to dollars
       

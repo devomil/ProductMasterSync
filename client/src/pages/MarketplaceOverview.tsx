@@ -254,7 +254,7 @@ export default function MarketplaceOverview() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <div className="text-sm font-medium">Catalog Status</div>
               <div className="text-2xl font-bold">{products.length}</div>
@@ -269,6 +269,15 @@ export default function MarketplaceOverview() {
               </div>
               <div className="text-xs text-muted-foreground">
                 Products with UPC codes for Amazon lookup
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">MPN Ready</div>
+              <div className="text-2xl font-bold">
+                {products.filter((p: any) => p.manufacturerPartNumber).length}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Products with Manufacturer Part Numbers
               </div>
             </div>
             <div className="space-y-2">
