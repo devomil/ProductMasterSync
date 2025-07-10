@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
+import { lazy } from "react";
 import Dashboard from "@/pages/Dashboard";
 import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
@@ -84,6 +85,10 @@ function Router() {
 
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
+      <Route path="/amazon-scaling-progress" component={() => {
+        const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
+        return <AmazonScalingProgress />;
+      }} />
       <Route path="/marketplaces/overview" component={MarketplaceOverview} />
       <Route path="/marketplace-overview" component={MarketplaceOverview} />
       <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />

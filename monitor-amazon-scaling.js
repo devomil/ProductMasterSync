@@ -1,32 +1,31 @@
 /**
- * Monitor Amazon Scaling Progress
+ * Amazon Scaling Monitor
  * 
- * Real-time monitoring of the Amazon catalog scaling process
+ * Real-time progress monitoring with completion notifications
  */
 
 import { Client } from 'pg';
-import axios from 'axios';
 
 const client = new Client({
   connectionString: process.env.DATABASE_URL
 });
 
-async function monitorScalingProgress() {
+async function monitorScaling() {
   try {
     await client.connect();
-    console.log('📊 Amazon Scaling Progress Monitor');
-    console.log('=' * 50);
+    console.log('🔍 Amazon Scaling Monitor Active');
+    console.log('📈 Real-time progress tracking every 30 seconds');
+    console.log('🏁 Will notify when completion thresholds are reached');
+    console.log('=' * 60);
 
-    // Monitor every 30 seconds
-    const interval = setInterval(async () => {
+    const monitor = setInterval(async () => {
       try {
-        // Get current statistics
         const stats = await client.query(`
           SELECT 
-            COUNT(*) as total_ai_ready,
-            COUNT(CASE WHEN pam.product_id IS NOT NULL THEN 1 END) as with_asin_mapping,
-            COUNT(CASE WHEN ami.asin IS NOT NULL THEN 1 END) as with_intelligence,
-            COUNT(CASE WHEN pam.product_id IS NOT NULL AND ami.asin IS NOT NULL THEN 1 END) as complete_chain
+            COUNT(*) as total,
+            COUNT(CASE WHEN pam.product_id IS NOT NULL THEN 1 END) as mapped,
+            COUNT(CASE WHEN ami.asin IS NOT NULL THEN 1 END) as intelligence,
+            COUNT(DISTINCT pam.asin) as unique_asins
           FROM products p
           LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
           LEFT JOIN amazon_market_intelligence ami ON pam.asin = ami.asin
@@ -37,44 +36,49 @@ async function monitorScalingProgress() {
         `);
 
         const result = stats.rows[0];
-        const timestamp = new Date().toLocaleTimeString();
-        
-        console.log(`\n[${timestamp}] 📈 SCALING PROGRESS:`);
-        console.log(`🔗 ASIN Mappings: ${result.with_asin_mapping}/${result.total_ai_ready} (${Math.round((result.with_asin_mapping / result.total_ai_ready) * 100)}%)`);
-        console.log(`📊 Market Intelligence: ${result.with_intelligence}/${result.total_ai_ready} (${Math.round((result.with_intelligence / result.total_ai_ready) * 100)}%)`);
-        console.log(`✅ Complete Chain: ${result.complete_chain}/${result.total_ai_ready} (${Math.round((result.complete_chain / result.total_ai_ready) * 100)}%)`);
+        const coverage = Math.round((result.mapped / result.total) * 100);
+        const remaining = result.total - result.mapped;
 
-        // Test purchasing AI with current data
-        try {
-          const aiResponse = await axios.get('http://localhost:5000/api/purchasing/enhanced-opportunities?limit=50&risk_level=all&min_confidence=30&min_opportunity_score=40');
-          console.log(`🤖 Qualified Opportunities: ${aiResponse.data.analytics.qualifiedOpportunities} (Avg Confidence: ${aiResponse.data.analytics.averageConfidence}%)`);
-        } catch (error) {
-          console.log(`⚠️  AI API temporarily unavailable`);
-        }
+        let status = '🚀 SCALING';
+        if (coverage >= 95) status = '🎉 EXCELLENT COMPLETION';
+        else if (coverage >= 80) status = '✅ GOOD COMPLETION';
+        else if (coverage >= 50) status = '⚡ MODERATE PROGRESS';
 
-        // Stop monitoring when we reach significant coverage
-        if (result.with_asin_mapping >= 100) {
-          console.log('\n🎉 Significant progress achieved! Scaling continues in background...');
-          clearInterval(interval);
+        console.log(`[${new Date().toLocaleTimeString()}] ${status}`);
+        console.log(`📊 Progress: ${result.mapped}/${result.total} (${coverage}%)`);
+        console.log(`📈 Intelligence: ${result.intelligence} records`);
+        console.log(`🆔 Unique ASINs: ${result.unique_asins}`);
+        console.log(`📦 Remaining: ${remaining} products`);
+
+        if (coverage >= 95) {
+          console.log('\n🎉 SCALING COMPLETE! Excellent coverage achieved!');
+          console.log('✅ Your Amazon catalog scaling has reached 95%+ coverage');
+          console.log('🚀 Enhanced Purchasing AI is fully operational');
+          clearInterval(monitor);
           await client.end();
+          return;
+        } else if (coverage >= 80) {
+          console.log('\n✅ Good completion reached! 80%+ coverage achieved');
         }
+
+        console.log('-' * 50);
 
       } catch (error) {
-        console.error('Monitor error:', error.message);
+        console.error('❌ Monitor error:', error.message);
       }
-    }, 30000);
+    }, 30000); // Every 30 seconds
 
-    // Stop monitoring after 20 minutes
+    // Stop monitoring after 3 hours
     setTimeout(() => {
-      clearInterval(interval);
-      console.log('\n⏰ Monitoring session complete. Scaling continues...');
+      clearInterval(monitor);
+      console.log('\n⏰ Monitor session ended - scaling continues in background');
       client.end();
-    }, 1200000);
+    }, 10800000); // 3 hours
 
   } catch (error) {
-    console.error('❌ Monitor failed:', error);
+    console.error('❌ Failed to start monitor:', error);
     await client.end();
   }
 }
 
-monitorScalingProgress().catch(console.error);
+monitorScaling().catch(console.error);

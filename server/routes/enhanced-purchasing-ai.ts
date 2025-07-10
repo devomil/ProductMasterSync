@@ -10,6 +10,87 @@ import { eq, sql, desc, and, isNotNull } from 'drizzle-orm';
 
 const router = Router();
 
+// Amazon Scaling Progress Endpoint
+router.get('/amazon-scaling-progress', async (req, res) => {
+  try {
+    const stats = await db.query(`
+      SELECT 
+        COUNT(*) as total_eligible_products,
+        COUNT(CASE WHEN pam.product_id IS NOT NULL THEN 1 END) as products_with_asin_mappings,
+        COUNT(CASE WHEN ami.asin IS NOT NULL THEN 1 END) as products_with_market_intelligence,
+        COUNT(CASE WHEN pam.product_id IS NOT NULL AND ami.asin IS NOT NULL THEN 1 END) as complete_data_chain,
+        COUNT(DISTINCT pam.asin) as unique_asins_discovered,
+        AVG(CASE WHEN ami.opportunity_score IS NOT NULL THEN ami.opportunity_score END) as avg_opportunity_score,
+        COUNT(CASE WHEN ami.opportunity_score >= 70 THEN 1 END) as high_opportunity_products,
+        COUNT(CASE WHEN ami.profit_margin_percent >= 50 THEN 1 END) as high_margin_products,
+        NOW() as last_updated
+      FROM products p
+      LEFT JOIN product_asin_mapping pam ON p.id = pam.product_id
+      LEFT JOIN amazon_market_intelligence ami ON pam.asin = ami.asin
+      WHERE p.upc IS NOT NULL 
+        AND p.manufacturer_part_number IS NOT NULL
+        AND p.cost IS NOT NULL 
+        AND p.price IS NOT NULL
+        AND CAST(p.cost AS NUMERIC) > 0
+        AND CAST(p.price AS NUMERIC) > 0
+    `);
+
+    const result = stats.rows[0];
+    const coveragePercent = Math.round((result.products_with_asin_mappings / result.total_eligible_products) * 100);
+    const intelligencePercent = Math.round((result.products_with_market_intelligence / result.total_eligible_products) * 100);
+    
+    // Determine completion status
+    let status = 'STARTING';
+    let statusColor = 'gray';
+    let isComplete = false;
+    
+    if (coveragePercent >= 95) {
+      status = 'EXCELLENT COMPLETION';
+      statusColor = 'green';
+      isComplete = true;
+    } else if (coveragePercent >= 80) {
+      status = 'GOOD COMPLETION';
+      statusColor = 'green';
+      isComplete = true;
+    } else if (coveragePercent >= 50) {
+      status = 'MODERATE PROGRESS';
+      statusColor = 'blue';
+    } else if (coveragePercent >= 10) {
+      status = 'ACTIVE PROGRESS';
+      statusColor = 'blue';
+    }
+
+    res.json({
+      success: true,
+      scaling: {
+        status,
+        statusColor,
+        isComplete,
+        coveragePercent,
+        intelligencePercent,
+        totalEligible: parseInt(result.total_eligible_products),
+        mappedProducts: parseInt(result.products_with_asin_mappings),
+        intelligenceRecords: parseInt(result.products_with_market_intelligence),
+        completeChain: parseInt(result.complete_data_chain),
+        uniqueAsins: parseInt(result.unique_asins_discovered),
+        avgOpportunityScore: result.avg_opportunity_score ? Math.round(result.avg_opportunity_score) : null,
+        highOpportunityProducts: parseInt(result.high_opportunity_products),
+        highMarginProducts: parseInt(result.high_margin_products),
+        remaining: parseInt(result.total_eligible_products) - parseInt(result.products_with_asin_mappings),
+        lastUpdated: result.last_updated
+      }
+    });
+
+  } catch (error) {
+    console.error('Amazon scaling progress error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get scaling progress',
+      details: error.message
+    });
+  }
+});
+
 // Enhanced purchasing opportunities with full catalog analysis
 router.get('/enhanced-opportunities', async (req, res) => {
   try {
