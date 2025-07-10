@@ -30,9 +30,10 @@ export default function AmazonScalingProgress() {
   
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/purchasing/amazon-scaling-progress'],
-    refetchInterval: 15000, // Auto-refresh every 15 seconds
+    refetchInterval: 5000, // Auto-refresh every 5 seconds for faster updates
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider data stale to force fresh requests
   });
 
   const startScalingMutation = useMutation({
@@ -272,7 +273,7 @@ export default function AmazonScalingProgress() {
           <AlertDescription>
             <strong>Scaling In Progress:</strong> {scalingData.remaining} products remaining to be processed. 
             The system is actively discovering Amazon marketplace data and building comprehensive market intelligence. 
-            This page refreshes automatically every 15 seconds.
+            This page refreshes automatically every 5 seconds.
           </AlertDescription>
         </Alert>
       )}
