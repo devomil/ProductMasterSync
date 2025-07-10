@@ -31,13 +31,20 @@ export default function AmazonScalingProgress() {
   const [countdown, setCountdown] = useState(5);
   
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/purchasing/amazon-scaling-progress', Date.now()], // Force unique query key
-    refetchInterval: 5000, // Auto-refresh every 5 seconds for faster updates
+    queryKey: ['/api/purchasing/amazon-scaling-progress'],
+    queryFn: async () => {
+      const response = await fetch('/api/purchasing/amazon-scaling-progress');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    refetchInterval: 5000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
-    staleTime: 0, // Always consider data stale to force fresh requests
-    gcTime: 0, // Don't cache results
-    retry: false, // Don't retry failed requests to avoid delays
+    staleTime: 0,
+    gcTime: 0,
+    retry: 1,
   });
 
   const startScalingMutation = useMutation({
@@ -61,7 +68,7 @@ export default function AmazonScalingProgress() {
 
   const scalingData: ScalingProgress | null = data?.scaling || null;
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="container mx-auto py-8">
         <div className="flex items-center justify-center space-x-2 py-12">
@@ -72,12 +79,25 @@ export default function AmazonScalingProgress() {
     );
   }
 
-  if (error || !scalingData) {
+  if (error && !data) {
     return (
       <div className="container mx-auto py-8">
         <Alert variant="destructive">
           <AlertDescription>
-            Failed to load scaling progress. Please try again.
+            Failed to load scaling progress. Please try again. Error: {error?.message || 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Use fallback data if needed
+  if (!scalingData) {
+    return (
+      <div className="container mx-auto py-8">
+        <Alert>
+          <AlertDescription>
+            Initializing Amazon scaling progress dashboard... Please wait.
           </AlertDescription>
         </Alert>
       </div>
