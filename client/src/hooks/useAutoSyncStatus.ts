@@ -53,6 +53,7 @@ export const useAutoSyncStatus = () => {
   // Fetch bulk job status if there's an active job
   const { data: bulkJobStatus, refetch: refetchJobStatus } = useQuery({
     queryKey: ['/api/marketplace/amazon/bulk-status', state.bulkJobId],
+    queryFn: () => fetch(`/api/marketplace/amazon/bulk-status/${state.bulkJobId}`).then(res => res.json()),
     enabled: !!state.bulkJobId,
     refetchInterval: 3000, // Refresh every 3 seconds while job exists
   });
@@ -82,24 +83,27 @@ export const useAutoSyncStatus = () => {
 
   // Check for active jobs and update state accordingly
   useEffect(() => {
-    if (activeJobs && Array.isArray(activeJobs) && activeJobs.length > 0) {
-      const runningJob = activeJobs.find((job: any) => job.status === 'running');
-      if (runningJob && !state.bulkJobId) {
-        // Found a running job but we don't have it tracked
+    if (activeJobs && (activeJobs as any).jobs && Array.isArray((activeJobs as any).jobs)) {
+      const jobs = (activeJobs as any).jobs;
+      if (jobs.length > 0) {
+        const runningJob = jobs.find((job: any) => job.status === 'running' || job.status === 'paused');
+        if (runningJob && !state.bulkJobId) {
+          // Found a running job but we don't have it tracked
+          setState(prev => ({
+            ...prev,
+            isEnabled: true,
+            bulkJobId: runningJob.id
+          }));
+        }
+      } else if (jobs.length === 0 && state.bulkJobId) {
+        // No active jobs but we think there's one running
         setState(prev => ({
           ...prev,
-          isEnabled: true,
-          bulkJobId: runningJob.id
+          isEnabled: false,
+          bulkJobId: null,
+          lastCompletedTime: new Date()
         }));
       }
-    } else if (activeJobs && Array.isArray(activeJobs) && activeJobs.length === 0 && state.bulkJobId) {
-      // No active jobs but we think there's one running
-      setState(prev => ({
-        ...prev,
-        isEnabled: false,
-        bulkJobId: null,
-        lastCompletedTime: new Date()
-      }));
     }
   }, [activeJobs, state.bulkJobId]);
 
