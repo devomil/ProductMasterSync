@@ -156,10 +156,10 @@ router.get('/enhanced-opportunities', async (req, res) => {
       };
     });
 
-    // Filter by confidence and opportunity score
+    // Apply more realistic filtering - lower thresholds for better discovery
     const filteredOpportunities = enrichedOpportunities.filter(opp => 
-      opp.matchConfidence >= Number(min_confidence) &&
-      opp.opportunityScore >= Number(min_opportunity_score) &&
+      opp.matchConfidence >= Math.max(Number(min_confidence), 40) && // Lower minimum confidence
+      opp.opportunityScore >= Math.max(Number(min_opportunity_score), 50) && // Lower opportunity threshold
       (risk_level === 'all' || opp.riskLevel === risk_level)
     );
 
