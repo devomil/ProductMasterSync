@@ -31,28 +31,27 @@ export default function AmazonScalingProgress() {
   const [countdown, setCountdown] = useState(5);
   
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/purchasing/amazon-scaling-progress', Date.now()], // Force fresh data with timestamp
+    queryKey: ['/api/purchasing/amazon-scaling-progress'],
     queryFn: async () => {
-      // Add cache-busting timestamp
-      const timestamp = Date.now();
-      const response = await fetch(`/api/purchasing/amazon-scaling-progress?t=${timestamp}`, {
+      const response = await fetch('/api/purchasing/amazon-scaling-progress', {
         cache: 'no-cache',
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Cache-Control': 'no-cache'
         }
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return response.json();
+      const result = await response.json();
+      console.log('API Response:', result);
+      return result;
     },
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     staleTime: 0,
     gcTime: 0,
-    retry: 1,
+    retry: 3,
   });
 
   const startScalingMutation = useMutation({
@@ -74,6 +73,8 @@ export default function AmazonScalingProgress() {
     return () => clearInterval(timer);
   }, []);
 
+  console.log('React Query State:', { data, isLoading, error });
+  
   const scalingData: ScalingProgress | null = data?.scaling || null;
 
   if (isLoading && !data) {
@@ -82,6 +83,9 @@ export default function AmazonScalingProgress() {
         <div className="flex items-center justify-center space-x-2 py-12">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span>Loading scaling progress...</span>
+          <div className="text-sm text-gray-500">
+            Debug: Loading={isLoading.toString()}, HasData={!!data}
+          </div>
         </div>
       </div>
     );
