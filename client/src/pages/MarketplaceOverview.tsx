@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap, Activity } from 'lucide-react';
+import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap, Activity, BarChart3 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
@@ -322,6 +322,12 @@ export default function MarketplaceOverview() {
               <Button variant="outline" size="sm">
                 <Eye className="h-4 w-4 mr-2" />
                 View Products
+              </Button>
+            </Link>
+            <Link href="/amazon-scaling-progress">
+              <Button variant="outline" size="sm">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Progress Monitor
               </Button>
             </Link>
             {amazonConfig?.configValid && (products as any[]).length > 0 && (

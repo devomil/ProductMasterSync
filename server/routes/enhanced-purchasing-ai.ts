@@ -13,7 +13,7 @@ const router = Router();
 // Amazon Scaling Progress Endpoint
 router.get('/amazon-scaling-progress', async (req, res) => {
   try {
-    const stats = await db.query(`
+    const stats = await db.execute(sql`
       SELECT 
         COUNT(*) as total_eligible_products,
         COUNT(CASE WHEN pam.product_id IS NOT NULL THEN 1 END) as products_with_asin_mappings,
@@ -35,7 +35,7 @@ router.get('/amazon-scaling-progress', async (req, res) => {
         AND CAST(p.price AS NUMERIC) > 0
     `);
 
-    const result = stats.rows[0];
+    const result = stats[0];
     const coveragePercent = Math.round((result.products_with_asin_mappings / result.total_eligible_products) * 100);
     const intelligencePercent = Math.round((result.products_with_market_intelligence / result.total_eligible_products) * 100);
     
