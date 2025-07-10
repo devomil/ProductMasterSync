@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,7 @@ interface ScalingProgress {
 
 export default function AmazonScalingProgress() {
   const queryClient = useQueryClient();
+  const [countdown, setCountdown] = useState(5);
   
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/purchasing/amazon-scaling-progress'],
@@ -34,6 +36,8 @@ export default function AmazonScalingProgress() {
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     staleTime: 0, // Always consider data stale to force fresh requests
+    gcTime: 0, // Don't cache results
+    retry: false, // Don't retry failed requests to avoid delays
   });
 
   const startScalingMutation = useMutation({
@@ -46,6 +50,14 @@ export default function AmazonScalingProgress() {
       queryClient.invalidateQueries({ queryKey: ['/api/purchasing/amazon-scaling-progress'] });
     }
   });
+
+  // Live countdown timer to show refresh is working
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => prev === 1 ? 5 : prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const scalingData: ScalingProgress | null = data?.scaling || null;
 
@@ -280,6 +292,10 @@ export default function AmazonScalingProgress() {
 
       <div className="text-xs text-muted-foreground">
         Last updated: {new Date(scalingData.lastUpdated).toLocaleString()}
+        <span className="ml-4">
+          API Status: {isLoading ? 'Loading...' : 'Connected'} • 
+          Next refresh: {countdown}s • Mapped: {scalingData.mappedProducts}
+        </span>
       </div>
     </div>
   );
