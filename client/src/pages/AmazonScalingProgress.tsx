@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, Clock, TrendingUp, Target, Database, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, Clock, TrendingUp, Target, Database, RefreshCw, Play } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { apiRequest } from '@/lib/queryClient';
 
 interface ScalingProgress {
   status: string;
@@ -25,11 +26,24 @@ interface ScalingProgress {
 }
 
 export default function AmazonScalingProgress() {
+  const queryClient = useQueryClient();
+  
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/purchasing/amazon-scaling-progress'],
     refetchInterval: 15000, // Auto-refresh every 15 seconds
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
+  });
+
+  const startScalingMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/marketplace/amazon/bulk-process', {
+      batchSize: 20,
+      delayBetweenRequests: 2000,
+      maxProducts: 200
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchasing/amazon-scaling-progress'] });
+    }
   });
 
   const scalingData: ScalingProgress | null = data?.scaling || null;
