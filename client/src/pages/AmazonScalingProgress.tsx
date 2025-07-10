@@ -31,9 +31,17 @@ export default function AmazonScalingProgress() {
   const [countdown, setCountdown] = useState(5);
   
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/purchasing/amazon-scaling-progress'],
+    queryKey: ['/api/purchasing/amazon-scaling-progress', Date.now()], // Force fresh data with timestamp
     queryFn: async () => {
-      const response = await fetch('/api/purchasing/amazon-scaling-progress');
+      // Add cache-busting timestamp
+      const timestamp = Date.now();
+      const response = await fetch(`/api/purchasing/amazon-scaling-progress?t=${timestamp}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
