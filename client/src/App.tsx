@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import Dashboard from "@/pages/Dashboard";
 import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
@@ -44,6 +44,9 @@ import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
 import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
+
+// Lazy load AmazonScalingProgress
+const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
 import NotFound from "@/pages/not-found";
 import TopNavigation from "@/components/TopNavigation";
 
@@ -85,7 +88,11 @@ function Router() {
 
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
-      <Route path="/amazon-scaling-progress" component={lazy(() => import('./pages/AmazonScalingProgress'))} />
+      <Route path="/amazon-scaling-progress" component={() => (
+        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Amazon Progress...</span></div></div>}>
+          <AmazonScalingProgress />
+        </Suspense>
+      )} />
       <Route path="/marketplaces/overview" component={MarketplaceOverview} />
       <Route path="/marketplace-overview" component={MarketplaceOverview} />
       <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />
