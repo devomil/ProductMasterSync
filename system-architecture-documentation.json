@@ -1,0 +1,550 @@
+{
+  "mdm_pim_system_architecture": {
+    "overview": {
+      "system_name": "MDM/PIM Platform",
+      "description": "Comprehensive Master Data Management and Product Information Management system with Amazon marketplace intelligence",
+      "version": "2025.7.10",
+      "primary_technologies": [
+        "React + TypeScript (Frontend)",
+        "Node.js + Express (Backend)",
+        "PostgreSQL + Drizzle ORM (Database)",
+        "Amazon SP-API (Marketplace Integration)",
+        "Anthropic AI (Purchasing Intelligence)"
+      ]
+    },
+
+    "vendor_integration_workflow": {
+      "description": "Multi-protocol supplier data ingestion system supporting various connection types and file formats",
+      
+      "supported_connection_types": {
+        "ftp": {
+          "description": "File Transfer Protocol connections",
+          "use_case": "Legacy supplier systems with scheduled file drops",
+          "authentication": "username/password",
+          "supported_files": ["csv", "excel", "xml"]
+        },
+        "sftp": {
+          "description": "Secure File Transfer Protocol connections",
+          "use_case": "Secure supplier data transfers with encryption",
+          "authentication": "username/password or SSH keys",
+          "supported_files": ["csv", "excel", "json", "xml", "edi"]
+        },
+        "api": {
+          "description": "RESTful API connections",
+          "use_case": "Real-time supplier integrations",
+          "authentication": "API keys, OAuth, or basic auth",
+          "supported_formats": ["json", "xml"]
+        },
+        "database": {
+          "description": "Direct database connections",
+          "use_case": "Enterprise supplier ERP integrations",
+          "authentication": "database credentials",
+          "supported_types": ["postgresql", "mysql", "oracle", "sql_server"]
+        }
+      },
+
+      "data_source_configuration": {
+        "supplier_onboarding_process": [
+          {
+            "step": 1,
+            "name": "Supplier Registration",
+            "description": "Create supplier profile with contact information",
+            "required_fields": ["name", "code", "contact_name", "contact_email"],
+            "optional_fields": ["contact_phone", "notes", "data_sources"]
+          },
+          {
+            "step": 2,
+            "name": "Connection Setup",
+            "description": "Configure data source connections",
+            "connection_wizard": {
+              "host": "supplier FTP/SFTP server",
+              "port": "connection port (21 for FTP, 22 for SFTP)",
+              "username": "authentication username",
+              "password": "authentication password",
+              "file_paths": [
+                {
+                  "label": "Main Catalog",
+                  "path": "/catalog/products.csv",
+                  "file_type": "catalog"
+                },
+                {
+                  "label": "Inventory Updates",
+                  "path": "/inventory/stock_levels.csv",
+                  "file_type": "inventory"
+                }
+              ]
+            }
+          },
+          {
+            "step": 3,
+            "name": "Connection Testing",
+            "description": "Validate connection and file accessibility",
+            "validation_checks": [
+              "connection_successful",
+              "authentication_valid",
+              "file_paths_accessible",
+              "file_format_readable"
+            ]
+          },
+          {
+            "step": 4,
+            "name": "Field Mapping Walkthrough",
+            "description": "Map supplier fields to master catalog schema",
+            "mapping_categories": [
+              {
+                "category": "Product Identification",
+                "required_fields": ["sku", "upc", "manufacturer_part_number"],
+                "mapping_example": {
+                  "supplier_field": "CWR Part Number",
+                  "master_field": "usin",
+                  "transformation": "preserve_original"
+                }
+              },
+              {
+                "category": "Product Information", 
+                "required_fields": ["name", "description", "manufacturer_name"],
+                "mapping_example": {
+                  "supplier_field": "Product Name",
+                  "master_field": "name",
+                  "transformation": "clean_html"
+                }
+              },
+              {
+                "category": "Pricing & Costs",
+                "required_fields": ["price", "cost"],
+                "mapping_example": {
+                  "supplier_field": "List Price",
+                  "master_field": "price",
+                  "transformation": "currency_to_cents"
+                }
+              }
+            ]
+          }
+        ]
+      },
+
+      "automation_scheduling": {
+        "description": "Intelligent automation system for supplier data synchronization",
+        "file_type_scheduling": {
+          "catalog_files": {
+            "frequency_options": ["daily", "weekly", "bi_weekly", "monthly"],
+            "recommended_frequency": "daily",
+            "processing_priority": "high",
+            "dependency": "none"
+          },
+          "inventory_files": {
+            "frequency_options": ["hourly", "every_2_hours", "every_6_hours", "daily"],
+            "recommended_frequency": "every_2_hours",
+            "processing_priority": "critical",
+            "dependency": "catalog_files_complete"
+          },
+          "pricing_files": {
+            "frequency_options": ["daily", "weekly"],
+            "recommended_frequency": "daily",
+            "processing_priority": "normal",
+            "dependency": "catalog_files_complete"
+          }
+        },
+        "error_handling": {
+          "retry_logic": "exponential_backoff",
+          "max_retries": 3,
+          "failure_threshold": 3,
+          "notification_methods": ["email", "slack", "dashboard_alert"]
+        }
+      }
+    },
+
+    "master_catalog_system": {
+      "description": "Centralized product information management with hierarchical categorization",
+      
+      "data_model": {
+        "core_entities": {
+          "products": {
+            "primary_key": "id",
+            "unique_identifiers": ["sku", "upc", "manufacturer_part_number"],
+            "required_fields": ["sku", "name"],
+            "pricing_fields": ["price", "cost", "weight"],
+            "inventory_fields": ["inventory_quantity", "reorder_threshold"],
+            "categorization": ["category_id", "manufacturer_name"],
+            "marketplace_flags": ["is_closeout", "is_on_sale", "has_rebate", "has_free_shipping"],
+            "media_fields": ["image_url", "image_url_large"]
+          },
+          "categories": {
+            "structure": "hierarchical",
+            "levels": "unlimited_depth",
+            "fields": ["name", "code", "parent_id", "level", "path"],
+            "attributes": "flexible_json_schema"
+          },
+          "suppliers": {
+            "relationship": "many_to_many_with_products",
+            "fields": ["name", "code", "contact_info", "data_sources"],
+            "status_tracking": ["active", "inactive", "pending", "probation"]
+          }
+        }
+      },
+
+      "data_processing_pipeline": {
+        "ingestion_workflow": [
+          {
+            "stage": "extraction",
+            "description": "Pull data from supplier sources",
+            "methods": ["sftp_download", "api_fetch", "database_query"],
+            "validation": ["file_format", "schema_compliance", "data_completeness"]
+          },
+          {
+            "stage": "transformation", 
+            "description": "Apply field mappings and data cleaning",
+            "operations": [
+              "field_mapping_application",
+              "data_type_conversion",
+              "unit_standardization",
+              "duplicate_detection"
+            ]
+          },
+          {
+            "stage": "enrichment",
+            "description": "Enhance data with additional attributes",
+            "enhancements": [
+              "category_auto_assignment",
+              "sku_generation",
+              "pricing_calculations",
+              "image_validation"
+            ]
+          },
+          {
+            "stage": "validation",
+            "description": "Quality checks and business rule validation",
+            "rules": [
+              "required_field_presence",
+              "data_format_compliance",
+              "price_reasonableness",
+              "duplicate_prevention"
+            ]
+          },
+          {
+            "stage": "loading",
+            "description": "Insert/update master catalog records",
+            "conflict_resolution": [
+              "newest_wins",
+              "highest_confidence_wins",
+              "manual_resolution"
+            ]
+          }
+        ]
+      },
+
+      "sku_generation_system": {
+        "approach": "sequential_internal_identifiers",
+        "format": "EDC{6_digit_number}",
+        "examples": ["EDC100001", "EDC100002", "EDC100003"],
+        "usin_preservation": {
+          "description": "Original supplier part numbers stored in USIN field",
+          "purpose": "Maintain supplier reference while ensuring global uniqueness"
+        }
+      },
+
+      "category_management": {
+        "auto_creation": {
+          "trigger": "new_supplier_category_detected",
+          "naming_convention": "supplier_category_name",
+          "code_generation": "sanitized_lowercase_with_underscores"
+        },
+        "hierarchy_support": {
+          "levels": "unlimited",
+          "path_tracking": "breadcrumb_style",
+          "parent_child_relationships": "foreign_key_references"
+        }
+      }
+    },
+
+    "purchasing_ai_system": {
+      "description": "AI-powered marketplace intelligence and purchasing recommendation engine",
+      
+      "amazon_marketplace_integration": {
+        "api_provider": "Amazon SP-API",
+        "endpoints_used": [
+          "catalog_items_2022_04_01",
+          "product_pricing_api",
+          "listings_restrictions_api"
+        ],
+        "authentication": {
+          "client_id": "environment_variable",
+          "client_secret": "environment_variable", 
+          "refresh_token": "environment_variable",
+          "marketplace_id": "ATVPDKIKX0DER"
+        },
+        "rate_limiting": {
+          "strategy": "token_bucket_algorithm",
+          "base_rate": "2_requests_per_second",
+          "burst_capacity": "40_requests",
+          "backoff": "exponential_with_jitter"
+        }
+      },
+
+      "asin_discovery_process": {
+        "search_methods": [
+          {
+            "method": "upc_exact_match",
+            "confidence_weight": 60,
+            "description": "Search Amazon catalog using product UPC codes"
+          },
+          {
+            "method": "product_title_similarity",
+            "confidence_weight": 20,
+            "description": "Fuzzy matching on product names and descriptions"
+          },
+          {
+            "method": "brand_verification",
+            "confidence_weight": 20,
+            "description": "Manufacturer name matching for brand consistency"
+          }
+        ],
+        "mapping_storage": {
+          "table": "product_asin_mapping",
+          "fields": [
+            "product_id",
+            "asin",
+            "mapping_source",
+            "match_method",
+            "match_confidence",
+            "opportunity_score"
+          ]
+        }
+      },
+
+      "market_intelligence_analysis": {
+        "data_collection": {
+          "pricing_data": {
+            "current_price": "real_time_amazon_pricing",
+            "list_price": "manufacturer_suggested_retail",
+            "historical_pricing": "price_trend_analysis"
+          },
+          "competition_metrics": {
+            "sales_rank": "category_position",
+            "review_count": "customer_feedback_volume",
+            "rating_average": "product_quality_indicator"
+          },
+          "fulfillment_analysis": {
+            "fulfillment_method": "fba_vs_fbm",
+            "prime_eligible": "fast_shipping_availability",
+            "stock_levels": "inventory_availability"
+          }
+        },
+
+        "opportunity_scoring": {
+          "algorithm": "multi_factor_analysis",
+          "factors": [
+            {
+              "factor": "profit_margin_potential",
+              "weight": 40,
+              "calculation": "(amazon_price - our_cost) / our_cost * 100"
+            },
+            {
+              "factor": "market_demand",
+              "weight": 30,
+              "calculation": "sales_rank_inverse + review_velocity"
+            },
+            {
+              "factor": "competition_level",
+              "weight": 20,
+              "calculation": "seller_count_inverse + price_stability"
+            },
+            {
+              "factor": "listing_quality",
+              "weight": 10,
+              "calculation": "image_count + description_length + review_score"
+            }
+          ],
+          "score_range": "0_to_100",
+          "thresholds": {
+            "high_opportunity": 80,
+            "medium_opportunity": 60,
+            "low_opportunity": 40
+          }
+        }
+      },
+
+      "purchasing_recommendations": {
+        "recommendation_engine": {
+          "ai_provider": "anthropic_claude",
+          "model": "claude-sonnet-4-20250514",
+          "analysis_factors": [
+            "market_opportunity_score",
+            "profit_margin_calculation",
+            "inventory_turnover_prediction",
+            "seasonal_demand_patterns",
+            "competitive_landscape_analysis"
+          ]
+        },
+
+        "risk_assessment": {
+          "categories": [
+            {
+              "category": "financial_risk",
+              "factors": ["investment_amount", "margin_volatility", "payment_terms"]
+            },
+            {
+              "category": "market_risk", 
+              "factors": ["demand_stability", "competition_intensity", "price_erosion"]
+            },
+            {
+              "category": "operational_risk",
+              "factors": ["supplier_reliability", "shipping_complexity", "regulatory_compliance"]
+            }
+          ]
+        },
+
+        "recommendation_output": {
+          "format": "structured_json",
+          "fields": [
+            "product_id",
+            "asin",
+            "recommendation_type",
+            "confidence_score",
+            "opportunity_score", 
+            "estimated_profit_margin",
+            "recommended_order_quantity",
+            "investment_required",
+            "payback_period_estimate",
+            "risk_factors",
+            "action_items"
+          ]
+        }
+      },
+
+      "real_time_scaling_system": {
+        "description": "Continuous Amazon marketplace synchronization for enterprise catalog coverage",
+        "processing_architecture": {
+          "parallel_batch_processing": {
+            "batch_size": "30_products_per_batch",
+            "concurrent_batches": "8_simultaneous_batches",
+            "rate_limiting": "amazon_api_compliance",
+            "error_handling": "exponential_backoff_retry"
+          },
+          "progress_tracking": {
+            "real_time_dashboard": "/amazon-scaling-progress",
+            "update_frequency": "5_second_intervals",
+            "metrics_tracked": [
+              "products_mapped",
+              "unique_asins_discovered", 
+              "coverage_percentage",
+              "processing_velocity"
+            ]
+          }
+        },
+        "completion_criteria": {
+          "excellent_coverage": "95%_of_eligible_products",
+          "good_coverage": "80%_of_eligible_products",
+          "moderate_coverage": "50%_of_eligible_products"
+        }
+      }
+    },
+
+    "workflow_integration": {
+      "description": "End-to-end data flow from supplier integration through purchasing intelligence",
+      
+      "complete_workflow": [
+        {
+          "stage": 1,
+          "name": "Supplier Onboarding",
+          "duration": "1-2_days",
+          "activities": [
+            "supplier_registration",
+            "connection_configuration",
+            "field_mapping_setup",
+            "automation_scheduling"
+          ],
+          "output": "configured_data_source"
+        },
+        {
+          "stage": 2,
+          "name": "Data Ingestion",
+          "duration": "automated_recurring",
+          "activities": [
+            "scheduled_data_pulls",
+            "field_transformation",
+            "validation_processing",
+            "catalog_updates"
+          ],
+          "output": "enriched_master_catalog"
+        },
+        {
+          "stage": 3,
+          "name": "Amazon Marketplace Sync",
+          "duration": "continuous_background",
+          "activities": [
+            "asin_discovery",
+            "pricing_intelligence",
+            "market_analysis",
+            "mapping_storage"
+          ],
+          "output": "marketplace_intelligence_database"
+        },
+        {
+          "stage": 4,
+          "name": "AI Purchasing Analysis",
+          "duration": "real_time",
+          "activities": [
+            "opportunity_scoring",
+            "risk_assessment",
+            "profit_calculation",
+            "recommendation_generation"
+          ],
+          "output": "actionable_purchasing_insights"
+        }
+      ]
+    },
+
+    "technical_implementation": {
+      "database_architecture": {
+        "primary_database": "postgresql_16",
+        "orm": "drizzle_orm",
+        "connection_pool": "neon_serverless",
+        "key_tables": [
+          "products",
+          "suppliers", 
+          "categories",
+          "product_asin_mapping",
+          "amazon_market_intelligence",
+          "data_sources",
+          "mapping_templates"
+        ]
+      },
+
+      "api_architecture": {
+        "backend_framework": "express_typescript",
+        "frontend_framework": "react_typescript",
+        "state_management": "tanstack_query",
+        "ui_components": "shadcn_radix",
+        "real_time_updates": "5_second_polling"
+      },
+
+      "deployment_environment": {
+        "platform": "replit_autoscale",
+        "runtime": "nodejs_20",
+        "build_system": "vite",
+        "port_configuration": "5000_unified_frontend_backend"
+      }
+    },
+
+    "performance_metrics": {
+      "current_system_status": {
+        "total_products": 2830,
+        "active_suppliers": 6,
+        "mapped_amazon_products": "82+",
+        "unique_asins_discovered": "182+",
+        "catalog_coverage": "2.9%_and_growing",
+        "api_response_times": "sub_second",
+        "processing_velocity": "parallel_batch_acceleration"
+      },
+
+      "scalability_targets": {
+        "product_catalog": "10000+_products",
+        "supplier_network": "50+_suppliers", 
+        "amazon_coverage": "95%_marketplace_sync",
+        "processing_speed": "enterprise_real_time",
+        "ai_recommendations": "continuous_intelligence"
+      }
+    }
+  }
+}
