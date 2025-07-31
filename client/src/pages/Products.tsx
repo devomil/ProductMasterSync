@@ -112,6 +112,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
+// Form schema for advanced search
+const advancedSearchSchema = z.object({
+  searchType: z.enum(['all', 'sku', 'mfgPart', 'upc', 'title', 'description', 'category', 'manufacturer']),
+  query: z.string().optional(),
+  category: z.string().optional(),
+  supplier: z.string().optional(),
+  manufacturer: z.string().optional(),
+  inventoryStatus: z.enum(['all', 'inStock', 'lowStock', 'outOfStock']),
+  isRemanufactured: z.boolean().optional(),
+  isCloseout: z.boolean().optional(),
+  isOnSale: z.boolean().optional(),
+  hasRebate: z.boolean().optional(),
+  hasFreeShipping: z.boolean().optional(),
+});
+
 // Define action types for filter state reducer
 type FilterAction = 
   | { type: 'SET_FILTER'; field: string; value: any }
@@ -245,6 +260,46 @@ const Products = () => {
     setCurrentPage(1);
   };
 
+  // Form for advanced search
+  const form = useForm({
+    resolver: zodResolver(advancedSearchSchema),
+    defaultValues: {
+      searchType: 'all' as const,
+      query: '',
+      category: '',
+      supplier: '',
+      manufacturer: '',
+      inventoryStatus: 'all' as const,
+      isRemanufactured: false,
+      isCloseout: false,
+      isOnSale: false,
+      hasRebate: false,
+      hasFreeShipping: false,
+    }
+  });
+
+  // Handle advanced search form submission
+  const onSubmitAdvancedSearch = (data: any) => {
+    dispatchFilters({
+      type: 'APPLY_FILTERS',
+      filters: {
+        searchType: data.searchType,
+        query: data.query || '',
+        category: data.category || '',
+        supplier: data.supplier || '',
+        manufacturer: data.manufacturer || '',
+        inventoryStatus: data.inventoryStatus,
+        isRemanufactured: data.isRemanufactured || false,
+        isCloseout: data.isCloseout || false,
+        isOnSale: data.isOnSale || false,
+        hasRebate: data.hasRebate || false,
+        hasFreeShipping: data.hasFreeShipping || false,
+      }
+    });
+    setCurrentPage(1);
+    setIsAdvancedSearchOpen(false);
+  };
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -314,14 +369,245 @@ const Products = () => {
             </Button>
           </div>
           
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setIsAdvancedSearchOpen(true)}
-          >
-            <Filter className="mr-2 h-4 w-4" />
-            Advanced Search
-          </Button>
+          <Dialog open={isAdvancedSearchOpen} onOpenChange={setIsAdvancedSearchOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Filter className="mr-2 h-4 w-4" />
+                Advanced Search
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Advanced Product Search</DialogTitle>
+                <DialogDescription>
+                  Use multiple filters to find specific products in your catalog
+                </DialogDescription>
+              </DialogHeader>
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmitAdvancedSearch)} className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Search Type */}
+                    <FormField
+                      control={form.control}
+                      name="searchType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Search Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select search type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="all">All Fields</SelectItem>
+                              <SelectItem value="sku">EDC SKU</SelectItem>
+                              <SelectItem value="mfgPart">Manufacturer Part</SelectItem>
+                              <SelectItem value="upc">UPC</SelectItem>
+                              <SelectItem value="title">Product Name</SelectItem>
+                              <SelectItem value="description">Description</SelectItem>
+                              <SelectItem value="category">Category</SelectItem>
+                              <SelectItem value="manufacturer">Manufacturer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Search Query */}
+                    <FormField
+                      control={form.control}
+                      name="query"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Search Query</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter search terms..." {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Category Filter */}
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Filter by category..." {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Supplier Filter */}
+                    <FormField
+                      control={form.control}
+                      name="supplier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Supplier</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Filter by supplier..." {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Manufacturer Filter */}
+                    <FormField
+                      control={form.control}
+                      name="manufacturer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Manufacturer</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Filter by manufacturer..." {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Inventory Status */}
+                    <FormField
+                      control={form.control}
+                      name="inventoryStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Inventory Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select inventory status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="all">All Products</SelectItem>
+                              <SelectItem value="inStock">In Stock</SelectItem>
+                              <SelectItem value="lowStock">Low Stock</SelectItem>
+                              <SelectItem value="outOfStock">Out of Stock</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Boolean Filters */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">Product Attributes</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="isRemanufactured"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Remanufactured</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isCloseout"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Closeout</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="isOnSale"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>On Sale</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="hasRebate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Has Rebate</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="hasFreeShipping"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Free Shipping</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => {
+                      form.reset();
+                      resetFilters();
+                    }}>
+                      Reset Filters
+                    </Button>
+                    <Button type="submit">
+                      Apply Filters
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline" size="sm" onClick={resetFilters}>
             <X className="mr-2 h-4 w-4" />
             Clear Filters
