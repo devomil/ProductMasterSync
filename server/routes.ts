@@ -1018,6 +1018,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Product-centric Amazon data read model for detail pages
+  app.get("/api/products/:id/amazon-data", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      
+      // Get basic product information
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Import repository function for Amazon data
+      const { getProductAmazonData } = await import("./marketplace/enhanced-repository");
+      
+      // Get comprehensive Amazon data
+      const amazonMappings = await getProductAmazonData(productId);
+      
+      if (!amazonMappings || amazonMappings.length === 0) {
+        return res.json({
+          success: true,
+          productId,
+          productSku: product.sku,
+          productName: product.name,
+          hasAmazonData: false,
+          message: "No Amazon marketplace data found for this product",
+          amazonData: null
+        });
+      }
+
+      // Process and consolidate Amazon data for product detail page consumption
+      const bestOpportunity = amazonMappings.reduce((best, current) => {
+        const currentOpportunityScore = current.intelligence?.opportunityScore || 0;
+        const bestOpportunityScore = best?.intelligence?.opportunityScore || 0;
+        return currentOpportunityScore > bestOpportunityScore ? current : best;
+      }, amazonMappings[0]);
+
+      // Calculate aggregate metrics
+      const totalAsins = amazonMappings.length;
+      const verifiedMappings = amazonMappings.filter(m => m.isVerified);
+      const averageConfidence = amazonMappings.reduce((sum, m) => sum + (m.matchConfidence || 0), 0) / totalAsins;
+      const validOpportunityMappings = amazonMappings.filter(m => m.intelligence?.opportunityScore);
+      const averageOpportunityScore = validOpportunityMappings.length > 0 
+        ? validOpportunityMappings.reduce((sum, m) => sum + (m.intelligence?.opportunityScore || 0), 0) / validOpportunityMappings.length
+        : 0;
+
+      // Find price range
+      const validPrices = amazonMappings
+        .filter(m => m.intelligence?.currentPrice)
+        .map(m => (m.intelligence?.currentPrice || 0) / 100); // Convert from cents
+      const priceRange = validPrices.length > 0 ? {
+        min: Math.min(...validPrices),
+        max: Math.max(...validPrices),
+        average: validPrices.reduce((sum, price) => sum + price, 0) / validPrices.length
+      } : null;
+
+      // Structure comprehensive response optimized for product detail pages
+      const amazonData = {
+        // Summary metrics for quick overview
+        summary: {
+          totalAsins,
+          verifiedMappings: verifiedMappings.length,
+          averageMatchConfidence: Math.round(averageConfidence * 100) / 100,
+          averageOpportunityScore: Math.round(averageOpportunityScore * 100) / 100,
+          hasMarketIntelligence: amazonMappings.some(m => m.intelligence),
+          lastSyncDate: product.lastAmazonSync,
+          syncStatus: product.amazonSyncStatus
+        },
+
+        // Best opportunity details for hero display
+        bestOpportunity: bestOpportunity?.intelligence ? {
+          asin: bestOpportunity.asin,
+          title: bestOpportunity.asinData?.title,
+          brand: bestOpportunity.asinData?.brand,
+          mainImage: bestOpportunity.asinData?.imageUrl || bestOpportunity.asinData?.mainImageUrl,
+          currentPrice: bestOpportunity.intelligence.currentPrice ? 
+            (bestOpportunity.intelligence.currentPrice / 100) : null,
+          listPrice: bestOpportunity.intelligence.listPrice ? 
+            (bestOpportunity.intelligence.listPrice / 100) : null,
+          opportunityScore: bestOpportunity.intelligence.opportunityScore,
+          salesRank: bestOpportunity.intelligence.salesRank,
+          competitionLevel: bestOpportunity.intelligence.competitionLevel,
+          inStock: bestOpportunity.intelligence.inStock,
+          fulfillmentMethod: bestOpportunity.intelligence.fulfillmentMethod,
+          matchConfidence: bestOpportunity.matchConfidence,
+          matchMethod: bestOpportunity.matchMethod,
+          isVerified: bestOpportunity.isVerified
+        } : null,
+
+        // Market analysis
+        marketAnalysis: {
+          priceRange,
+          competitionLevels: amazonMappings
+            .filter(m => m.intelligence?.competitionLevel)
+            .reduce((acc, m) => {
+              const level = m.intelligence?.competitionLevel;
+              if (level) {
+                acc[level] = (acc[level] || 0) + 1;
+              }
+              return acc;
+            }, {} as Record<string, number>),
+          fulfillmentMethods: amazonMappings
+            .filter(m => m.intelligence?.fulfillmentMethod)
+            .reduce((acc, m) => {
+              const method = m.intelligence?.fulfillmentMethod;
+              if (method) {
+                acc[method] = (acc[method] || 0) + 1;
+              }
+              return acc;
+            }, {} as Record<string, number>),
+          inStockCount: amazonMappings.filter(m => m.intelligence?.inStock).length,
+          outOfStockCount: amazonMappings.filter(m => m.intelligence?.inStock === false).length
+        },
+
+        // All ASINs for detailed view/comparison
+        allAsins: amazonMappings.map(mapping => ({
+          asin: mapping.asin,
+          title: mapping.asinData?.title || 'Unknown',
+          brand: mapping.asinData?.brand || 'Unknown',
+          mainImage: mapping.asinData?.imageUrl || mapping.asinData?.mainImageUrl,
+          currentPrice: mapping.intelligence?.currentPrice ? 
+            (mapping.intelligence.currentPrice / 100) : null,
+          listPrice: mapping.intelligence?.listPrice ? 
+            (mapping.intelligence.listPrice / 100) : null,
+          opportunityScore: mapping.intelligence?.opportunityScore,
+          salesRank: mapping.intelligence?.salesRank,
+          competitionLevel: mapping.intelligence?.competitionLevel,
+          inStock: mapping.intelligence?.inStock,
+          fulfillmentMethod: mapping.intelligence?.fulfillmentMethod,
+          matchConfidence: mapping.matchConfidence,
+          matchMethod: mapping.matchMethod,
+          isVerified: mapping.isVerified,
+          lastUpdated: mapping.intelligence?.updatedAt
+        })),
+
+        // Product context
+        productContext: {
+          productId,
+          productSku: product.sku,
+          productName: product.name,
+          productUpc: product.upc,
+          productMpn: product.manufacturerPartNumber,
+          internalCost: product.cost ? parseFloat(product.cost) : null,
+          internalPrice: product.price ? parseFloat(product.price) : null
+        }
+      };
+
+      res.json({
+        success: true,
+        productId,
+        hasAmazonData: true,
+        amazonData,
+        timestamp: new Date()
+      });
+
+    } catch (error) {
+      console.error(`Error fetching Amazon data for product ${req.params.id}:`, error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch Amazon data for product",
+        details: (error as Error).message
+      });
+    }
+  });
+
   // URL validation endpoint for warehouse modal
   app.post("/api/products/:id/validate-urls", async (req, res) => {
     try {
