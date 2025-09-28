@@ -237,6 +237,7 @@ router.get('/enhanced-opportunities', async (req, res) => {
     } = req.query;
 
     console.log('🔍 Analyzing enhanced purchasing opportunities...');
+    console.log('Query parameters:', { limit, category, risk_level, min_opportunity_score, min_confidence });
 
     // Get products with complete data for AI analysis
     const enhancedQuery = db
@@ -276,6 +277,7 @@ router.get('/enhanced-opportunities', async (req, res) => {
       .limit(Number(limit));
 
     const opportunities = await enhancedQuery;
+    console.log(`Found ${opportunities.length} raw opportunities from database`);
 
     // Enhanced AI analysis for each opportunity
     const enrichedOpportunities = opportunities.map(product => {
@@ -309,8 +311,8 @@ router.get('/enhanced-opportunities', async (req, res) => {
       
       // Pricing intelligence bonus
       let pricingConfidence = 0;
-      if (currentPrice > 0 && price > 0) {
-        const priceGap = ((currentPrice - price) / price * 100);
+      if (amazonPrice > 0 && internalPrice > 0) {
+        const priceGap = ((amazonPrice - internalPrice) / internalPrice * 100);
         if (priceGap > 20) pricingConfidence = 90;
         else if (priceGap > 10) pricingConfidence = 70;
         else if (priceGap > 0) pricingConfidence = 50;
@@ -397,12 +399,14 @@ router.get('/enhanced-opportunities', async (req, res) => {
         dataCompleteness: {
           hasUPC: !!(product.upc || product.usin),
           hasMPN: !!product.manufacturerPartNumber,
-          hasPricing: !!(cost > 0 && price > 0),
+          hasPricing: !!(productCost > 0 && internalPrice > 0),
           hasAmazonData: !!product.asin,
           amazonSynced: !!product.lastAmazonSync
         }
       };
     }).filter(opportunity => opportunity !== null); // Filter out null opportunities
+
+    console.log(`After processing, ${enrichedOpportunities.length} valid opportunities`);
 
     // Apply more realistic filtering - lower thresholds for better discovery
     const filteredOpportunities = enrichedOpportunities.filter(opp => 
@@ -411,6 +415,13 @@ router.get('/enhanced-opportunities', async (req, res) => {
       opp.opportunityScore >= Math.max(Number(min_opportunity_score), 50) && // Lower opportunity threshold
       (risk_level === 'all' || opp.riskLevel === risk_level)
     );
+
+    console.log(`After filtering, ${filteredOpportunities.length} qualified opportunities`);
+    console.log('Filter criteria:', {
+      minConfidence: Math.max(Number(min_confidence), 40),
+      minOpportunityScore: Math.max(Number(min_opportunity_score), 50),
+      riskLevel: risk_level
+    });
 
     // Analytics summary
     const analytics = {
