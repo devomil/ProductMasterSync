@@ -98,18 +98,18 @@ interface OpportunityAnalytics {
 export default function PurchasingAI() {
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
   const [minConfidence, setMinConfidence] = useState<number>(50);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   // Data Quality Assessment Query
-  const { data: qualityData, isLoading: qualityLoading } = useQuery({
-    queryKey: ['/api/purchasing/data-quality-assessment', refreshKey],
-    refetchInterval: 30000, // Refresh every 30 seconds
+  const { data: qualityData, isLoading: qualityLoading, refetch: refetchQuality } = useQuery({
+    queryKey: ['/api/purchasing/data-quality-assessment'],
+    refetchInterval: 60000, // Refresh every 60 seconds
   });
 
   // Enhanced Purchasing Opportunities Query
-  const { data: opportunitiesData, isLoading: opportunitiesLoading } = useQuery({
-    queryKey: ['/api/purchasing/enhanced-opportunities', selectedRisk, minConfidence, refreshKey],
-    refetchInterval: 30000, // Refresh every 30 seconds
+  const { data: opportunitiesData, isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery({
+    queryKey: ['/api/purchasing/enhanced-opportunities', selectedRisk, minConfidence],
+    refetchInterval: 60000, // Refresh every 60 seconds
     queryFn: () => 
       fetch(`/api/purchasing/enhanced-opportunities?limit=100&risk_level=${selectedRisk}&min_confidence=${minConfidence}&min_opportunity_score=20`)
         .then(res => res.json())
@@ -119,13 +119,10 @@ export default function PurchasingAI() {
   const opportunities: PurchasingOpportunity[] = opportunitiesData?.opportunities || [];
   const analytics: OpportunityAnalytics | undefined = opportunitiesData?.analytics;
 
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefreshKey(prev => prev + 1);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const handleRefresh = () => {
+    refetchQuality();
+    refetchOpportunities();
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -173,7 +170,7 @@ export default function PurchasingAI() {
             </div>
             <div className="flex items-center space-x-3">
               <Button 
-                onClick={() => setRefreshKey(prev => prev + 1)}
+                onClick={handleRefresh}
                 variant="outline"
                 size="sm"
               >
@@ -188,7 +185,7 @@ export default function PurchasingAI() {
           </div>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">System Overview</TabsTrigger>
             <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
