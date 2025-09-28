@@ -10,6 +10,77 @@ import { eq, sql, desc, and, isNotNull } from 'drizzle-orm';
 
 const router = Router();
 
+// Enhanced Amazon fee calculation based on real marketplace data
+function calculateAmazonFees(price: number, category: string = 'Electronics', weight: number = 1): {
+  referralFee: number;
+  fulfillmentFee: number;
+  storageFee: number;
+  totalFees: number;
+  netProceeds: number;
+  feePercentage: number;
+} {
+  // Amazon referral fees by category (simplified but realistic)
+  const referralRates: { [key: string]: number } = {
+    'Electronics': 0.08, // 8%
+    'Automotive': 0.12,  // 12%
+    'Sports': 0.15,      // 15%
+    'Home': 0.15,        // 15%
+    'Default': 0.15      // 15% default
+  };
+  
+  const referralRate = referralRates[category] || referralRates['Default'];
+  const referralFee = price * referralRate;
+  
+  // FBA fulfillment fees based on size/weight (simplified)
+  let fulfillmentFee = 0;
+  if (price <= 10) {
+    fulfillmentFee = 2.50 + (weight * 0.50);
+  } else if (price <= 300) {
+    fulfillmentFee = 3.00 + (weight * 0.60);
+  } else {
+    fulfillmentFee = 4.00 + (weight * 0.75);
+  }
+  
+  // Monthly storage fee (simplified - $0.75 per cubic foot)
+  const storageFee = 0.75;
+  
+  const totalFees = referralFee + fulfillmentFee + storageFee;
+  const netProceeds = price - totalFees;
+  const feePercentage = (totalFees / price) * 100;
+  
+  return {
+    referralFee,
+    fulfillmentFee,
+    storageFee,
+    totalFees,
+    netProceeds,
+    feePercentage
+  };
+}
+
+// Calculate total internal costs including shipping and handling
+function calculateInternalCosts(productCost: number, weight: number = 1): {
+  productCost: number;
+  shippingCost: number;
+  handlingFee: number;
+  totalInternalCost: number;
+} {
+  // Estimated shipping costs based on weight
+  const shippingCost = Math.max(2.50, weight * 1.25); // Minimum $2.50
+  
+  // Handling fee (packaging, processing, etc.)
+  const handlingFee = Math.max(1.00, productCost * 0.03); // 3% of cost or $1 minimum
+  
+  const totalInternalCost = productCost + shippingCost + handlingFee;
+  
+  return {
+    productCost,
+    shippingCost,
+    handlingFee,
+    totalInternalCost
+  };
+}
+
 // Amazon Scaling Progress Endpoint
 router.get('/amazon-scaling-progress', async (req, res) => {
   try {
@@ -208,13 +279,26 @@ router.get('/enhanced-opportunities', async (req, res) => {
 
     // Enhanced AI analysis for each opportunity
     const enrichedOpportunities = opportunities.map(product => {
-      const cost = parseFloat(product.cost || '0');
-      const price = parseFloat(product.price || '0');
-      const currentPrice = parseFloat(product.currentPrice || '0');
+      const productCost = parseFloat(product.cost || '0');
+      const internalPrice = parseFloat(product.price || '0');
+      const amazonPrice = (parseFloat(product.currentPrice || '0')) / 100; // Convert from cents to dollars
+      const productWeight = 1; // Default weight in pounds (could be enhanced with actual weight data)
       
-      // Calculate profit margins
-      const internalProfitMargin = price > 0 && cost > 0 ? ((price - cost) / cost * 100) : 0;
-      const amazonProfitMargin = currentPrice > 0 && cost > 0 ? ((currentPrice - cost) / cost * 100) : 0;
+      if (productCost <= 0 || amazonPrice <= 0) {
+        return null; // Skip products with invalid pricing
+      }
+      
+      // Calculate internal costs (including shipping and handling)
+      const internalCosts = calculateInternalCosts(productCost, productWeight);
+      
+      // Calculate Amazon fees
+      const amazonFees = calculateAmazonFees(amazonPrice, 'Electronics', productWeight);
+      
+      // Calculate profit margins with all costs included
+      const internalProfitMargin = internalPrice > 0 ? ((internalPrice - internalCosts.totalInternalCost) / internalCosts.totalInternalCost * 100) : 0;
+      const amazonNetProfit = amazonFees.netProceeds - internalCosts.totalInternalCost;
+      const amazonProfitMargin = internalCosts.totalInternalCost > 0 ? (amazonNetProfit / internalCosts.totalInternalCost * 100) : 0;
+      const amazonROI = internalCosts.totalInternalCost > 0 ? (amazonNetProfit / internalCosts.totalInternalCost * 100) : 0;
       
       // Enhanced opportunity scoring
       let enhancedOpportunityScore = product.opportunityScore || 0;
@@ -243,17 +327,19 @@ router.get('/enhanced-opportunities', async (req, res) => {
         (syncConfidence * 0.3)
       );
       
-      // Risk assessment
+      // Risk assessment with comprehensive factors
       let riskLevel = 'medium';
-      if (matchConfidence >= 80 && internalProfitMargin > 30) riskLevel = 'low';
-      else if (matchConfidence < 60 || internalProfitMargin < 10) riskLevel = 'high';
+      if (matchConfidence >= 80 && amazonProfitMargin > 30 && amazonFees.feePercentage < 25) riskLevel = 'low';
+      else if (matchConfidence < 60 || amazonProfitMargin < 10 || amazonFees.feePercentage > 35) riskLevel = 'high';
       
       // Enhanced recommendation flags
       const automationFlags = [];
       if (matchConfidence >= 85) automationFlags.push('HIGH_CONFIDENCE_MATCH');
       if (amazonProfitMargin > 50) automationFlags.push('HIGH_PROFIT_OPPORTUNITY');
+      if (amazonNetProfit > 10) automationFlags.push('PROFITABLE_OPPORTUNITY');
       if (product.inStock && product.fulfillmentMethod === 'FBA') automationFlags.push('FBA_READY');
       if (enhancedOpportunityScore > 80) automationFlags.push('PRIORITY_OPPORTUNITY');
+      if (amazonFees.feePercentage < 20) automationFlags.push('LOW_FEES');
       
       return {
         productId: product.productId,
@@ -263,16 +349,34 @@ router.get('/enhanced-opportunities', async (req, res) => {
         manufacturerPartNumber: product.manufacturerPartNumber,
         asin: product.asin,
         
+        // Internal cost breakdown
+        internalCosts: {
+          productCost: internalCosts.productCost,
+          shippingCost: internalCosts.shippingCost,
+          handlingFee: internalCosts.handlingFee,
+          totalInternalCost: internalCosts.totalInternalCost
+        },
+        
+        // Amazon fee breakdown
+        amazonFees: {
+          referralFee: amazonFees.referralFee,
+          fulfillmentFee: amazonFees.fulfillmentFee,
+          storageFee: amazonFees.storageFee,
+          totalFees: amazonFees.totalFees,
+          feePercentage: amazonFees.feePercentage
+        },
+        
         // Pricing intelligence
-        internalCost: cost,
-        internalPrice: price,
-        amazonCurrentPrice: currentPrice,
-        amazonListPrice: parseFloat(product.listPrice || '0'),
+        internalPrice: internalPrice,
+        amazonCurrentPrice: amazonPrice,
+        amazonListPrice: parseFloat(product.listPrice || '0') / 100,
+        amazonNetProceeds: amazonFees.netProceeds,
         
         // Profit analysis
         internalProfitMargin: Math.round(internalProfitMargin * 100) / 100,
         amazonProfitMargin: Math.round(amazonProfitMargin * 100) / 100,
-        profitMarginPercent: product.profitMarginPercent,
+        amazonNetProfit: Math.round(amazonNetProfit * 100) / 100,
+        amazonROI: Math.round(amazonROI * 100) / 100,
         
         // Opportunity scoring
         opportunityScore: enhancedOpportunityScore,
@@ -298,10 +402,11 @@ router.get('/enhanced-opportunities', async (req, res) => {
           amazonSynced: !!product.lastAmazonSync
         }
       };
-    });
+    }).filter(opportunity => opportunity !== null); // Filter out null opportunities
 
     // Apply more realistic filtering - lower thresholds for better discovery
     const filteredOpportunities = enrichedOpportunities.filter(opp => 
+      opp && // Ensure not null
       opp.matchConfidence >= Math.max(Number(min_confidence), 40) && // Lower minimum confidence
       opp.opportunityScore >= Math.max(Number(min_opportunity_score), 50) && // Lower opportunity threshold
       (risk_level === 'all' || opp.riskLevel === risk_level)
