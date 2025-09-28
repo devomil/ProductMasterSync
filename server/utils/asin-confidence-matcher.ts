@@ -184,6 +184,125 @@ export function rankAsinCandidates(
 }
 
 /**
+ * Process multiple ASIN candidates and rank by confidence using V2 logic
+ */
+export function rankAsinCandidatesV2(
+  catalogProduct: ProductData,
+  asinCandidates: AmazonAsinData[]
+): MatchResult[] {
+  const results = asinCandidates.map(asin => 
+    calculateMatchConfidenceV2(catalogProduct, asin)
+  );
+
+  // Sort by confidence score (highest first)
+  results.sort((a, b) => b.confidenceScore - a.confidenceScore);
+
+  // Auto-assign primary ASIN if confidence is high enough
+  if (results.length > 0 && results[0].confidenceScore >= 90) {
+    results[0].status = 'primary';
+  }
+
+  return results;
+}
+
+/**
+ * Calculate confidence score V2 using deterministic rules based on user specifications
+ * Rules:
+ * - UPC + MPN + Title all match = 100%
+ * - UPC + MPN match = 100%  
+ * - UPC only match = 90%
+ * - MPN only match = 50%
+ * - No match = 0%
+ */
+export function calculateMatchConfidenceV2(
+  catalogProduct: ProductData,
+  amazonAsin: AmazonAsinData
+): MatchResult {
+  let score = 0;
+  let matchReason = "";
+  const matchDetails = {
+    upcMatch: false,
+    mpnMatch: false,
+    descriptionMatch: false,
+    imageAvailable: !!amazonAsin.imageUrl
+  };
+
+  // Check UPC match
+  if (catalogProduct.upc && amazonAsin.upc) {
+    const normalizedCatalogUpc = normalizeUPC(catalogProduct.upc);
+    const normalizedAmazonUpc = normalizeUPC(amazonAsin.upc);
+    
+    if (normalizedCatalogUpc === normalizedAmazonUpc) {
+      matchDetails.upcMatch = true;
+    }
+  }
+
+  // Check MPN match
+  if (catalogProduct.manufacturerPartNumber && amazonAsin.manufacturerPartNumber) {
+    const normalizedCatalogMPN = normalizeMPN(catalogProduct.manufacturerPartNumber);
+    const normalizedAmazonMPN = normalizeMPN(amazonAsin.manufacturerPartNumber);
+    
+    if (normalizedCatalogMPN === normalizedAmazonMPN) {
+      matchDetails.mpnMatch = true;
+    }
+  }
+
+  // Check title/description match for high precision cases
+  const catalogDescription = catalogProduct.description || catalogProduct.name || "";
+  const amazonDescription = amazonAsin.title || amazonAsin.description || "";
+  
+  if (catalogDescription && amazonDescription) {
+    const descriptionSimilarity = calculateDescriptionSimilarity(catalogDescription, amazonDescription);
+    
+    if (descriptionSimilarity >= 0.8) {
+      matchDetails.descriptionMatch = true;
+    }
+  }
+
+  // Apply deterministic scoring rules
+  if (matchDetails.upcMatch && matchDetails.mpnMatch && matchDetails.descriptionMatch) {
+    // UPC + MPN + Title all match = 100%
+    score = 100;
+    matchReason = "Perfect match: UPC, MPN, and title all match";
+  } else if (matchDetails.upcMatch && matchDetails.mpnMatch) {
+    // UPC + MPN match = 100%
+    score = 100;
+    matchReason = "Excellent match: UPC and MPN match";
+  } else if (matchDetails.upcMatch) {
+    // UPC only match = 90%
+    score = 90;
+    matchReason = "Strong match: UPC matches";
+  } else if (matchDetails.mpnMatch) {
+    // MPN only match = 50%
+    score = 50;
+    matchReason = "Moderate match: MPN matches";
+  } else {
+    // No match = 0%
+    score = 0;
+    matchReason = "No significant matches found";
+  }
+
+  // Determine status based on confidence score
+  let status: 'primary' | 'review' | 'low_confidence';
+  if (score >= 90) {
+    status = 'primary';
+  } else if (score >= 60) {
+    status = 'review';
+  } else {
+    status = 'low_confidence';
+  }
+
+  return {
+    asin: amazonAsin.asin,
+    confidenceScore: score,
+    matchReason: matchReason,
+    matchDetails,
+    status,
+    imageUrl: amazonAsin.imageUrl
+  };
+}
+
+/**
  * Get confidence level description for UI display
  */
 export function getConfidenceLevel(score: number): {

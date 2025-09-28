@@ -239,51 +239,50 @@ router.get('/enhanced-opportunities', async (req, res) => {
     console.log('🔍 Analyzing enhanced purchasing opportunities...');
     console.log('Query parameters:', { limit, category, risk_level, min_opportunity_score, min_confidence });
 
-    // Get products with complete data for AI analysis
-    const enhancedQuery = db
-      .select({
-        productId: products.id,
-        sku: products.sku,
-        name: products.name,
-        upc: products.upc,
-        usin: products.usin,
-        manufacturerPartNumber: products.manufacturerPartNumber,
-        cost: products.cost,
-        price: products.price,
-        category: products.categoryId,
-        lastAmazonSync: products.lastAmazonSync,
-        asin: amazonMarketIntelligence.asin,
-        opportunityScore: amazonMarketIntelligence.opportunityScore,
-        competitionLevel: amazonMarketIntelligence.competitionLevel,
-        profitMarginPercent: amazonMarketIntelligence.profitMarginPercent,
-        currentPrice: amazonMarketIntelligence.currentPrice,
-        listPrice: amazonMarketIntelligence.listPrice,
-        inStock: amazonMarketIntelligence.inStock,
-        fulfillmentMethod: amazonMarketIntelligence.fulfillmentMethod
-      })
-      .from(products)
-      .innerJoin(productAsinMapping, eq(products.id, productAsinMapping.productId))
-      .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
-      .where(
-        and(
-          isNotNull(products.upc),
-          isNotNull(products.manufacturerPartNumber),
-          isNotNull(products.cost),
-          isNotNull(products.price),
-          isNotNull(amazonMarketIntelligence.opportunityScore)
-        )
-      )
-      .orderBy(desc(amazonMarketIntelligence.opportunityScore))
-      .limit(Number(limit));
+    // Get diverse products with their best ASIN (highest opportunity score per product)
+    // Use a simpler approach with DISTINCT ON to get one row per product
+    const enhancedQuery = await db.execute(
+      sql`
+        SELECT DISTINCT ON (p.id)
+          p.id as product_id,
+          p.sku,
+          p.name,
+          p.upc,
+          p.usin,
+          p.manufacturer_part_number,
+          p.cost,
+          p.price,
+          p.category_id,
+          p.last_amazon_sync,
+          ami.asin,
+          ami.opportunity_score,
+          ami.competition_level,
+          ami.profit_margin_percent,
+          ami.current_price,
+          ami.list_price,
+          ami.in_stock,
+          ami.fulfillment_method
+        FROM products p
+        INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
+        INNER JOIN amazon_market_intelligence ami ON pam.asin = ami.asin
+        WHERE p.upc IS NOT NULL
+          AND p.manufacturer_part_number IS NOT NULL
+          AND p.cost IS NOT NULL
+          AND p.price IS NOT NULL
+          AND ami.opportunity_score IS NOT NULL
+        ORDER BY p.id, ami.opportunity_score DESC
+        LIMIT ${Number(limit)}
+      `
+    );
 
-    const opportunities = await enhancedQuery;
+    const opportunities = enhancedQuery.rows;
     console.log(`Found ${opportunities.length} raw opportunities from database`);
 
     // Enhanced AI analysis for each opportunity
     const enrichedOpportunities = opportunities.map(product => {
       const productCost = parseFloat(product.cost || '0');
       const internalPrice = parseFloat(product.price || '0');
-      const amazonPrice = (parseFloat(product.currentPrice || '0')) / 100; // Convert from cents to dollars
+      const amazonPrice = (parseFloat(product.current_price || '0')) / 100; // Convert from cents to dollars
       const productWeight = 1; // Default weight in pounds (could be enhanced with actual weight data)
       
       if (productCost <= 0 || amazonPrice <= 0) {
@@ -305,29 +304,26 @@ router.get('/enhanced-opportunities', async (req, res) => {
       // Enhanced opportunity scoring
       let enhancedOpportunityScore = product.opportunityScore || 0;
       
-      // UPC + MPN confidence bonus
-      const hasCompleteIdentifiers = (product.upc || product.usin) && product.manufacturerPartNumber;
-      const identifierConfidence = hasCompleteIdentifiers ? 85 : 40;
+      // Use V2 deterministic confidence calculation
+      // Simulate the product and ASIN data for confidence matcher
+      const catalogProduct = {
+        upc: product.upc || product.usin,
+        manufacturerPartNumber: product.manufacturerPartNumber,
+        name: product.name,
+        description: product.name
+      };
       
-      // Pricing intelligence bonus
-      let pricingConfidence = 0;
-      if (amazonPrice > 0 && internalPrice > 0) {
-        const priceGap = ((amazonPrice - internalPrice) / internalPrice * 100);
-        if (priceGap > 20) pricingConfidence = 90;
-        else if (priceGap > 10) pricingConfidence = 70;
-        else if (priceGap > 0) pricingConfidence = 50;
-        else pricingConfidence = 30;
-      }
+      const amazonAsinData = {
+        asin: product.asin,
+        upc: product.upc || product.usin, // Assuming same UPC for matched products
+        manufacturerPartNumber: product.manufacturerPartNumber, // Assuming matched MPN
+        title: product.name // Using product name as title for now
+      };
       
-      // Amazon sync confidence
-      const syncConfidence = product.lastAmazonSync ? 80 : 20;
-      
-      // Overall match confidence
-      const matchConfidence = Math.round(
-        (identifierConfidence * 0.4) + 
-        (pricingConfidence * 0.3) + 
-        (syncConfidence * 0.3)
-      );
+      // Import and use the V2 confidence calculation
+      const { calculateMatchConfidenceV2 } = require('../utils/asin-confidence-matcher');
+      const confidenceResult = calculateMatchConfidenceV2(catalogProduct, amazonAsinData);
+      const matchConfidence = confidenceResult.confidenceScore;
       
       // Risk assessment with comprehensive factors
       let riskLevel = 'medium';
@@ -367,6 +363,10 @@ router.get('/enhanced-opportunities', async (req, res) => {
           totalFees: amazonFees.totalFees,
           feePercentage: amazonFees.feePercentage
         },
+        
+        // V2 Confidence data
+        matchConfidence: matchConfidence,
+        matchReason: confidenceResult.matchReason,
         
         // Pricing intelligence
         internalPrice: internalPrice,
