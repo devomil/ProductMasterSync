@@ -3269,6 +3269,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Initialize scheduler for always-on Amazon sync
+  try {
+    const { initScheduler } = await import("./utils/scheduler");
+    await initScheduler();
+    console.log('✅ Scheduler initialized for continuous Amazon sync');
+  } catch (error) {
+    console.error('❌ Failed to initialize scheduler:', error);
+  }
+
   const httpServer = createServer(app);
   return httpServer;
 }

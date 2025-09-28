@@ -43,7 +43,9 @@ const calculateNextRun = (
       return null;
       
     case 'hourly':
-      nextRun.setHours(nextRun.getHours() + 1);
+      // Support custom interval hours for Amazon sync (every 2 hours)
+      const intervalHours = job.config?.intervalHours || 1;
+      nextRun.setHours(nextRun.getHours() + intervalHours);
       return nextRun;
       
     case 'daily':
@@ -182,9 +184,25 @@ const executeJob = async (job: ScheduledJob): Promise<boolean> => {
         break;
         
       case 'api':
-        // API job handling would go here
-        log(`API job type not implemented yet for job ${job.id}`);
-        success = false;
+        // Handle Amazon sync API jobs
+        if (job.config?.apiType === 'amazon') {
+          log(`Executing Amazon sync job ${job.id}`);
+          try {
+            // Import and execute Amazon sync function
+            const { batchSyncAmazonData } = await import('../marketplace/amazon-service');
+            const limit = job.config?.limit || 10;
+            const result = await batchSyncAmazonData(limit);
+            
+            log(`Amazon sync job ${job.id} completed: ${result.processed} products processed`);
+            success = true;
+          } catch (error) {
+            log(`Error executing Amazon sync job ${job.id}: ${error instanceof Error ? error.message : String(error)}`);
+            success = false;
+          }
+        } else {
+          log(`Unknown API job type '${job.config?.apiType}' for job ${job.id}`);
+          success = false;
+        }
         break;
         
       default:
@@ -247,25 +265,31 @@ const loadJobs = async () => {
       credentials: any 
     }[] = [];
     
-    // Load data source schedules
-    const sourceSchedules = await db.select({
-      id: schedules.id,
-      dataSourceId: schedules.dataSourceId,
-      frequency: schedules.frequency,
-      lastRun: schedules.lastRun,
-      nextRun: schedules.nextRun,
-      hour: schedules.hour,
-      minute: schedules.minute,
-      dayOfWeek: schedules.dayOfWeek,
-      dayOfMonth: schedules.dayOfMonth,
-      customCron: schedules.customCron
-    })
-    .from(schedules)
-    .leftJoin(dataSources, eq(schedules.dataSourceId, dataSources.id))
-    .where(and(
-      eq(dataSources.active, true),
-      sql`${dataSources.type} IN ('sftp', 'ftp', 'api')`
-    ));
+    // Load data source schedules - gracefully handle missing tables
+    let sourceSchedules: any[] = [];
+    try {
+      sourceSchedules = await db.select({
+        id: schedules.id,
+        dataSourceId: schedules.dataSourceId,
+        frequency: schedules.frequency,
+        lastRun: schedules.lastRun,
+        nextRun: schedules.nextRun,
+        hour: schedules.hour,
+        minute: schedules.minute,
+        dayOfWeek: schedules.dayOfWeek,
+        dayOfMonth: schedules.dayOfMonth,
+        customCron: schedules.customCron
+      })
+      .from(schedules)
+      .leftJoin(dataSources, eq(schedules.dataSourceId, dataSources.id))
+      .where(and(
+        eq(dataSources.active, true),
+        sql`${dataSources.type} IN ('sftp', 'ftp', 'api')`
+      ));
+    } catch (dbError) {
+      // Tables don't exist yet, use empty array
+      log(`Database tables not ready, using empty schedules: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+    }
     
     // Reset job queue
     scheduledJobs = [];
@@ -348,6 +372,31 @@ const loadJobs = async () => {
       };
       
       scheduledJobs.push(job);
+    }
+    
+    // Always ensure Amazon sync job is present for continuous operation
+    const hasAmazonJob = scheduledJobs.some(job => 
+      job.type === 'api' && job.config?.apiType === 'amazon'
+    );
+    
+    if (!hasAmazonJob) {
+      // Create always-on Amazon sync job that runs every 2 hours
+      scheduledJobs.push({
+        id: -999999, // Special ID for always-on Amazon job
+        type: 'api',
+        lastRun: null,
+        nextRun: new Date(Date.now() + 300000), // Start in 5 minutes
+        frequency: 'hourly', // Run every 2 hours
+        config: {
+          apiType: 'amazon',
+          limit: 10, // Process 10 products per run
+          hour: 2, // Run every 2 hours starting at 2:00
+          minute: 0,
+          intervalHours: 2 // Custom interval
+        }
+      });
+      
+      log('✅ Added always-on Amazon sync job (every 2 hours)');
     }
     
     log(`Loaded ${scheduledJobs.length} scheduled jobs`);
