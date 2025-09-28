@@ -5,7 +5,40 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink } from 'lucide-react';
+
+// Amazon Product Image Component with fallbacks
+function ProductImage({ asin, productName, alt }: { asin?: string; productName?: string; alt: string }) {
+  const [imageError, setImageError] = useState(false);
+  
+  // Try to construct Amazon image URL from ASIN
+  const amazonImageUrl = asin && !imageError ? 
+    `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX300_.jpg` : 
+    null;
+  
+  if (amazonImageUrl && !imageError) {
+    return (
+      <img 
+        src={amazonImageUrl}
+        alt={alt}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+        onError={() => setImageError(true)}
+        loading="lazy"
+      />
+    );
+  }
+  
+  // Fallback to placeholder
+  return (
+    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="text-center">
+        <ShoppingCart className="h-12 w-12 mx-auto mb-2" />
+        <p className="text-xs text-gray-500 max-w-20 line-clamp-2">{productName || 'Product'}</p>
+      </div>
+    </div>
+  );
+}
 
 interface DataQualityAssessment {
   catalog_size: number;
@@ -99,6 +132,8 @@ export default function PurchasingAI() {
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
   const [minConfidence, setMinConfidence] = useState<number>(50);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const productsPerPage = 100;
 
   // Data Quality Assessment Query
   const { data: qualityData, isLoading: qualityLoading, refetch: refetchQuality } = useQuery({
@@ -106,18 +141,31 @@ export default function PurchasingAI() {
     refetchInterval: 60000, // Refresh every 60 seconds
   });
 
-  // Enhanced Purchasing Opportunities Query
+  // Enhanced Purchasing Opportunities Query with Server-Side Pagination
   const { data: opportunitiesData, isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery({
-    queryKey: ['/api/purchasing/enhanced-opportunities', selectedRisk, minConfidence],
+    queryKey: ['/api/purchasing/enhanced-opportunities', selectedRisk, minConfidence, currentPage, productsPerPage],
     refetchInterval: 60000, // Refresh every 60 seconds
     queryFn: () => 
-      fetch(`/api/purchasing/enhanced-opportunities?limit=100&risk_level=${selectedRisk}&min_confidence=${minConfidence}&min_opportunity_score=20`)
+      fetch(`/api/purchasing/enhanced-opportunities?limit=${productsPerPage}&page=${currentPage}&risk_level=${selectedRisk}&min_confidence=${minConfidence}&min_opportunity_score=20`)
         .then(res => res.json())
   });
 
   const assessment: DataQualityAssessment | undefined = qualityData?.assessment;
   const opportunities: PurchasingOpportunity[] = opportunitiesData?.opportunities || [];
   const analytics: OpportunityAnalytics | undefined = opportunitiesData?.analytics;
+  const pagination = opportunitiesData?.pagination || {
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    limit: productsPerPage,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
+  
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedRisk, minConfidence]);
 
   const handleRefresh = () => {
     refetchQuality();
@@ -301,29 +349,39 @@ export default function PurchasingAI() {
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                     <label className="text-sm font-medium">Risk Level:</label>
-                    <select 
+                    <Select 
                       value={selectedRisk} 
-                      onChange={(e) => setSelectedRisk(e.target.value)}
-                      className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+                      onValueChange={setSelectedRisk}
+                      data-testid="risk-level-select"
                     >
-                      <option value="all">All Risk Levels</option>
-                      <option value="low">Low Risk</option>
-                      <option value="medium">Medium Risk</option>
-                      <option value="high">High Risk</option>
-                    </select>
+                      <SelectTrigger className="w-[180px]" data-testid="risk-level-trigger">
+                        <SelectValue placeholder="Select risk level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" data-testid="risk-level-all">All Risk Levels</SelectItem>
+                        <SelectItem value="low" data-testid="risk-level-low">Low Risk</SelectItem>
+                        <SelectItem value="medium" data-testid="risk-level-medium">Medium Risk</SelectItem>
+                        <SelectItem value="high" data-testid="risk-level-high">High Risk</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-center space-x-2">
                     <label className="text-sm font-medium">Min Confidence:</label>
-                    <select 
-                      value={minConfidence} 
-                      onChange={(e) => setMinConfidence(Number(e.target.value))}
-                      className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+                    <Select 
+                      value={minConfidence.toString()} 
+                      onValueChange={(value) => setMinConfidence(Number(value))}
+                      data-testid="min-confidence-select"
                     >
-                      <option value="30">30%</option>
-                      <option value="50">50%</option>
-                      <option value="70">70%</option>
-                      <option value="80">80%</option>
-                    </select>
+                      <SelectTrigger className="w-[120px]" data-testid="min-confidence-trigger">
+                        <SelectValue placeholder="Select confidence" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30" data-testid="min-confidence-30">30%</SelectItem>
+                        <SelectItem value="50" data-testid="min-confidence-50">50%</SelectItem>
+                        <SelectItem value="70" data-testid="min-confidence-70">70%</SelectItem>
+                        <SelectItem value="80" data-testid="min-confidence-80">80%</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardContent>
@@ -359,12 +417,14 @@ export default function PurchasingAI() {
               </div>
             )}
 
-            {/* Opportunities List */}
+            {/* Product Catalog Grid */}
             <Card>
               <CardHeader>
-                <CardTitle>Purchasing Opportunities</CardTitle>
+                <CardTitle>Product Catalog</CardTitle>
                 <CardDescription>
-                  {opportunitiesLoading ? 'Loading opportunities...' : `${opportunities.length} opportunities found`}
+                  {opportunitiesLoading ? 'Loading products...' : 
+                    `Showing ${pagination.totalCount > 0 ? ((pagination.currentPage - 1) * pagination.limit + 1) : 0}-${Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of ${pagination.totalCount} products with purchasing opportunities`
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -377,80 +437,162 @@ export default function PurchasingAI() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {opportunities.slice(0, 10).map((opp, index) => (
-                      <div key={`${opp.productId}-${index}`} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-medium text-gray-900">{opp.productName || opp.sku}</h4>
-                              <Badge className={getRiskBadgeColor(opp.riskLevel)}>
-                                {opp.riskLevel.toUpperCase()}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {opportunities.map((opp, index) => (
+                      <button 
+                        key={`${opp.productId}-${index}`} 
+                        className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 overflow-hidden group cursor-pointer text-left w-full"
+                        onClick={() => {
+                          // Navigate to product detail page - will implement routing
+                          console.log('Navigate to product detail for:', opp.productId);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            console.log('Navigate to product detail for:', opp.productId);
+                          }
+                        }}
+                        aria-label={`View details for ${opp.productName || opp.sku} - ${opp.amazonROI ? `${opp.amazonROI.toFixed(0)}% ROI` : 'No ROI data'} - ${opp.riskLevel} risk`}
+                        data-testid={`product-card-${opp.productId}`}
+                      >
+                        <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                          {/* Amazon product image or fallback */}
+                          <ProductImage 
+                            asin={opp.asin} 
+                            productName={opp.productName} 
+                            alt={opp.productName || opp.sku} 
+                          />
+                          {/* ROI Badge Overlay */}
+                          {opp.amazonROI && opp.amazonROI > 0 && (
+                            <div className="absolute top-2 right-2">
+                              <Badge className="bg-green-600 text-white">
+                                {opp.amazonROI.toFixed(0)}% ROI
                               </Badge>
-                              <Badge variant="outline">
-                                {opp.matchConfidence}% confidence
-                              </Badge>
                             </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
-                              {/* Product Information */}
-                              <div>
-                                <h5 className="font-medium text-gray-700 mb-1">Product Info</h5>
-                                <p><span className="font-medium">UPC:</span> {opp.upc || 'N/A'}</p>
-                                <p><span className="font-medium">MPN:</span> {opp.manufacturerPartNumber || 'N/A'}</p>
-                                <p><span className="font-medium">ASIN:</span> {opp.asin || 'N/A'}</p>
+                          )}
+                          {/* Risk Level Badge */}
+                          <div className="absolute top-2 left-2">
+                            <Badge className={getRiskBadgeColor(opp.riskLevel)}>
+                              {opp.riskLevel.charAt(0).toUpperCase() + opp.riskLevel.slice(1)}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="p-4 space-y-3">
+                          {/* Product Title */}
+                          <div>
+                            <h3 className="font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                              {opp.productName || opp.sku}
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1">SKU: {opp.sku}</p>
+                          </div>
+                          
+                          {/* Key Metrics */}
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="text-center p-2 bg-gray-50 rounded">
+                              <div className="font-semibold text-gray-900">
+                                ${opp.amazonCurrentPrice?.toFixed(2) || 'N/A'}
                               </div>
-                              
-                              {/* Cost Analysis */}
-                              <div>
-                                <h5 className="font-medium text-gray-700 mb-1">Cost Breakdown</h5>
-                                <p><span className="font-medium">Product:</span> ${opp.internalCosts?.productCost?.toFixed(2) || 'N/A'}</p>
-                                <p><span className="font-medium">Shipping:</span> ${opp.internalCosts?.shippingCost?.toFixed(2) || 'N/A'}</p>
-                                <p><span className="font-medium">Handling:</span> ${opp.internalCosts?.handlingFee?.toFixed(2) || 'N/A'}</p>
-                                <p className="font-semibold border-t pt-1"><span className="font-medium">Total Cost:</span> ${opp.internalCosts?.totalInternalCost?.toFixed(2) || 'N/A'}</p>
-                              </div>
-                              
-                              {/* Amazon Analysis */}
-                              <div>
-                                <h5 className="font-medium text-gray-700 mb-1">Amazon Analysis</h5>
-                                <p><span className="font-medium">Amazon Price:</span> ${opp.amazonCurrentPrice?.toFixed(2) || 'N/A'}</p>
-                                <p><span className="font-medium">Amazon Fees:</span> ${opp.amazonFees?.totalFees?.toFixed(2) || 'N/A'} ({opp.amazonFees?.feePercentage?.toFixed(1) || 'N/A'}%)</p>
-                                <p><span className="font-medium">Net Proceeds:</span> ${opp.amazonNetProceeds?.toFixed(2) || 'N/A'}</p>
-                                <p className="font-semibold text-green-600"><span className="font-medium">Net Profit:</span> ${opp.amazonNetProfit?.toFixed(2) || 'N/A'} ({opp.amazonProfitMargin?.toFixed(1) || 'N/A'}%)</p>
-                              </div>
+                              <div className="text-xs text-gray-600">Amazon Price</div>
                             </div>
-                            
-                            {/* Action Summary */}
-                            <div className="mt-3 pt-2 border-t border-gray-100">
-                              <div className="flex items-center justify-between text-sm">
-                                <span><span className="font-medium">ROI:</span> {opp.amazonROI?.toFixed(1) || 'N/A'}%</span>
-                                <span><span className="font-medium">Action:</span> 
-                                  <Badge className={opp.recommendedAction === 'PROCEED' ? 'bg-green-100 text-green-800 ml-1' : 
-                                                  opp.recommendedAction === 'REVIEW' ? 'bg-yellow-100 text-yellow-800 ml-1' : 
-                                                  'bg-red-100 text-red-800 ml-1'}>
-                                    {opp.recommendedAction}
-                                  </Badge>
-                                </span>
+                            <div className="text-center p-2 bg-green-50 rounded">
+                              <div className="font-semibold text-green-700">
+                                ${opp.amazonNetProfit?.toFixed(2) || 'N/A'}
                               </div>
+                              <div className="text-xs text-gray-600">Net Profit</div>
                             </div>
+                          </div>
+                          
+                          {/* Confidence and Score */}
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              <span className="text-gray-600">{opp.matchConfidence}% match</span>
+                            </div>
+                            <div className="font-medium text-blue-600">
+                              Score: {opp.opportunityScore}
+                            </div>
+                          </div>
+                          
+                          {/* Action Indicator */}
+                          <div className="flex items-center justify-between">
+                            <Badge 
+                              variant="outline" 
+                              className={opp.recommendedAction === 'PROCEED' ? 'border-green-500 text-green-700' : 
+                                        opp.recommendedAction === 'REVIEW' ? 'border-yellow-500 text-yellow-700' : 
+                                        'border-red-500 text-red-700'}
+                            >
+                              {opp.recommendedAction}
+                            </Badge>
                             {opp.automationFlags.length > 0 && (
-                              <div className="mt-2">
-                                <div className="flex flex-wrap gap-1">
-                                  {opp.automationFlags.map((flag, flagIndex) => (
-                                    <Badge key={flagIndex} variant="secondary" className="text-xs">
-                                      {flag.replace(/_/g, ' ')}
-                                    </Badge>
-                                  ))}
-                                </div>
+                              <div className="flex items-center">
+                                <Brain className="h-3 w-3 text-blue-500" />
+                                <span className="text-xs text-blue-600 ml-1">Auto Ready</span>
                               </div>
                             )}
                           </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-blue-600">{opp.opportunityScore}</div>
-                            <p className="text-xs text-gray-500">Opportunity Score</p>
-                          </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
+                  </div>
+                )}
+                
+                {/* Pagination Controls */}
+                {pagination.totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                    <div className="flex items-center text-sm text-gray-600">
+                      Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} products total)
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={!pagination.hasPreviousPage || opportunitiesLoading}
+                        data-testid="pagination-prev"
+                      >
+                        Previous
+                      </Button>
+                      {/* Page numbers */}
+                      {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                        const page = i + 1;
+                        return (
+                          <Button
+                            key={page}
+                            variant={pagination.currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            disabled={opportunitiesLoading}
+                            data-testid={`pagination-${page}`}
+                          >
+                            {page}
+                          </Button>
+                        );
+                      })}
+                      {pagination.totalPages > 5 && (
+                        <>
+                          <span className="text-gray-400">...</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(pagination.totalPages)}
+                            disabled={opportunitiesLoading}
+                            data-testid={`pagination-${pagination.totalPages}`}
+                          >
+                            {pagination.totalPages}
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
+                        disabled={!pagination.hasNextPage || opportunitiesLoading}
+                        data-testid="pagination-next"
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>

@@ -230,17 +230,50 @@ router.get('/enhanced-opportunities', async (req, res) => {
   try {
     const { 
       limit = 50, 
+      page = 1,
       category, 
       risk_level = 'medium',
       min_opportunity_score = 20,
       min_confidence = 50 
     } = req.query;
+    
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.max(1, Math.min(1000, Number(limit))); // Cap at 1000
+    const offset = (pageNum - 1) * limitNum;
 
     console.log('🔍 Analyzing enhanced purchasing opportunities...');
-    console.log('Query parameters:', { limit, category, risk_level, min_opportunity_score, min_confidence });
+    console.log('Query parameters:', { limit: limitNum, page: pageNum, offset, category, risk_level, min_opportunity_score, min_confidence });
 
     // Import the confidence calculation function
     const { calculateMatchConfidenceV2 } = await import('../utils/asin-confidence-matcher.js');
+
+    // First, get the total count for pagination
+    const totalCountQuery = await db.execute(
+      sql`
+        WITH ranked_opportunities AS (
+          SELECT 
+            COALESCE(p.upc, p.usin) as upc,
+            ROW_NUMBER() OVER (
+              PARTITION BY COALESCE(p.upc, p.usin) 
+              ORDER BY ami.opportunity_score DESC, ami.current_price DESC NULLS LAST
+            ) as row_num
+          FROM products p
+          INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
+          INNER JOIN amazon_market_intelligence ami ON pam.asin = ami.asin
+          WHERE COALESCE(p.upc, p.usin) IS NOT NULL
+            AND p.manufacturer_part_number IS NOT NULL
+            AND p.cost IS NOT NULL
+            AND p.price IS NOT NULL
+            AND ami.opportunity_score IS NOT NULL
+        )
+        SELECT COUNT(*) as total
+        FROM ranked_opportunities
+        WHERE row_num = 1
+      `
+    );
+    
+    const totalCount = totalCountQuery.rows[0]?.total || 0;
+    const totalPages = Math.ceil(totalCount / limitNum);
 
     // Get diverse products by UPC (physical product identity) with their best ASIN opportunity
     // Use DB-side window function to get one opportunity per UPC with highest opportunity score
@@ -283,7 +316,8 @@ router.get('/enhanced-opportunities', async (req, res) => {
         FROM ranked_opportunities
         WHERE row_num = 1
         ORDER BY opportunity_score DESC
-        LIMIT ${Number(limit)}
+        LIMIT ${limitNum}
+        OFFSET ${offset}
       `
     );
 
@@ -460,8 +494,18 @@ router.get('/enhanced-opportunities', async (req, res) => {
       success: true,
       opportunities: filteredOpportunities,
       analytics,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalCount,
+        limit: limitNum,
+        offset,
+        hasNextPage: pageNum < totalPages,
+        hasPreviousPage: pageNum > 1
+      },
       query: {
-        limit: Number(limit),
+        limit: limitNum,
+        page: pageNum,
         category,
         risk_level,
         min_opportunity_score: Number(min_opportunity_score),
