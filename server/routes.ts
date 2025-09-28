@@ -263,39 +263,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/suppliers", async (req, res) => {
     try {
       // Parse pagination and filter parameters
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 100;
+      const page = parseInt(req.query.page as string) || undefined;
+      const limit = parseInt(req.query.limit as string) || undefined;
       const search = req.query.search as string;
       const active = req.query.active === 'true' ? true : req.query.active === 'false' ? false : undefined;
 
+      // Check if pagination is requested (backward compatibility)
+      const isPaginationRequested = page !== undefined || limit !== undefined || search !== undefined || active !== undefined;
+
       // Use optimized query with pagination for scalability
       try {
-        const result = await PerformanceOptimizedQueries.getSuppliersOptimized({
-          page,
-          limit,
-          search,
-          active
-        });
-        res.json(result);
+        if (isPaginationRequested) {
+          // New paginated format
+          const result = await PerformanceOptimizedQueries.getSuppliersOptimized({
+            page: page || 1,
+            limit: limit || 100,
+            search,
+            active
+          });
+          res.json(result);
+        } else {
+          // Legacy format - return just array for backward compatibility
+          const result = await PerformanceOptimizedQueries.getSuppliersOptimized({
+            page: 1,
+            limit: 1000, // Return more suppliers for legacy usage
+            search,
+            active
+          });
+          res.json(result.suppliers); // Just return the array
+        }
       } catch (optimizationError) {
         console.log('Using fallback query for suppliers', optimizationError);
-        // Fallback to storage but still implement basic pagination
+        // Fallback to storage
         const suppliers = await storage.getSuppliers();
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedSuppliers = suppliers.slice(startIndex, endIndex);
         
-        res.json({
-          suppliers: paginatedSuppliers,
-          pagination: {
-            page,
-            limit,
-            totalItems: suppliers.length,
-            totalPages: Math.ceil(suppliers.length / limit),
-            hasNextPage: endIndex < suppliers.length,
-            hasPreviousPage: page > 1
-          }
-        });
+        if (isPaginationRequested) {
+          const actualPage = page || 1;
+          const actualLimit = limit || 100;
+          const startIndex = (actualPage - 1) * actualLimit;
+          const endIndex = startIndex + actualLimit;
+          const paginatedSuppliers = suppliers.slice(startIndex, endIndex);
+          
+          res.json({
+            suppliers: paginatedSuppliers,
+            pagination: {
+              page: actualPage,
+              limit: actualLimit,
+              totalItems: suppliers.length,
+              totalPages: Math.ceil(suppliers.length / actualLimit),
+              hasNextPage: endIndex < suppliers.length,
+              hasPreviousPage: actualPage > 1
+            }
+          });
+        } else {
+          // Legacy format - return just array
+          res.json(suppliers);
+        }
       }
     } catch (error) {
       handleError(res, error);
@@ -602,41 +625,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", async (req, res) => {
     try {
       // Parse pagination and filter parameters
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const page = parseInt(req.query.page as string) || undefined;
+      const limit = parseInt(req.query.limit as string) || undefined;
       const search = req.query.search as string;
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
       const status = req.query.status as string;
 
+      // Check if pagination is requested (backward compatibility)
+      const isPaginationRequested = page !== undefined || limit !== undefined || search !== undefined || categoryId !== undefined || status !== undefined;
+
       // Use optimized query with pagination for scalability
       try {
-        const result = await PerformanceOptimizedQueries.getProductsOptimized({
-          page,
-          limit,
-          search,
-          categoryId,
-          status
-        });
-        res.json(result);
+        if (isPaginationRequested) {
+          // New paginated format
+          const result = await PerformanceOptimizedQueries.getProductsOptimized({
+            page: page || 1,
+            limit: limit || 50,
+            search,
+            categoryId,
+            status
+          });
+          res.json(result);
+        } else {
+          // Legacy format - return just array for backward compatibility
+          const result = await PerformanceOptimizedQueries.getProductsOptimized({
+            page: 1,
+            limit: 100, // Return more products for legacy usage but limit for performance
+            search,
+            categoryId,
+            status
+          });
+          res.json(result.products); // Just return the array
+        }
       } catch (optimizationError) {
         console.log('Using fallback query for products', optimizationError);
-        // Fallback to storage but still implement basic pagination
+        // Fallback to storage
         const products = await storage.getProducts();
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedProducts = products.slice(startIndex, endIndex);
         
-        res.json({
-          products: paginatedProducts,
-          pagination: {
-            page,
-            limit,
-            totalItems: products.length,
-            totalPages: Math.ceil(products.length / limit),
-            hasNextPage: endIndex < products.length,
-            hasPreviousPage: page > 1
-          }
-        });
+        if (isPaginationRequested) {
+          const actualPage = page || 1;
+          const actualLimit = limit || 50;
+          const startIndex = (actualPage - 1) * actualLimit;
+          const endIndex = startIndex + actualLimit;
+          const paginatedProducts = products.slice(startIndex, endIndex);
+          
+          res.json({
+            products: paginatedProducts,
+            pagination: {
+              page: actualPage,
+              limit: actualLimit,
+              totalItems: products.length,
+              totalPages: Math.ceil(products.length / actualLimit),
+              hasNextPage: endIndex < products.length,
+              hasPreviousPage: actualPage > 1
+            }
+          });
+        } else {
+          // Legacy format - return just array (limited for performance)
+          res.json(products.slice(0, 100));
+        }
       }
     } catch (error) {
       handleError(res, error);
