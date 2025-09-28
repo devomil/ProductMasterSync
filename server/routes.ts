@@ -572,17 +572,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Products API
+  // Products API with proper pagination for million+ product scale
   app.get("/api/products", async (req, res) => {
     try {
-      // Try optimized query first, fallback to regular query
+      // Parse pagination and filter parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string;
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      const status = req.query.status as string;
+
+      // Use optimized query with pagination for scalability
       try {
-        const products = await PerformanceOptimizedQueries.getProductsOptimized();
-        res.json(products);
+        const result = await PerformanceOptimizedQueries.getProductsOptimized({
+          page,
+          limit,
+          search,
+          categoryId,
+          status
+        });
+        res.json(result);
       } catch (optimizationError) {
-        console.log('Using fallback query for products');
+        console.log('Using fallback query for products', optimizationError);
+        // Fallback to storage but still implement basic pagination
         const products = await storage.getProducts();
-        res.json(products);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedProducts = products.slice(startIndex, endIndex);
+        
+        res.json({
+          products: paginatedProducts,
+          pagination: {
+            page,
+            limit,
+            totalItems: products.length,
+            totalPages: Math.ceil(products.length / limit),
+            hasNextPage: endIndex < products.length,
+            hasPreviousPage: page > 1
+          }
+        });
       }
     } catch (error) {
       handleError(res, error);
