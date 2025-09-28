@@ -239,38 +239,50 @@ router.get('/enhanced-opportunities', async (req, res) => {
     console.log('🔍 Analyzing enhanced purchasing opportunities...');
     console.log('Query parameters:', { limit, category, risk_level, min_opportunity_score, min_confidence });
 
-    // Get diverse products with their best ASIN (highest opportunity score per product)
-    // Use a simpler approach with DISTINCT ON to get one row per product
+    // Import the confidence calculation function
+    const { calculateMatchConfidenceV2 } = await import('../utils/asin-confidence-matcher.js');
+
+    // Get diverse products by UPC (physical product identity) with their best ASIN opportunity
+    // Use DB-side window function to get one opportunity per UPC with highest opportunity score
     const enhancedQuery = await db.execute(
       sql`
-        SELECT DISTINCT ON (p.id)
-          p.id as product_id,
-          p.sku,
-          p.name,
-          p.upc,
-          p.usin,
-          p.manufacturer_part_number,
-          p.cost,
-          p.price,
-          p.category_id,
-          p.last_amazon_sync,
-          ami.asin,
-          ami.opportunity_score,
-          ami.competition_level,
-          ami.profit_margin_percent,
-          ami.current_price,
-          ami.list_price,
-          ami.in_stock,
-          ami.fulfillment_method
-        FROM products p
-        INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
-        INNER JOIN amazon_market_intelligence ami ON pam.asin = ami.asin
-        WHERE p.upc IS NOT NULL
-          AND p.manufacturer_part_number IS NOT NULL
-          AND p.cost IS NOT NULL
-          AND p.price IS NOT NULL
-          AND ami.opportunity_score IS NOT NULL
-        ORDER BY p.id, ami.opportunity_score DESC
+        WITH ranked_opportunities AS (
+          SELECT 
+            p.id as product_id,
+            p.sku,
+            p.name,
+            COALESCE(p.upc, p.usin) as upc,
+            p.usin,
+            p.manufacturer_part_number,
+            p.cost,
+            p.price,
+            p.category_id,
+            p.last_amazon_sync,
+            ami.asin,
+            ami.opportunity_score,
+            ami.competition_level,
+            ami.profit_margin_percent,
+            ami.current_price,
+            ami.list_price,
+            ami.in_stock,
+            ami.fulfillment_method,
+            ROW_NUMBER() OVER (
+              PARTITION BY COALESCE(p.upc, p.usin) 
+              ORDER BY ami.opportunity_score DESC, ami.current_price DESC NULLS LAST
+            ) as row_num
+          FROM products p
+          INNER JOIN product_asin_mapping pam ON p.id = pam.product_id
+          INNER JOIN amazon_market_intelligence ami ON pam.asin = ami.asin
+          WHERE COALESCE(p.upc, p.usin) IS NOT NULL
+            AND p.manufacturer_part_number IS NOT NULL
+            AND p.cost IS NOT NULL
+            AND p.price IS NOT NULL
+            AND ami.opportunity_score IS NOT NULL
+        )
+        SELECT *
+        FROM ranked_opportunities
+        WHERE row_num = 1
+        ORDER BY opportunity_score DESC
         LIMIT ${Number(limit)}
       `
     );
@@ -302,13 +314,13 @@ router.get('/enhanced-opportunities', async (req, res) => {
       const amazonROI = internalCosts.totalInternalCost > 0 ? (amazonNetProfit / internalCosts.totalInternalCost * 100) : 0;
       
       // Enhanced opportunity scoring
-      let enhancedOpportunityScore = product.opportunityScore || 0;
+      let enhancedOpportunityScore = product.opportunity_score || 0;
       
       // Use V2 deterministic confidence calculation
       // Simulate the product and ASIN data for confidence matcher
       const catalogProduct = {
         upc: product.upc || product.usin,
-        manufacturerPartNumber: product.manufacturerPartNumber,
+        manufacturerPartNumber: product.manufacturer_part_number,
         name: product.name,
         description: product.name
       };
@@ -316,12 +328,11 @@ router.get('/enhanced-opportunities', async (req, res) => {
       const amazonAsinData = {
         asin: product.asin,
         upc: product.upc || product.usin, // Assuming same UPC for matched products
-        manufacturerPartNumber: product.manufacturerPartNumber, // Assuming matched MPN
+        manufacturerPartNumber: product.manufacturer_part_number, // Assuming matched MPN
         title: product.name // Using product name as title for now
       };
       
-      // Import and use the V2 confidence calculation
-      const { calculateMatchConfidenceV2 } = require('../utils/asin-confidence-matcher');
+      // Use the V2 confidence calculation
       const confidenceResult = calculateMatchConfidenceV2(catalogProduct, amazonAsinData);
       const matchConfidence = confidenceResult.confidenceScore;
       
@@ -335,16 +346,16 @@ router.get('/enhanced-opportunities', async (req, res) => {
       if (matchConfidence >= 85) automationFlags.push('HIGH_CONFIDENCE_MATCH');
       if (amazonProfitMargin > 50) automationFlags.push('HIGH_PROFIT_OPPORTUNITY');
       if (amazonNetProfit > 10) automationFlags.push('PROFITABLE_OPPORTUNITY');
-      if (product.inStock && product.fulfillmentMethod === 'FBA') automationFlags.push('FBA_READY');
+      if (product.in_stock && product.fulfillment_method === 'FBA') automationFlags.push('FBA_READY');
       if (enhancedOpportunityScore > 80) automationFlags.push('PRIORITY_OPPORTUNITY');
       if (amazonFees.feePercentage < 20) automationFlags.push('LOW_FEES');
       
       return {
-        productId: product.productId,
+        productId: product.product_id,
         sku: product.sku,
         productName: product.name,
         upc: product.upc || product.usin,
-        manufacturerPartNumber: product.manufacturerPartNumber,
+        manufacturerPartNumber: product.manufacturer_part_number,
         asin: product.asin,
         
         // Internal cost breakdown
@@ -371,7 +382,7 @@ router.get('/enhanced-opportunities', async (req, res) => {
         // Pricing intelligence
         internalPrice: internalPrice,
         amazonCurrentPrice: amazonPrice,
-        amazonListPrice: parseFloat(product.listPrice || '0') / 100,
+        amazonListPrice: parseFloat(product.list_price || '0') / 100,
         amazonNetProceeds: amazonFees.netProceeds,
         
         // Profit analysis
@@ -383,13 +394,13 @@ router.get('/enhanced-opportunities', async (req, res) => {
         // Opportunity scoring
         opportunityScore: enhancedOpportunityScore,
         matchConfidence,
-        competitionLevel: product.competitionLevel || 'unknown',
+        competitionLevel: product.competition_level || 'unknown',
         riskLevel,
         
         // Market intelligence
-        inStock: product.inStock,
-        fulfillmentMethod: product.fulfillmentMethod,
-        lastAmazonSync: product.lastAmazonSync,
+        inStock: product.in_stock,
+        fulfillmentMethod: product.fulfillment_method,
+        lastAmazonSync: product.last_amazon_sync,
         
         // AI recommendations
         automationFlags,
@@ -398,10 +409,10 @@ router.get('/enhanced-opportunities', async (req, res) => {
         // Data quality indicators
         dataCompleteness: {
           hasUPC: !!(product.upc || product.usin),
-          hasMPN: !!product.manufacturerPartNumber,
+          hasMPN: !!product.manufacturer_part_number,
           hasPricing: !!(productCost > 0 && internalPrice > 0),
           hasAmazonData: !!product.asin,
-          amazonSynced: !!product.lastAmazonSync
+          amazonSynced: !!product.last_amazon_sync
         }
       };
     }).filter(opportunity => opportunity !== null); // Filter out null opportunities
