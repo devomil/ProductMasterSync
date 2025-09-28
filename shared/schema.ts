@@ -72,7 +72,7 @@ export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   code: text("code").notNull(),
-  parentId: integer("parent_id").references(() => categories.id),
+  parentId: integer("parent_id"),
   level: integer("level").default(0),
   path: text("path"),
   attributes: json("attributes").default({}),
@@ -359,7 +359,7 @@ export const dataSourcePaths = pgTable("data_source_paths", {
   customSchedule: text("custom_schedule"), // Cron expression for custom schedules
   
   // Processing dependencies - ensures catalog files process before inventory
-  dependsOnPathId: integer("depends_on_path_id").references(() => dataSourcePaths.id),
+  dependsOnPathId: integer("depends_on_path_id"),
   processingDelayMinutes: integer("processing_delay_minutes").default(0),
   
   // Status tracking
@@ -411,8 +411,8 @@ export const dataPullJobs = pgTable("data_pull_jobs", {
   lastModified: timestamp("last_modified"),
   
   // Dependency tracking
-  dependsOnJobId: integer("depends_on_job_id").references(() => dataPullJobs.id),
-  triggeredByJobId: integer("triggered_by_job_id").references(() => dataPullJobs.id),
+  dependsOnJobId: integer("depends_on_job_id"),
+  triggeredByJobId: integer("triggered_by_job_id"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

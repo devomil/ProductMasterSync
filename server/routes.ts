@@ -29,7 +29,9 @@ import {
   exportsTable,
   approvals,
   mappingTemplates,
-  suppliers
+  suppliers,
+  amazonAsins,
+  amazonMarketIntelligence
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -1322,27 +1324,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (dataSource.type === 'sftp' && config?.host && config?.username) {
         try {
-          const { createConnector } = await import('./utils/connectors.js');
-          const connector = createConnector('sftp', config);
-          
-          // Test connection first
-          const connectionResult = await connector.test_connection();
-          if (!connectionResult.success) {
-            throw new Error(`SFTP connection failed: ${connectionResult.message}`);
-          }
-
-          // Pull sample data with the requested limit
-          const sampleResult = await connector.pull_sample_data(requestedLimit);
-          
-          if (sampleResult.success && sampleResult.sample_data?.length > 0) {
-            res.json({ 
-              success: true, 
-              data: sampleResult.sample_data,
-              totalRecords: sampleResult.sample_data.length,
-              source: 'sftp'
-            });
-            return;
-          }
+          // Note: Using Python connector via subprocess (placeholder for now)
+          // const { createConnector } = await import('./utils/connectors.js');
+          // TODO: Implement JavaScript connector or use Python subprocess
+          throw new Error("SFTP connector not implemented in JavaScript version");
         } catch (sftpError) {
           console.error("SFTP sample pull failed:", sftpError);
           // Continue to fallback below
@@ -1388,7 +1373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return;
               
             } catch (csvError) {
-              console.error(`CSV parsing failed for ${catalogPath}:`, csvError.message);
+              console.error(`CSV parsing failed for ${catalogPath}:`, (csvError as Error).message);
               continue; // Try next file
             }
           }
@@ -2078,7 +2063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Weight-based additional charges
       if (weight && weight > 100) {
         method = "call_for_pricing";
-        shippingCost = "Call for pricing";
+        // shippingCost = "Call for pricing"; // Return special response for heavy items
       } else if (weight && weight > 20) {
         shippingCost = Math.max(shippingCost, 49.99);
       }
@@ -2091,13 +2076,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shippingCost = typeof shippingCost === 'number' ? shippingCost + 15 : shippingCost;
       }
 
+      // Handle special case for heavy items
+      if (weight && weight > 100) {
+        res.json({
+          supplierId,
+          shippingCost: "Call for pricing",
+          method: "call_for_pricing",
+          reason: "Item exceeds weight limit"
+        });
+        return;
+      }
+
       res.json({
         supplierId,
         shippingCost,
         method,
         breakdown: {
           baseCost: cost <= 100 ? 15.99 : cost <= 500 ? 9.99 : 0,
-          weightSurcharge: weight > 20 ? (weight > 100 ? "Call for pricing" : 49.99 - (cost <= 100 ? 15.99 : 9.99)) : 0,
+          weightSurcharge: weight > 20 ? 49.99 - (cost <= 100 ? 15.99 : 9.99) : 0,
           oversizedSurcharge: isOversized ? 25 : 0,
           hazmatSurcharge: isHazmat ? 15 : 0
         }
@@ -2481,7 +2477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(automations);
     } catch (error) {
       console.error('Error fetching automations:', error);
-      res.status(500).json({ error: 'Failed to fetch automations', details: error.message });
+      res.status(500).json({ error: 'Failed to fetch automations', details: (error as Error).message });
     }
   });
 
