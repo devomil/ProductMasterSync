@@ -35,18 +35,44 @@ interface PurchasingOpportunity {
   upc: string;
   manufacturerPartNumber: string;
   asin: string;
-  internalCost: number;
+  
+  // Enhanced cost breakdown
+  internalCosts: {
+    productCost: number;
+    shippingCost: number;
+    handlingFee: number;
+    totalInternalCost: number;
+  };
+  
+  // Amazon fee breakdown
+  amazonFees: {
+    referralFee: number;
+    fulfillmentFee: number;
+    storageFee: number;
+    totalFees: number;
+    feePercentage: number;
+  };
+  
+  // Pricing data
   internalPrice: number;
   amazonCurrentPrice: number;
   amazonListPrice: number;
+  amazonNetProceeds: number;
+  
+  // Enhanced profit analysis
   internalProfitMargin: number;
   amazonProfitMargin: number;
+  amazonNetProfit: number;
+  amazonROI: number;
+  
+  // Decision support
   opportunityScore: number;
   matchConfidence: number;
   competitionLevel: string;
   riskLevel: string;
   recommendedAction: string;
   automationFlags: string[];
+  
   dataCompleteness: {
     hasUPC: boolean;
     hasMPN: boolean;
@@ -368,16 +394,45 @@ export default function PurchasingAI() {
                                 {opp.matchConfidence}% confidence
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+                              {/* Product Information */}
                               <div>
+                                <h5 className="font-medium text-gray-700 mb-1">Product Info</h5>
                                 <p><span className="font-medium">UPC:</span> {opp.upc || 'N/A'}</p>
                                 <p><span className="font-medium">MPN:</span> {opp.manufacturerPartNumber || 'N/A'}</p>
                                 <p><span className="font-medium">ASIN:</span> {opp.asin || 'N/A'}</p>
                               </div>
+                              
+                              {/* Cost Analysis */}
                               <div>
-                                <p><span className="font-medium">Internal:</span> ${opp.internalCost} → ${opp.internalPrice} ({opp.internalProfitMargin}%)</p>
-                                <p><span className="font-medium">Amazon:</span> ${opp.amazonCurrentPrice || 'N/A'} ({opp.amazonProfitMargin}%)</p>
-                                <p><span className="font-medium">Action:</span> {opp.recommendedAction}</p>
+                                <h5 className="font-medium text-gray-700 mb-1">Cost Breakdown</h5>
+                                <p><span className="font-medium">Product:</span> ${opp.internalCosts?.productCost?.toFixed(2) || 'N/A'}</p>
+                                <p><span className="font-medium">Shipping:</span> ${opp.internalCosts?.shippingCost?.toFixed(2) || 'N/A'}</p>
+                                <p><span className="font-medium">Handling:</span> ${opp.internalCosts?.handlingFee?.toFixed(2) || 'N/A'}</p>
+                                <p className="font-semibold border-t pt-1"><span className="font-medium">Total Cost:</span> ${opp.internalCosts?.totalInternalCost?.toFixed(2) || 'N/A'}</p>
+                              </div>
+                              
+                              {/* Amazon Analysis */}
+                              <div>
+                                <h5 className="font-medium text-gray-700 mb-1">Amazon Analysis</h5>
+                                <p><span className="font-medium">Amazon Price:</span> ${opp.amazonCurrentPrice?.toFixed(2) || 'N/A'}</p>
+                                <p><span className="font-medium">Amazon Fees:</span> ${opp.amazonFees?.totalFees?.toFixed(2) || 'N/A'} ({opp.amazonFees?.feePercentage?.toFixed(1) || 'N/A'}%)</p>
+                                <p><span className="font-medium">Net Proceeds:</span> ${opp.amazonNetProceeds?.toFixed(2) || 'N/A'}</p>
+                                <p className="font-semibold text-green-600"><span className="font-medium">Net Profit:</span> ${opp.amazonNetProfit?.toFixed(2) || 'N/A'} ({opp.amazonProfitMargin?.toFixed(1) || 'N/A'}%)</p>
+                              </div>
+                            </div>
+                            
+                            {/* Action Summary */}
+                            <div className="mt-3 pt-2 border-t border-gray-100">
+                              <div className="flex items-center justify-between text-sm">
+                                <span><span className="font-medium">ROI:</span> {opp.amazonROI?.toFixed(1) || 'N/A'}%</span>
+                                <span><span className="font-medium">Action:</span> 
+                                  <Badge className={opp.recommendedAction === 'PROCEED' ? 'bg-green-100 text-green-800 ml-1' : 
+                                                  opp.recommendedAction === 'REVIEW' ? 'bg-yellow-100 text-yellow-800 ml-1' : 
+                                                  'bg-red-100 text-red-800 ml-1'}>
+                                    {opp.recommendedAction}
+                                  </Badge>
+                                </span>
                               </div>
                             </div>
                             {opp.automationFlags.length > 0 && (
