@@ -44,5 +44,13 @@ externalPort = 8000
 localPort = 33447
 externalPort = 3000
 
+[[ports]]
+localPort = 41555
+externalPort = 3001
+
+[[ports]]
+localPort = 46207
+externalPort = 3002
+
 [agent]
 integrations = ["javascript_anthropic==1.0.0"]

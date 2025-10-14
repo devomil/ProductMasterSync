@@ -44,6 +44,7 @@ import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
 import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
+import FieldMappingDocs from "@/pages/FieldMappingDocs";
 
 // Lazy load AmazonScalingProgress
 const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
@@ -99,6 +100,7 @@ function Router() {
       <Route path="/marketplace-amazon" component={MarketplaceAmazon} />
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />
       <Route path="/marketplaces/:marketplace" component={() => <div className="container mx-auto p-6"><div className="text-center"><h1 className="text-2xl font-bold mb-4">Marketplace Integration</h1><p className="text-muted-foreground">This marketplace integration is coming soon...</p></div></div>} />
+      <Route path="/field-mapping-docs" component={FieldMappingDocs} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

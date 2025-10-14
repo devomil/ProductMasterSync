@@ -14,7 +14,11 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with custom design tokens.
 - **State Management**: TanStack Query for server state.
 - **Build Tool**: Vite.
-- **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features like table view optimization (compact, comfortable, spacious modes) and quick filter chips enhance user interaction. Warehouse Detail Modal uses a tabbed interface for logical data organization and real-time calculations.
+- **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features include:
+  - **Purchasing AI Catalog**: Modern grid layout (1-4 columns) with server-side pagination, Amazon images, ROI badges, and accessibility features
+  - **Table Views**: Optimization modes (compact, comfortable, spacious) with quick filter chips
+  - **Documentation**: Interactive field mapping reference with categorized fields, type badges, and usage examples
+  - **Data Modals**: Tabbed interfaces for logical organization with real-time calculations
 
 ## Technical Implementations
 - **Backend API (Primary)**: Node.js with Express and TypeScript (Node.js 20, ES modules).
@@ -30,7 +34,8 @@ Preferred communication style: Simple, everyday language.
     - **Inventory Management**: Automated data pull jobs, scheduling (catalog, inventory files), dependency management, error handling, and real-time monitoring. Supports per-file path automation with individual scheduling controls.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations, editor with detailed rule configuration.
     - **EDC SKU Generation**: Unique sequential SKU system independent of supplier part numbers.
-    - **Field Mapping Walkthrough**: Guides users through required field mappings for Master Catalog and product details, including EDC SKU auto-generation.
+    - **Field Mapping System**: Comprehensive two-tier mapping structure with Master Catalog (core listing fields) and Product Details (extended information). Includes interactive walkthrough, auto-mapping, and comprehensive documentation.
+    - **Field Mapping Documentation**: Complete reference guide (`/field-mapping-docs`) documenting all 35+ catalog fields and 25+ detail fields organized by category with field types, requirements, descriptions, and examples.
     - **Performance Optimization**: Implemented intelligent caching and optimized queries for sub-second API responses.
 
 ## System Design
