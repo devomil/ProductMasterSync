@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -826,6 +827,12 @@ export default function DataSources() {
           <p className="text-gray-500">Manage your data connections and sources</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/field-mapping-docs">
+            <Button variant="outline" className="gap-2" data-testid="button-field-mapping-docs">
+              <BookOpen size={16} />
+              Field Mapping Docs
+            </Button>
+          </Link>
           <Button 
             variant="outline" 
             onClick={handleDeduplicate}
