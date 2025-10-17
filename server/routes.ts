@@ -793,7 +793,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Product not found" });
       }
       
-      res.json(product);
+      // Ensure camelCase fields for frontend compatibility (production fix)
+      const response = {
+        ...product,
+        imageUrl: product.imageUrl || product['image_url'],
+        imageUrlLarge: product.imageUrlLarge || product['image_url_large'],
+        primaryImage: product.primaryImage || product['primary_image']
+      };
+      
+      res.json(response);
     } catch (error) {
       handleError(res, error);
     }
