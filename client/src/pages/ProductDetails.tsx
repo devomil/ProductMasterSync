@@ -377,27 +377,42 @@ export default function ProductDetails() {
         <div className="col-span-1">
           <Card className="overflow-hidden">
             <div className="relative pb-[100%]">
-              <img 
-                src={product.imageUrl} 
-                alt={product.name}
-                className="absolute inset-0 w-full h-full object-cover"
-                onLoad={() => console.log('Main image loaded:', product.imageUrl)}
-                onError={(e) => {
-                  console.log('Main image failed to load:', product.imageUrl);
-                  // Try the large version if available
-                  if (product.imageUrlLarge && e.currentTarget.src !== product.imageUrlLarge) {
-                    console.log('Trying large image:', product.imageUrlLarge);
-                    e.currentTarget.src = product.imageUrlLarge;
-                  } else {
-                    // Show a simple error state instead of placeholder
-                    e.currentTarget.style.display = 'none';
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500';
-                    errorDiv.textContent = 'Image not available';
-                    e.currentTarget.parentNode?.appendChild(errorDiv);
-                  }
-                }}
-              />
+              {product.imageUrl || product.imageUrlLarge || product.primaryImage ? (
+                <img 
+                  src={product.imageUrl || product.imageUrlLarge || product.primaryImage} 
+                  alt={product.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onLoad={() => console.log('Main image loaded:', product.imageUrl || product.imageUrlLarge)}
+                  onError={(e) => {
+                    console.log('Main image failed to load:', product.imageUrl);
+                    // Try the large version if available
+                    if (product.imageUrlLarge && e.currentTarget.src !== product.imageUrlLarge) {
+                      console.log('Trying large image:', product.imageUrlLarge);
+                      e.currentTarget.src = product.imageUrlLarge;
+                    } else if (product.primaryImage && e.currentTarget.src !== product.primaryImage) {
+                      console.log('Trying primary image:', product.primaryImage);
+                      e.currentTarget.src = product.primaryImage;
+                    } else {
+                      // Show a simple error state instead of placeholder
+                      e.currentTarget.style.display = 'none';
+                      const errorDiv = document.createElement('div');
+                      errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500';
+                      errorDiv.innerHTML = '<div class="text-center"><div class="text-sm font-medium">Image not available</div><div class="text-xs mt-1">Run supplier import to sync images</div></div>';
+                      e.currentTarget.parentNode?.appendChild(errorDiv);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
+                  <div className="text-center p-4">
+                    <div className="text-sm font-medium mb-2">No Image Available</div>
+                    <div className="text-xs text-gray-400">
+                      This product doesn't have image URLs in the database.
+                      <br />Run supplier data import to sync product images.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
           
