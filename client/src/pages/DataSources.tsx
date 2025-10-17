@@ -409,6 +409,7 @@ export default function DataSources() {
   const [showSampleSizeDialog, setShowSampleSizeDialog] = useState(false);
   const [selectedDataSourceForSample, setSelectedDataSourceForSample] = useState<DataSource | null>(null);
   const [sampleSize, setSampleSize] = useState(50);
+  const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -517,14 +518,14 @@ export default function DataSources() {
   // Mutation for removing duplicate products
   const deduplicateMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/products/deduplicate", {});
+      const response = await apiRequest("POST", "/api/products/deduplicate", { confirm: true });
       return response;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       toast({
         title: "Duplicates Removed",
-        description: `Removed ${data.duplicatesRemoved || 0} duplicate products. ${data.productsKept || 0} unique products remain.`
+        description: `Removed ${data.removedCount || 0} duplicate products`
       });
     },
     onError: (error) => {
@@ -536,8 +537,39 @@ export default function DataSources() {
     }
   });
 
+  // Mutation for clearing all products
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/products/clear-all", { confirm: true });
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      setShowClearConfirmDialog(false);
+      toast({
+        title: "Database Cleared",
+        description: `Successfully removed all ${data.deletedCount || 0} products`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to clear products",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleDeduplicate = () => {
     deduplicateMutation.mutate();
+  };
+
+  const handleClearAll = () => {
+    setShowClearConfirmDialog(true);
+  };
+
+  const confirmClearAll = () => {
+    clearAllMutation.mutate();
   };
 
   const handleDataSourceCreated = (newDataSource: any) => {
@@ -799,16 +831,66 @@ export default function DataSources() {
             onClick={handleDeduplicate}
             className="gap-2"
             disabled={deduplicateMutation.isPending}
+            data-testid="button-remove-duplicates"
           >
             <Trash2 size={16} />
-            {deduplicateMutation.isPending ? "Removing Duplicates..." : "Remove Duplicates"}
+            {deduplicateMutation.isPending ? "Removing..." : "Remove Duplicates"}
           </Button>
-          <Button onClick={() => setShowWizard(true)} className="gap-2">
+          <Button 
+            variant="destructive" 
+            onClick={handleClearAll}
+            className="gap-2"
+            disabled={clearAllMutation.isPending}
+            data-testid="button-clear-all"
+          >
+            <Database size={16} />
+            {clearAllMutation.isPending ? "Clearing..." : "Clear All Products"}
+          </Button>
+          <Button onClick={() => setShowWizard(true)} className="gap-2" data-testid="button-add-data-source">
             <Plus size={16} />
             Add Data Source
           </Button>
         </div>
       </div>
+
+      {/* Clear All Confirmation Dialog */}
+      <Dialog open={showClearConfirmDialog} onOpenChange={setShowClearConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear All Products?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete all products from the database. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 my-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <p className="font-medium mb-1">Warning: This is a destructive operation</p>
+                <p>All product data, including images, pricing, and inventory information will be permanently removed.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowClearConfirmDialog(false)}
+              disabled={clearAllMutation.isPending}
+              data-testid="button-cancel-clear"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmClearAll}
+              disabled={clearAllMutation.isPending}
+              data-testid="button-confirm-clear"
+            >
+              {clearAllMutation.isPending ? "Clearing..." : "Yes, Clear All Products"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {isLoadingDataSources ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

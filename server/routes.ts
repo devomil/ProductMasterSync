@@ -567,37 +567,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // De-duplication tool - removes duplicate products based on USIN or name similarity
+  // De-duplication tool - removes duplicate products based on UPC
+  // ADMIN ONLY: This endpoint should be protected with authentication in production
   app.post('/api/products/deduplicate', async (req, res) => {
     try {
+      // Require confirmation in request body
+      if (req.body.confirm !== true) {
+        return res.status(400).json({
+          success: false,
+          message: 'Confirmation required. Send { confirm: true } in request body.'
+        });
+      }
+
       console.log('Starting product de-duplication...');
       
-      // Find duplicates by USIN
-      const duplicatesByUSIN = await db
+      // Find duplicates by UPC (most reliable unique identifier)
+      const duplicatesByUPC = await db
         .select({
-          usin: products.usin,
+          upc: products.upc,
           count: sql<number>`count(*)`,
-          ids: sql<number[]>`array_agg(id ORDER BY created_at ASC)`
+          ids: sql<number[]>`array_agg(id ORDER BY id ASC)`
         })
         .from(products)
         .where(and(
-          not(isNull(products.usin)),
-          not(eq(products.usin, ''))
+          not(isNull(products.upc)),
+          not(eq(products.upc, ''))
         ))
-        .groupBy(products.usin)
+        .groupBy(products.upc)
         .having(sql`count(*) > 1`);
       
       let removedCount = 0;
       
-      // Remove duplicates, keep the first (oldest) product for each USIN
-      for (const duplicate of duplicatesByUSIN) {
+      // Remove duplicates and related data, keep the first product for each UPC
+      for (const duplicate of duplicatesByUPC) {
         const idsToRemove = duplicate.ids.slice(1); // Keep first, remove rest
         
-        console.log(`Removing ${idsToRemove.length} duplicates for USIN: ${duplicate.usin}`);
+        console.log(`Removing ${idsToRemove.length} duplicates for UPC: ${duplicate.upc}`);
         
-        await db
-          .delete(products)
-          .where(sql`id = ANY(${idsToRemove})`);
+        for (const id of idsToRemove) {
+          // Delete related Amazon data first (foreign key dependency)
+          await db.delete(amazonAsins).where(eq(amazonAsins.productId, id));
+          await db.delete(amazonMarketIntelligence).where(eq(amazonMarketIntelligence.productId, id));
+          
+          // Now delete the product
+          await db.delete(products).where(eq(products.id, id));
+        }
         
         removedCount += idsToRemove.length;
       }
@@ -608,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: `Successfully removed ${removedCount} duplicate products`,
         removedCount,
-        duplicateGroups: duplicatesByUSIN.length
+        duplicateGroups: duplicatesByUPC.length
       });
       
     } catch (error) {
@@ -616,6 +630,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: 'Failed to de-duplicate products',
+        error: (error as Error).message 
+      });
+    }
+  });
+
+  // Clear all products - useful for testing and resetting data
+  // ADMIN ONLY: This endpoint should be protected with authentication in production
+  app.post('/api/products/clear-all', async (req, res) => {
+    try {
+      // Require confirmation in request body
+      if (req.body.confirm !== true) {
+        return res.status(400).json({
+          success: false,
+          message: 'Confirmation required. Send { confirm: true } in request body.'
+        });
+      }
+
+      console.log('Clearing all products from database...');
+      
+      // Get count before deletion
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(products);
+      const totalProducts = countResult[0]?.count || 0;
+      
+      // Delete related data first to respect foreign key constraints
+      console.log('Deleting related Amazon data...');
+      await db.delete(amazonAsins);
+      await db.delete(amazonMarketIntelligence);
+      
+      // Delete all products
+      console.log('Deleting all products...');
+      await db.delete(products);
+      
+      console.log(`Successfully cleared ${totalProducts} products and related data`);
+      
+      res.json({
+        success: true,
+        message: `Successfully cleared ${totalProducts} products from database`,
+        deletedCount: totalProducts
+      });
+      
+    } catch (error) {
+      console.error('Clear all products error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to clear products',
         error: (error as Error).message 
       });
     }
