@@ -496,9 +496,9 @@ export default function DataSources() {
       const response = await apiRequest("POST", `/api/datasources/${dataSourceId}/sample-pull-with-mapping`, { 
         limit 
       });
-      return response;
+      return response as any;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       setShowSampleSizeDialog(false);
       setSelectedDataSourceForSample(null);
@@ -520,9 +520,9 @@ export default function DataSources() {
   const deduplicateMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/products/deduplicate", { confirm: true });
-      return response;
+      return response as any;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       toast({
         title: "Duplicates Removed",
@@ -542,9 +542,9 @@ export default function DataSources() {
   const clearAllMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/products/clear-all", { confirm: true });
-      return response;
+      return response as any;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       setShowClearConfirmDialog(false);
       toast({
