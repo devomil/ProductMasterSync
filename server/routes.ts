@@ -659,23 +659,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalProducts = countResult[0]?.count || 0;
       
       // Delete related data first to respect foreign key constraints
-      console.log('Deleting product-related data...');
-      await db.delete(productAsinMapping);
+      // Use try-catch for each table to handle cases where tables don't exist yet
       
-      console.log('Deleting Amazon market intelligence...');
-      await db.delete(amazonMarketIntelligence);
+      try {
+        console.log('Deleting product-related data...');
+        await db.delete(productAsinMapping);
+      } catch (e) {
+        console.log('productAsinMapping table does not exist or is empty, skipping...');
+      }
       
-      console.log('Deleting Amazon price history...');
-      await db.delete(amazonPriceHistory);
+      try {
+        console.log('Deleting Amazon market intelligence...');
+        await db.delete(amazonMarketIntelligence);
+      } catch (e) {
+        console.log('amazonMarketIntelligence table does not exist or is empty, skipping...');
+      }
       
-      console.log('Deleting sales rankings...');
-      await db.delete(salesRankings);
+      try {
+        console.log('Deleting product restrictions...');
+        await db.delete(productRestrictions);
+      } catch (e) {
+        console.log('productRestrictions table does not exist or is empty, skipping...');
+      }
       
-      console.log('Deleting product restrictions...');
-      await db.delete(productRestrictions);
-      
-      console.log('Deleting Amazon ASINs...');
-      await db.delete(amazonAsins);
+      try {
+        console.log('Deleting Amazon ASINs...');
+        await db.delete(amazonAsins);
+      } catch (e) {
+        console.log('amazonAsins table does not exist or is empty, skipping...');
+      }
       
       // Delete all products
       console.log('Deleting all products...');
