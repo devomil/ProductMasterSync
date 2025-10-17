@@ -31,7 +31,11 @@ import {
   mappingTemplates,
   suppliers,
   amazonAsins,
-  amazonMarketIntelligence
+  amazonMarketIntelligence,
+  productAsinMapping,
+  amazonPriceHistory,
+  salesRankings,
+  productRestrictions
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -605,9 +609,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Removing ${idsToRemove.length} duplicates for UPC: ${duplicate.upc}`);
         
         for (const id of idsToRemove) {
-          // Delete related Amazon data first (foreign key dependency)
-          await db.delete(amazonAsins).where(eq(amazonAsins.productId, id));
-          await db.delete(amazonMarketIntelligence).where(eq(amazonMarketIntelligence.productId, id));
+          // Delete related Amazon product mappings (foreign key dependency)
+          await db.delete(productAsinMapping).where(eq(productAsinMapping.productId, id));
           
           // Now delete the product
           await db.delete(products).where(eq(products.id, id));
@@ -656,9 +659,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalProducts = countResult[0]?.count || 0;
       
       // Delete related data first to respect foreign key constraints
-      console.log('Deleting related Amazon data...');
-      await db.delete(amazonAsins);
+      console.log('Deleting product-related data...');
+      await db.delete(productAsinMapping);
+      
+      console.log('Deleting Amazon market intelligence...');
       await db.delete(amazonMarketIntelligence);
+      
+      console.log('Deleting Amazon price history...');
+      await db.delete(amazonPriceHistory);
+      
+      console.log('Deleting sales rankings...');
+      await db.delete(salesRankings);
+      
+      console.log('Deleting product restrictions...');
+      await db.delete(productRestrictions);
+      
+      console.log('Deleting Amazon ASINs...');
+      await db.delete(amazonAsins);
       
       // Delete all products
       console.log('Deleting all products...');
