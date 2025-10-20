@@ -175,12 +175,13 @@ export default function MappingTemplateEditor() {
       });
       
       // Convert mappings to field mappings array
+      // Note: mappings are stored as {targetField: sourceField} in the database
       const mappings = templateData.mappings;
       let mappingsArray: Array<{sourceField: string, targetField: string}> = [];
       
       if (mappings && typeof mappings === 'object' && Object.keys(mappings).length > 0) {
         mappingsArray = Object.entries(mappings).map(
-          ([sourceField, targetField]) => ({
+          ([targetField, sourceField]) => ({
             sourceField: sourceField as string,
             targetField: targetField as string
           })
@@ -496,11 +497,12 @@ export default function MappingTemplateEditor() {
       return;
     }
     
-    // Convert field mappings to mappings record (sourceField -> targetField format)
+    // Convert field mappings to mappings record (targetField -> sourceField format)
+    // Note: We store mappings as {targetField: sourceField} in the database
     const mappings: Record<string, string> = {};
     fieldMappings.forEach(mapping => {
       if (mapping.sourceField && mapping.targetField) {
-        mappings[mapping.sourceField] = mapping.targetField;
+        mappings[mapping.targetField] = mapping.sourceField;
       }
     });
     
