@@ -38,6 +38,13 @@ Preferred communication style: Simple, everyday language.
       - **Dual Editor Interfaces**: Full-page editor (`/mapping-templates/:id`) with dropdown selectors, sample data preview, and unmapped field tracking; Quick-edit modal (on `/mapping-templates`) for viewing and minor edits
       - **Unmapped CSV Column Tracking**: Displays which supplier columns haven't been mapped across both catalog and detail views
       - **Database Format**: Mappings stored as `{targetField: sourceField}` in JSONB column (e.g., `{"image_url": "Image (300x300) Url"}`)
+    - **AI-Powered Category Mapping**: Automated category mapping using Claude AI to handle product overlap and category name variances when onboarding new vendors.
+      - **Intelligent Analysis**: Analyzes product samples to detect categories, industry patterns, and suggest master category mappings with confidence scores
+      - **Google Merchant Integration**: Automatically suggests Google Merchant category taxonomy for marketplace listings
+      - **Product Overlap Detection**: Identifies duplicate products across suppliers with different naming conventions
+      - **Category Normalization**: Handles category name variances between suppliers (e.g., "Marine Navigation" vs "Nav Equipment")
+      - **Approval Workflow**: Two-tier approval system - auto-approve high-confidence mappings or flag for manual review
+      - **UI Integration**: Accessible via "AI Category Mapper" button on `/categories` page
     - **Field Mapping Documentation**: Complete reference guide (`/field-mapping-docs`) documenting all 35+ catalog fields and 25+ detail fields organized by category with field types, requirements, descriptions, and examples.
     - **Performance Optimization**: Implemented intelligent caching and optimized queries for sub-second API responses.
 
