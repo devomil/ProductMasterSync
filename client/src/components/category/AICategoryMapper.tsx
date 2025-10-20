@@ -61,8 +61,8 @@ const AICategoryMapper = () => {
   const getSuggestionsMutation = useMutation({
     mutationFn: async (supplierId: number) => {
       // Fetch products for this supplier
-      const response = await fetch(`/api/products?supplierId=${supplierId}`);
-      const supplierProducts = await response.json();
+      const productsResponse = await fetch(`/api/products?supplierId=${supplierId}`);
+      const supplierProducts = await productsResponse.json();
 
       if (!supplierProducts || supplierProducts.length === 0) {
         throw new Error('No products found for this supplier. Please pull sample data first.');
@@ -81,14 +81,12 @@ const AICategoryMapper = () => {
       }));
 
       // Call AI suggestion API
-      return apiRequest('/api/categories/ai-suggest', {
-        method: 'POST',
-        body: JSON.stringify({
-          supplierName: supplier?.name || 'Unknown Supplier',
-          supplierId: supplierId,
-          productSamples
-        })
+      const aiResponse = await apiRequest('POST', '/api/categories/ai-suggest', {
+        supplierName: supplier?.name || 'Unknown Supplier',
+        supplierId: supplierId,
+        productSamples
       });
+      return aiResponse.json();
     },
     onSuccess: (data) => {
       setSuggestions(data.suggestions || []);
@@ -109,14 +107,12 @@ const AICategoryMapper = () => {
   // Apply suggestions mutation
   const applySuggestionsMutation = useMutation({
     mutationFn: async ({ autoApprove }: { autoApprove: boolean }) => {
-      return apiRequest('/api/categories/apply-suggestions', {
-        method: 'POST',
-        body: JSON.stringify({
-          supplierId: parseInt(selectedSupplier),
-          suggestions: suggestions,
-          autoApprove
-        })
+      const response = await apiRequest('POST', '/api/categories/apply-suggestions', {
+        supplierId: parseInt(selectedSupplier),
+        suggestions: suggestions,
+        autoApprove
       });
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
