@@ -35,6 +35,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import CategoryMappingIntelligence from "@/components/category/CategoryMappingIntelligence";
+import AICategoryMapper from "@/components/category/AICategoryMapper";
 
 interface CategoryWithProductCount {
   id: number;
@@ -170,8 +171,9 @@ const Categories = () => {
     <>
       <div className="pb-5 border-b border-neutral-200 sm:flex sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-neutral-900">Categories</h1>
-        <div className="mt-3 sm:mt-0 sm:ml-4">
-          <Button>
+        <div className="mt-3 sm:mt-0 sm:ml-4 flex space-x-3">
+          <AICategoryMapper />
+          <Button variant="outline">
             <Plus className="mr-2 h-4 w-4" />
             Add Category
           </Button>
