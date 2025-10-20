@@ -736,14 +736,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `);
 
           // Update all products with this supplier category to use the master category
-          // Only update products from THIS supplier to avoid cross-contamination
+          // NOTE: Currently not filtering by supplier because product_suppliers is empty
+          // TODO: Fix sample data import to populate product_suppliers table
           const updatedProducts = await db.update(products)
             .set({ categoryId: masterCategoryId })
             .where(
-              and(
-                sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`,
-                sql`id IN (SELECT product_id FROM supplier_products WHERE supplier_id = ${supplierId})`
-              )
+              sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`
             )
             .returning({ id: products.id });
 
@@ -756,14 +754,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } else {
           // Even if mapping exists, update products to ensure they're assigned
-          // Only update products from THIS supplier to avoid cross-contamination
+          // NOTE: Currently not filtering by supplier because product_suppliers is empty
+          // TODO: Fix sample data import to populate product_suppliers table
           const updatedProducts = await db.update(products)
             .set({ categoryId: masterCategoryId })
             .where(
-              and(
-                sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`,
-                sql`id IN (SELECT product_id FROM supplier_products WHERE supplier_id = ${supplierId})`
-              )
+              sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`
             )
             .returning({ id: products.id });
 
