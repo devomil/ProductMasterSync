@@ -571,6 +571,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-Powered Category Mapping Routes
+  app.post("/api/categories/ai-suggest", async (req, res) => {
+    try {
+      const { supplierName, supplierId, productSamples } = req.body;
+      
+      if (!supplierName || !productSamples || !Array.isArray(productSamples)) {
+        return res.status(400).json({ message: "supplierName and productSamples are required" });
+      }
+
+      // Import the AI category mapper
+      const { suggestCategoryMappings } = await import('./utils/ai-category-mapper');
+      
+      // Get existing categories
+      const existingCategories = await db.select({
+        id: categories.id,
+        name: categories.name,
+        code: categories.code,
+        path: categories.path
+      }).from(categories);
+
+      // Extract unique supplier categories from products
+      const supplierCategories = Array.from(new Set(
+        productSamples.map((p: any) => p.category).filter(Boolean)
+      ));
+
+      // Get AI suggestions
+      const suggestions = await suggestCategoryMappings(
+        supplierName,
+        productSamples,
+        existingCategories,
+        supplierCategories
+      );
+
+      res.json({ success: true, suggestions });
+    } catch (error) {
+      console.error('AI category suggestion error:', error);
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/categories/google-category", async (req, res) => {
+    try {
+      const { productName, productDescription, category } = req.body;
+      
+      if (!productName) {
+        return res.status(400).json({ message: "productName is required" });
+      }
+
+      const { suggestGoogleCategory } = await import('./utils/ai-category-mapper');
+      
+      const result = await suggestGoogleCategory(productName, productDescription, category);
+      res.json(result);
+    } catch (error) {
+      console.error('Google category suggestion error:', error);
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/categories/detect-overlap", async (req, res) => {
+    try {
+      const { products1, products2, supplier1Name, supplier2Name } = req.body;
+      
+      if (!products1 || !products2 || !supplier1Name || !supplier2Name) {
+        return res.status(400).json({ 
+          message: "products1, products2, supplier1Name, and supplier2Name are required" 
+        });
+      }
+
+      const { detectProductOverlap } = await import('./utils/ai-category-mapper');
+      
+      const result = await detectProductOverlap(products1, products2, supplier1Name, supplier2Name);
+      res.json(result);
+    } catch (error) {
+      console.error('Product overlap detection error:', error);
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/categories/normalize", async (req, res) => {
+    try {
+      const { categoryVariants } = req.body;
+      
+      if (!categoryVariants || !Array.isArray(categoryVariants)) {
+        return res.status(400).json({ message: "categoryVariants array is required" });
+      }
+
+      const { normalizeCategoryNames } = await import('./utils/ai-category-mapper');
+      
+      const result = await normalizeCategoryNames(categoryVariants);
+      res.json(result);
+    } catch (error) {
+      console.error('Category normalization error:', error);
+      handleError(res, error);
+    }
+  });
+
+  // Create category mappings from AI suggestions
+  app.post("/api/categories/apply-suggestions", async (req, res) => {
+    try {
+      const { supplierId, suggestions, autoApprove } = req.body;
+      
+      if (!supplierId || !suggestions || !Array.isArray(suggestions)) {
+        return res.status(400).json({ message: "supplierId and suggestions are required" });
+      }
+
+      const results = [];
+
+      for (const suggestion of suggestions) {
+        const { supplierCategoryName, suggestions: categorySuggestions } = suggestion;
+        
+        // Use the highest confidence suggestion
+        const bestSuggestion = categorySuggestions[0];
+        if (!bestSuggestion) continue;
+
+        // Find or create the master category
+        let masterCategoryId: number;
+        
+        const existingCategory = await db.select()
+          .from(categories)
+          .where(eq(categories.name, bestSuggestion.categoryName))
+          .limit(1);
+        
+        if (existingCategory.length > 0) {
+          masterCategoryId = existingCategory[0].id;
+        } else {
+          // Create new category
+          const [newCategory] = await db.insert(categories).values({
+            name: bestSuggestion.categoryName,
+            code: bestSuggestion.categoryName.toLowerCase().replace(/\s+/g, '_'),
+            level: 0,
+            path: bestSuggestion.categoryName
+          }).returning();
+          masterCategoryId = newCategory.id;
+        }
+
+        // Check if mapping already exists
+        const existingMapping = await db.select()
+          .from(sql`supplier_category_mappings`)
+          .where(and(
+            sql`supplier_id = ${supplierId}`,
+            sql`supplier_category_name = ${supplierCategoryName}`
+          ))
+          .limit(1);
+
+        if (existingMapping.length === 0) {
+          // Create the mapping
+          await db.execute(sql`
+            INSERT INTO supplier_category_mappings (
+              supplier_id, 
+              supplier_category_name, 
+              master_category_id,
+              confidence,
+              is_approved,
+              is_auto_generated
+            ) VALUES (
+              ${supplierId},
+              ${supplierCategoryName},
+              ${masterCategoryId},
+              ${Math.round(bestSuggestion.confidence)},
+              ${autoApprove === true},
+              true
+            )
+          `);
+
+          results.push({
+            supplierCategory: supplierCategoryName,
+            masterCategory: bestSuggestion.categoryName,
+            confidence: bestSuggestion.confidence,
+            created: true
+          });
+        } else {
+          results.push({
+            supplierCategory: supplierCategoryName,
+            masterCategory: bestSuggestion.categoryName,
+            confidence: bestSuggestion.confidence,
+            created: false,
+            reason: 'Mapping already exists'
+          });
+        }
+      }
+
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error('Apply suggestions error:', error);
+      handleError(res, error);
+    }
+  });
+
   // De-duplication tool - removes duplicate products based on UPC
   // ADMIN ONLY: This endpoint should be protected with authentication in production
   app.post('/api/products/deduplicate', async (req, res) => {
