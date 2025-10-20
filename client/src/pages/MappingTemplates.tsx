@@ -95,7 +95,8 @@ export default function MappingTemplates() {
   const handleEdit = (template: MappingTemplate) => {
     setEditingTemplate(template);
     // Convert mappings object to array format
-    const mappingsArray = Object.entries(template.mappings || {}).map(([sourceField, targetField]) => ({
+    // Note: mappings are stored as {targetField: sourceField} in the database
+    const mappingsArray = Object.entries(template.mappings || {}).map(([targetField, sourceField]) => ({
       sourceField,
       targetField,
       category: getCategoryForField(targetField)
@@ -114,8 +115,9 @@ export default function MappingTemplates() {
     if (!editingTemplate) return;
     
     // Convert array back to object format
+    // Note: We store mappings as {targetField: sourceField} in the database
     const mappingsObject = editedMappings.reduce((acc, mapping) => {
-      acc[mapping.sourceField] = mapping.targetField;
+      acc[mapping.targetField] = mapping.sourceField;
       return acc;
     }, {} as Record<string, string>);
 
@@ -305,6 +307,7 @@ export default function MappingTemplates() {
                             setEditedMappings(updated);
                           }}
                           className="mt-1"
+                          placeholder="CSV column name"
                         />
                       </div>
                       <div className="text-gray-400">→</div>
@@ -318,6 +321,9 @@ export default function MappingTemplates() {
                             setEditedMappings(updated);
                           }}
                           className="mt-1"
+                          placeholder="Database field name"
+                          readOnly
+                          title="Target field is read-only. Use the full editor to change target fields."
                         />
                       </div>
                       <Badge variant="outline">

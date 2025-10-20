@@ -35,6 +35,9 @@ Preferred communication style: Simple, everyday language.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations, editor with detailed rule configuration.
     - **EDC SKU Generation**: Unique sequential SKU system independent of supplier part numbers.
     - **Field Mapping System**: Comprehensive two-tier mapping structure with Master Catalog (core listing fields) and Product Details (extended information). Includes interactive walkthrough, auto-mapping, and comprehensive documentation.
+      - **Dual Editor Interfaces**: Full-page editor (`/mapping-templates/:id`) with dropdown selectors, sample data preview, and unmapped field tracking; Quick-edit modal (on `/mapping-templates`) for viewing and minor edits
+      - **Unmapped CSV Column Tracking**: Displays which supplier columns haven't been mapped across both catalog and detail views
+      - **Database Format**: Mappings stored as `{targetField: sourceField}` in JSONB column (e.g., `{"image_url": "Image (300x300) Url"}`)
     - **Field Mapping Documentation**: Complete reference guide (`/field-mapping-docs`) documenting all 35+ catalog fields and 25+ detail fields organized by category with field types, requirements, descriptions, and examples.
     - **Performance Optimization**: Implemented intelligent caching and optimized queries for sub-second API responses.
 
