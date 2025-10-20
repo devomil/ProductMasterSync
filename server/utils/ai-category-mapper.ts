@@ -102,7 +102,12 @@ Provide 1-3 suggestions, ordered by confidence (highest first).`;
         max_tokens: 2048,
         messages: [{
           role: 'user',
-          content: prompt
+          content: [
+            {
+              type: 'text',
+              text: prompt
+            }
+          ]
         }]
       });
 
@@ -112,8 +117,15 @@ Provide 1-3 suggestions, ordered by confidence (highest first).`;
         continue;
       }
 
-      // Parse the AI response
-      const aiResult = JSON.parse(textContent.text);
+      // Parse the AI response with error handling
+      let aiResult;
+      try {
+        aiResult = JSON.parse(textContent.text);
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', textContent.text);
+        console.error('Parse error:', parseError);
+        continue;
+      }
       
       results.push({
         supplierCategoryName: supplierCategory,
@@ -158,7 +170,12 @@ Use the official Google product taxonomy. Be specific and accurate.`;
       max_tokens: 512,
       messages: [{
         role: 'user',
-        content: prompt
+        content: [
+          {
+            type: 'text',
+            text: prompt
+          }
+        ]
       }]
     });
 
@@ -167,7 +184,13 @@ Use the official Google product taxonomy. Be specific and accurate.`;
       throw new Error('Unexpected response type from AI');
     }
 
-    const result = JSON.parse(textContent.text);
+    let result;
+    try {
+      result = JSON.parse(textContent.text);
+    } catch (parseError) {
+      console.error('Failed to parse Google category response:', textContent.text);
+      throw new Error('Failed to parse AI response');
+    }
     return {
       googleCategory: result.googleCategory || '',
       confidence: result.confidence || 0
@@ -226,7 +249,12 @@ Respond with JSON:
       max_tokens: 1024,
       messages: [{
         role: 'user',
-        content: prompt
+        content: [
+          {
+            type: 'text',
+            text: prompt
+          }
+        ]
       }]
     });
 
@@ -235,7 +263,13 @@ Respond with JSON:
       throw new Error('Unexpected response type from AI');
     }
 
-    const result = JSON.parse(textContent.text);
+    let result;
+    try {
+      result = JSON.parse(textContent.text);
+    } catch (parseError) {
+      console.error('Failed to parse overlap detection response:', textContent.text);
+      throw new Error('Failed to parse AI response');
+    }
     
     const matchingProducts = result.matchingProducts?.map((match: any) => ({
       product1: sample1[match.index1],
@@ -280,7 +314,12 @@ Suggest a single, normalized category name that best represents all of these. Re
       max_tokens: 256,
       messages: [{
         role: 'user',
-        content: prompt
+        content: [
+          {
+            type: 'text',
+            text: prompt
+          }
+        ]
       }]
     });
 
@@ -289,7 +328,13 @@ Suggest a single, normalized category name that best represents all of these. Re
       throw new Error('Unexpected response type from AI');
     }
 
-    const result = JSON.parse(textContent.text);
+    let result;
+    try {
+      result = JSON.parse(textContent.text);
+    } catch (parseError) {
+      console.error('Failed to parse normalization response:', textContent.text);
+      throw new Error('Failed to parse AI response');
+    }
     return {
       normalizedName: result.normalizedName || categoryVariants[0],
       confidence: result.confidence || 0
