@@ -182,6 +182,19 @@ export default function MappingWorkspace({
     !activeMappings?.some(m => m?.targetField === rf?.id && m?.sourceField)
   ) || [];
   
+  // Track unmapped source fields (CSV columns not used in any mapping)
+  // Check both catalog and detail mappings regardless of active view
+  const allMappings = [
+    ...(catalogMappings || []),
+    ...(detailMappings || [])
+  ];
+  const usedSourceFields = new Set(
+    allMappings.filter(m => m?.sourceField).map(m => m.sourceField)
+  );
+  const unmappedSourceFields = sampleHeaders?.filter(
+    header => !usedSourceFields.has(header)
+  ) || [];
+  
   // Group detail fields by section for organized preview
   const detailFieldsBySection = (detailFields || []).reduce((acc, field: any) => {
     const section = field.section || 'other';
@@ -1065,6 +1078,24 @@ export default function MappingWorkspace({
                       <li key={field.id}>{field.name}</li>
                     ))}
                   </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {/* Unmapped source fields info */}
+            {unmappedSourceFields.length > 0 && (
+              <Alert className="mx-3 mb-3 bg-blue-50 border-blue-200">
+                <InfoIcon className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-900">Unmapped CSV columns ({unmappedSourceFields.length})</AlertTitle>
+                <AlertDescription className="text-blue-800">
+                  The following columns from your CSV file haven't been mapped yet:
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {unmappedSourceFields.map(field => (
+                      <Badge key={field} variant="outline" className="bg-white text-blue-700 border-blue-300">
+                        {field}
+                      </Badge>
+                    ))}
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
