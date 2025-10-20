@@ -12,6 +12,19 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+/**
+ * Strip Markdown code fences from AI response text
+ * Claude often wraps JSON in ```json ... ``` which breaks JSON.parse
+ */
+function stripCodeFences(text: string): string {
+  // Remove ```json ... ``` or ``` ... ``` wrappers
+  return text
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/, '')
+    .replace(/\s*```$/, '')
+    .trim();
+}
+
 export interface ProductSample {
   name?: string;
   description?: string;
@@ -120,7 +133,8 @@ Provide 1-3 suggestions, ordered by confidence (highest first).`;
       // Parse the AI response with error handling
       let aiResult;
       try {
-        aiResult = JSON.parse(textContent.text);
+        const cleanedText = stripCodeFences(textContent.text);
+        aiResult = JSON.parse(cleanedText);
       } catch (parseError) {
         console.error('Failed to parse AI response:', textContent.text);
         console.error('Parse error:', parseError);
@@ -186,7 +200,8 @@ Use the official Google product taxonomy. Be specific and accurate.`;
 
     let result;
     try {
-      result = JSON.parse(textContent.text);
+      const cleanedText = stripCodeFences(textContent.text);
+      result = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error('Failed to parse Google category response:', textContent.text);
       throw new Error('Failed to parse AI response');
@@ -265,7 +280,8 @@ Respond with JSON:
 
     let result;
     try {
-      result = JSON.parse(textContent.text);
+      const cleanedText = stripCodeFences(textContent.text);
+      result = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error('Failed to parse overlap detection response:', textContent.text);
       throw new Error('Failed to parse AI response');
@@ -330,7 +346,8 @@ Suggest a single, normalized category name that best represents all of these. Re
 
     let result;
     try {
-      result = JSON.parse(textContent.text);
+      const cleanedText = stripCodeFences(textContent.text);
+      result = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error('Failed to parse normalization response:', textContent.text);
       throw new Error('Failed to parse AI response');
