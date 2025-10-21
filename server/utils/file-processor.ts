@@ -318,6 +318,11 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
             dimensions: record.dimensions,
             status: record.status || 'active',
             attributes: record.attributes || {},
+            // Image fields from supplier data
+            imageUrl: record.imageUrl || record['Image (300x300) Url'] || record.image_url,
+            imageUrlLarge: record.imageUrlLarge || record['Image (1000x1000) Url'] || record.image_url_large,
+            primaryImage: record.primaryImage || record.primary_image,
+            additionalImages: record.additionalImages || record['Image Additional (1000x1000) Urls'] || record.additional_images,
             // Catalog fields from authentic CWR data structure
             thirdPartyMarketplaces: record['3rd Party Marketplaces'] || record.thirdPartyMarketplaces,
             caseQuantity: record['Case Qty'] || record['Case Quantity'] || record.caseQuantity,
