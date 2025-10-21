@@ -137,30 +137,46 @@ export const processJSONFile = async (
  */
 export const applyMappingTemplate = (
   records: any[],
-  mappingTemplate: {
-    fieldMappings: { source: string; target: string; transform?: string }[];
-    defaultValues?: Record<string, any>;
-    transformations?: Record<string, Function>;
-  }
+  mappingTemplate: any
 ): any[] => {
-  if (!mappingTemplate || !mappingTemplate.fieldMappings) {
+  if (!mappingTemplate) {
     return records;
   }
   
+  // Handle two formats:
+  // 1. Object format: { targetField: sourceField } (e.g., { "imageUrl": "Image (300x300) Url" })
+  // 2. Array format: { fieldMappings: [{ source, target }] }
+  
   return records.map(record => {
-    const result: Record<string, any> = { ...(mappingTemplate.defaultValues || {}) };
+    const result: Record<string, any> = {};
     
-    // Apply field mappings
-    for (const mapping of mappingTemplate.fieldMappings) {
-      if (record[mapping.source] !== undefined) {
-        let value = record[mapping.source];
-        
-        // Apply transformation if specified
-        if (mapping.transform && mappingTemplate.transformations?.[mapping.transform]) {
-          value = mappingTemplate.transformations[mapping.transform](value, record);
+    // Check if it's the array format with fieldMappings
+    if (mappingTemplate.fieldMappings && Array.isArray(mappingTemplate.fieldMappings)) {
+      // Apply default values if any
+      if (mappingTemplate.defaultValues) {
+        Object.assign(result, mappingTemplate.defaultValues);
+      }
+      
+      // Apply field mappings
+      for (const mapping of mappingTemplate.fieldMappings) {
+        if (record[mapping.source] !== undefined) {
+          let value = record[mapping.source];
+          
+          // Apply transformation if specified
+          if (mapping.transform && mappingTemplate.transformations?.[mapping.transform]) {
+            value = mappingTemplate.transformations[mapping.transform](value, record);
+          }
+          
+          result[mapping.target] = value;
         }
-        
-        result[mapping.target] = value;
+      }
+    } else {
+      // Object format: iterate through mapping object
+      // mappings is like: { "imageUrl": "Image (300x300) Url", "cost": "Your Cost" }
+      for (const [targetField, sourceField] of Object.entries(mappingTemplate)) {
+        if (typeof sourceField === 'string' && record[sourceField] !== undefined) {
+          result[targetField] = record[sourceField];
+        }
       }
     }
     
