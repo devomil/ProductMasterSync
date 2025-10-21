@@ -354,8 +354,21 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
         try {
           const insertedProducts = await db.insert(products)
             .values(newProducts)
-            .returning({ id: products.id });
+            .returning({ id: products.id, sku: products.sku });
           result.processedCount += insertedProducts.length;
+          
+          // Create product_suppliers relationships for newly inserted products
+          const productSupplierEntries = insertedProducts.map(product => ({
+            productId: product.id,
+            supplierId: importRecord.supplierId!,
+            supplierSku: product.sku,
+            supplierAttributes: {},
+            confidence: 100
+          }));
+          
+          if (productSupplierEntries.length > 0) {
+            await db.insert(productSuppliers).values(productSupplierEntries);
+          }
         } catch (error) {
           result.errors.push({
             batch: Math.floor(batchStart / BATCH_SIZE) + 1,
@@ -372,6 +385,25 @@ export const processImportedFile = async (importId: number): Promise<ProcessingR
             .set(update.data)
             .where(eq(products.id, update.id));
           result.processedCount++;
+          
+          // Ensure product_suppliers relationship exists for updated products
+          const existingRelation = await db.select({ id: productSuppliers.id })
+            .from(productSuppliers)
+            .where(
+              eq(productSuppliers.productId, update.id),
+            )
+            .limit(1);
+            
+          if (existingRelation.length === 0 && importRecord.supplierId) {
+            // Create the relationship if it doesn't exist
+            await db.insert(productSuppliers).values({
+              productId: update.id,
+              supplierId: importRecord.supplierId,
+              supplierSku: update.data.sku,
+              supplierAttributes: {},
+              confidence: 100
+            });
+          }
         } catch (error) {
           result.errors.push({
             productId: update.id,

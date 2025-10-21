@@ -736,12 +736,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `);
 
           // Update all products with this supplier category to use the master category
-          // NOTE: Currently not filtering by supplier because product_suppliers is empty
-          // TODO: Fix sample data import to populate product_suppliers table
+          // Only update products from THIS supplier to avoid cross-contamination
           const updatedProducts = await db.update(products)
             .set({ categoryId: masterCategoryId })
             .where(
-              sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`
+              and(
+                sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`,
+                sql`id IN (SELECT product_id FROM product_suppliers WHERE supplier_id = ${supplierId})`
+              )
             )
             .returning({ id: products.id });
 
@@ -754,12 +756,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } else {
           // Even if mapping exists, update products to ensure they're assigned
-          // NOTE: Currently not filtering by supplier because product_suppliers is empty
-          // TODO: Fix sample data import to populate product_suppliers table
+          // Only update products from THIS supplier to avoid cross-contamination
           const updatedProducts = await db.update(products)
             .set({ categoryId: masterCategoryId })
             .where(
-              sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`
+              and(
+                sql`(attributes->>'supplier_category' = ${supplierCategoryName} OR attributes->>'category' = ${supplierCategoryName})`,
+                sql`id IN (SELECT product_id FROM product_suppliers WHERE supplier_id = ${supplierId})`
+              )
             )
             .returning({ id: products.id });
 

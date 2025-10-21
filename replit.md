@@ -45,6 +45,8 @@ Preferred communication style: Simple, everyday language.
       - **Category Normalization**: Handles category name variances between suppliers (e.g., "Marine Navigation" vs "Nav Equipment")
       - **Approval Workflow**: Two-tier approval system - auto-approve high-confidence mappings or flag for manual review
       - **UI Integration**: Accessible via "AI Category Mapper" button on `/categories` page
+      - **Supplier Isolation**: Product category updates are scoped to specific suppliers via `product_suppliers` junction table to prevent cross-contamination
+    - **Product-Supplier Linking**: All product imports now automatically create `product_suppliers` relationships to track which products come from which suppliers. This enables proper supplier scoping for category mapping and other multi-supplier operations.
     - **Field Mapping Documentation**: Complete reference guide (`/field-mapping-docs`) documenting all 35+ catalog fields and 25+ detail fields organized by category with field types, requirements, descriptions, and examples.
     - **Performance Optimization**: Implemented intelligent caching and optimized queries for sub-second API responses.
 

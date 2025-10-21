@@ -63,6 +63,7 @@ export class PerformanceOptimizedQueries {
     const productsQuery = `
       SELECT p.id, p.sku, p.usin, p.name, p.description,
              p.category_id as "categoryId",
+             c.name as "categoryName",
              p.manufacturer_name as "manufacturerName",
              p.manufacturer_part_number as "manufacturerPartNumber",
              p.upc, p.price, p.cost, p.weight, p.status,
@@ -79,6 +80,7 @@ export class PerformanceOptimizedQueries {
              p.created_at as "createdAt",
              p.updated_at as "updatedAt"
       FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id
       ${whereClause}
       ORDER BY p.id DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
