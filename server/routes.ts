@@ -1007,32 +1007,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Product not found" });
       }
       
-      // Ensure camelCase fields for frontend compatibility (production fix)
-      const response = {
-        ...product,
-        imageUrl: product.imageUrl || product['image_url'],
-        imageUrlLarge: product.imageUrlLarge || product['image_url_large'],
-        primaryImage: product.primaryImage || product['primary_image']
-      };
-      
-      res.json(response);
-    } catch (error) {
-      handleError(res, error);
-    }
-  });
-
-  app.get("/api/products/:id", async (req, res) => {
-    try {
-      const productId = parseInt(req.params.id);
-      if (isNaN(productId)) {
-        return res.status(400).json({ message: "Invalid product ID" });
-      }
-      
-      const product = await storage.getProduct(productId);
-      if (!product) {
-        return res.status(404).json({ message: "Product not found" });
-      }
-      
       // Get categories for category name
       const categories = await storage.getCategories();
       const category = categories.find(c => c.id === product.categoryId);
@@ -1087,7 +1061,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formattedProduct = {
         ...product,
         categoryName: category?.name || null,
-        ...cwrFields
+        ...cwrFields,
+        // Ensure camelCase image fields for frontend compatibility
+        imageUrl: product.imageUrl || product['image_url'],
+        imageUrlLarge: product.imageUrlLarge || product['image_url_large'],
+        primaryImage: product.primaryImage || product['primary_image']
       };
       
       console.log('CWR Fields calculated:', {
