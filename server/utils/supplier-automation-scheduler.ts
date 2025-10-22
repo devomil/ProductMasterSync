@@ -273,8 +273,7 @@ async function executeAutomationJob(
         recordsProcessed: results.recordsProcessed,
         recordsInserted: results.recordsInserted,
         recordsUpdated: results.recordsUpdated,
-        processingTimeSeconds,
-        fileSizeBytes: download.fileSizeBytes || 0,
+        fileSize: download.fileSizeBytes || null,
         updatedAt: new Date(),
       })
       .where(eq(dataPullJobs.id, job.id));
@@ -348,9 +347,14 @@ async function checkAutomations() {
   try {
     // Get all active automations
     const automations = await storage.getSupplierAutomations();
+    const now = new Date();
+    log(`Checking automations at ${now.toISOString().substring(11, 19)} (${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}) - found ${automations.length} automation(s)`);
     
     for (const automation of automations) {
-      if (!automation.isActive) continue;
+      if (!automation.isActive) {
+        log(`  Skipping inactive automation: ${automation.name}`);
+        continue;
+      }
       
       // Check catalog jobs
       if (automation.catalogEnabled && automation.catalogScheduleTimes) {
@@ -379,17 +383,24 @@ async function checkAutomations() {
 export async function startSupplierAutomationScheduler() {
   log('🚀 Starting supplier automation scheduler');
   
+  // Run immediate initial check
+  try {
+    log('Running initial automation check...');
+    await checkAutomations();
+  } catch (error) {
+    log(`Error in initial check: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  
   // Check for due jobs every minute
   const checkInterval = 60 * 1000; // 1 minute
   
   setInterval(async () => {
-    await checkAutomations();
+    try {
+      await checkAutomations();
+    } catch (error) {
+      log(`Error in scheduled check: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }, checkInterval);
-  
-  // Run initial check after 10 seconds
-  setTimeout(async () => {
-    await checkAutomations();
-  }, 10000);
   
   log('✅ Supplier automation scheduler started (checking every 60 seconds)');
 }
