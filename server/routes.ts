@@ -35,7 +35,8 @@ import {
   productAsinMapping,
   amazonPriceHistory,
   salesRankings,
-  productRestrictions
+  productRestrictions,
+  productSuppliers
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -874,6 +875,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Delete related data first to respect foreign key constraints
       // Use try-catch for each table to handle cases where tables don't exist yet
+      
+      try {
+        console.log('Deleting product-supplier relationships...');
+        await db.delete(productSuppliers);
+      } catch (e) {
+        console.log('productSuppliers table does not exist or is empty, skipping...');
+      }
       
       try {
         console.log('Deleting product-related data...');
@@ -1938,6 +1946,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dataSourceId = parseInt(req.params.id);
       const requestedLimit = parseInt(req.query.limit as string) || 50;
       
+      console.log(`[SFTP DEBUG] Getting sample data for data source ${dataSourceId}, limit: ${requestedLimit}`);
+      
       // Get data source details
       const [dataSource] = await db
         .select()
@@ -1945,9 +1955,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(dataSources.id, dataSourceId));
         
       if (!dataSource) {
+        console.log(`[SFTP DEBUG] Data source ${dataSourceId} not found`);
         return res.status(404).json({ error: "Data source not found" });
       }
 
+      console.log(`[SFTP DEBUG] Data source type: ${dataSource.type}, has config: ${!!dataSource.config}`);
+      
       // Pull real data from SFTP using ssh2-sftp-client
       const config = dataSource.config as any;
       
