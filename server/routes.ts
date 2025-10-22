@@ -1877,15 +1877,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Data source not found" });
       }
 
-      // Pull real data from SFTP using the existing connector system
+      // Pull real data from SFTP using ssh2-sftp-client
       const config = dataSource.config as any;
       
       if (dataSource.type === 'sftp' && config?.host && config?.username) {
         try {
-          // Note: Using Python connector via subprocess (placeholder for now)
-          // const { createConnector } = await import('./utils/connectors.js');
-          // TODO: Implement JavaScript connector or use Python subprocess
-          throw new Error("SFTP connector not implemented in JavaScript version");
+          const SftpClient = (await import('ssh2-sftp-client')).default;
+          const fs = await import('fs');
+          const path = await import('path');
+          const csvParse = await import('csv-parse/sync');
+          
+          const sftp = new SftpClient();
+          
+          console.log('Connecting to SFTP:', { host: config.host, port: config.port || 22, username: config.username });
+          
+          await sftp.connect({
+            host: config.host,
+            port: config.port || 22,
+            username: config.username,
+            password: config.password
+          });
+          
+          console.log('SFTP connected successfully');
+          
+          // List files in the root directory
+          const fileList = await sftp.list('/');
+          console.log('Files in SFTP root:', fileList.map(f => f.name));
+          
+          // Look for catalog CSV file (adjust filename as needed)
+          const catalogFile = fileList.find(f => 
+            f.name.toLowerCase().includes('catalog') || 
+            f.name.toLowerCase().includes('product') ||
+            f.name.toLowerCase().endsWith('.csv')
+          );
+          
+          if (!catalogFile) {
+            throw new Error('No catalog CSV file found on SFTP server');
+          }
+          
+          console.log('Found catalog file:', catalogFile.name);
+          
+          // Download the file to temp directory
+          const tempDir = './temp';
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+          }
+          
+          const localPath = path.join(tempDir, catalogFile.name);
+          await sftp.get(`/${catalogFile.name}`, localPath);
+          
+          await sftp.end();
+          console.log('SFTP file downloaded:', localPath);
+          
+          // Parse the CSV file
+          const csvContent = fs.readFileSync(localPath, 'utf-8');
+          const records = csvParse.parse(csvContent, {
+            columns: true,
+            skip_empty_lines: true,
+            relax_column_count: true,
+            relax_quotes: true
+          });
+          
+          // Take the requested number of records
+          const sampleData = records.slice(0, requestedLimit);
+          
+          res.json({ 
+            success: true, 
+            data: sampleData,
+            totalRecords: sampleData.length,
+            source: 'sftp',
+            file: catalogFile.name
+          });
+          return;
+          
         } catch (sftpError) {
           console.error("SFTP sample pull failed:", sftpError);
           // Continue to fallback below
