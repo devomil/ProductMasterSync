@@ -1902,15 +1902,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('SFTP connected successfully');
           
-          // List files to verify connection works
-          const fileList = await sftp.list('/');
+          // Try to list files in common directories
+          let filesFound = 0;
+          const dirsToTry = ['/', './'];
+          
+          for (const dir of dirsToTry) {
+            try {
+              const fileList = await sftp.list(dir);
+              filesFound = fileList.length;
+              console.log(`Successfully listed ${filesFound} files in ${dir}`);
+              break; // Success, stop trying
+            } catch (listError) {
+              console.log(`Cannot list ${dir}, trying next...`);
+              // Continue to next directory
+            }
+          }
           
           await sftp.end();
           
           res.json({ 
             success: true, 
             message: 'Successfully connected to SFTP server',
-            filesFound: fileList.length
+            filesFound
           });
           return;
           
@@ -1984,9 +1997,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('SFTP connected successfully');
           
-          // List files in the root directory
-          const fileList = await sftp.list('/');
-          console.log('Files in SFTP root:', fileList.map(f => f.name));
+          // Try to list files in common directories
+          let fileList: any[] = [];
+          const dirsToTry = ['./', '/'];
+          
+          for (const dir of dirsToTry) {
+            try {
+              fileList = await sftp.list(dir);
+              console.log(`Files in SFTP ${dir}:`, fileList.map(f => f.name));
+              break; // Success, stop trying
+            } catch (listError) {
+              console.log(`Cannot list ${dir}, trying next...`);
+              // Continue to next directory
+            }
+          }
+          
+          if (fileList.length === 0) {
+            throw new Error('Unable to list any files on SFTP server');
+          }
           
           // Look for catalog CSV file (adjust filename as needed)
           const catalogFile = fileList.find(f => 
@@ -1996,7 +2024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           if (!catalogFile) {
-            throw new Error('No catalog CSV file found on SFTP server');
+            throw new Error(`No catalog CSV file found on SFTP server. Available files: ${fileList.map(f => f.name).join(', ')}`);
           }
           
           console.log('Found catalog file:', catalogFile.name);
