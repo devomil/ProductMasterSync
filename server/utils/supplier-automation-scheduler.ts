@@ -32,12 +32,21 @@ async function downloadSFTPFile(
     
     const config = dataSource.config as any;
     
+    // Use environment variable for password if available (production environment)
+    let password = config.password;
+    if (process.env.SFTP_PASSWORD && 
+        config.host === 'edi.cwrdistribution.com' && 
+        config.username === 'eco8') {
+      log('Using SFTP_PASSWORD from environment variables');
+      password = process.env.SFTP_PASSWORD;
+    }
+    
     // Connect to SFTP
     await sftp.connect({
       host: config.host,
       port: config.port || 22,
       username: config.username,
-      password: config.password,
+      password: password,
     });
     
     // Create local directory
@@ -125,6 +134,31 @@ async function processFile(
     }
     
     log(`Parsed ${records.length} records from file`);
+    
+    // Load and apply mapping template for this supplier
+    const mappingTemplates = await storage.getMappingTemplates(supplierId);
+    if (mappingTemplates && mappingTemplates.length > 0) {
+      const template = mappingTemplates[0];
+      if (template.mappings) {
+        log(`Applying field mapping template: ${template.name}`);
+        const mappings = typeof template.mappings === 'string' 
+          ? JSON.parse(template.mappings) 
+          : template.mappings;
+        
+        // Apply mappings to each record
+        records = records.map(record => {
+          const mapped: any = { ...record }; // Keep original fields too
+          for (const [targetField, sourceField] of Object.entries(mappings)) {
+            if (typeof sourceField === 'string' && record[sourceField] !== undefined) {
+              mapped[targetField] = record[sourceField];
+            }
+          }
+          return mapped;
+        });
+        
+        log(`Applied ${Object.keys(mappings).length} field mappings`);
+      }
+    }
     
     // Process each record
     for (const record of records) {
