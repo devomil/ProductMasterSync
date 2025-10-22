@@ -1893,11 +1893,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('Testing SFTP connection:', { host: config.host, port: config.port || 22, username: config.username });
           
+          // Use environment variable for password if available (production environment)
+          // This matches the logic used by the automation scheduler
+          let password = config.password;
+          if (process.env.SFTP_PASSWORD && 
+              config.host === 'edi.cwrdistribution.com' && 
+              config.username === 'eco8') {
+            console.log('Using SFTP_PASSWORD from environment variables for test connection');
+            password = process.env.SFTP_PASSWORD;
+          }
+          
           await sftp.connect({
             host: config.host,
             port: config.port || 22,
             username: config.username,
-            password: config.password
+            password: password
           });
           
           console.log('SFTP connected successfully');
@@ -1988,11 +1998,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log('Connecting to SFTP:', { host: config.host, port: config.port || 22, username: config.username });
           
+          // Use environment variable for password if available (production environment)
+          let password = config.password;
+          if (process.env.SFTP_PASSWORD && 
+              config.host === 'edi.cwrdistribution.com' && 
+              config.username === 'eco8') {
+            console.log('Using SFTP_PASSWORD from environment variables');
+            password = process.env.SFTP_PASSWORD;
+          }
+          
           await sftp.connect({
             host: config.host,
             port: config.port || 22,
             username: config.username,
-            password: config.password
+            password: password
           });
           
           console.log('SFTP connected successfully');

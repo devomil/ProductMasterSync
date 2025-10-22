@@ -70,6 +70,15 @@ Preferred communication style: Simple, everyday language.
 - **Performance**: Optimized for 1 million+ products with intelligent caching and database indexes.
 - **Monitoring**: Built-in performance metrics and cache statistics.
 
+## Development vs Production Environment
+**Critical Differences** between development and production environments on Replit:
+- **Separate Databases**: Development and production each have their own PostgreSQL database instances. Schema changes sync automatically when publishing, but data does NOT transfer between environments.
+- **Credentials Security**: 
+  - **Production**: Sensitive credentials (SFTP passwords, API keys) are stored ONLY in environment secrets, NOT in the database
+  - **Development**: Credentials may be stored in database config for testing, but production code must fallback to environment variables
+  - **Implementation**: All SFTP connection endpoints (`test-connection`, `sample-data`, automation scheduler) check for `process.env.SFTP_PASSWORD` before using database-stored passwords to ensure production compatibility
+- **Testing**: Always test features in both environments, as connection tests may work in dev but fail in production if environment variables aren't properly configured
+
 # External Dependencies
 
 ## APIs and Services
