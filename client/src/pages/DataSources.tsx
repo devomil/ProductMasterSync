@@ -490,6 +490,27 @@ export default function DataSources() {
     }
   });
 
+  // Mutation for testing connection
+  const testConnectionMutation = useMutation({
+    mutationFn: async (dataSourceId: number) => {
+      const response = await apiRequest("POST", `/api/datasources/${dataSourceId}/test-connection`, {});
+      return response as any;
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Connection Successful",
+        description: data.message || "Successfully connected to data source",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection Failed",
+        description: error?.details || "Failed to connect. Please check your settings.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Mutation for sample pull
   const samplePullMutation = useMutation({
     mutationFn: async ({ dataSourceId, limit }: { dataSourceId: number; limit: number }) => {
@@ -1018,8 +1039,15 @@ export default function DataSources() {
                     
                     <div className="pt-3 border-t">
                       <div className="flex gap-2 mb-2">
-                        <Button size="sm" variant="outline" className="flex-1">
-                          Test Connection
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1"
+                          onClick={() => testConnectionMutation.mutate(dataSource.id)}
+                          disabled={testConnectionMutation.isPending}
+                          data-testid={`button-test-connection-${dataSource.id}`}
+                        >
+                          {testConnectionMutation.isPending ? "Testing..." : "Test Connection"}
                         </Button>
                         <Button 
                           size="sm" 
@@ -1029,6 +1057,7 @@ export default function DataSources() {
                             setShowSampleSizeDialog(true);
                           }}
                           disabled={samplePullMutation.isPending}
+                          data-testid={`button-pull-sample-${dataSource.id}`}
                         >
                           {samplePullMutation.isPending ? "Pulling..." : "Pull Sample"}
                         </Button>

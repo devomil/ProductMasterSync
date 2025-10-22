@@ -1861,6 +1861,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test connection for a data source
+  app.post("/api/datasources/:id/test-connection", async (req, res) => {
+    try {
+      const dataSourceId = parseInt(req.params.id);
+      
+      // Get data source details
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+        
+      if (!dataSource) {
+        return res.status(404).json({ error: "Data source not found" });
+      }
+
+      const config = dataSource.config as any;
+      
+      if (dataSource.type === 'sftp' && config?.host && config?.username) {
+        try {
+          const SftpClient = (await import('ssh2-sftp-client')).default;
+          const sftp = new SftpClient();
+          
+          console.log('Testing SFTP connection:', { host: config.host, port: config.port || 22, username: config.username });
+          
+          await sftp.connect({
+            host: config.host,
+            port: config.port || 22,
+            username: config.username,
+            password: config.password
+          });
+          
+          console.log('SFTP connected successfully');
+          
+          // List files to verify connection works
+          const fileList = await sftp.list('/');
+          
+          await sftp.end();
+          
+          res.json({ 
+            success: true, 
+            message: 'Successfully connected to SFTP server',
+            filesFound: fileList.length
+          });
+          return;
+          
+        } catch (sftpError) {
+          console.error("SFTP connection test failed:", sftpError);
+          res.status(400).json({ 
+            success: false,
+            error: "Failed to connect to SFTP server",
+            details: sftpError instanceof Error ? sftpError.message : "Unknown error"
+          });
+          return;
+        }
+      }
+
+      // For other types or missing config
+      res.status(400).json({ 
+        success: false,
+        error: "Unsupported data source type or missing configuration"
+      });
+      
+    } catch (error) {
+      console.error("Error testing connection:", error);
+      res.status(500).json({ 
+        error: "Failed to test connection",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Get sample data from data source (for field mapping)
   app.get("/api/datasources/:id/sample-data", async (req, res) => {
     try {
