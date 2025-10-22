@@ -2471,7 +2471,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      console.log('Found mapping template:', mappingTemplate.id);
+      console.log('=== MAPPING TEMPLATE DEBUG ===');
+      console.log('Found mapping template ID:', mappingTemplate.id);
+      console.log('Template name:', mappingTemplate.name);
+      console.log('Template sourceType:', mappingTemplate.sourceType);
+      console.log('Raw mappings object:', JSON.stringify(mappingTemplate.mappings, null, 2));
+      console.log('Mappings type:', typeof mappingTemplate.mappings);
+      console.log('Mappings is null?:', mappingTemplate.mappings === null);
+      console.log('Mappings is undefined?:', mappingTemplate.mappings === undefined);
       
       // Pull sample data from the data source with specified limit
       const sampleDataResponse = await fetch(`http://localhost:5000/api/datasources/${dataSourceId}/sample-data?limit=${limit}`);
@@ -2485,11 +2492,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`Pulled ${sampleResult.data.length} records from source`);
+      console.log('First source record keys:', sampleResult.data[0] ? Object.keys(sampleResult.data[0]) : 'NO DATA');
       
       // Apply field mappings to transform the data
       const fieldMappings = (mappingTemplate.mappings as any) || {};
-      console.log('Field mappings:', fieldMappings);
-      console.log('Sample source record:', sampleResult.data[0]);
+      console.log('=== FIELD MAPPINGS DEBUG ===');
+      console.log('Field mappings object:', JSON.stringify(fieldMappings, null, 2));
+      console.log('Number of field mappings:', Object.keys(fieldMappings).length);
+      console.log('Sample source record (first 3 fields):', sampleResult.data[0] ? JSON.stringify(Object.fromEntries(Object.entries(sampleResult.data[0]).slice(0, 3)), null, 2) : 'NO DATA');
       const transformedProducts = [];
       
       // Get the next available EDC number for unique SKU generation
@@ -2560,7 +2570,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transformedProducts.push(transformedRecord);
       }
       
+      console.log('=== TRANSFORMATION RESULTS ===');
       console.log(`Transformed ${transformedProducts.length} products`);
+      if (transformedProducts.length > 0) {
+        console.log('First transformed product (all fields):', JSON.stringify(transformedProducts[0], null, 2));
+        console.log('Has image_url?:', 'image_url' in transformedProducts[0]);
+        console.log('Has imageUrl?:', 'imageUrl' in transformedProducts[0]);
+        console.log('Image value:', transformedProducts[0].image_url || transformedProducts[0].imageUrl || 'NO IMAGE FIELD');
+      }
       
       // Create categories from the mapped categoryName field
       const categoryMap = new Map();
@@ -2624,20 +2641,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Insert products into database with de-duplication
+      console.log('=== DATABASE INSERTION ===');
       const insertedProducts = [];
-      for (const product of transformedProducts) {
+      for (let i = 0; i < transformedProducts.length; i++) {
+        const product = transformedProducts[i];
         try {
           // Use SKU for de-duplication (USIN constraint not set up yet)
           const conflictTarget = products.sku;
+          
+          if (i === 0) {
+            console.log('Inserting first product with fields:', Object.keys(product));
+            console.log('Image field in insert:', product.image_url || product.imageUrl || 'NO IMAGE');
+          }
           
           const [insertedProduct] = await db
             .insert(products)
             .values(product)
             .returning();
             
+          if (i === 0) {
+            console.log('First inserted product result:', JSON.stringify(insertedProduct, null, 2));
+            console.log('Inserted image_url:', insertedProduct.image_url);
+          }
+            
           insertedProducts.push(insertedProduct);
         } catch (error) {
-          console.error('Error inserting product:', error);
+          console.error(`Error inserting product ${i + 1}:`, error);
+          console.error('Product data that failed:', JSON.stringify(product, null, 2));
           // Continue with other products
         }
       }
