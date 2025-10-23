@@ -1,0 +1,156 @@
+2025-10-23 09:20:26.81
+fec1186e
+User
+"saleStartDate": "Sale Start Date",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"firstClassMail": "First Class Mail",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"image1000x1000": "Image (1000x1000) Url",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"quantityOnHand": "Quantity Available to Ship (Combined)",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"remanufactured": "Remanufactured",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"shippingWeight": "Shipping Weight",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"countryOfOrigin": "Country Of Origin",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"dropShipsDirect": "Drop Ships Direct From Vendor",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"productVideoUrl": "Video Urls",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"rebateStartDate": "Rebate Start Date",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"accessoriesByMfg": "List of Accessories by MFG#",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"accessoriesBySku": "List of Accessories by SKU",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"manufacturerName": "Manufacturer Name",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"productManualUrl": "Owners Manual (pdf) Url",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"harmonizationCode": "Harmonization Code",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"originalPriceSale": "Original Price (If on Sale/Closeout)",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"rebateDescription": "Rebate Description",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"hazardousMaterials": "Hazardous Materials",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"productBrochureUrl": "Brochure Literature (pdf) Url",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"quantityAvailableFl": "Quantity Available to Ship (FL)",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"quantityAvailableNj": "Quantity Available to Ship (NJ)",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"installationGuideUrl": "Installation Guide (pdf) Url",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"googleMerchantCategory": "Google Merchant Category",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"manufacturerPartNumber": "Manufacturer Part Number",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"nextShipmentDateCombined": "Next Shipment Date (Combined)",
+2025-10-23 09:20:26.81
+fec1186e
+User
+"quantityAvailableCombined": "Quantity Available to Ship (Combined)"
+2025-10-23 09:20:26.81
+fec1186e
+User
+}
+2025-10-23 09:20:26.81
+fec1186e
+User
+Mappings type: object
+2025-10-23 09:20:26.81
+fec1186e
+User
+Mappings is null?: false
+2025-10-23 09:20:26.81
+fec1186e
+User
+Mappings is undefined?: false
+2025-10-23 09:20:26.83
+fec1186e
+User
+[SFTP DEBUG] Getting sample data for data source 1, limit: 50
+2025-10-23 09:20:26.87
+fec1186e
+User
+[SFTP DEBUG] Data source type: sftp, has config: true
+2025-10-23 09:20:26.87
+fec1186e
+User
+Connecting to SFTP: { host: 'edi.cwrdistribution.com', port: 22, username: 'eco8' }
+2025-10-23 09:20:26.87
+fec1186e
+User
+Using SFTP_PASSWORD from environment variables
+2025-10-23 09:20:27.78
+fec1186e
+User
+SFTP connected successfully
+2025-10-23 09:20:27.97
+fec1186e
+User
+Files in SFTP ./: [ 'images', '.cache', 'testin', 'out', 'testout', 'in' ]
+2025-10-23 09:20:27.97
+fec1186e
+User
+SFTP sample pull failed: Error: No catalog CSV file found on SFTP server. Available files: images, .cache, testin, out, testout, in
+2025-10-23 09:20:27.97
+fec1186e
+User
+at file:///home/runner/workspace/dist/index.js:7240:19
+2025-10-23 09:20:27.97
+fec1186e
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

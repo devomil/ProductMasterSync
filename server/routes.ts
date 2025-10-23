@@ -2522,20 +2522,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Apply field mappings
         Object.entries(fieldMappings as Record<string, string>).forEach(([targetField, sourceField]) => {
+          // Fix common field name mismatches between mapping template and database schema
+          const fieldNameMap: Record<string, string> = {
+            'image300x300': 'imageUrl',           // Map old field name to correct DB field
+            'image1000x1000': 'imageUrlLarge',    // Map old field name to correct DB field
+            'image_300x300': 'imageUrl',          // Alternative naming
+            'image_1000x1000': 'imageUrlLarge',   // Alternative naming
+          };
+          
+          // Translate field name if needed
+          const actualTargetField = fieldNameMap[targetField] || targetField;
+          
+          if (actualTargetField !== targetField) {
+            console.log(`Field name translation: ${targetField} → ${actualTargetField}`);
+          }
+          
           if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
             let value = sourceRecord[sourceField];
             
             // Debug USIN mapping (now stores supplier part number, doesn't affect SKU)
-            if (targetField === 'usin') {
+            if (actualTargetField === 'usin') {
               console.log(`Mapping USIN (supplier part number): ${sourceField} = "${value}" -> stored separately from SKU`);
             }
             
             // Type conversions based on target field with proper null handling
-            if (targetField === 'yourCost' || targetField === 'listPrice' || targetField === 'mapPrice' || targetField === 'mrpPrice') {
+            if (actualTargetField === 'yourCost' || actualTargetField === 'listPrice' || actualTargetField === 'mapPrice' || actualTargetField === 'mrpPrice') {
               // Handle empty strings and invalid numbers for price fields
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
-            } else if (targetField === 'shippingWeight' || targetField === 'caseQuantity') {
+            } else if (actualTargetField === 'shippingWeight' || actualTargetField === 'caseQuantity') {
               // Handle empty strings and invalid numbers for numeric fields
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
@@ -2545,13 +2560,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 value = null;
               } else {
                 // Clean HTML tags from descriptions
-                if (targetField === 'description' || targetField === 'fullDescription') {
+                if (actualTargetField === 'description' || actualTargetField === 'fullDescription') {
                   value = value.replace(/<[^>]*>/g, '').trim();
                 }
               }
             }
             
-            transformedRecord[targetField] = value;
+            transformedRecord[actualTargetField] = value;
           }
         });
         

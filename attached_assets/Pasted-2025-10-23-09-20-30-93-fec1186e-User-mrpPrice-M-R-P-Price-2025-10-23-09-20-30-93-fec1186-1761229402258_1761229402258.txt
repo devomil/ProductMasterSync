@@ -1,0 +1,196 @@
+2025-10-23 09:20:30.93
+fec1186e
+User
+"mrpPrice": "M.R.P. Price",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"yourCost": "Your Cost",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"boxHeight": "Box Height",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"boxLength": "Box Length",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"listPrice": "List Price",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"oversized": "Oversized",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"exportable": "Exportable",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"quickSpecs": "Quick Specs",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"description": "Full Description",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"saleEndDate": "Sale End Date",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"caseQuantity": "Case Qty (FL)",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"categoryName": "Category Name",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"image300x300": "Image (300x300) Url",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"truckFreight": "Truck Freight",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"prop65Warning": "Prop 65",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"rebateEndDate": "Rebate End Date",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"saleStartDate": "Sale Start Date",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"firstClassMail": "First Class Mail",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"image1000x1000": "Image (1000x1000) Url",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"quantityOnHand": "Quantity Available to Ship (Combined)",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"remanufactured": "Remanufactured",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"shippingWeight": "Shipping Weight",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"countryOfOrigin": "Country Of Origin",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"dropShipsDirect": "Drop Ships Direct From Vendor",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"productVideoUrl": "Video Urls",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"rebateStartDate": "Rebate Start Date",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"accessoriesByMfg": "List of Accessories by MFG#",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"accessoriesBySku": "List of Accessories by SKU",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"manufacturerName": "Manufacturer Name",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"productManualUrl": "Owners Manual (pdf) Url",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"harmonizationCode": "Harmonization Code",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"originalPriceSale": "Original Price (If on Sale/Closeout)",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"rebateDescription": "Rebate Description",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"hazardousMaterials": "Hazardous Materials",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"productBrochureUrl": "Brochure Literature (pdf) Url",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"quantityAvailableFl": "Quantity Available to Ship (FL)",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"quantityAvailableNj": "Quantity Available to Ship (NJ)",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"installationGuideUrl": "Installation Guide (pdf) Url",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"googleMerchantCategory": "Google Merchant Category",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"manufacturerPartNumber": "Manufacturer Part Number",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"nextShipmentDateCombined": "Next Shipment Date (Combined)",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"quantityAvailableCombined": "Quantity Available to Ship (Combined)"
+2025-10-23 09:20:30.93
+fec1186e
+User
+}
+2025-10-23 09:20:30.93
+fec1186e
+User
+Number of field mappings: 54
+2025-10-23 09:20:30.93
+fec1186e
+User
+Sample source record (first 3 fields): {
+2025-10-23 09:20:30.93
+fec1186e
+User
+"CWR Part Number": "10020",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"Manufacturer Part Number": "2228",
+2025-10-23 09:20:30.93
+fec1186e
+User
+"UPC Code": "791659022283"
+2025-10-23 09:20:30.93
+fec1186e
+User
+}
