@@ -146,9 +146,7 @@ router.post('/amazon/fetch/:productId', async (req, res) => {
         requiredEnvVars: [
           'AMAZON_SP_API_CLIENT_ID',
           'AMAZON_SP_API_CLIENT_SECRET',
-          'AMAZON_SP_API_REFRESH_TOKEN',
-          'AMAZON_SP_API_ACCESS_KEY_ID',
-          'AMAZON_SP_API_SECRET_KEY'
+          'AMAZON_SP_API_REFRESH_TOKEN'
         ]
       });
     }
@@ -201,9 +199,7 @@ router.post('/amazon/batch-sync', async (req, res) => {
         requiredEnvVars: [
           'AMAZON_SP_API_CLIENT_ID',
           'AMAZON_SP_API_CLIENT_SECRET',
-          'AMAZON_SP_API_REFRESH_TOKEN',
-          'AMAZON_SP_API_ACCESS_KEY_ID',
-          'AMAZON_SP_API_SECRET_KEY'
+          'AMAZON_SP_API_REFRESH_TOKEN'
         ]
       });
     }
