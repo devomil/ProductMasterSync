@@ -1,0 +1,212 @@
+2025-10-23 09:20:30.98
+fec1186e
+User
+"weight": "0.1",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"boxWidth": "4",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"closeout": "0",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"mapPrice": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"mrpPrice": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"yourCost": 5.33,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"boxLength": "5",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"oversized": "0",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"exportable": "1",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"quickSpecs": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"description": "Survival Res-Q&trade; Whistle with Lanyard&nbsp;Get attention when you need it with the ResQ&trade; Whistle. &nbsp;This compact survival whistle was specially developed to locate boaters who&rsquo;ve fallen overboard, but it can also aid in land rescues.&nbsp;The ResQ issues a shrill dual-tone up to 100 decibels, which is audible over great distances. &nbsp;The unique, flat design of this whistle keeps it from holding water, and its 31.5\" (80 cm) lanyard easily attaches to life jackets, rafts, and other weather gear.&nbsp;Features:Loud, shrill, dual tone audible from great distanceUnique flat designMeets USCG/SOLAS requirementsAids in land or sea rescues*Sold as an Individual&nbsp;WARNING: This product can expose you to chemicals which are known to the State of California to cause cancer, birth defects or other reproductive harm. For more information go to P65Warnings.ca.gov.",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"saleEndDate": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"caseQuantity": 24,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"categoryName": "Paddlesports | Safety,Marine Safety | Accessories",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"image300x300": "https://productimageserver.com/product/images/10020.gif",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"prop65Warning": "1",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"rebateEndDate": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"saleStartDate": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"firstClassMail": "1",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"image1000x1000": "https://productimageserver.com/product/xl/10020XL.jpg",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"quantityOnHand": "90",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"remanufactured": "0",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"shippingWeight": 0.1,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"countryOfOrigin": "CHINA",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"dropShipsDirect": "0",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"rebateStartDate": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"accessoriesByMfg": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"accessoriesBySku": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"manufacturerName": "ACR Electronics",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"productManualUrl": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"harmonizationCode": "9503.90.0080",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"originalPriceSale": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"rebateDescription": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+"quantityAvailableNj": "50",
+2025-10-23 09:20:30.98
+fec1186e
+User
+"installationGuideUrl": null,
+2025-10-23 09:20:30.98
+fec1186e
+User
+Has image_url?: false
+2025-10-23 09:20:30.98
+fec1186e
+User
+Has imageUrl?: false
+2025-10-23 09:20:31.32
+fec1186e
+User
+=== DATABASE INSERTION ===
+2025-10-23 09:20:31.33
+fec1186e
+User
+Inserting first product with fields: [
+2025-10-23 09:20:31.33
+fec1186e
+User
+'createdAt',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'cost',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'price',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'closeout',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'yourCost',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'boxHeight',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'boxLength',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'oversized',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'exportable',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'caseQuantity',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'categoryName',
+2025-10-23 09:20:31.33
+fec1186e
+User
+'saleStartDate',
+2025-10-23 09:20:33.25
+fec1186e
+User
+Successfully imported 50 products
+2025-10-23 09:20:33.25
+fec1186e
+User
+2:20:33 PM [express] POST /api/datasources/1/sample-pull-with-mapping 200 in 6511ms :: {"success":tr…
