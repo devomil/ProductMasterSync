@@ -56,12 +56,12 @@ export function AmazonBatchSync() {
     batchSyncMutation.mutate(batchSize);
   };
 
-  // Handle "save" config click - this would typically call an API to save the config
+  // Handle "save" config click
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
     toast({
-      title: 'Configuration not saved',
-      description: 'This is just a demo of the configuration UI. In a real implementation, these values would be saved to environment variables.',
+      title: 'Credentials Already Configured',
+      description: 'Amazon SP-API credentials are set as environment secrets. The integration is ready to use!',
     });
     setIsConfigModalOpen(false);
   };
@@ -172,62 +172,65 @@ export function AmazonBatchSync() {
               </DialogDescription>
             </DialogHeader>
             
-            <form onSubmit={handleSaveConfig}>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="clientId">Client ID</Label>
-                  <Input id="clientId" placeholder="amzn1.application-oa2-client.xxxxxxxx" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="clientSecret">Client Secret</Label>
-                  <Input id="clientSecret" type="password" placeholder="•••••••••••••••••••••••••" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="refreshToken">Refresh Token</Label>
-                  <Input id="refreshToken" placeholder="Atzr|IwEBIxxxxxxxxxxxxxxxx" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="accessKeyId">AWS Access Key ID</Label>
-                  <Input id="accessKeyId" placeholder="AKIAXXXXXXXXXXXXXXXX" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="secretKey">AWS Secret Key</Label>
-                  <Input id="secretKey" type="password" placeholder="•••••••••••••••••••••••••" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="roleArn">IAM Role ARN</Label>
-                  <Input id="roleArn" placeholder="arn:aws:iam::XXXXXXXXXXXX:role/SellingPartnerRole" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="marketplaceId">Marketplace ID</Label>
-                  <Input id="marketplaceId" placeholder="ATVPDKIKX0DER" defaultValue="ATVPDKIKX0DER" />
-                  <p className="text-xs text-muted-foreground">
-                    Default: ATVPDKIKX0DER (US)
-                  </p>
-                </div>
-                
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Important</AlertTitle>
+            <div className="space-y-4 py-4">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Amazon SP-API Credentials</AlertTitle>
+                <AlertDescription>
+                  {configStatus?.configValid ? (
+                    <div>
+                      <p className="mb-2">✓ All required credentials are configured</p>
+                      <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
+                        <li>Client ID</li>
+                        <li>Client Secret</li>
+                        <li>Refresh Token</li>
+                        <li>Marketplace: US (ATVPDKIKX0DER)</li>
+                      </ul>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="mb-2">Missing required credentials:</p>
+                      <ul className="mt-2 list-disc list-inside space-y-1">
+                        {configStatus?.missingEnvVars?.map((envVar: string) => (
+                          <li key={envVar} className="text-red-600">{envVar}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+              
+              {!configStatus?.configValid && (
+                <Alert variant="warning">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Missing Credentials</AlertTitle>
                   <AlertDescription>
-                    These credentials are sensitive. They will be stored as environment variables and not exposed to the frontend.
+                    Some credentials are not configured. Please add them in the Replit Secrets panel to enable Amazon integration.
                   </AlertDescription>
                 </Alert>
-              </div>
+              )}
               
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setIsConfigModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Save Configuration</Button>
-              </DialogFooter>
-            </form>
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium mb-2">To update credentials:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Open the Replit Secrets panel (🔒 icon in left sidebar)</li>
+                  <li>Add or update these secrets:
+                    <ul className="ml-6 mt-1 list-disc list-inside">
+                      <li>AMAZON_SP_API_CLIENT_ID</li>
+                      <li>AMAZON_SP_API_CLIENT_SECRET</li>
+                      <li>AMAZON_SP_API_REFRESH_TOKEN</li>
+                    </ul>
+                  </li>
+                  <li>Restart the application for changes to take effect</li>
+                </ol>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setIsConfigModalOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
         
