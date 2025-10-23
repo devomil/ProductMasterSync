@@ -83,6 +83,8 @@ Preferred communication style: Simple, everyday language.
 
 ## APIs and Services
 - **Amazon SP-API**: For product catalog search, pricing data, and marketplace intelligence.
+  - **OAuth2 Authentication** (catalog/batch sync): Requires only Client ID, Client Secret, Refresh Token for product search and ASIN matching
+  - **AWS Signature V4** (pricing APIs): Requires AWS Access Key ID and Secret Key for competitive pricing analysis (optional)
 - **Anthropic AI**: For AI-powered data processing and enhancement.
 - **SFTP/FTP Servers**: For supplier data source connections.
 - **Neon**: Serverless PostgreSQL hosting.
