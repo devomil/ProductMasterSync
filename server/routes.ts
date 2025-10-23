@@ -3949,6 +3949,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Initialize scheduler for always-on Amazon sync
+  // DISABLED: User doesn't want automatic Amazon sync yet
+  /*
   try {
     const { initScheduler } = await import("./utils/scheduler");
     await initScheduler();
@@ -3956,6 +3958,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.error('❌ Failed to initialize scheduler:', error);
   }
+  */
+  console.log('ℹ️ Amazon automatic sync disabled - can be enabled later from settings');
 
   const httpServer = createServer(app);
   return httpServer;

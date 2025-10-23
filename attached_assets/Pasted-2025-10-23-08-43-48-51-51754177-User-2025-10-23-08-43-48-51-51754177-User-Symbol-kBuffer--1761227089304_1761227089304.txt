@@ -1,0 +1,212 @@
+2025-10-23 08:43:48.51
+51754177
+User
+},
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kBuffer)]: null,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kBufferCb)]: null,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kBufferGen)]: null,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(shapeMode)]: true,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kCapture)]: false,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kSetNoDelay)]: false,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kSetKeepAlive)]: true,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kSetKeepAliveInitialDelay)]: 1,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kBytesRead)]: 0,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kBytesWritten)]: 0,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(connect-options)]: [Object]
+2025-10-23 08:43:48.51
+51754177
+User
+},
+2025-10-23 08:43:48.51
+51754177
+User
+_header: 'GET /catalog/2022-04-01/items?marketplaceIds=ATVPDKIKX0DER&identifiers=010342138309&identifiersType=UPC&includedData=attributes%2Cdimensions%2Cimages%2CproductTypes%2Crelationships%2CsalesRanks%2Csummaries HTTP/1.1\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'Accept: application/json, text/plain, */*\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'Content-Type: application/json\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'x-amz-access-token: Atza|IwEBIEwi1CvWp4RRJODupbGknrGfYwG57zBqz-I5plTJmccDA0sZS89nup2oNhdGCpViNDZfqj-xpPmcY1Fuhuvikt8vewT13paHEnk9OHyVaYpDdeaBN-TfJ5KzQt-jvuTEc33ECwnYsK5hWjAl_FoLviICD4_NLunslaAUYT9ThoKcITWAguoIqW7Z3IkC2UJyMb1_ec-Qp4GToNtVyFJkB-CEYSzNLwHs8olCYg6cUn-X8xO_Oy2cQjPpW-M-gN8zMz40vWIIBixyHgCsAnNRfOr5Fj-gIxHQPOeYUtz5lQFEdeDnAFV8Yapj9LtWuW0kr_na0NlhXLJ2njeBYjUrue0S\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'User-Agent: axios/1.10.0\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'Host: sellingpartnerapi-na.amazon.com\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'Connection: keep-alive\r\n' +
+2025-10-23 08:43:48.51
+51754177
+User
+'\r\n',
+2025-10-23 08:43:48.51
+51754177
+User
+_keepAliveTimeout: 0,
+2025-10-23 08:43:48.51
+51754177
+User
+_onPendingData: [Function: nop],
+2025-10-23 08:43:48.51
+51754177
+User
+agent: Agent {
+2025-10-23 08:43:48.51
+51754177
+User
+_events: [Object: null prototype],
+2025-10-23 08:43:48.51
+51754177
+User
+_eventsCount: 2,
+2025-10-23 08:43:48.51
+51754177
+User
+_maxListeners: undefined,
+2025-10-23 08:43:48.51
+51754177
+User
+defaultPort: 443,
+2025-10-23 08:43:48.51
+51754177
+User
+options: [Object: null prototype],
+2025-10-23 08:43:48.51
+51754177
+User
+sockets: [Object: null prototype] {},
+2025-10-23 08:43:48.51
+51754177
+User
+freeSockets: [Object: null prototype],
+2025-10-23 08:43:48.51
+51754177
+User
+scheduling: 'lifo',
+2025-10-23 08:43:48.51
+51754177
+User
+totalSocketCount: 2,
+2025-10-23 08:43:48.51
+51754177
+User
+maxCachedSessions: 100,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(shapeMode)]: false,
+2025-10-23 08:43:48.51
+51754177
+User
+},
+2025-10-23 08:43:48.51
+51754177
+User
+socketPath: undefined,
+2025-10-23 08:43:48.51
+51754177
+User
+method: 'GET',
+2025-10-23 08:43:48.51
+51754177
+User
+insecureHTTPParser: undefined,
+2025-10-23 08:43:48.51
+51754177
+User
+_ended: true,
+2025-10-23 08:43:48.51
+51754177
+User
+_readableState: [ReadableState],
+2025-10-23 08:43:48.51
+51754177
+User
+httpVersionMajor: 1,
+2025-10-23 08:43:48.51
+51754177
+User
+rawHeaders: [Array],
+2025-10-23 08:43:48.51
+51754177
+User
+_dumped: false,
+2025-10-23 08:43:48.51
+51754177
+User
+_eventsCount: 4,
+2025-10-23 08:43:48.51
+51754177
+User
+redirects: [],
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(shapeMode)]: true,
+2025-10-23 08:43:48.51
+51754177
+User
+[Symbol(kCapture)]: false,
+2025-10-23 08:43:48.51
+51754177
+User
+aborted: false,
+2025-10-23 08:43:48.51
+51754177
+User
+_redirectable: Writable {
+2025-10-23 08:43:48.51
+51754177
+User
+_events: [Object],
+2025-10-23 08:44:22.85
+eadff862
+User
+[2025-10-23T13:44:22.852Z] [automation] Checking automations at 13:44:22 (13:44) - found 1 automation(s)
