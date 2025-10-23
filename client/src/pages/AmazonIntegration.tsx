@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertCircle, Download, ExternalLink, HelpCircle, RefreshCw, Settings, Upload } from 'lucide-react';
+import { AlertCircle, Download, ExternalLink, HelpCircle, RefreshCw, Settings, Upload, Check as CheckIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 // Helper function to remove EDC prefix from SKU
@@ -36,6 +36,10 @@ const removeEdcPrefix = (sku: string): string => {
 export default function AmazonIntegration() {
   const { data: products, isLoading } = useQuery({
     queryKey: ['/api/products'],
+  });
+
+  const { data: configStatus } = useQuery<{ configValid: boolean; missingEnvVars: string[] }>({
+    queryKey: ['/api/marketplace/amazon/config-status'],
   });
 
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -176,17 +180,29 @@ export default function AmazonIntegration() {
                   </div>
                   
                   <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
-                      <AlertCircle className="h-5 w-5" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      configStatus?.configValid 
+                        ? 'bg-green-100 text-green-600' 
+                        : 'bg-yellow-100 text-yellow-600'
+                    }`}>
+                      {configStatus?.configValid ? (
+                        <CheckIcon className="h-5 w-5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-medium">Configure SP-API Credentials</h3>
                       <p className="text-sm text-muted-foreground">
-                        Set up your Amazon Selling Partner API credentials.
+                        {configStatus?.configValid 
+                          ? 'Amazon SP-API credentials are configured and ready.'
+                          : 'Set up your Amazon Selling Partner API credentials.'}
                       </p>
-                      <Button variant="link" size="sm" className="p-0 h-auto text-blue-600" onClick={() => setActiveTab('sync')}>
-                        Configure Now →
-                      </Button>
+                      {!configStatus?.configValid && (
+                        <Button variant="link" size="sm" className="p-0 h-auto text-blue-600" onClick={() => setActiveTab('sync')}>
+                          Configure Now →
+                        </Button>
+                      )}
                     </div>
                   </div>
                   
