@@ -1,0 +1,208 @@
+025-10-23 07:30:57.22
+51754177
+User
+[2025-10-23T12:30:57.220Z] [automation] Checking automations at 12:30:57 (12:30) - found 1 automation(s)
+2025-10-23 07:31:57.22
+51754177
+User
+[2025-10-23T12:31:57.221Z] [automation] Checking automations at 12:31:57 (12:31) - found 1 automation(s)
+2025-10-23 07:31:59.13
+51754177
+System
+system: received signal terminated
+2025-10-23 07:36:52.67
+51754177
+System
+starting up user application
+2025-10-23 07:36:52.67
+51754177
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2025-10-23 07:36:54.04
+51754177
+User
+> rest-express@1.0.0 start
+2025-10-23 07:36:54.04
+51754177
+User
+> NODE_ENV=production node dist/index.js
+2025-10-23 07:36:56.09
+51754177
+User
+Failed to load marketplace routes from ./marketplace/routes: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/workspace/dist/marketplace/routes' imported from /home/runner/workspace/dist/index.js
+2025-10-23 07:36:56.09
+51754177
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2025-10-23 07:36:56.09
+51754177
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2025-10-23 07:36:56.09
+51754177
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2025-10-23 07:36:56.09
+51754177
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:642:12)
+2025-10-23 07:36:56.09
+51754177
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:591:25)
+2025-10-23 07:36:56.09
+51754177
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:574:38)
+2025-10-23 07:36:56.09
+51754177
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:236:38)
+2025-10-23 07:36:56.09
+51754177
+User
+at ModuleLoader.import (node:internal/modules/esm/loader:539:34)
+2025-10-23 07:36:56.09
+51754177
+User
+at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:221:31)
+2025-10-23 07:36:56.09
+51754177
+User
+at importModuleDynamicallyCallback (node:internal/modules/esm/utils:260:12) {
+2025-10-23 07:36:56.09
+51754177
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2025-10-23 07:36:56.09
+51754177
+User
+url: 'file:///home/runner/workspace/dist/marketplace/routes'
+2025-10-23 07:36:56.09
+51754177
+User
+}
+2025-10-23 07:36:56.09
+51754177
+User
+✅ Enhanced Purchasing AI routes loaded successfully
+2025-10-23 07:36:56.09
+51754177
+User
+[2025-10-23T12:36:56.096Z] [scheduler] Initializing scheduler
+2025-10-23 07:36:56.73
+51754177
+User
+Database connected successfully
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.776Z] [scheduler] Database tables not ready, using empty schedules: relation "schedules" does not exist
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.777Z] [scheduler] ✅ Added always-on Amazon sync job (every 2 hours)
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.777Z] [scheduler] Loaded 1 scheduled jobs
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.777Z] [scheduler] Scheduler initialized
+2025-10-23 07:36:56.77
+51754177
+User
+✅ Scheduler initialized for continuous Amazon sync
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.779Z] [automation] 🚀 Starting supplier automation scheduler
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.779Z] [automation] Running initial automation check...
+2025-10-23 07:36:56.77
+51754177
+User
+[2025-10-23T12:36:56.779Z] [automation] Checking automations at 12:36:56 (12:36) - found 1 automation(s)
+2025-10-23 07:36:56.78
+51754177
+User
+[2025-10-23T12:36:56.780Z] [automation] ✅ Supplier automation scheduler started (checking every 60 seconds)
+2025-10-23 07:36:56.88
+51754177
+User
+12:36:56 PM [express] serving on port 5000
+2025-10-23 07:37:56.78
+51754177
+User
+[2025-10-23T12:37:56.780Z] [automation] Checking automations at 12:37:56 (12:37) - found 1 automation(s)
+2025-10-23 07:38:56.78
+51754177
+User
+[2025-10-23T12:38:56.783Z] [automation] Checking automations at 12:38:56 (12:38) - found 1 automation(s)
+2025-10-23 07:39:56.81
+51754177
+User
+[2025-10-23T12:39:56.813Z] [automation] Checking automations at 12:39:56 (12:39) - found 1 automation(s)
+2025-10-23 07:40:56.84
+51754177
+User
+[2025-10-23T12:40:56.843Z] [automation] Checking automations at 12:40:56 (12:40) - found 1 automation(s)
+2025-10-23 07:41:56.87
+51754177
+User
+[2025-10-23T12:41:56.875Z] [scheduler] Found 1 jobs to execute
+2025-10-23 07:41:56.87
+51754177
+User
+[2025-10-23T12:41:56.875Z] [scheduler] Executing job -999999
+2025-10-23 07:41:56.87
+51754177
+User
+[2025-10-23T12:41:56.876Z] [scheduler] Executing Amazon sync job -999999
+2025-10-23 07:41:57.65
+51754177
+User
+[2025-10-23T12:41:57.551Z] [automation] Checking automations at 12:41:57 (12:41) - found 1 automation(s)
+2025-10-23 07:41:58.78
+51754177
+User
+Database connected successfully
+2025-10-23 07:41:58.97
+51754177
+User
+[2025-10-23T12:41:58.977Z] [scheduler] Amazon sync job -999999 completed: 0 products processed
+2025-10-23 07:42:57.55
+51754177
+User
+[2025-10-23T12:42:57.552Z] [automation] Checking automations at 12:42:57 (12:42) - found 1 automation(s)
+2025-10-23 07:43:57.55
+51754177
+User
+[2025-10-23T12:43:57.553Z] [automation] Checking automations at 12:43:57 (12:43) - found 1 automation(s)
+2025-10-23 07:44:57.55
+51754177
+User
+[2025-10-23T12:44:57.554Z] [automation] Checking automations at 12:44:57 (12:44) - found 1 automation(s)
+2025-10-23 07:45:57.55
+51754177
+User
+[2025-10-23T12:45:57.554Z] [automation] Checking automations at 12:45:57 (12:45) - found 1 automation(s)
+2025-10-23 07:46:57.55
+51754177
+User
+[2025-10-23T12:46:57.555Z] [automation] Checking automations at 12:46:57 (12:46) - found 1 automation(s)
+2025-10-23 07:47:57.55
+51754177
+User
+[2025-10-23T12:47:57.556Z] [automation] Checking automations at 12:47:57 (12:47) - found 1 automation(s)
+2025-10-23 07:48:57.55
+51754177
+User
+[2025-10-23T12:48:57.556Z] [automation] Checking automations at 12:48:57 (12:48) - found 1 automation(s)
+2025-10-23 07:49:57.55
+51754177
+User
+[2025-10-23T12:49:57.557Z] [automation] Checking automations at 12:49:57 (12:49) - found 1 automation(s)
