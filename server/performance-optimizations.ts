@@ -59,7 +59,7 @@ export class PerformanceOptimizedQueries {
       ${whereClause}
     `;
 
-    // Optimized SQL query with pagination
+    // Optimized SQL query with pagination and ASIN mappings
     const productsQuery = `
       SELECT p.id, p.sku, p.usin, p.name, p.description,
              p.category_id as "categoryId",
@@ -78,10 +78,18 @@ export class PerformanceOptimizedQueries {
              p.last_amazon_sync as "lastAmazonSync",
              p.amazon_sync_status as "amazonSyncStatus",
              p.created_at as "createdAt",
-             p.updated_at as "updatedAt"
+             p.updated_at as "updatedAt",
+             COALESCE(
+               json_agg(
+                 json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'isActive', pam.is_active)
+               ) FILTER (WHERE pam.asin IS NOT NULL),
+               '[]'::json
+             ) as "asinMappings"
       FROM products p
       LEFT JOIN categories c ON c.id = p.category_id
+      LEFT JOIN product_asin_mapping pam ON pam.product_id = p.id
       ${whereClause}
+      GROUP BY p.id, c.name
       ORDER BY p.id DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;

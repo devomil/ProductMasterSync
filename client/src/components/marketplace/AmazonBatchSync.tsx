@@ -31,7 +31,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBatchSyncAmazonData, useAmazonConfigStatus } from '@/hooks/useAmazonMarketData';
+import { useBatchSyncAmazonData, useAmazonConfigStatus, useAmazonSyncStats } from '@/hooks/useAmazonMarketData';
 import { toast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +41,7 @@ export function AmazonBatchSync() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
   
   const { data: configStatus, isLoading: isConfigStatusLoading } = useAmazonConfigStatus();
+  const { data: syncStats, isLoading: isStatsLoading } = useAmazonSyncStats();
   const batchSyncMutation = useBatchSyncAmazonData();
 
   // Check if configuration is valid
@@ -106,53 +107,62 @@ export function AmazonBatchSync() {
             </p>
           </div>
 
-          {batchSyncMutation.data && (
+          {syncStats && !isStatsLoading && (
             <div className="mt-4">
               <div className="rounded-md bg-muted p-4">
-                <div className="font-medium">Last Sync Results</div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                  <div className="flex flex-col items-center p-2 rounded-md bg-background">
-                    <span className="text-muted-foreground">Processed</span>
-                    <span className="text-xl font-bold">
-                      {batchSyncMutation.data.processed}
+                <div className="font-medium mb-3">Overall Sync Statistics</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  <div className="flex flex-col items-center p-3 rounded-md bg-background">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="text-2xl font-bold">
+                      {syncStats.total}
                     </span>
                   </div>
-                  <div className="flex flex-col items-center p-2 rounded-md bg-background">
-                    <span className="text-muted-foreground text-green-600">
-                      <CheckCircle2 className="h-4 w-4 inline mr-1" />
+                  <div className="flex flex-col items-center p-3 rounded-md bg-background">
+                    <span className="text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-4 w-4" />
                       Success
                     </span>
-                    <span className="text-xl font-bold text-green-600">
-                      {batchSyncMutation.data.successful}
+                    <span className="text-2xl font-bold text-green-600">
+                      {syncStats.successful}
                     </span>
                   </div>
-                  <div className="flex flex-col items-center p-2 rounded-md bg-background">
-                    <span className="text-muted-foreground text-red-600">
-                      <XCircle className="h-4 w-4 inline mr-1" />
+                  <div className="flex flex-col items-center p-3 rounded-md bg-background">
+                    <span className="text-red-600 flex items-center gap-1">
+                      <XCircle className="h-4 w-4" />
                       Failed
                     </span>
-                    <span className="text-xl font-bold text-red-600">
-                      {batchSyncMutation.data.failed}
+                    <span className="text-2xl font-bold text-red-600">
+                      {syncStats.failed}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 rounded-md bg-background">
+                    <span className="text-muted-foreground">Not Found</span>
+                    <span className="text-2xl font-bold text-yellow-600">
+                      {syncStats.notFound}
                     </span>
                   </div>
                 </div>
                 
-                {batchSyncMutation.data.failed > 0 && Object.keys(batchSyncMutation.data.errors).length > 0 && (
-                  <div className="mt-2">
-                    <details className="text-sm">
-                      <summary className="cursor-pointer font-medium">View Errors</summary>
-                      <div className="mt-2 max-h-32 overflow-y-auto">
-                        {Object.entries(batchSyncMutation.data.errors).map(([sku, error]) => (
-                          <div key={sku} className="py-1">
-                            <span className="font-semibold">{sku}:</span> {error}
-                          </div>
-                        ))}
-                      </div>
-                    </details>
+                {syncStats.avgResponseTime && (
+                  <div className="mt-3 text-sm text-muted-foreground text-center">
+                    Avg response time: {Math.round(syncStats.avgResponseTime)}ms
                   </div>
                 )}
               </div>
             </div>
+          )}
+
+          {batchSyncMutation.data && (
+            <Alert className="mt-4">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Sync Job Completed</AlertTitle>
+              <AlertDescription>
+                Latest batch processed {batchSyncMutation.data.processed} products: 
+                <span className="text-green-600 font-semibold"> {batchSyncMutation.data.successful} successful</span>,
+                <span className="text-red-600 font-semibold"> {batchSyncMutation.data.failed} failed</span>
+              </AlertDescription>
+            </Alert>
           )}
         </div>
       </CardContent>

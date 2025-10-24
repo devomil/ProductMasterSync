@@ -12,6 +12,7 @@ import {
   productAmazonLookup,
   productAsinMapping,
   amazonPriceHistory,
+  amazonSyncLogs,
   type Product
 } from '@shared/schema';
 

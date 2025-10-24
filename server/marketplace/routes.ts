@@ -114,27 +114,9 @@ router.post('/amazon/bulk-control/:jobId', (req, res) => {
 });
 
 /**
- * GET /marketplace/amazon/:productId
- * Get Amazon marketplace data for a product
- */
-router.get('/amazon/:productId', async (req, res) => {
-  try {
-    const productId = parseInt(req.params.productId);
-    if (isNaN(productId)) {
-      return res.status(400).json({ error: 'Invalid product ID' });
-    }
-
-    const data = await getAmazonDataForProduct(productId);
-    return res.json(data);
-  } catch (error) {
-    console.error('Error in GET /marketplace/amazon/:productId:', error);
-    return res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-/**
  * POST /marketplace/amazon/fetch/:productId
  * Fetch Amazon marketplace data for a product by UPC
+ * MUST come before /amazon/:productId to avoid route conflicts
  */
 router.post('/amazon/fetch/:productId', async (req, res) => {
   try {
@@ -1387,6 +1369,26 @@ router.get('/amazon/bulk-status/:jobId', (req, res) => {
     
   } catch (error) {
     console.error('Error getting bulk job status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/:productId
+ * Get Amazon marketplace data for a product
+ * MUST be defined LAST as a catch-all for numeric product IDs
+ */
+router.get('/amazon/:productId', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    if (isNaN(productId)) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+
+    const data = await getAmazonDataForProduct(productId);
+    return res.json(data);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/:productId:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

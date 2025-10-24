@@ -920,6 +920,7 @@ const Products = () => {
                         <TableHead className="w-[120px] text-sm font-medium whitespace-nowrap px-4 py-3">Weight</TableHead>
                       </>
                     )}
+                    <TableHead className="w-[180px] text-sm font-medium whitespace-nowrap px-4 py-3">Amazon ASINs</TableHead>
                     <TableHead className="w-[100px] text-sm font-medium whitespace-nowrap px-4 py-3">Status</TableHead>
                     <TableHead className="w-[100px] text-right text-sm font-medium whitespace-nowrap px-4 py-3">Actions</TableHead>
                   </TableRow>
@@ -1024,6 +1025,26 @@ const Products = () => {
                           <TableCell className="text-sm">{product.weight || '-'}</TableCell>
                         </>
                       )}
+                      <TableCell className="text-sm">
+                        {product.asinMappings && product.asinMappings.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {product.asinMappings.slice(0, 2).map((mapping: any, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                {mapping.asin}
+                              </Badge>
+                            ))}
+                            {product.asinMappings.length > 2 && (
+                              <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-gray-200">
+                                +{product.asinMappings.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : product.amazonSyncStatus === 'success' ? (
+                          <span className="text-gray-400 text-xs">No ASINs</span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={product.status === 'active' ? 'default' : 'secondary'}
