@@ -1,9 +1,8 @@
 /**
  * Amazon Real Pricing Service
  * Fetches authentic pricing data directly from Amazon SP-API
+ * Uses OAuth 2.0 LWA tokens only (no AWS Signature V4 needed as of Oct 2023)
  */
-
-import { createAWSSignature } from '../utils/aws-signature';
 
 interface AmazonPricingData {
   asin: string;
@@ -27,12 +26,63 @@ interface CatalogSearchResult {
 export class AmazonRealPricingService {
   private readonly marketplace = 'ATVPDKIKX0DER'; // US marketplace
   private readonly baseUrl = 'https://sellingpartnerapi-na.amazon.com';
+  
+  private readonly CLIENT_ID = process.env.AMAZON_SP_API_CLIENT_ID;
+  private readonly CLIENT_SECRET = process.env.AMAZON_SP_API_CLIENT_SECRET;
+  private readonly REFRESH_TOKEN = process.env.AMAZON_SP_API_REFRESH_TOKEN;
+
+  private accessToken: string | null = null;
+  private tokenExpiry: Date | null = null;
+
+  /**
+   * Get OAuth 2.0 LWA access token
+   */
+  async getAccessToken(): Promise<string> {
+    if (this.accessToken && this.tokenExpiry && new Date() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    try {
+      console.log('Refreshing Amazon SP-API access token...');
+      
+      const response = await fetch('https://api.amazon.com/auth/o2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: this.REFRESH_TOKEN!,
+          client_id: this.CLIENT_ID!,
+          client_secret: this.CLIENT_SECRET!
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Token request failed: ${response.status} - ${errorText}`);
+        throw new Error(`Token request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.tokenExpiry = new Date(Date.now() + (data.expires_in - 60) * 1000);
+
+      console.log('Amazon SP-API access token refreshed successfully');
+      return this.accessToken;
+    } catch (error) {
+      console.error('Failed to get access token:', error);
+      throw error;
+    }
+  }
 
   /**
    * Search Amazon catalog by UPC to find correct ASIN
    */
   async searchCatalogByUPC(upc: string): Promise<CatalogSearchResult[]> {
     try {
+      const accessToken = await this.getAccessToken();
       const endpoint = '/catalog/2022-04-01/items';
       const params = new URLSearchParams({
         marketplaceIds: this.marketplace,
@@ -42,29 +92,16 @@ export class AmazonRealPricingService {
       });
 
       const url = `${this.baseUrl}${endpoint}?${params}`;
-      
-      const headers = {
-        'host': 'sellingpartnerapi-na.amazon.com',
-        'user-agent': 'MDM-PIM-System/1.0',
-        'x-amz-access-token': process.env.AMAZON_SP_API_ACCESS_TOKEN || '',
-        'content-type': 'application/json'
-      };
-
-      // Create AWS signature for the request
-      const signedHeaders = await createAWSSignature({
-        method: 'GET',
-        url,
-        headers,
-        body: null,
-        service: 'execute-api',
-        region: 'us-east-1'
-      });
 
       console.log(`Searching Amazon catalog for UPC: ${upc}`);
 
+      // Use OAuth 2.0 LWA token only (no AWS Signature V4 needed)
       const response = await fetch(url, {
         method: 'GET',
-        headers: { ...headers, ...signedHeaders }
+        headers: {
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
@@ -121,6 +158,7 @@ export class AmazonRealPricingService {
 
   private async fetchPricingForAsin(asin: string): Promise<AmazonPricingData | null> {
     try {
+      const accessToken = await this.getAccessToken();
       const endpoint = `/products/pricing/v0/items/${asin}/offers`;
       const params = new URLSearchParams({
         MarketplaceId: this.marketplace,
@@ -128,28 +166,16 @@ export class AmazonRealPricingService {
       });
 
       const url = `${this.baseUrl}${endpoint}?${params}`;
-      
-      const headers = {
-        'host': 'sellingpartnerapi-na.amazon.com',
-        'user-agent': 'MDM-PIM-System/1.0',
-        'x-amz-access-token': process.env.AMAZON_SP_API_ACCESS_TOKEN || '',
-        'content-type': 'application/json'
-      };
-
-      const signedHeaders = await createAWSSignature({
-        method: 'GET',
-        url,
-        headers,
-        body: null,
-        service: 'execute-api',
-        region: 'us-east-1'
-      });
 
       console.log(`Fetching real Amazon pricing for ASIN: ${asin}`);
 
+      // Use OAuth 2.0 LWA token only (no AWS Signature V4 needed)
       const response = await fetch(url, {
         method: 'GET',
-        headers: { ...headers, ...signedHeaders }
+        headers: {
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {

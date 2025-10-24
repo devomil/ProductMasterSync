@@ -120,24 +120,19 @@ class AmazonPricingServiceV2022 {
       }));
 
       try {
-        console.log(`Making batch pricing request with AWS signature for ASINs: ${batchAsins.join(', ')}`);
-        
-        const { createAWSSignature } = await import('../utils/aws-signature');
-        const awsSigner = createAWSSignature();
+        console.log(`Making batch pricing request for ASINs: ${batchAsins.join(', ')}`);
         
         const url = `${this.ENDPOINT}/batches/products/pricing/2022-05-01/competitiveSummary`;
         const bodyString = JSON.stringify({ requests });
         
-        // Create signed headers using AWS Signature V4
-        const signedHeaders = awsSigner.signRequest('POST', url, {
-          'Content-Type': 'application/json',
-          'x-amz-access-token': accessToken,
-          'Accept': 'application/json'
-        }, bodyString);
-        
+        // Use OAuth 2.0 LWA token only (no AWS Signature V4 needed as of Oct 2023)
         const response = await fetch(url, {
           method: 'POST',
-          headers: signedHeaders,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-amz-access-token': accessToken,
+            'Accept': 'application/json'
+          },
           body: bodyString
         });
 
