@@ -1616,3 +1616,74 @@ export const shippingTemplatesRelations = relations(shippingTemplates, ({ one })
 export const suppliersShippingRelations = relations(suppliers, ({ many }) => ({
   shippingTemplates: many(shippingTemplates),
 }));
+
+// Purchasing AI enums
+export const recommendationTypeEnum = pgEnum('recommendation_type', [
+  'dropship', 'warehouse', 'no_opportunity'
+]);
+export const riskLevelEnum = pgEnum('risk_level', [
+  'low', 'medium', 'high'
+]);
+
+// Purchasing Opportunities table - AI-generated purchasing recommendations
+export const purchasingOpportunities = pgTable("purchasing_opportunities", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  asin: text("asin"),
+  analysisDate: timestamp("analysis_date").defaultNow(),
+  recommendation: recommendationTypeEnum("recommendation"),  // dropship, warehouse, or no_opportunity
+  confidence: integer("confidence").default(0),  // 0-100 confidence score
+  riskLevel: riskLevelEnum("risk_level"),  // low, medium, high
+  marginPercent: real("margin_percent"),  // Calculated profit margin %
+  ourCost: real("our_cost"),  // Product cost from supplier
+  shippingCost: real("shipping_cost"),  // Calculated shipping cost
+  buyBoxPrice: real("buy_box_price"),  // Amazon buy box price
+  salesRank: integer("sales_rank"),  // Amazon sales rank
+  salesRankCategory: text("sales_rank_category"),  // Sales rank category
+  canList: boolean("can_list"),  // Amazon listing restriction status
+  reasoning: text("reasoning"),  // AI explanation of recommendation
+  opportunityScore: integer("opportunity_score").default(0),  // 0-100 overall score
+  automationReady: boolean("automation_ready").default(false),  // Ready for auto-processing
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Purchasing Settings table - Configuration for AI analysis
+export const purchasingSettings = pgTable("purchasing_settings", {
+  id: serial("id").primaryKey(),
+  dropshipMinMargin: integer("dropship_min_margin").default(15),  // Minimum margin % for dropship recommendation
+  warehouseMinMargin: integer("warehouse_min_margin").default(25),  // Minimum margin % for warehouse recommendation
+  minConfidence: integer("min_confidence").default(50),  // Minimum confidence threshold
+  riskLevelFilter: text("risk_level_filter").default("all"),  // Filter by risk level
+  maxSalesRank: integer("max_sales_rank"),  // Maximum acceptable sales rank (lower is better)
+  requireCanList: boolean("require_can_list").default(true),  // Only recommend if we can list
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Purchasing opportunity relations
+export const purchasingOpportunitiesRelations = relations(purchasingOpportunities, ({ one }) => ({
+  product: one(products, {
+    fields: [purchasingOpportunities.productId],
+    references: [products.id],
+  }),
+}));
+
+// Purchasing opportunity schemas
+export const insertPurchasingOpportunitySchema = createInsertSchema(purchasingOpportunities).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  analysisDate: true 
+});
+export const insertPurchasingSettingsSchema = createInsertSchema(purchasingSettings).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+// Types
+export type PurchasingOpportunity = typeof purchasingOpportunities.$inferSelect;
+export type PurchasingSettings = typeof purchasingSettings.$inferSelect;
+export type InsertPurchasingOpportunity = z.infer<typeof insertPurchasingOpportunitySchema>;
+export type InsertPurchasingSettings = z.infer<typeof insertPurchasingSettingsSchema>;
