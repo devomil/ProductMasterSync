@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMappingTemplates } from "@/hooks/useMappingTemplates";
+import { useAmazonMarketIntelligence } from "@/hooks/useAmazonMarketData";
 import { HelpBubble, helpContexts } from "@/components/HelpBubble";
 import { 
   Tabs, 
@@ -19,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 // import AmazonMarketData from "@/components/products/AmazonMarketData";
 
@@ -279,6 +280,12 @@ export default function ProductDetails() {
     enabled: !!id,
     retry: 1
   });
+
+  // Fetch comprehensive Amazon market intelligence
+  const { data: marketIntelligence, isLoading: intelligenceLoading, refetch: refetchIntelligence } = useAmazonMarketIntelligence(
+    parseInt(id || '0'),
+    activeTab === 'markets' // Only fetch when Markets tab is active
+  );
 
   // Note: mappingTemplates already declared above via useMappingTemplates hook
 
@@ -1002,190 +1009,261 @@ export default function ProductDetails() {
             
             {/* Markets Tab */}
             <TabsContent value="markets" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Amazon Marketplace Intelligence</CardTitle>
-                  <CardDescription>Competitive analysis and marketplace data for this product</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Test UPC Section */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5" />
-                          Amazon Lookup Test
-                        </CardTitle>
-                        <CardDescription>
-                          {product?.upc ? (
-                            <>Test what Amazon returns for UPC: <span className="font-mono font-semibold">{product.upc}</span></>
-                          ) : (
-                            "No UPC available for Amazon marketplace lookup"
-                          )}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {product?.upc ? (
-                          <div>
-                            <div className="flex gap-3 mb-4">
-                              <Button 
-                                variant="outline"
-                                onClick={handleTestUPC}
-                                disabled={testLoading}
-                              >
-                                {testLoading ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                )}
-                                Test UPC Lookup
-                              </Button>
-                              <Button
-                                onClick={handleSyncData}
-                                disabled={syncAmazonDataMutation.isPending}
-                              >
-                                {syncAmazonDataMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                )}
-                                Sync to Database
-                              </Button>
-                            </div>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Amazon Marketplace Intelligence</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {product?.upc ? `UPC: ${product.upc}` : 'No UPC available'}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => refetchIntelligence()}
+                  disabled={intelligenceLoading}
+                  data-testid="button-refresh-intelligence"
+                >
+                  {intelligenceLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Refresh Data
+                </Button>
+              </div>
 
-                            {testResults && (
-                              <div className="space-y-4">
-                                <Separator />
-                                
-                                {testResults.success ? (
-                                  <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                      <h4 className="font-semibold text-green-700">Amazon Data Found</h4>
-                                      <Badge variant="secondary" className="bg-green-100 text-green-700">
-                                        {testResults.totalAsinsFound} ASINs Found
-                                      </Badge>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                        <div className="text-sm font-medium text-gray-700">ASINs</div>
-                                        <div className="space-y-1">
-                                          {testResults.asins?.map((asin: string, index: number) => (
-                                            <div key={index} className="flex items-center gap-2">
-                                              <Badge variant="outline">{asin}</Badge>
-                                              <a 
-                                                href={`https://amazon.com/dp/${asin}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-600 hover:text-blue-800"
-                                              >
-                                                <ExternalLink className="h-3 w-3" />
-                                              </a>
-                                            </div>
-                                          ))}
-                                        </div>
+              {intelligenceLoading ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center py-12">
+                      <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-gray-400" />
+                      <div className="text-gray-500">Loading Amazon marketplace intelligence...</div>
+                      <div className="text-sm text-gray-400 mt-2">Fetching buy box pricing, sales rank, and restrictions</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : !marketIntelligence?.asins?.length ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center py-12 text-gray-500">
+                      <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <div className="font-medium">No Amazon Data Available</div>
+                      <div className="text-sm mt-2">
+                        {marketIntelligence?.message || 'No ASINs found for this product. Sync product with Amazon first.'}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {marketIntelligence.asins.map((asin, index) => (
+                    <Card key={asin.asin} className="overflow-hidden" data-testid={`card-asin-${index}`}>
+                      <CardHeader className="bg-gray-50 border-b">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg">
+                                {asin.title || asin.asin}
+                              </CardTitle>
+                              <a 
+                                href={`https://amazon.com/dp/${asin.asin}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                                data-testid={`link-amazon-${asin.asin}`}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Badge variant="outline" data-testid={`badge-asin-${asin.asin}`}>
+                                ASIN: {asin.asin}
+                              </Badge>
+                              {asin.brand && (
+                                <Badge variant="secondary">
+                                  {asin.brand}
+                                </Badge>
+                              )}
+                              {asin.matchConfidence && (
+                                <Badge variant="secondary">
+                                  {asin.matchConfidence}% Match
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        {asin.error ? (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 text-red-600" />
+                              <div className="text-red-800">{asin.error}</div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Buy Box Pricing */}
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                  <DollarSign className="h-4 w-4 text-green-600" />
+                                  Buy Box Pricing
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-2">
+                                {asin.buyBoxPrice !== null ? (
+                                  <>
+                                    <div>
+                                      <div className="text-2xl font-bold text-green-600" data-testid={`text-buybox-${asin.asin}`}>
+                                        ${asin.buyBoxPrice.toFixed(2)}
                                       </div>
-                                      
-                                      <div className="space-y-2">
-                                        <div className="text-sm font-medium text-gray-700">Sample Data</div>
-                                        {testResults.catalogItems && testResults.catalogItems[0] && (
-                                          <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
-                                            <div><strong>Brand:</strong> {testResults.catalogItems[0].attributes?.brand?.[0]?.value || 'N/A'}</div>
-                                            <div><strong>Weight:</strong> {testResults.catalogItems[0].attributes?.item_weight?.[0]?.value || 'N/A'}</div>
-                                            <div><strong>Dimensions:</strong> Available in full data</div>
-                                          </div>
+                                      <div className="text-xs text-gray-500">Buy Box Price</div>
+                                    </div>
+                                    {asin.lowestPrice !== null && (
+                                      <div className="pt-2 border-t">
+                                        <div className="text-lg font-semibold">${asin.lowestPrice.toFixed(2)}</div>
+                                        <div className="text-xs text-gray-500">Lowest Price</div>
+                                      </div>
+                                    )}
+                                    <div className="pt-2 border-t text-xs space-y-1">
+                                      <div>
+                                        <span className="text-gray-600">Offers:</span> {asin.offerCount}
+                                      </div>
+                                      {asin.fulfillmentChannel && (
+                                        <div>
+                                          <span className="text-gray-600">Fulfillment:</span> {asin.fulfillmentChannel}
+                                        </div>
+                                      )}
+                                      {asin.isBuyBoxWinner && (
+                                        <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                                          <CheckCircle className="h-3 w-3 mr-1" />
+                                          Buy Box Winner
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-sm text-gray-500 py-4">
+                                    <Info className="h-4 w-4 mx-auto mb-2" />
+                                    <div className="text-center">No pricing data available</div>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            {/* Sales Rank */}
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                  <BarChart3 className="h-4 w-4 text-blue-600" />
+                                  Sales Rank
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-2">
+                                {asin.salesRank !== null ? (
+                                  <>
+                                    <div>
+                                      <div className="text-2xl font-bold text-blue-600" data-testid={`text-salesrank-${asin.asin}`}>
+                                        #{asin.salesRank.toLocaleString()}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {asin.salesRankCategory || 'Overall'}
+                                      </div>
+                                    </div>
+                                    <div className="pt-2 border-t">
+                                      <div className="text-xs text-gray-600">
+                                        {asin.salesRank < 10000 && (
+                                          <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                            Top Seller
+                                          </Badge>
+                                        )}
+                                        {asin.salesRank >= 10000 && asin.salesRank < 100000 && (
+                                          <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                                            Good Sales
+                                          </Badge>
+                                        )}
+                                        {asin.salesRank >= 100000 && (
+                                          <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                                            Moderate Sales
+                                          </Badge>
                                         )}
                                       </div>
                                     </div>
-                                  </div>
+                                  </>
                                 ) : (
-                                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                    <div className="flex items-center gap-2">
-                                      <AlertCircle className="h-4 w-4 text-red-600" />
-                                      <div className="text-red-800">
-                                        {testResults.error || 'No Amazon data found for this UPC'}
-                                      </div>
-                                    </div>
+                                  <div className="text-sm text-gray-500 py-4">
+                                    <Info className="h-4 w-4 mx-auto mb-2" />
+                                    <div className="text-center">No sales rank data available</div>
                                   </div>
                                 )}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                            <div>No UPC available for this product</div>
-                            <div className="text-sm mt-1">Amazon marketplace data requires a valid UPC code</div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                              </CardContent>
+                            </Card>
 
-                    {/* Stored Market Data Section */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Stored Amazon Data</CardTitle>
-                        <CardDescription>Previously synced competitive intelligence data</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {marketDataLoading ? (
-                          <div className="text-center py-8">
-                            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-gray-400" />
-                            <div className="text-gray-500">Loading stored data...</div>
-                          </div>
-                        ) : marketData && marketData.data && marketData.data.length > 0 ? (
-                          <div className="space-y-4">
-                            {marketData.data.map((item: any, index: number) => (
-                              <div key={index} className="border rounded-lg p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline">{item.asin}</Badge>
-                                    <a 
-                                      href={`https://amazon.com/dp/${item.asin}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-800"
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                    </a>
+                            {/* Listing Restrictions */}
+                            <Card>
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                  {asin.canList ? (
+                                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                                  ) : (
+                                    <ShieldAlert className="h-4 w-4 text-red-600" />
+                                  )}
+                                  Listing Status
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-2">
+                                {asin.canList !== null ? (
+                                  <>
+                                    <div>
+                                      {asin.canList ? (
+                                        <Badge variant="secondary" className="bg-green-100 text-green-700" data-testid={`badge-can-list-${asin.asin}`}>
+                                          <CheckCircle className="h-3 w-3 mr-1" />
+                                          Can List
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="secondary" className="bg-red-100 text-red-700" data-testid={`badge-restricted-${asin.asin}`}>
+                                          <AlertCircle className="h-3 w-3 mr-1" />
+                                          Restricted
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {asin.hasRestrictions && asin.restrictionMessages.length > 0 && (
+                                      <div className="pt-2 border-t space-y-1">
+                                        <div className="text-xs font-medium text-gray-700">Restrictions:</div>
+                                        {asin.restrictionMessages.map((msg, idx) => (
+                                          <div key={idx} className="text-xs text-red-600">
+                                            • {msg}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {asin.isSimulated && (
+                                      <div className="pt-2 border-t">
+                                        <Badge variant="outline" className="text-xs">
+                                          Simulated Data
+                                        </Badge>
+                                      </div>
+                                    )}
+                                    <div className="pt-2 border-t text-xs text-gray-500">
+                                      Last checked: {new Date(asin.lastChecked).toLocaleDateString()}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-sm text-gray-500 py-4">
+                                    <Info className="h-4 w-4 mx-auto mb-2" />
+                                    <div className="text-center">No restriction data available</div>
                                   </div>
-                                  <div className="text-xs text-gray-500">
-                                    Last updated: {new Date(item.lastUpdated || item.created_at).toLocaleDateString()}
-                                  </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                  <div>
-                                    <div className="font-medium text-gray-700">Product Info</div>
-                                    <div>Brand: {item.brand || 'N/A'}</div>
-                                    <div>Title: {item.title ? item.title.substring(0, 50) + '...' : 'N/A'}</div>
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-gray-700">Dimensions</div>
-                                    <div>Weight: {item.itemWeight || item.item_weight || 'N/A'}</div>
-                                    <div>Size: {item.itemDimensions || item.item_dimensions || 'N/A'}</div>
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-gray-700">Identifiers</div>
-                                    <div>UPC: {item.upc}</div>
-                                    <div>ASIN: {item.asin}</div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                            <div>No Amazon market data stored yet</div>
-                            <div className="text-sm mt-1">Use the "Sync to Database" button to fetch and store competitive data</div>
+                                )}
+                              </CardContent>
+                            </Card>
                           </div>
                         )}
                       </CardContent>
                     </Card>
-                  </div>
-                </CardContent>
-              </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
