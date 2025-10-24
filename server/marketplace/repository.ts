@@ -232,18 +232,44 @@ export async function getSyncLogsForProduct(productId: number) {
 }
 
 /**
+ * Get recent sync logs
+ * @param limit - Number of logs to return (default 50)
+ */
+export async function getRecentSyncLogs(limit: number = 50) {
+  return await db
+    .select({
+      id: amazonSyncLogs.id,
+      productId: amazonSyncLogs.productId,
+      productName: products.name,
+      productSku: products.sku,
+      batchId: amazonSyncLogs.batchId,
+      syncStartedAt: amazonSyncLogs.syncStartedAt,
+      syncCompletedAt: amazonSyncLogs.syncCompletedAt,
+      result: amazonSyncLogs.result,
+      responseTimeMs: amazonSyncLogs.responseTimeMs,
+      errorMessage: amazonSyncLogs.errorMessage,
+      upc: amazonSyncLogs.upc,
+      asin: amazonSyncLogs.asin,
+    })
+    .from(amazonSyncLogs)
+    .leftJoin(products, eq(amazonSyncLogs.productId, products.id))
+    .orderBy(desc(amazonSyncLogs.syncStartedAt))
+    .limit(limit);
+}
+
+/**
  * Get sync statistics
  */
 export async function getSyncStats() {
   try {
     const result = await db.execute(sql`
       SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN result = 'success' THEN 1 ELSE 0 END) as successful,
-        SUM(CASE WHEN result = 'error' THEN 1 ELSE 0 END) as failed,
-        SUM(CASE WHEN result = 'not_found' THEN 1 ELSE 0 END) as notFound,
-        SUM(CASE WHEN result = 'rate_limited' THEN 1 ELSE 0 END) as rateLimited,
-        AVG(response_time_ms) as avgResponseTime
+        COALESCE(COUNT(*), 0) as total,
+        COALESCE(SUM(CASE WHEN result = 'success' THEN 1 ELSE 0 END), 0) as successful,
+        COALESCE(SUM(CASE WHEN result = 'error' THEN 1 ELSE 0 END), 0) as failed,
+        COALESCE(SUM(CASE WHEN result = 'not_found' THEN 1 ELSE 0 END), 0) as notFound,
+        COALESCE(SUM(CASE WHEN result = 'rate_limited' THEN 1 ELSE 0 END), 0) as rateLimited,
+        COALESCE(AVG(response_time_ms), 0) as avgResponseTime
       FROM amazon_sync_logs
       WHERE sync_started_at > NOW() - INTERVAL '24 hours'
     `);
@@ -251,7 +277,19 @@ export async function getSyncStats() {
     // Extract the first row from the result
     const stats = result.rows && result.rows.length > 0 ? result.rows[0] : null;
     
-    return stats || { 
+    // Convert string numbers to actual numbers
+    if (stats) {
+      return {
+        total: Number(stats.total) || 0,
+        successful: Number(stats.successful) || 0,
+        failed: Number(stats.failed) || 0,
+        notFound: Number(stats.notfound) || 0,
+        rateLimited: Number(stats.ratelimited) || 0,
+        avgResponseTime: Number(stats.avgresponsetime) || 0
+      };
+    }
+    
+    return { 
       total: 0, 
       successful: 0, 
       failed: 0, 

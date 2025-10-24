@@ -15,6 +15,8 @@ export interface AmazonSyncStats {
 export interface AmazonSyncLog {
   id: number;
   productId: number;
+  productName?: string;
+  productSku?: string;
   batchId: string;
   syncStartedAt: string;
   syncCompletedAt: string | null;
@@ -24,7 +26,7 @@ export interface AmazonSyncLog {
   errorDetails: Record<string, any> | null;
   upc: string | null;
   asin: string | null;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface SchedulerStatus {
@@ -159,6 +161,16 @@ export function useAmazonSyncLogsByBatch(batchId?: string) {
   return useQuery<AmazonSyncLog[]>({
     queryKey: ['/api/marketplace/amazon/batch-logs', batchId],
     enabled: !!batchId,
+  });
+}
+
+/**
+ * Hook to get recent Amazon sync logs
+ */
+export function useRecentAmazonSyncLogs(limit: number = 50) {
+  return useQuery<AmazonSyncLog[]>({
+    queryKey: ['/api/marketplace/amazon/sync-logs/recent', { limit }],
+    refetchInterval: 60000, // Refetch every minute
   });
 }
 

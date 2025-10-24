@@ -10,7 +10,7 @@ import { fetchAmazonDataByUpc, getAmazonDataForProduct, batchSyncAmazonData } fr
 import { syncProductWithAmazon } from './amazon-spapi-service';
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
 import { scheduler } from '../utils/scheduler';
-import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct } from './repository';
+import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct, getRecentSyncLogs } from './repository';
 import { amazonListingsRestrictionsService } from './amazon-listings-restrictions';
 import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
@@ -254,6 +254,33 @@ router.get('/amazon/sync-stats', async (req, res) => {
     return res.json(stats);
   } catch (error) {
     console.error('Error in GET /marketplace/amazon/sync-stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/sync-logs/recent
+ * Get recent Amazon data sync logs
+ */
+router.get('/amazon/sync-logs/recent', async (req, res) => {
+  try {
+    // Validate and sanitize limit parameter
+    let limit = 50; // default
+    if (req.query.limit) {
+      const parsedLimit = parseInt(req.query.limit as string, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        return res.status(400).json({ 
+          error: 'Invalid limit parameter. Must be a positive integer.' 
+        });
+      }
+      // Cap at 100 to prevent excessive data retrieval
+      limit = Math.min(parsedLimit, 100);
+    }
+    
+    const logs = await getRecentSyncLogs(limit);
+    return res.json(logs);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/sync-logs/recent:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

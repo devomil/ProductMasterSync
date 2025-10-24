@@ -2,7 +2,9 @@ import React from 'react';
 import { AmazonBatchSync } from '@/components/marketplace/AmazonBatchSync';
 import { AmazonScheduler } from '@/components/marketplace/AmazonScheduler';
 import { AmazonSyncStats } from '@/components/marketplace/AmazonSyncStats';
+import { useRecentAmazonSyncLogs } from '@/hooks/useAmazonMarketData';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -35,14 +37,24 @@ const removeEdcPrefix = (sku: string): string => {
 
 export default function AmazonIntegration() {
   const { data: products, isLoading } = useQuery({
-    queryKey: ['/api/products'],
+    queryKey: ['/api/products?limit=1000'], // Get enough products to calculate metrics
   });
 
   const { data: configStatus } = useQuery<{ configValid: boolean; missingEnvVars: string[] }>({
     queryKey: ['/api/marketplace/amazon/config-status'],
   });
 
+  const { data: syncLogs, isLoading: isSyncLogsLoading } = useRecentAmazonSyncLogs(25);
+
   const [activeTab, setActiveTab] = React.useState('overview');
+
+  // Calculate metrics from products data
+  const totalProducts = products?.products?.length || 0;
+  const productsWithAsins = products?.products?.filter((p: any) => 
+    p.asinMappings && p.asinMappings.length > 0
+  ).length || 0;
+  const productsWithUpc = products?.products?.filter((p: any) => p.upc).length || 0;
+  const upcCoverage = totalProducts > 0 ? Math.round((productsWithUpc / totalProducts) * 100) : 0;
 
   return (
     <div className="container mx-auto py-8 space-y-8">
@@ -92,8 +104,8 @@ export default function AmazonIntegration() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {isLoading ? "Loading..." : products?.length || 0}
+                <div className="text-2xl font-bold" data-testid="text-total-products">
+                  {isLoading ? "Loading..." : totalProducts}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Products in your catalog
@@ -123,7 +135,9 @@ export default function AmazonIntegration() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">23</div>
+                <div className="text-2xl font-bold" data-testid="text-amazon-matches">
+                  {isLoading ? "..." : productsWithAsins}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Products matched with Amazon
                 </p>
@@ -149,7 +163,9 @@ export default function AmazonIntegration() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">38%</div>
+                <div className="text-2xl font-bold" data-testid="text-upc-coverage">
+                  {isLoading ? "..." : `${upcCoverage}%`}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   UPC coverage in catalog
                 </p>
@@ -330,16 +346,38 @@ export default function AmazonIntegration() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {!isLoading && products ? (
-                      products.slice(0, 5).map((product: any) => (
+                    {!isLoading && products?.products ? (
+                      products.products.slice(0, 10).filter((p: any) => p.upc).map((product: any) => (
                         <TableRow key={product.id}>
                           <TableCell className="font-medium">{removeEdcPrefix(product.sku)}</TableCell>
-                          <TableCell>{product.name}</TableCell>
-                          <TableCell>{product.upc || '-'}</TableCell>
-                          <TableCell>-</TableCell>
-                          <TableCell>{product.lastAmazonSync ? new Date(product.lastAmazonSync).toLocaleString() : '-'}</TableCell>
+                          <TableCell className="max-w-xs truncate">{product.name}</TableCell>
+                          <TableCell className="font-mono text-xs">{product.upc || '-'}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" disabled={!product.upc}>
+                            {product.asinMappings && product.asinMappings.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {product.asinMappings.slice(0, 3).map((mapping: any, idx: number) => (
+                                  <span 
+                                    key={idx} 
+                                    className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10"
+                                  >
+                                    {mapping.asin}
+                                  </span>
+                                ))}
+                                {product.asinMappings.length > 3 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    +{product.asinMappings.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {product.lastAmazonSync ? new Date(product.lastAmazonSync).toLocaleDateString() : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" disabled={!product.upc} data-testid={`button-sync-${product.id}`}>
                               <RefreshCw className="mr-2 h-4 w-4" />
                               Sync
                             </Button>
@@ -349,7 +387,7 @@ export default function AmazonIntegration() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center">
-                          Loading products...
+                          {isLoading ? 'Loading products...' : 'No products with UPC codes found.'}
                         </TableCell>
                       </TableRow>
                     )}
@@ -367,7 +405,7 @@ export default function AmazonIntegration() {
             <CardHeader>
               <CardTitle>Sync History</CardTitle>
               <CardDescription>
-                Recent Amazon data sync operations
+                Recent Amazon data sync operations (last 25)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -383,12 +421,65 @@ export default function AmazonIntegration() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* This will be replaced with real data from useAmazonSyncLogsByBatch hook */}
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
-                      No sync history available yet. Run a batch sync to populate this data.
-                    </TableCell>
-                  </TableRow>
+                  {!isSyncLogsLoading && syncLogs && syncLogs.length > 0 ? (
+                    syncLogs.map((log) => (
+                      <TableRow key={log.id} data-testid={`row-sync-log-${log.id}`}>
+                        <TableCell className="text-sm">
+                          {new Date(log.syncStartedAt).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{log.productName || 'Unknown'}</span>
+                            {log.productSku && (
+                              <span className="text-xs text-muted-foreground">
+                                {removeEdcPrefix(log.productSku)}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              log.result === 'success' ? 'default' :
+                              log.result === 'not_found' ? 'secondary' :
+                              log.result === 'rate_limited' ? 'outline' :
+                              'destructive'
+                            }
+                            data-testid={`badge-status-${log.result}`}
+                          >
+                            {log.result?.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {log.upc || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {log.asin ? (
+                            <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                              {log.asin}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {log.responseTimeMs ? `${log.responseTimeMs}ms` : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : isSyncLogsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        Loading sync history...
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
+                        No sync history available yet. Run a batch sync to populate this data.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
