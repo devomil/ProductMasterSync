@@ -473,7 +473,7 @@ export async function getItemOffers(asins: string[]): Promise<any[]> {
 
 /**
  * Get buy box pricing and lowest offers for ASINs
- * Requires AWS Signature V4 + LWA token
+ * Uses v0 Pricing API with OAuth-only authentication
  */
 export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
   const config = getAmazonConfig();
@@ -485,77 +485,54 @@ export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
   const accessToken = await getAccessToken(config);
   const results = [];
 
+  // Process ASINs in batches
   for (const asin of asins) {
     try {
-      const params = new URLSearchParams({
-        MarketplaceId: config.marketplaceId,
-        Asins: asin,
-        ItemType: 'Asin'
+      // Use v0 pricing API endpoint (OAuth-only, no AWS SigV4 required)
+      const response = await axios.get(`${config.endpoint}/products/pricing/v0/items/${asin}/offers`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        },
+        params: {
+          MarketplaceId: config.marketplaceId,
+          ItemCondition: 'New',
+          CustomerType: 'Consumer'
+        }
       });
-      
-      const url = `${config.endpoint}/products/pricing/v0/pricing?${params}`;
-      
-      // Product Pricing API requires AWS Signature V4 + LWA token
-      const { createAWSSignature } = await import('./aws-signature');
-      
-      const headers: Record<string, string> = {
-        'host': 'sellingpartnerapi-na.amazon.com',
-        'x-amz-access-token': accessToken,
-        'content-type': 'application/json'
-      };
 
-      const awsSignedHeaders = await createAWSSignature({
-        method: 'GET',
-        url,
-        headers,
-        body: null,
-        service: 'execute-api',
-        region: 'us-east-1'
-      });
-      
-      const finalHeaders = { ...headers, ...awsSignedHeaders };
-      console.log(`[AWS SigV4] Request to ${url}`);
-      console.log(`[AWS SigV4] Headers:`, Object.keys(finalHeaders));
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: finalHeaders
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Amazon pricing API failed for ${asin}: ${response.status}`);
-        console.error(`Error response:`, errorText);
-        continue;
-      }
-      
-      const data = await response.json();
-
-      if (data && data.payload && data.payload.length > 0) {
-        const pricingData = data.payload[0];
-        const product = pricingData.Product;
+      if (response.data && response.data.payload) {
+        const payload = response.data.payload;
+        const summary = payload.Summary;
+        const offers = payload.Offers || [];
         
         let buyBoxPrice = null;
         let lowestPrice = null;
         let isBuyBoxWinner = false;
         let fulfillmentChannel = null;
         
-        // Extract buy box pricing
-        if (product && product.Offers && product.Offers.length > 0) {
-          const buyBoxOffer = product.Offers.find((offer: any) => offer.IsBuyBoxWinner);
-          if (buyBoxOffer && buyBoxOffer.BuyingPrice && buyBoxOffer.BuyingPrice.ListingPrice) {
-            buyBoxPrice = parseFloat(buyBoxOffer.BuyingPrice.ListingPrice.Amount);
-            isBuyBoxWinner = buyBoxOffer.IsBuyBoxWinner;
-            fulfillmentChannel = buyBoxOffer.FulfillmentChannel;
+        // Extract buy box price from summary
+        if (summary && summary.BuyBoxPrices && summary.BuyBoxPrices.length > 0) {
+          const buyBoxData = summary.BuyBoxPrices[0];
+          if (buyBoxData.ListingPrice) {
+            buyBoxPrice = parseFloat(buyBoxData.ListingPrice.Amount);
           }
         }
         
-        // Extract lowest price
-        if (product && product.LowestPrices && product.LowestPrices.length > 0) {
-          const lowestPriceData = product.LowestPrices[0];
+        // Extract lowest price from summary
+        if (summary && summary.LowestPrices && summary.LowestPrices.length > 0) {
+          const lowestPriceData = summary.LowestPrices[0];
           if (lowestPriceData.ListingPrice) {
             lowestPrice = parseFloat(lowestPriceData.ListingPrice.Amount);
           }
+        }
+        
+        // Check if any offer is the buy box winner
+        const buyBoxOffer = offers.find((offer: any) => offer.IsBuyBoxWinner);
+        if (buyBoxOffer) {
+          isBuyBoxWinner = true;
+          fulfillmentChannel = buyBoxOffer.FulfillmentChannel || 'Unknown';
         }
         
         results.push({
@@ -564,16 +541,17 @@ export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
           lowestPrice,
           isBuyBoxWinner,
           fulfillmentChannel,
-          offerCount: product?.Offers?.length || 0,
+          offerCount: offers.length,
           lastUpdated: new Date()
         });
       }
     } catch (error) {
       console.error(`Error getting buy box pricing for ${asin}:`, error);
+      // Continue with other ASINs even if one fails
     }
     
-    // Rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Rate limiting: v0 pricing API is 0.5 req/sec = 2 second delay
+    await new Promise(resolve => setTimeout(resolve, 2100));
   }
   
   return results;

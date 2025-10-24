@@ -1463,7 +1463,7 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
     const detailedData = await Promise.all(
       asinMappings.map(async (mapping) => {
         try {
-          // Get catalog item details (includes sales rank)
+          // Get catalog item details (includes sales rank and images)
           const catalogItem = await getCatalogItem(mapping.asin, config);
           
           // Extract sales rank
@@ -1477,6 +1477,15 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
             }
           }
           
+          // Extract image URL from catalog item
+          let imageUrl = null;
+          if (catalogItem.images && catalogItem.images.length > 0) {
+            const imageSet = catalogItem.images[0];
+            if (imageSet.images && imageSet.images.length > 0) {
+              imageUrl = imageSet.images[0].link;
+            }
+          }
+          
           // Get listing restrictions
           const restrictions = await getListingRestrictions(mapping.asin);
           
@@ -1487,9 +1496,9 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
             asin: mapping.asin,
             matchMethod: mapping.matchMethod,
             matchConfidence: mapping.matchConfidence,
-            title: mapping.asinDetails?.title || catalogItem.asin,
-            brand: mapping.asinDetails?.brand,
-            imageUrl: mapping.asinDetails?.mainImageUrl,
+            title: mapping.asinDetails?.title || catalogItem.summaries?.[0]?.itemName || catalogItem.asin,
+            brand: mapping.asinDetails?.brand || catalogItem.summaries?.[0]?.brand,
+            imageUrl,
             // Pricing data
             buyBoxPrice: pricing?.buyBoxPrice || null,
             lowestPrice: pricing?.lowestPrice || null,
@@ -1515,7 +1524,7 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
             matchConfidence: mapping.matchConfidence,
             title: mapping.asinDetails?.title,
             brand: mapping.asinDetails?.brand,
-            imageUrl: mapping.asinDetails?.mainImageUrl,
+            imageUrl: null,
             error: (error as Error).message
           };
         }

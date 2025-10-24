@@ -1059,8 +1059,19 @@ export default function ProductDetails() {
                   {marketIntelligence.asins.map((asin, index) => (
                     <Card key={asin.asin} className="overflow-hidden" data-testid={`card-asin-${index}`}>
                       <CardHeader className="bg-gray-50 border-b">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
+                        <div className="flex items-start gap-4">
+                          {/* ASIN Thumbnail Image */}
+                          {asin.imageUrl && (
+                            <div className="flex-shrink-0">
+                              <img 
+                                src={asin.imageUrl} 
+                                alt={asin.title || asin.asin}
+                                className="w-20 h-20 object-contain rounded border border-gray-200 bg-white"
+                                data-testid={`img-asin-${asin.asin}`}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2">
                               <CardTitle className="text-lg">
                                 {asin.title || asin.asin}
