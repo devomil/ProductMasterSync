@@ -282,7 +282,7 @@ export default function ProductDetails() {
   });
 
   // Fetch comprehensive Amazon market intelligence
-  const { data: marketIntelligence, isLoading: intelligenceLoading, refetch: refetchIntelligence } = useAmazonMarketIntelligence(
+  const { data: marketIntelligence, isLoading: intelligenceLoading, isFetching: intelligenceFetching, refetch: refetchIntelligence } = useAmazonMarketIntelligence(
     parseInt(id || '0'),
     activeTab === 'markets' // Only fetch when Markets tab is active
   );
@@ -1019,11 +1019,14 @@ export default function ProductDetails() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => refetchIntelligence()}
-                  disabled={intelligenceLoading}
+                  onClick={async () => {
+                    console.log('Refresh Data button clicked - forcing fresh data');
+                    await refetchIntelligence();
+                  }}
+                  disabled={intelligenceFetching}
                   data-testid="button-refresh-intelligence"
                 >
-                  {intelligenceLoading ? (
+                  {intelligenceFetching ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <RefreshCw className="h-4 w-4 mr-2" />

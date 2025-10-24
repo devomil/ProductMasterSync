@@ -1472,12 +1472,19 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
           console.log(`[Sales Rank] Checking sales rank for ASIN ${mapping.asin}:`, JSON.stringify(catalogItem.salesRanks, null, 2));
           if (catalogItem.salesRanks && catalogItem.salesRanks.length > 0) {
             const primaryRank = catalogItem.salesRanks[0];
-            if (primaryRank.ranks && primaryRank.ranks.length > 0) {
+            // Try classificationRanks first (2022-04-01 API format)
+            if (primaryRank.classificationRanks && primaryRank.classificationRanks.length > 0) {
+              salesRank = primaryRank.classificationRanks[0].rank;
+              salesRankCategory = primaryRank.classificationRanks[0].title || primaryRank.displayGroupTitle || 'Overall';
+              console.log(`[Sales Rank] Found classificationRank for ${mapping.asin}: ${salesRank} in ${salesRankCategory}`);
+            } 
+            // Fallback to ranks array (older format)
+            else if (primaryRank.ranks && primaryRank.ranks.length > 0) {
               salesRank = primaryRank.ranks[0].rank;
               salesRankCategory = primaryRank.ranks[0].title || 'Overall';
               console.log(`[Sales Rank] Found rank for ${mapping.asin}: ${salesRank} in ${salesRankCategory}`);
             } else {
-              console.log(`[Sales Rank] No ranks array found in primaryRank for ${mapping.asin}`);
+              console.log(`[Sales Rank] No ranks/classificationRanks array found in primaryRank for ${mapping.asin}`);
             }
           } else {
             console.log(`[Sales Rank] No salesRanks data available for ${mapping.asin}`);
