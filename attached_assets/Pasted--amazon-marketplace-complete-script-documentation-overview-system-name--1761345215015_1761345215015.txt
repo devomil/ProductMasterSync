@@ -1,0 +1,608 @@
+
+  "amazon_marketplace_complete_script_documentation": {
+    "overview": {
+      "system_name": "Amazon Marketplace Integration System",
+      "description": "Complete Amazon SP-API integration with catalog search, ASIN matching, listing restrictions, pricing intelligence, and marketplace synchronization",
+      "version": "2025.7.11",
+      "api_version": "SP-API v2022-04-01",
+      "authentication": "LWA OAuth 2.0 with refresh tokens"
+    },
+
+    "authentication_system": {
+      "description": "Amazon Login with Amazon (LWA) OAuth 2.0 authentication system",
+      "configuration": {
+        "client_id": "process.env.AMAZON_SP_API_CLIENT_ID",
+        "client_secret": "process.env.AMAZON_SP_API_CLIENT_SECRET", 
+        "refresh_token": "process.env.AMAZON_SP_API_REFRESH_TOKEN",
+        "access_key_id": "process.env.AMAZON_SP_API_ACCESS_KEY_ID",
+        "secret_key": "process.env.AMAZON_SP_API_SECRET_KEY",
+        "app_id": "process.env.AMAZON_SP_API_APP_ID",
+        "marketplace_id": "ATVPDKIKX0DER",
+        "endpoint": "https://sellingpartnerapi-na.amazon.com"
+      },
+      "token_management": {
+        "token_endpoint": "https://api.amazon.com/auth/o2/token",
+        "grant_type": "refresh_token",
+        "expires_in": "3600_seconds",
+        "cache_strategy": "in_memory_with_60s_buffer",
+        "auto_refresh": "automatic_on_401_error"
+      },
+      "implementation": {
+        "file": "server/utils/amazon-spapi.ts",
+        "function": "getAccessToken",
+        "code_sample": {
+          "authentication_flow": {
+            "step_1": "Check cached token validity",
+            "step_2": "POST to auth/o2/token with refresh_token grant",
+            "step_3": "Cache new token with expiration buffer",
+            "step_4": "Return access_token for API calls"
+          }
+        }
+      }
+    },
+
+    "catalog_search_system": {
+      "description": "Amazon Catalog Items API v2022-04-01 for product discovery and ASIN matching",
+      
+      "search_methods": {
+        "upc_search": {
+          "endpoint": "/catalog/2022-04-01/items",
+          "method": "GET",
+          "parameters": {
+            "marketplaceIds": "ATVPDKIKX0DER",
+            "identifiers": "upc_code",
+            "identifiersType": "UPC",
+            "includedData": "attributes,dimensions,images,productTypes,relationships,salesRanks,summaries"
+          },
+          "function": "searchCatalogItemsByUPC",
+          "file": "server/utils/amazon-spapi.ts",
+          "rate_limit": "2_requests_per_second_burst_2"
+        },
+        "keyword_search": {
+          "endpoint": "/catalog/2022-04-01/items",
+          "method": "GET",
+          "parameters": {
+            "marketplaceIds": "ATVPDKIKX0DER", 
+            "keywords": "search_query",
+            "pageSize": "10",
+            "includedData": "identifiers,summaries,attributes"
+          },
+          "function": "searchCatalogItems",
+          "file": "server/services/amazon-sp-api.ts"
+        },
+        "asin_lookup": {
+          "endpoint": "/catalog/2022-04-01/items/{asin}",
+          "method": "GET",
+          "parameters": {
+            "marketplaceIds": "ATVPDKIKX0DER",
+            "includedData": "attributes,dimensions,images,productTypes,relationships,salesRanks,summaries"
+          },
+          "function": "getCatalogItem",
+          "file": "server/utils/amazon-spapi.ts"
+        }
+      },
+
+      "response_processing": {
+        "catalog_item_structure": {
+          "asin": "Amazon Standard Identification Number",
+          "summaries": "Product title, brand, manufacturer, item name",
+          "attributes": "Product specifications and features",
+          "dimensions": "Product physical dimensions",
+          "images": "Product images with URLs",
+          "salesRanks": "Category sales rankings",
+          "relationships": "Related products and variations",
+          "classifications": "Product categories and types",
+          "identifiers": "UPC, EAN, ISBN codes"
+        },
+        "data_extraction": {
+          "title": "item.summaries[0].itemName",
+          "brand": "item.summaries[0].brand",
+          "manufacturer": "item.summaries[0].manufacturer",
+          "category": "item.classifications[0].productGroup",
+          "image_url": "item.images[0].images[0].link",
+          "sales_rank": "item.salesRanks[0].rank"
+        }
+      }
+    },
+
+    "asin_matching_system": {
+      "description": "Intelligent product-to-ASIN mapping system with confidence scoring",
+      
+      "matching_algorithm": {
+        "confidence_calculation": {
+          "upc_exact_match": {
+            "weight": 60,
+            "description": "Direct UPC code matching with Amazon catalog",
+            "validation": "exact_string_comparison"
+          },
+          "product_title_similarity": {
+            "weight": 20,
+            "description": "Fuzzy matching on product names and descriptions",
+            "algorithm": "levenshtein_distance_normalized"
+          },
+          "brand_verification": {
+            "weight": 20,
+            "description": "Manufacturer name consistency check",
+            "validation": "case_insensitive_string_match"
+          }
+        },
+        "total_confidence_score": "weighted_sum_0_to_100"
+      },
+
+      "mapping_storage": {
+        "table": "product_asin_mapping",
+        "schema": {
+          "product_id": "foreign_key_to_products",
+          "asin": "amazon_standard_identification_number",
+          "mapping_source": "api_search|manual|bulk_import",
+          "match_method": "upc_match|title_match|manual",
+          "match_confidence": "integer_0_to_100",
+          "is_active": "boolean_default_true",
+          "is_verified": "boolean_manual_verification",
+          "is_direct_competitor": "boolean_competitive_analysis",
+          "opportunity_score": "integer_0_to_100",
+          "confidence_score": "decimal_0_to_1"
+        },
+        "functions": {
+          "create_mapping": "createProductAsinMapping",
+          "get_mappings": "getAmazonDataForProduct",
+          "file": "server/marketplace/repository.ts"
+        }
+      },
+
+      "batch_processing": {
+        "parallel_processing": {
+          "batch_size": "30_products_per_batch",
+          "concurrent_batches": "8_simultaneous_operations",
+          "rate_limiting": "amazon_api_compliance_2_req_sec",
+          "error_handling": "exponential_backoff_retry"
+        },
+        "scaling_system": {
+          "function": "batchSyncAmazonData",
+          "file": "server/marketplace/amazon-service.ts",
+          "progress_tracking": "real_time_dashboard_updates",
+          "completion_criteria": "95%_coverage_target"
+        }
+      }
+    },
+
+    "listing_restrictions_system": {
+      "description": "Amazon Listings Restrictions API to check product selling eligibility",
+      
+      "api_configuration": {
+        "endpoint": "/listings/2021-08-01/restrictions",
+        "method": "GET",
+        "authentication": "Bearer token + x-amz-access-token header",
+        "file": "server/marketplace/amazon-listings-restrictions.ts"
+      },
+
+      "request_parameters": {
+        "required": {
+          "asin": "Product ASIN to check restrictions",
+          "sellerId": "Amazon seller identifier",
+          "marketplaceIds": "Array of marketplace IDs"
+        },
+        "optional": {
+          "conditionType": "new_new|used_like_new|used_very_good",
+          "reasonLocale": "en_US|es_US|fr_CA"
+        }
+      },
+
+      "restriction_types": {
+        "approval_required": {
+          "description": "Product requires Amazon approval to sell",
+          "action": "Apply for approval through Seller Central"
+        },
+        "restricted": {
+          "description": "Product cannot be sold by this seller",
+          "reasons": ["Brand restrictions", "Category gating", "Legal restrictions"]
+        },
+        "unrestricted": {
+          "description": "Product can be sold without restrictions",
+          "action": "Proceed with listing creation"
+        }
+      },
+
+      "implementation": {
+        "class": "AmazonListingsRestrictionsService",
+        "function": "getListingsRestrictions",
+        "error_handling": {
+          "401_unauthorized": "Auto-refresh access token and retry",
+          "403_forbidden": "Seller lacks permission for marketplace",
+          "404_not_found": "ASIN not found in marketplace",
+          "429_rate_limited": "Implement exponential backoff"
+        },
+        "response_processing": {
+          "restrictions": "Array of restriction objects",
+          "reasons": "Detailed restriction explanations",
+          "links": "URLs for additional information"
+        }
+      }
+    },
+
+    "pricing_intelligence_system": {
+      "description": "Amazon Product Pricing API v2022-05-01 for competitive pricing analysis",
+      
+      "pricing_endpoints": {
+        "item_offers": {
+          "endpoint": "/products/pricing/v0/items/{asin}/offers",
+          "method": "GET",
+          "data_returned": "Buy Box pricing, offer listings, fulfillment methods"
+        },
+        "competitive_pricing": {
+          "endpoint": "/products/pricing/v0/competitivePrice",
+          "method": "POST",
+          "data_returned": "Competitive price points, landed costs"
+        },
+        "pricing_history": {
+          "custom_tracking": "Internal price tracking system",
+          "table": "amazon_price_history",
+          "frequency": "hourly_price_snapshots"
+        }
+      },
+
+      "buy_box_analysis": {
+        "current_price": "Active Buy Box price",
+        "list_price": "Manufacturer suggested retail price",
+        "fulfillment_method": "FBA vs FBM identification",
+        "prime_eligibility": "Amazon Prime shipping availability",
+        "condition": "New, Used, Refurbished condition types"
+      },
+
+      "market_intelligence": {
+        "table": "amazon_market_intelligence",
+        "metrics": {
+          "current_price": "Real-time marketplace pricing",
+          "sales_rank": "Category ranking position",
+          "in_stock": "Inventory availability status",
+          "opportunity_score": "Calculated profit opportunity 0-100",
+          "competition_level": "low|medium|high seller competition",
+          "profit_margin_percent": "(amazon_price - our_cost) / our_cost * 100"
+        },
+        "file": "server/marketplace/repository.ts",
+        "function": "saveAmazonMarketData"
+      }
+    },
+
+    "rate_limiting_system": {
+      "description": "Token bucket algorithm for Amazon SP-API rate limit compliance",
+      
+      "rate_limits": {
+        "catalog_items_api": {
+          "rate": "2_requests_per_second",
+          "burst": "2_requests",
+          "recovery": "0.5_seconds_per_token"
+        },
+        "pricing_api": {
+          "rate": "0.5_requests_per_second", 
+          "burst": "10_requests",
+          "recovery": "2_seconds_per_token"
+        },
+        "listings_restrictions": {
+          "rate": "1_request_per_second",
+          "burst": "5_requests",
+          "recovery": "1_second_per_token"
+        }
+      },
+
+      "implementation": {
+        "class": "AmazonRateLimiter",
+        "file": "server/utils/rate-limiter.ts",
+        "algorithm": "token_bucket_with_burst_capacity",
+        "features": [
+          "dynamic_rate_adjustment",
+          "response_header_parsing",
+          "automatic_backoff_on_429",
+          "cross_request_rate_tracking"
+        ]
+      },
+
+      "error_handling": {
+        "quota_exceeded": {
+          "http_code": 429,
+          "action": "exponential_backoff_retry",
+          "backoff_base": "2_seconds",
+          "max_retries": 3
+        },
+        "throttling": {
+          "detection": "x-amzn-RateLimit-Limit headers",
+          "response": "dynamic_delay_adjustment",
+          "logging": "rate_limit_event_tracking"
+        }
+      }
+    },
+
+    "marketplace_synchronization": {
+      "description": "Enterprise-scale Amazon marketplace data synchronization system",
+      
+      "sync_workflow": {
+        "product_eligibility": {
+          "criteria": [
+            "upc_code_present",
+            "manufacturer_part_number_available", 
+            "valid_cost_price_data",
+            "non_zero_pricing_information"
+          ],
+          "eligible_products": "2830_total_products",
+          "sync_ready": "2688_products_with_upc"
+        },
+
+        "sync_process": [
+          {
+            "step": 1,
+            "name": "Product Validation",
+            "description": "Check product eligibility for Amazon sync",
+            "function": "validateProductForSync"
+          },
+          {
+            "step": 2,
+            "name": "ASIN Discovery",
+            "description": "Search Amazon catalog by UPC/MPN",
+            "function": "fetchAmazonDataByUpc",
+            "file": "server/marketplace/amazon-service.ts"
+          },
+          {
+            "step": 3,
+            "name": "Market Intelligence",
+            "description": "Gather pricing and competitive data",
+            "function": "saveAmazonMarketData"
+          },
+          {
+            "step": 4,
+            "name": "Mapping Creation",
+            "description": "Create product-to-ASIN relationships",
+            "function": "createProductAsinMapping"
+          },
+          {
+            "step": 5,
+            "name": "Status Update",
+            "description": "Update product sync status",
+            "function": "updateProductAmazonSyncStatus"
+          }
+        ]
+      },
+
+      "real_time_dashboard": {
+        "url": "/amazon-scaling-progress",
+        "api_endpoint": "/api/purchasing/amazon-scaling-progress",
+        "update_frequency": "5_second_intervals",
+        "metrics_displayed": {
+          "mapped_products": "Products with ASIN mappings",
+          "unique_asins": "Distinct ASINs discovered",
+          "coverage_percent": "Percentage of catalog synchronized",
+          "intelligence_records": "Market intelligence data points",
+          "opportunity_score": "Average opportunity rating"
+        },
+        "file": "client/src/pages/AmazonScalingProgress.tsx"
+      }
+    },
+
+    "api_endpoints_reference": {
+      "description": "Complete API endpoint documentation for Amazon marketplace integration",
+      
+      "product_endpoints": {
+        "get_amazon_data": {
+          "path": "/api/marketplace/amazon/:productId",
+          "method": "GET",
+          "description": "Get Amazon marketplace data for specific product",
+          "response": "Array of ASIN mappings with market intelligence"
+        },
+        "sync_product": {
+          "path": "/api/marketplace/amazon/:productId/sync",
+          "method": "POST", 
+          "description": "Force sync single product with Amazon",
+          "response": "Sync status and discovered ASINs"
+        },
+        "batch_sync": {
+          "path": "/api/marketplace/amazon/batch-sync",
+          "method": "POST",
+          "description": "Start batch synchronization process",
+          "parameters": "limit (number of products to sync)"
+        }
+      },
+
+      "intelligence_endpoints": {
+        "scaling_progress": {
+          "path": "/api/purchasing/amazon-scaling-progress",
+          "method": "GET",
+          "description": "Real-time Amazon sync progress statistics",
+          "response": "Comprehensive scaling metrics and completion status"
+        },
+        "opportunity_analysis": {
+          "path": "/api/purchasing/opportunities",
+          "method": "GET",
+          "description": "AI-powered purchasing opportunity recommendations",
+          "response": "Ranked product opportunities with profit analysis"
+        }
+      },
+
+      "restrictions_endpoints": {
+        "check_restrictions": {
+          "path": "/api/marketplace/amazon/restrictions/:asin",
+          "method": "GET",
+          "description": "Check Amazon listing restrictions for ASIN",
+          "response": "Restriction status and approval requirements"
+        }
+      }
+    },
+
+    "database_schema": {
+      "description": "Database tables supporting Amazon marketplace integration",
+      
+      "core_tables": {
+        "products": {
+          "purpose": "Master product catalog",
+          "key_fields": ["id", "sku", "upc", "manufacturer_part_number", "name", "price", "cost"],
+          "amazon_fields": ["last_amazon_sync", "amazon_sync_status"]
+        },
+        "amazon_asins": {
+          "purpose": "Amazon product information storage",
+          "fields": ["asin", "title", "brand", "manufacturer", "upc", "category", "image_url"],
+          "unique_constraint": "asin_marketplace"
+        },
+        "product_asin_mapping": {
+          "purpose": "Product-to-ASIN relationship tracking",
+          "fields": ["product_id", "asin", "match_confidence", "opportunity_score", "is_verified"],
+          "relationships": "products.id → product_id, amazon_asins.asin → asin"
+        },
+        "amazon_market_intelligence": {
+          "purpose": "Competitive market data storage",
+          "fields": ["asin", "current_price", "sales_rank", "in_stock", "opportunity_score"],
+          "update_frequency": "real_time_during_sync"
+        }
+      }
+    },
+
+    "implementation_files": {
+      "description": "Key implementation files and their responsibilities",
+      
+      "core_services": {
+        "server/utils/amazon-spapi.ts": {
+          "purpose": "Amazon SP-API authentication and catalog search",
+          "functions": ["getAccessToken", "searchCatalogItemsByUPC", "getCatalogItem"]
+        },
+        "server/marketplace/amazon-service.ts": {
+          "purpose": "Main Amazon marketplace integration service",
+          "functions": ["fetchAmazonDataByUpc", "getAmazonDataForProduct", "batchSyncAmazonData"]
+        },
+        "server/marketplace/repository.ts": {
+          "purpose": "Database operations for Amazon marketplace data",
+          "functions": ["createAsinRecord", "saveAmazonMarketData", "createProductAsinMapping"]
+        },
+        "server/marketplace/amazon-listings-restrictions.ts": {
+          "purpose": "Amazon listing restrictions checking",
+          "functions": ["getListingsRestrictions", "refreshAccessToken"]
+        }
+      },
+
+      "routing_files": {
+        "server/marketplace/routes.ts": {
+          "purpose": "Amazon marketplace API endpoints",
+          "routes": ["/amazon/:productId", "/amazon/batch-sync", "/restrictions/:asin"]
+        },
+        "server/routes/enhanced-purchasing-ai.ts": {
+          "purpose": "AI purchasing intelligence endpoints", 
+          "routes": ["/amazon-scaling-progress", "/opportunities"]
+        }
+      },
+
+      "frontend_components": {
+        "client/src/pages/AmazonScalingProgress.tsx": {
+          "purpose": "Real-time Amazon sync progress dashboard",
+          "features": ["Live progress tracking", "Visual progress bars", "Completion metrics"]
+        }
+      }
+    },
+
+    "usage_examples": {
+      "description": "Practical implementation examples for Amazon marketplace integration",
+      
+      "search_product_by_upc": {
+        "description": "Find Amazon ASINs for a product using UPC code",
+        "code_example": {
+          "function_call": "searchCatalogItemsByUPC('123456789012', config)",
+          "expected_response": {
+            "items": [
+              {
+                "asin": "B000EXAMPLE",
+                "attributes": "product_specifications",
+                "summaries": "title_brand_manufacturer"
+              }
+            ]
+          }
+        }
+      },
+
+      "check_listing_restrictions": {
+        "description": "Verify if a product can be sold on Amazon",
+        "code_example": {
+          "function_call": "getListingsRestrictions('B000EXAMPLE', 'sellerId', ['ATVPDKIKX0DER'])",
+          "expected_response": {
+            "restrictions": "array_of_restrictions",
+            "reasons": "detailed_explanations",
+            "approval_required": "boolean"
+          }
+        }
+      },
+
+      "batch_sync_products": {
+        "description": "Synchronize multiple products with Amazon marketplace",
+        "code_example": {
+          "function_call": "POST /api/marketplace/amazon/batch-sync {\"limit\": 2}",
+          "process": "real_time_parallel_processing_with_rate_limiting",
+          "verified_result": "2025-07-25: Successfully processed 2 products, created 3 ASIN mappings (B001UQDBGS, B0000AXO58, B00X9NU3DE) with opportunity scores 38, 27, and 98"
+        }
+      },
+
+      "live_verification_examples": {
+        "description": "Recent verified working examples from production system",
+        "verified_2025_07_25": {
+          "batch_sync_test": {
+            "request": "POST /api/marketplace/amazon/batch-sync with limit=2",
+            "response": {
+              "success": true,
+              "batchId": "batch-74c3ce8c-1753483294041",
+              "processed": 2,
+              "successful": 2,
+              "failed": 0,
+              "productIds": [482, 485]
+            },
+            "database_impact": {
+              "product_482": "Mapped to ASIN B001UQDBGS with opportunity score 38",
+              "product_485": "Mapped to ASINs B0000AXO58 (score 27) and B00X9NU3DE (score 98)",
+              "sync_timestamps": "22:41:35 UTC, confirming real-time processing"
+            }
+          },
+          "authentication_verification": {
+            "config_status": "All 6 Amazon environment variables properly configured",
+            "api_validation": "configValid: true, no missing environment variables",
+            "live_api_calls": "Successfully authenticated and processing Amazon SP-API requests"
+          }
+        }
+      }
+    },
+
+    "performance_metrics": {
+      "description": "Current system performance and scaling capabilities",
+      
+      "current_status": {
+        "total_products": 2830,
+        "amazon_ready_products": 2688,
+        "mapped_products": "191+_actively_growing",
+        "unique_asins_discovered": "2435+_comprehensive_catalog",
+        "coverage_percentage": "6.8%_rapidly_increasing",
+        "processing_velocity": "real_time_batch_processing_operational",
+        "market_intelligence_records": "289+_competitive_analysis",
+        "authentication_status": "fully_operational_live_api_calls"
+      },
+
+      "scalability_targets": {
+        "excellent_coverage": "95%_of_eligible_products",
+        "good_coverage": "80%_of_eligible_products", 
+        "processing_capacity": "enterprise_scale_thousands_of_products",
+        "real_time_updates": "5_second_dashboard_refresh",
+        "api_compliance": "full_amazon_rate_limit_adherence"
+      }
+    },
+
+    "troubleshooting_guide": {
+      "description": "Common issues and solutions for Amazon marketplace integration",
+      
+      "authentication_issues": {
+        "invalid_credentials": "Verify AMAZON_SP_API_CLIENT_ID, AMAZON_SP_API_CLIENT_SECRET, AMAZON_SP_API_REFRESH_TOKEN, AMAZON_SP_API_ACCESS_KEY_ID, AMAZON_SP_API_SECRET_KEY, AMAZON_SP_API_APP_ID",
+        "token_expired": "System automatically refreshes tokens on 401 errors",
+        "access_denied": "Check seller permissions for marketplace access",
+        "credentials_updated": "2025-07-25: Credentials successfully updated and verified working with live API calls"
+      },
+
+      "rate_limiting": {
+        "quota_exceeded": "Exponential backoff retry with 2-second base delay",
+        "burst_limit_hit": "Token bucket system manages burst capacity",
+        "sustained_throttling": "Dynamic rate adjustment based on response headers"
+      },
+
+      "data_quality": {
+        "no_asins_found": "Verify UPC accuracy and Amazon catalog coverage",
+        "low_confidence_matches": "Review product title and manufacturer data",
+        "missing_market_data": "Check Amazon availability for specific ASINs"
+      },
