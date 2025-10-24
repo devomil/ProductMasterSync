@@ -18,8 +18,14 @@ export async function createAWSSignature(request: SignatureRequest): Promise<Rec
   const secretAccessKey = process.env.AMAZON_SP_API_AWS_SECRET_KEY;
   
   if (!accessKeyId || !secretAccessKey) {
+    console.error('[AWS Signature] Missing credentials:', {
+      hasAccessKey: !!accessKeyId,
+      hasSecretKey: !!secretAccessKey
+    });
     throw new Error('AWS credentials not configured. Please provide AMAZON_SP_API_AWS_ACCESS_KEY and AMAZON_SP_API_AWS_SECRET_KEY');
   }
+  
+  console.log('[AWS Signature] Creating signature with Access Key:', accessKeyId.substring(0, 8) + '...');
 
   const url = new URL(request.url);
   const timestamp = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '');
