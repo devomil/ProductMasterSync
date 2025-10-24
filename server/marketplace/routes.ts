@@ -1401,6 +1401,145 @@ router.get('/amazon/bulk-status/:jobId', (req, res) => {
 });
 
 /**
+ * GET /marketplace/amazon/market-intelligence/:productId
+ * Get comprehensive Amazon market intelligence for a product
+ * Includes: buy box pricing, sales rank, listing restrictions
+ * MUST come before catch-all /amazon/:productId route
+ */
+router.get('/amazon/market-intelligence/:productId', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    if (isNaN(productId)) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+
+    // Get product with UPC
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Get all ASIN mappings for this product
+    const asinMappings = await db
+      .select({
+        asin: productAsinMapping.asin,
+        matchMethod: productAsinMapping.matchMethod,
+        matchConfidence: productAsinMapping.matchConfidence,
+        asinDetails: amazonAsins
+      })
+      .from(productAsinMapping)
+      .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
+      .where(eq(productAsinMapping.productId, productId));
+
+    if (!asinMappings.length) {
+      return res.json({
+        productId,
+        sku: product.sku,
+        upc: product.upc,
+        asins: [],
+        message: 'No ASINs found for this product'
+      });
+    }
+
+    // Fetch comprehensive data for each ASIN
+    const { 
+      getCatalogItem, 
+      getBuyBoxPricing, 
+      getListingRestrictions,
+      getAmazonConfig 
+    } = await import('../utils/amazon-spapi');
+    
+    const config = getAmazonConfig();
+    const asins = asinMappings.map(m => m.asin);
+    
+    // Fetch buy box pricing for all ASINs
+    const pricingData = await getBuyBoxPricing(asins);
+    
+    // Fetch detailed catalog info and restrictions for each ASIN
+    const detailedData = await Promise.all(
+      asinMappings.map(async (mapping) => {
+        try {
+          // Get catalog item details (includes sales rank)
+          const catalogItem = await getCatalogItem(mapping.asin, config);
+          
+          // Extract sales rank
+          let salesRank = null;
+          let salesRankCategory = null;
+          if (catalogItem.salesRanks && catalogItem.salesRanks.length > 0) {
+            const primaryRank = catalogItem.salesRanks[0];
+            if (primaryRank.ranks && primaryRank.ranks.length > 0) {
+              salesRank = primaryRank.ranks[0].rank;
+              salesRankCategory = primaryRank.ranks[0].title || 'Overall';
+            }
+          }
+          
+          // Get listing restrictions
+          const restrictions = await getListingRestrictions(mapping.asin);
+          
+          // Find pricing for this ASIN
+          const pricing = pricingData.find(p => p.asin === mapping.asin);
+          
+          return {
+            asin: mapping.asin,
+            matchMethod: mapping.matchMethod,
+            matchConfidence: mapping.matchConfidence,
+            title: mapping.asinDetails?.title || catalogItem.asin,
+            brand: mapping.asinDetails?.brand,
+            imageUrl: mapping.asinDetails?.mainImageUrl,
+            // Pricing data
+            buyBoxPrice: pricing?.buyBoxPrice || null,
+            lowestPrice: pricing?.lowestPrice || null,
+            isBuyBoxWinner: pricing?.isBuyBoxWinner || false,
+            fulfillmentChannel: pricing?.fulfillmentChannel || null,
+            offerCount: pricing?.offerCount || 0,
+            // Sales rank
+            salesRank,
+            salesRankCategory,
+            // Listing restrictions
+            canList: restrictions.canList,
+            hasRestrictions: !restrictions.canList,
+            restrictionReasons: restrictions.reasonCodes || [],
+            restrictionMessages: restrictions.messages || [],
+            isSimulated: restrictions.isSimulated || false,
+            lastChecked: restrictions.lastChecked
+          };
+        } catch (error) {
+          console.error(`Error fetching data for ASIN ${mapping.asin}:`, error);
+          return {
+            asin: mapping.asin,
+            matchMethod: mapping.matchMethod,
+            matchConfidence: mapping.matchConfidence,
+            title: mapping.asinDetails?.title,
+            brand: mapping.asinDetails?.brand,
+            imageUrl: mapping.asinDetails?.mainImageUrl,
+            error: (error as Error).message
+          };
+        }
+      })
+    );
+
+    return res.json({
+      productId,
+      sku: product.sku,
+      upc: product.upc,
+      productName: product.name,
+      asins: detailedData,
+      totalAsins: detailedData.length,
+      lastUpdated: new Date()
+    });
+
+  } catch (error) {
+    console.error('Error fetching Amazon market intelligence:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/amazon/:productId
  * Get Amazon marketplace data for a product
  * MUST be defined LAST as a catch-all for numeric product IDs
