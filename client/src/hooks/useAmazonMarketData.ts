@@ -214,3 +214,53 @@ export function useTriggerAmazonSyncJob() {
 
   return mutation;
 }
+
+/**
+ * Hook to fetch comprehensive Amazon market intelligence for a product
+ * Includes buy box pricing, sales rank, and listing restrictions
+ */
+export interface AmazonMarketIntelligence {
+  productId: number;
+  sku: string;
+  upc: string | null;
+  productName: string;
+  asins: AsinIntelligence[];
+  totalAsins: number;
+  lastUpdated: string;
+  message?: string;
+}
+
+export interface AsinIntelligence {
+  asin: string;
+  matchMethod: string | null;
+  matchConfidence: number | null;
+  title?: string;
+  brand?: string;
+  imageUrl?: string;
+  // Pricing data
+  buyBoxPrice: number | null;
+  lowestPrice: number | null;
+  isBuyBoxWinner: boolean;
+  fulfillmentChannel: string | null;
+  offerCount: number;
+  // Sales rank
+  salesRank: number | null;
+  salesRankCategory: string | null;
+  // Listing restrictions
+  canList: boolean | null;
+  hasRestrictions: boolean;
+  restrictionReasons: string[];
+  restrictionMessages: string[];
+  isSimulated?: boolean;
+  lastChecked: string;
+  error?: string;
+}
+
+export function useAmazonMarketIntelligence(productId: number, enabled: boolean = true) {
+  return useQuery<AmazonMarketIntelligence>({
+    queryKey: ['/api/marketplace/amazon/market-intelligence', productId],
+    enabled: !!productId && enabled,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+  });
+}
