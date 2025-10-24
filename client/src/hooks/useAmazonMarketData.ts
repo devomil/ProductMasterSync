@@ -258,7 +258,7 @@ export interface AsinIntelligence {
 
 export function useAmazonMarketIntelligence(productId: number, enabled: boolean = true) {
   return useQuery<AmazonMarketIntelligence>({
-    queryKey: ['/api/marketplace/amazon/market-intelligence', productId],
+    queryKey: [`/api/marketplace/amazon/market-intelligence/${productId}`],
     enabled: !!productId && enabled,
     retry: 1,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
