@@ -14,11 +14,11 @@ interface SignatureRequest {
 }
 
 export async function createAWSSignature(request: SignatureRequest): Promise<Record<string, string>> {
-  const accessKeyId = process.env.AMAZON_SP_API_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AMAZON_SP_API_SECRET_KEY;
+  const accessKeyId = process.env.AMAZON_SP_API_AWS_ACCESS_KEY;
+  const secretAccessKey = process.env.AMAZON_SP_API_AWS_SECRET_KEY;
   
   if (!accessKeyId || !secretAccessKey) {
-    throw new Error('AWS credentials not configured. Please provide AMAZON_SP_API_ACCESS_KEY_ID and AMAZON_SP_API_SECRET_KEY');
+    throw new Error('AWS credentials not configured. Please provide AMAZON_SP_API_AWS_ACCESS_KEY and AMAZON_SP_API_AWS_SECRET_KEY');
   }
 
   const url = new URL(request.url);

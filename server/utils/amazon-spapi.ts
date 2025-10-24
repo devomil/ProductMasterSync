@@ -473,6 +473,7 @@ export async function getItemOffers(asins: string[]): Promise<any[]> {
 
 /**
  * Get buy box pricing and lowest offers for ASINs
+ * Requires AWS Signature V4 + LWA token
  */
 export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
   const config = getAmazonConfig();
@@ -486,21 +487,52 @@ export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
 
   for (const asin of asins) {
     try {
-      const response = await axios.get(`${config.endpoint}/products/pricing/v0/pricing`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'x-amz-access-token': accessToken,
-          'Content-Type': 'application/json'
-        },
-        params: {
-          MarketplaceId: config.marketplaceId,
-          Asins: asin,
-          ItemType: 'Asin'
-        }
+      const params = new URLSearchParams({
+        MarketplaceId: config.marketplaceId,
+        Asins: asin,
+        ItemType: 'Asin'
       });
+      
+      const url = `${config.endpoint}/products/pricing/v0/pricing?${params}`;
+      
+      // Product Pricing API requires AWS Signature V4 + LWA token
+      const { createAWSSignature } = await import('./aws-signature');
+      
+      const headers: Record<string, string> = {
+        'host': 'sellingpartnerapi-na.amazon.com',
+        'x-amz-access-token': accessToken,
+        'content-type': 'application/json'
+      };
 
-      if (response.data && response.data.payload && response.data.payload.length > 0) {
-        const pricingData = response.data.payload[0];
+      const awsSignedHeaders = await createAWSSignature({
+        method: 'GET',
+        url,
+        headers,
+        body: null,
+        service: 'execute-api',
+        region: 'us-east-1'
+      });
+      
+      const finalHeaders = { ...headers, ...awsSignedHeaders };
+      console.log(`[AWS SigV4] Request to ${url}`);
+      console.log(`[AWS SigV4] Headers:`, Object.keys(finalHeaders));
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: finalHeaders
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Amazon pricing API failed for ${asin}: ${response.status}`);
+        console.error(`Error response:`, errorText);
+        continue;
+      }
+      
+      const data = await response.json();
+
+      if (data && data.payload && data.payload.length > 0) {
+        const pricingData = data.payload[0];
         const product = pricingData.Product;
         
         let buyBoxPrice = null;

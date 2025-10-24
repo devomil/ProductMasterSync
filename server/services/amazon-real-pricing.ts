@@ -95,7 +95,7 @@ export class AmazonRealPricingService {
 
       console.log(`Searching Amazon catalog for UPC: ${upc}`);
 
-      // Use OAuth 2.0 LWA token only (no AWS Signature V4 needed)
+      // Catalog API uses OAuth 2.0 only (no AWS Signature V4 needed)
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -169,13 +169,27 @@ export class AmazonRealPricingService {
 
       console.log(`Fetching real Amazon pricing for ASIN: ${asin}`);
 
-      // Use OAuth 2.0 LWA token only (no AWS Signature V4 needed)
+      // Product Pricing API requires AWS Signature V4 + LWA token
+      const { createAWSSignature } = await import('../utils/aws-signature');
+      
+      const headers: Record<string, string> = {
+        'host': 'sellingpartnerapi-na.amazon.com',
+        'x-amz-access-token': accessToken,
+        'content-type': 'application/json'
+      };
+
+      const awsSignedHeaders = await createAWSSignature({
+        method: 'GET',
+        url,
+        headers,
+        body: null,
+        service: 'execute-api',
+        region: 'us-east-1'
+      });
+
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'x-amz-access-token': accessToken,
-          'Content-Type': 'application/json'
-        }
+        headers: { ...headers, ...awsSignedHeaders }
       });
 
       if (!response.ok) {

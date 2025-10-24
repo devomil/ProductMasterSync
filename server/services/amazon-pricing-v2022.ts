@@ -125,14 +125,27 @@ class AmazonPricingServiceV2022 {
         const url = `${this.ENDPOINT}/batches/products/pricing/2022-05-01/competitiveSummary`;
         const bodyString = JSON.stringify({ requests });
         
-        // Use OAuth 2.0 LWA token only (no AWS Signature V4 needed as of Oct 2023)
+        // Product Pricing API requires AWS Signature V4 + LWA token
+        const { createAWSSignature } = await import('../utils/aws-signature');
+        
+        const headers: Record<string, string> = {
+          'host': 'sellingpartnerapi-na.amazon.com',
+          'x-amz-access-token': accessToken,
+          'content-type': 'application/json'
+        };
+
+        const awsSignedHeaders = await createAWSSignature({
+          method: 'POST',
+          url,
+          headers,
+          body: bodyString,
+          service: 'execute-api',
+          region: 'us-east-1'
+        });
+
         const response = await fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-amz-access-token': accessToken,
-            'Accept': 'application/json'
-          },
+          headers: { ...headers, ...awsSignedHeaders },
           body: bodyString
         });
 
