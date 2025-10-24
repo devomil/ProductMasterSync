@@ -33,7 +33,18 @@ export async function createAWSSignature(request: SignatureRequest): Promise<Rec
 
   // Canonical request
   const canonicalUri = url.pathname;
-  const canonicalQueryString = url.searchParams.toString();
+  
+  // Build canonical query string with RFC-3986 encoding and alphabetical sorting
+  // Amazon requires parameters to be sorted lexicographically and RFC-3986 encoded
+  const canonicalQueryString = Array.from(url.searchParams.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => {
+      // RFC-3986 encoding: encode special chars including spaces as %20 (not +)
+      const encodedKey = encodeURIComponent(key).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+      const encodedValue = encodeURIComponent(value).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+      return `${encodedKey}=${encodedValue}`;
+    })
+    .join('&');
   const canonicalHeaders = Object.entries(request.headers)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key.toLowerCase()}:${value}`)
