@@ -356,7 +356,7 @@ export async function getPricing(asins: string[]): Promise<any[]> {
       if (response.data && response.data.payload) {
         results.push(...response.data.payload);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching pricing for batch:`, error);
       // Log the full error response for debugging
       if (error.response) {

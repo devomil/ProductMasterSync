@@ -97,7 +97,7 @@ class AmazonPricingServiceV2022 {
       this.tokenExpiry = new Date(Date.now() + (data.expires_in - 60) * 1000); // 60 second buffer
 
       console.log('Amazon SP-API access token refreshed successfully');
-      return this.accessToken;
+      return data.access_token;
     } catch (error) {
       console.error('Failed to get access token:', error);
       throw error;
