@@ -20,7 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle } from "lucide-react";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 // import AmazonMarketData from "@/components/products/AmazonMarketData";
 
@@ -1123,6 +1124,24 @@ export default function ProductDetails() {
                                 <CardTitle className="text-sm flex items-center gap-2">
                                   <DollarSign className="h-4 w-4 text-green-600" />
                                   Buy Box Pricing
+                                  {asin.buyBoxPrice === null && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                          <p className="text-sm">
+                                            <strong>Why no pricing data?</strong><br/>
+                                            • Product currently out of stock<br/>
+                                            • No active sellers on Amazon<br/>
+                                            • Restricted listing category<br/>
+                                            • Amazon-exclusive item
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                 </CardTitle>
                               </CardHeader>
                               <CardContent className="space-y-2">
@@ -1172,6 +1191,24 @@ export default function ProductDetails() {
                                 <CardTitle className="text-sm flex items-center gap-2">
                                   <BarChart3 className="h-4 w-4 text-blue-600" />
                                   Sales Rank
+                                  {asin.salesRank === null && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                          <p className="text-sm">
+                                            <strong>Why no sales rank?</strong><br/>
+                                            • New product with limited sales history<br/>
+                                            • Out of stock for extended period<br/>
+                                            • Restricted/B2B category item<br/>
+                                            • Amazon doesn't publish ranks for all items
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                 </CardTitle>
                               </CardHeader>
                               <CardContent className="space-y-2">
