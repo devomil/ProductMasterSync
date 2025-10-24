@@ -1469,12 +1469,18 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
           // Extract sales rank
           let salesRank = null;
           let salesRankCategory = null;
+          console.log(`[Sales Rank] Checking sales rank for ASIN ${mapping.asin}:`, JSON.stringify(catalogItem.salesRanks, null, 2));
           if (catalogItem.salesRanks && catalogItem.salesRanks.length > 0) {
             const primaryRank = catalogItem.salesRanks[0];
             if (primaryRank.ranks && primaryRank.ranks.length > 0) {
               salesRank = primaryRank.ranks[0].rank;
               salesRankCategory = primaryRank.ranks[0].title || 'Overall';
+              console.log(`[Sales Rank] Found rank for ${mapping.asin}: ${salesRank} in ${salesRankCategory}`);
+            } else {
+              console.log(`[Sales Rank] No ranks array found in primaryRank for ${mapping.asin}`);
             }
+          } else {
+            console.log(`[Sales Rank] No salesRanks data available for ${mapping.asin}`);
           }
           
           // Extract image URL from catalog item

@@ -545,13 +545,76 @@ export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
           lastUpdated: new Date()
         });
       }
-    } catch (error) {
-      console.error(`Error getting buy box pricing for ${asin}:`, error);
-      // Continue with other ASINs even if one fails
+    } catch (error: any) {
+      console.error(`Error getting buy box pricing for ${asin}:`, error?.response?.status, error.message);
+      
+      // If we hit rate limit (429), wait longer and retry once
+      if (error?.response?.status === 429) {
+        console.log(`Rate limit hit for ${asin}, waiting 5 seconds and retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        try {
+          const retryResponse = await axios.get(`${config.endpoint}/products/pricing/v0/items/${asin}/offers`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'x-amz-access-token': accessToken,
+              'Content-Type': 'application/json'
+            },
+            params: {
+              MarketplaceId: config.marketplaceId,
+              ItemCondition: 'New',
+              CustomerType: 'Consumer'
+            }
+          });
+          
+          if (retryResponse.data && retryResponse.data.payload) {
+            const payload = retryResponse.data.payload;
+            const summary = payload.Summary;
+            const offers = payload.Offers || [];
+            
+            let buyBoxPrice = null;
+            let lowestPrice = null;
+            let isBuyBoxWinner = false;
+            let fulfillmentChannel = null;
+            
+            if (summary && summary.BuyBoxPrices && summary.BuyBoxPrices.length > 0) {
+              const buyBoxData = summary.BuyBoxPrices[0];
+              if (buyBoxData.ListingPrice) {
+                buyBoxPrice = parseFloat(buyBoxData.ListingPrice.Amount);
+              }
+            }
+            
+            if (summary && summary.LowestPrices && summary.LowestPrices.length > 0) {
+              const lowestPriceData = summary.LowestPrices[0];
+              if (lowestPriceData.ListingPrice) {
+                lowestPrice = parseFloat(lowestPriceData.ListingPrice.Amount);
+              }
+            }
+            
+            const buyBoxOffer = offers.find((offer: any) => offer.IsBuyBoxWinner);
+            if (buyBoxOffer) {
+              isBuyBoxWinner = true;
+              fulfillmentChannel = buyBoxOffer.FulfillmentChannel || 'Unknown';
+            }
+            
+            results.push({
+              asin,
+              buyBoxPrice,
+              lowestPrice,
+              isBuyBoxWinner,
+              fulfillmentChannel,
+              offerCount: offers.length,
+              lastUpdated: new Date()
+            });
+          }
+        } catch (retryError) {
+          console.error(`Retry also failed for ${asin}:`, retryError);
+        }
+      }
     }
     
-    // Rate limiting: v0 pricing API is 0.5 req/sec = 2 second delay
-    await new Promise(resolve => setTimeout(resolve, 2100));
+    // Rate limiting: v0 pricing API is 0.5 req/sec = increase to 2.5 seconds for safety
+    await new Promise(resolve => setTimeout(resolve, 2500));
   }
   
   return results;
