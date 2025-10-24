@@ -83,11 +83,14 @@ Preferred communication style: Simple, everyday language.
 
 ## APIs and Services
 - **Amazon SP-API**: For product catalog search and marketplace intelligence.
-  - **OAuth2 Authentication** (catalog/batch sync): Requires only Client ID, Client Secret, Refresh Token for product search and ASIN matching
-  - **AWS Signature V4** (pricing APIs): Requires AWS Access Key ID and Secret Key for competitive pricing analysis
+  - **OAuth2 Authentication**: Uses Login with Amazon (LWA) tokens - requires Client ID, Client Secret, and Refresh Token
+  - **Product Pricing API v0** (October 2024): Successfully implemented using OAuth-only authentication (no AWS Signature V4 required)
+    - ✅ **Endpoints**: `/products/pricing/v0/pricing`, `/products/pricing/v0/competitivePrice`, `/products/pricing/v0/items/{asin}/offers`
+    - ✅ **Features**: Buy Box pricing, competitive pricing, lowest offers, fulfillment methods
+    - ✅ **Rate Limit**: 0.5 requests/second with 10 request burst
   - **Current Status** (October 2024):
-    - ✅ **Working**: Catalog Items API (ASIN discovery, sales rank), Listings Restrictions API (can list checks)
-    - ❌ **Known Issue**: Product Pricing API v0 returns 403 "Access to requested resource is denied" despite correct authentication, IAM ARN registration (`arn:aws:iam::515966528580:user/SP-API`), all required roles enabled (Pricing + Product Listing), fresh OAuth tokens, and properly configured AWS Signature V4. This may require additional Amazon seller account approval beyond Developer Console settings. Markets tab currently displays ASIN matches, sales rank, and listing restrictions without pricing data.
+    - ✅ **Working**: Catalog Items API (ASIN discovery, sales rank), Listings Restrictions API, Product Pricing API v0 (competitive pricing, buy box data)
+    - ℹ️ **Note**: Pricing API v2022-05-01 requires AWS Signature V4 authentication and may need additional Amazon approval. Using v0 API which works reliably with OAuth-only authentication.
 - **Anthropic AI**: For AI-powered data processing and enhancement.
 - **SFTP/FTP Servers**: For supplier data source connections.
 - **Neon**: Serverless PostgreSQL hosting.

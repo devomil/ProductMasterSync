@@ -6,7 +6,7 @@
 import { db } from '../db';
 import { products, amazonAsins, productAsinMapping } from '../../shared/schema';
 import { eq, isNotNull, and } from 'drizzle-orm';
-import { amazonPricingServiceV2022 } from './amazon-pricing-v2022';
+import { getCompetitivePricing, getPricing } from '../utils/amazon-spapi';
 
 interface CatalogPricingResult {
   asin: string;
@@ -65,7 +65,7 @@ export class AmazonCatalogPricingService {
     this.tokenExpiry = new Date(Date.now() + (data.expires_in - 60) * 1000);
     
     console.log('Amazon SP-API access token refreshed successfully');
-    return this.accessToken;
+    return data.access_token;
   }
 
   async getCatalogItemData(asin: string): Promise<any> {
@@ -243,24 +243,30 @@ export class AmazonCatalogPricingService {
           continue;
         }
 
-        // Try to get SP-API pricing first
+        // Try to get SP-API pricing first using v0 API (OAuth-only)
         let pricingData;
         try {
-          const spApiPricing = await amazonPricingServiceV2022.getCompetitiveSummaryBatch([asin]);
-          if (spApiPricing.size > 0) {
-            const competitiveSummary = spApiPricing.get(asin);
-            if (competitiveSummary) {
-              const extractedPricing = amazonPricingServiceV2022.extractPricingData(competitiveSummary);
+          const competitivePricingResults = await getCompetitivePricing([asin]);
+          
+          if (competitivePricingResults && competitivePricingResults.length > 0) {
+            const pricingResult = competitivePricingResults[0];
+            
+            // Extract pricing from v0 API response structure
+            const competitivePrice = pricingResult?.Product?.CompetitivePricing?.CompetitivePrices?.[0]?.Price?.LandedPrice?.Amount;
+            const listPrice = pricingResult?.Product?.CompetitivePricing?.CompetitivePrices?.[0]?.Price?.ListingPrice?.Amount;
+            
+            if (competitivePrice || listPrice) {
+              const priceValue = competitivePrice || listPrice || 0;
               pricingData = {
-                listPrice: extractedPricing.listPrice,
-                competitivePrice: extractedPricing.lowestPrice || extractedPricing.buyBoxPrice,
-                profitMargin: extractedPricing.listPrice ? (extractedPricing.listPrice - cost * 100) / extractedPricing.listPrice : 0,
+                listPrice: listPrice ? listPrice * 100 : priceValue * 100,
+                competitivePrice: priceValue * 100,
+                profitMargin: listPrice ? ((listPrice - cost) / listPrice) * 100 : 0,
                 source: 'SP-API' as const
               };
             }
           }
         } catch (error) {
-          console.log(`SP-API pricing unavailable for ${asin}, using cost-based calculation`);
+          console.log(`SP-API pricing unavailable for ${asin}, using cost-based calculation:`, error);
         }
 
         // Fall back to cost-based pricing if SP-API fails

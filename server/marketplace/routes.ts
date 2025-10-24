@@ -16,7 +16,6 @@ import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
-import { amazonPricingServiceV2022 } from '../services/amazon-pricing-v2022';
 
 const router = Router();
 
