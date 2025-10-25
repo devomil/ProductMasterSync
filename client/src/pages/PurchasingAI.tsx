@@ -135,31 +135,36 @@ export default function PurchasingAI() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const productsPerPage = 100;
 
-  // Data Quality Assessment Query
-  const { data: qualityData, isLoading: qualityLoading, refetch: refetchQuality } = useQuery({
-    queryKey: ['/api/purchasing/data-quality-assessment'],
-    refetchInterval: 60000, // Refresh every 60 seconds
+  // Fetch purchasing opportunities
+  const { data: opportunities = [], isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery<any[]>({
+    queryKey: ['/api/purchasing/opportunities', { riskLevel: selectedRisk, minConfidence, limit: productsPerPage, offset: (currentPage - 1) * productsPerPage }],
   });
 
-  // Enhanced Purchasing Opportunities Query with Server-Side Pagination
-  const { data: opportunitiesData, isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery({
-    queryKey: ['/api/purchasing/enhanced-opportunities', selectedRisk, minConfidence, currentPage, productsPerPage],
-    refetchInterval: 60000, // Refresh every 60 seconds
-    queryFn: () => 
-      fetch(`/api/purchasing/enhanced-opportunities?limit=${productsPerPage}&page=${currentPage}&risk_level=${selectedRisk}&min_confidence=${minConfidence}&min_opportunity_score=20`)
-        .then(res => res.json())
+  // Fetch purchasing stats
+  const { data: stats, isLoading: statsLoading } = useQuery<any>({
+    queryKey: ['/api/purchasing/stats'],
   });
 
-  const assessment: DataQualityAssessment | undefined = qualityData?.assessment;
-  const opportunities: PurchasingOpportunity[] = opportunitiesData?.opportunities || [];
-  const analytics: OpportunityAnalytics | undefined = opportunitiesData?.analytics;
-  const pagination = opportunitiesData?.pagination || {
-    currentPage: 1,
-    totalPages: 1,
-    totalCount: 0,
+  const totalOpps = stats?.totalOpportunities || 0;
+  const analytics = {
+    totalAnalyzed: opportunities.length,
+    qualifiedOpportunities: totalOpps,
+    averageConfidence: stats?.avgConfidence || 0,
+    averageOpportunityScore: stats?.avgOpportunityScore || 0,
+    riskDistribution: {
+      low: 0,
+      medium: 0,
+      high: 0,
+    },
+    automationReady: stats?.automationReady || 0,
+  };
+  const pagination = {
+    currentPage,
+    totalPages: Math.ceil(totalOpps / productsPerPage),
+    totalCount: totalOpps,
     limit: productsPerPage,
-    hasNextPage: false,
-    hasPreviousPage: false
+    hasNextPage: currentPage < Math.ceil(totalOpps / productsPerPage),
+    hasPreviousPage: currentPage > 1
   };
   
   // Reset page when filters change
@@ -168,7 +173,6 @@ export default function PurchasingAI() {
   }, [selectedRisk, minConfidence]);
 
   const handleRefresh = () => {
-    refetchQuality();
     refetchOpportunities();
   };
 
