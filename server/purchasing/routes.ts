@@ -35,6 +35,11 @@ router.get("/opportunities", async (req, res) => {
 
     // Apply filters
     const conditions = [];
+    
+    // Always filter out restricted products (canList = false means we can't list on Amazon)
+    // Only show: canList = true OR canList is null (needs approval/ungated)
+    conditions.push(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
+    
     if (riskLevel && riskLevel !== 'all') {
       conditions.push(eq(purchasingOpportunities.riskLevel, riskLevel as any));
     }
@@ -45,10 +50,8 @@ router.get("/opportunities", async (req, res) => {
       conditions.push(eq(purchasingOpportunities.recommendation, recommendation as any));
     }
 
-    // Apply WHERE clause if we have conditions
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
-    }
+    // Apply WHERE clause
+    query = query.where(and(...conditions)) as any;
 
     const opportunities = await query;
 
@@ -65,6 +68,7 @@ router.get("/opportunities", async (req, res) => {
 // Get purchasing statistics
 router.get("/stats", async (req, res) => {
   try {
+    // Only count non-restricted products (same filter as opportunities)
     const stats = await db
       .select({
         totalOpportunities: sql<number>`COUNT(*)`,
@@ -74,7 +78,8 @@ router.get("/stats", async (req, res) => {
         dropshipCount: sql<number>`SUM(CASE WHEN recommendation = 'dropship' THEN 1 ELSE 0 END)`,
         warehouseCount: sql<number>`SUM(CASE WHEN recommendation = 'warehouse' THEN 1 ELSE 0 END)`,
       })
-      .from(purchasingOpportunities);
+      .from(purchasingOpportunities)
+      .where(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
 
     res.json(stats[0] || {
       totalOpportunities: 0,
