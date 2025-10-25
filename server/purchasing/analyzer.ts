@@ -377,9 +377,9 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           supplierId: supplier?.supplierId || null,
         };
 
-        // Use rule-based for bulk to save on AI costs
+        // Use AI analysis for intelligent recommendations
         const marginPercent = ((buyBoxPrice - ourCost - shippingCost) / buyBoxPrice) * 100;
-        const aiResult = ruleBasedRecommendation(marginPercent, productData, settings);
+        const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
 
         const [opportunity] = await db
           .insert(purchasingOpportunities)
