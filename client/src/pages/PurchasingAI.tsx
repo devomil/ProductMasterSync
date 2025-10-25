@@ -104,7 +104,7 @@ interface PurchasingOpportunity {
   competitionLevel: string;
   riskLevel: string;
   recommendedAction: string;
-  automationFlags: string[];
+  automationReady: boolean;
   
   dataCompleteness: {
     hasUPC: boolean;
