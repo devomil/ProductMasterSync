@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink } from 'lucide-react';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package } from 'lucide-react';
 
 // Amazon Product Image Component with fallbacks
 function ProductImage({ asin, productName, alt }: { asin?: string; productName?: string; alt: string }) {
@@ -193,14 +193,14 @@ export default function PurchasingAI() {
     }
   };
 
-  if (qualityLoading) {
+  if (opportunitiesLoading || statsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-12">
             <Activity className="mx-auto h-12 w-12 text-blue-500 animate-spin" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">Loading Purchasing AI Analysis...</h3>
-            <p className="mt-2 text-gray-500">Analyzing all 2830 products for purchasing insights</p>
+            <p className="mt-2 text-gray-500">Analyzing products for purchasing insights</p>
           </div>
         </div>
       </div>
@@ -217,7 +217,7 @@ export default function PurchasingAI() {
               <Brain className="h-8 w-8 text-blue-600" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Enhanced Purchasing AI</h1>
-                <p className="text-gray-600">Intelligent purchasing insights across all {assessment?.catalog_size || 2830} products</p>
+                <p className="text-gray-600">AI-powered purchasing recommendations for profitable opportunities</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -226,13 +226,8 @@ export default function PurchasingAI() {
                 variant="outline"
                 size="sm"
               >
-                Refresh Data
+                Refresh Analysis
               </Button>
-              {assessment && (
-                <Badge className={getStatusColor(assessment.status)}>
-                  {assessment.reliability_score}/100 - {assessment.status}
-                </Badge>
-              )}
             </div>
           </div>
         </div>
@@ -246,100 +241,52 @@ export default function PurchasingAI() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {/* Data Quality Overview */}
-            {assessment && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-                    <Database className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{assessment.catalog_size.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Complete catalog size</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">AI Ready</CardTitle>
-                    <Brain className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{assessment.data_completeness.ai_ready.count.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">{assessment.data_completeness.ai_ready.percentage}% ready for AI analysis</p>
-                    <Progress value={assessment.data_completeness.ai_ready.percentage} className="mt-2" />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">UPC & MPN Coverage</CardTitle>
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{assessment.data_completeness.both_identifiers.count.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">{assessment.data_completeness.both_identifiers.percentage}% with complete identifiers</p>
-                    <Progress value={assessment.data_completeness.both_identifiers.percentage} className="mt-2" />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Amazon Synced</CardTitle>
-                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{assessment.data_completeness.amazon_synced.count.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">{assessment.data_completeness.amazon_synced.percentage}% synced with Amazon</p>
-                    <Progress value={assessment.data_completeness.amazon_synced.percentage} className="mt-2" />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* System Message */}
-            {assessment && (
+            {/* Key Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <TrendingUp className="h-5 w-5" />
-                    <span>System Status</span>
-                  </CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Opportunities</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(assessment.status)}`}>
-                      Reliability Score: {assessment.reliability_score}/100 - {assessment.status}
-                    </div>
-                    <p className="text-gray-700">{assessment.message}</p>
-                    
-                    {assessment.recommendations.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-gray-900">Improvement Recommendations:</h4>
-                        {assessment.recommendations.map((rec, index) => (
-                          <div key={index} className="border border-orange-200 bg-orange-50 rounded-lg p-3">
-                            <div className="flex items-start space-x-2">
-                              <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5" />
-                              <div>
-                                <div className="flex items-center space-x-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {rec.priority.toUpperCase()}
-                                  </Badge>
-                                  <span className="font-medium text-sm">{rec.area}</span>
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">{rec.issue}</p>
-                                <p className="text-sm text-blue-600 mt-1">Action: {rec.action}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <div className="text-2xl font-bold">{totalOpps.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Products analyzed</p>
                 </CardContent>
               </Card>
-            )}
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Warehouse Purchases</CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats?.warehouseCount || 0}</div>
+                  <p className="text-xs text-muted-foreground">High-margin opportunities</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Dropship Items</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats?.dropshipCount || 0}</div>
+                  <p className="text-xs text-muted-foreground">Good margin opportunities</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Avg Confidence</CardTitle>
+                  <Brain className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats?.avgConfidence || 0}%</div>
+                  <p className="text-xs text-muted-foreground">AI confidence score</p>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="opportunities" className="space-y-6">
@@ -633,16 +580,6 @@ export default function PurchasingAI() {
                       Confidence scores are calculated using UPC exact match (60%), product title similarity (20%), and brand verification (20%).
                     </p>
                   </div>
-                  
-                  {assessment && assessment.reliability_score >= 80 && (
-                    <div className="border border-green-200 bg-green-50 rounded-lg p-4">
-                      <h4 className="font-medium text-green-900">System Ready</h4>
-                      <p className="text-sm text-green-700 mt-1">
-                        With {assessment.data_completeness.ai_ready.percentage}% of products ready for AI analysis and {assessment.reliability_score}/100 reliability score, 
-                        the system provides excellent purchasing insights across all {assessment.catalog_size} products.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
