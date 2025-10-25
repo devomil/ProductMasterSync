@@ -403,21 +403,21 @@ export default function PurchasingAI() {
                             console.log('Navigate to product detail for:', opp.productId);
                           }
                         }}
-                        aria-label={`View details for ${opp.productName || opp.sku} - ${opp.amazonROI ? `${opp.amazonROI.toFixed(0)}% ROI` : 'No ROI data'} - ${opp.riskLevel} risk`}
+                        aria-label={`View details for ${opp.product?.name || 'Product'} - ${opp.marginPercent ? `${opp.marginPercent.toFixed(0)}% margin` : 'No margin data'} - ${opp.riskLevel} risk`}
                         data-testid={`product-card-${opp.productId}`}
                       >
                         <div className="aspect-square bg-gray-100 relative overflow-hidden">
                           {/* Amazon product image or fallback */}
                           <ProductImage 
                             asin={opp.asin} 
-                            productName={opp.productName} 
-                            alt={opp.productName || opp.sku} 
+                            productName={opp.product?.name} 
+                            alt={opp.product?.name || opp.product?.sku || 'Product'} 
                           />
-                          {/* ROI Badge Overlay */}
-                          {opp.amazonROI && opp.amazonROI > 0 && (
+                          {/* Margin Badge Overlay */}
+                          {opp.marginPercent && opp.marginPercent > 0 && (
                             <div className="absolute top-2 right-2">
                               <Badge className="bg-green-600 text-white">
-                                {opp.amazonROI.toFixed(0)}% ROI
+                                {opp.marginPercent.toFixed(0)}% margin
                               </Badge>
                             </div>
                           )}
@@ -433,54 +433,41 @@ export default function PurchasingAI() {
                           {/* Product Title */}
                           <div>
                             <h3 className="font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                              {opp.productName || opp.sku}
+                              {opp.product?.name || opp.product?.sku || 'Unknown Product'}
                             </h3>
-                            <p className="text-xs text-gray-500 mt-1">SKU: {opp.sku}</p>
+                            <p className="text-xs text-gray-500 mt-1">SKU: {opp.product?.sku || 'N/A'}</p>
                           </div>
                           
                           {/* Key Metrics */}
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div className="text-center p-2 bg-gray-50 rounded">
                               <div className="font-semibold text-gray-900">
-                                ${opp.amazonCurrentPrice?.toFixed(2) || 'N/A'}
+                                ${opp.buyBoxPrice?.toFixed(2) || 'N/A'}
                               </div>
-                              <div className="text-xs text-gray-600">Amazon Price</div>
+                              <div className="text-xs text-gray-600">Buy Box</div>
                             </div>
                             <div className="text-center p-2 bg-green-50 rounded">
                               <div className="font-semibold text-green-700">
-                                ${opp.amazonNetProfit?.toFixed(2) || 'N/A'}
+                                ${opp.ourCost?.toFixed(2) || 'N/A'}
                               </div>
-                              <div className="text-xs text-gray-600">Net Profit</div>
+                              <div className="text-xs text-gray-600">Our Cost</div>
                             </div>
                           </div>
                           
-                          {/* Confidence and Score */}
+                          {/* Confidence and Recommendation */}
                           <div className="flex items-center justify-between text-xs">
                             <div className="flex items-center space-x-1">
                               <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                              <span className="text-gray-600">{opp.matchConfidence}% match</span>
+                              <span className="text-gray-600">{opp.confidence}% confidence</span>
                             </div>
                             <div className="font-medium text-blue-600">
-                              Score: {opp.opportunityScore}
+                              {opp.recommendation}
                             </div>
                           </div>
                           
-                          {/* Action Indicator */}
-                          <div className="flex items-center justify-between">
-                            <Badge 
-                              variant="outline" 
-                              className={opp.recommendedAction === 'PROCEED' ? 'border-green-500 text-green-700' : 
-                                        opp.recommendedAction === 'REVIEW' ? 'border-yellow-500 text-yellow-700' : 
-                                        'border-red-500 text-red-700'}
-                            >
-                              {opp.recommendedAction}
-                            </Badge>
-                            {opp.automationFlags.length > 0 && (
-                              <div className="flex items-center">
-                                <Brain className="h-3 w-3 text-blue-500" />
-                                <span className="text-xs text-blue-600 ml-1">Auto Ready</span>
-                              </div>
-                            )}
+                          {/* Reasoning */}
+                          <div className="text-xs text-gray-600 line-clamp-2">
+                            {opp.reasoning || 'No reasoning available'}
                           </div>
                         </div>
                       </button>
