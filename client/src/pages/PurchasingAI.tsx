@@ -6,7 +6,36 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+
+// Sortable Table Header Component
+function SortableHeader({ column, currentColumn, direction, onClick, children, className = '' }: { 
+  column: string; 
+  currentColumn: string; 
+  direction: 'asc' | 'desc'; 
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const isActive = currentColumn === column;
+  return (
+    <TableHead className={className}>
+      <button
+        onClick={onClick}
+        className="flex items-center space-x-1 hover:text-blue-600 transition-colors font-medium"
+        data-testid={`sort-${column}`}
+      >
+        <span>{children}</span>
+        {isActive ? (
+          direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-30" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
 
 // Amazon Product Image Component with fallbacks
 function ProductImage({ asin, productName, alt }: { asin?: string; productName?: string; alt: string }) {
@@ -133,16 +162,75 @@ export default function PurchasingAI() {
   const [minConfidence, setMinConfidence] = useState<number>(50);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortColumn, setSortColumn] = useState<string>('marginPercent');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [viewDensity, setViewDensity] = useState<'compact' | 'comfortable' | 'spacious'>('comfortable');
   const productsPerPage = 100;
+  
+  // Sorting function
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
 
   // Fetch purchasing opportunities
-  const { data: opportunities = [], isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery<any[]>({
+  const { data: rawOpportunities = [], isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery<any[]>({
     queryKey: ['/api/purchasing/opportunities', { riskLevel: selectedRisk, minConfidence, limit: productsPerPage, offset: (currentPage - 1) * productsPerPage }],
   });
 
   // Fetch purchasing stats
   const { data: stats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/purchasing/stats'],
+  });
+
+  // Sort opportunities client-side
+  const opportunities = [...rawOpportunities].sort((a, b) => {
+    let aVal, bVal;
+    
+    switch(sortColumn) {
+      case 'product':
+        aVal = a.product?.name || '';
+        bVal = b.product?.name || '';
+        break;
+      case 'ourCost':
+        aVal = a.ourCost || 0;
+        bVal = b.ourCost || 0;
+        break;
+      case 'shippingCost':
+        aVal = a.shippingCost || 0;
+        bVal = b.shippingCost || 0;
+        break;
+      case 'buyBoxPrice':
+        aVal = a.buyBoxPrice || 0;
+        bVal = b.buyBoxPrice || 0;
+        break;
+      case 'marginPercent':
+        aVal = a.marginPercent || 0;
+        bVal = b.marginPercent || 0;
+        break;
+      case 'confidence':
+        aVal = a.confidence || 0;
+        bVal = b.confidence || 0;
+        break;
+      case 'salesRank':
+        aVal = a.salesRank || 999999;
+        bVal = b.salesRank || 999999;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (typeof aVal === 'string') {
+      return sortDirection === 'asc' 
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    } else {
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    }
   });
 
   const totalOpps = stats?.totalOpportunities || 0;
@@ -368,110 +456,216 @@ export default function PurchasingAI() {
               </div>
             )}
 
-            {/* Product Catalog Grid */}
+            {/* Product Catalog Table */}
             <Card>
               <CardHeader>
-                <CardTitle>Product Catalog</CardTitle>
+                <CardTitle>Purchasing Opportunities</CardTitle>
                 <CardDescription>
-                  {opportunitiesLoading ? 'Loading products...' : 
-                    `Showing ${pagination.totalCount > 0 ? ((pagination.currentPage - 1) * pagination.limit + 1) : 0}-${Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of ${pagination.totalCount} products with purchasing opportunities`
+                  {opportunitiesLoading ? 'Loading opportunities...' : 
+                    `Showing ${pagination.totalCount > 0 ? ((pagination.currentPage - 1) * pagination.limit + 1) : 0}-${Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of ${pagination.totalCount} qualified opportunities (restricted products filtered out)`
                   }
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {opportunities.length === 0 ? (
-                  <div className="text-center py-8">
+                  <div className="text-center py-12">
                     <Target className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No opportunities found</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Try adjusting your filters or running Amazon bulk sync to increase opportunities.
+                      Try adjusting your filters or running Amazon bulk sync to discover more opportunities.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {opportunities.map((opp, index) => (
-                      <button 
-                        key={`${opp.productId}-${index}`} 
-                        className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 overflow-hidden group cursor-pointer text-left w-full"
-                        onClick={() => {
-                          // Navigate to product detail page - will implement routing
-                          console.log('Navigate to product detail for:', opp.productId);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            console.log('Navigate to product detail for:', opp.productId);
-                          }
-                        }}
-                        aria-label={`View details for ${opp.product?.name || 'Product'} - ${opp.marginPercent ? `${opp.marginPercent.toFixed(0)}% margin` : 'No margin data'} - ${opp.riskLevel} risk`}
-                        data-testid={`product-card-${opp.productId}`}
-                      >
-                        <div className="aspect-square bg-gray-100 relative overflow-hidden">
-                          {/* Amazon product image or fallback */}
-                          <ProductImage 
-                            asin={opp.asin} 
-                            productName={opp.product?.name} 
-                            alt={opp.product?.name || opp.product?.sku || 'Product'} 
-                          />
-                          {/* Margin Badge Overlay */}
-                          {opp.marginPercent && opp.marginPercent > 0 && (
-                            <div className="absolute top-2 right-2">
-                              <Badge className="bg-green-600 text-white">
-                                {opp.marginPercent.toFixed(0)}% margin
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[50px]"></TableHead>
+                          <SortableHeader 
+                            column="product" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('product')}
+                            className="w-[300px]"
+                          >
+                            Product
+                          </SortableHeader>
+                          <SortableHeader 
+                            column="ourCost" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('ourCost')}
+                            className="text-right"
+                          >
+                            Our Cost
+                          </SortableHeader>
+                          <SortableHeader 
+                            column="shippingCost" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('shippingCost')}
+                            className="text-right"
+                          >
+                            Shipping
+                          </SortableHeader>
+                          <SortableHeader 
+                            column="buyBoxPrice" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('buyBoxPrice')}
+                            className="text-right"
+                          >
+                            Buy Box
+                          </SortableHeader>
+                          <SortableHeader 
+                            column="marginPercent" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('marginPercent')}
+                            className="text-right"
+                          >
+                            Margin %
+                          </SortableHeader>
+                          <TableHead>Recommendation</TableHead>
+                          <SortableHeader 
+                            column="confidence" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('confidence')}
+                            className="text-center"
+                          >
+                            Confidence
+                          </SortableHeader>
+                          <TableHead className="text-center">Risk</TableHead>
+                          <SortableHeader 
+                            column="salesRank" 
+                            currentColumn={sortColumn} 
+                            direction={sortDirection}
+                            onClick={() => handleSort('salesRank')}
+                            className="text-right"
+                          >
+                            Sales Rank
+                          </SortableHeader>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {opportunities.map((opp, index) => (
+                          <TableRow 
+                            key={`${opp.productId}-${index}`}
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => {
+                              console.log('View product details:', opp.productId);
+                            }}
+                            data-testid={`opportunity-row-${opp.productId}`}
+                          >
+                            {/* Product Image */}
+                            <TableCell>
+                              <div className="w-10 h-10 rounded overflow-hidden bg-gray-100">
+                                <ProductImage 
+                                  asin={opp.asin} 
+                                  productName={opp.product?.name} 
+                                  alt={opp.product?.name || 'Product'} 
+                                />
+                              </div>
+                            </TableCell>
+                            
+                            {/* Product Name & SKU */}
+                            <TableCell>
+                              <div className="max-w-xs">
+                                <p className="font-medium text-sm line-clamp-1">
+                                  {opp.product?.name || 'Unknown Product'}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  SKU: {opp.product?.sku || 'N/A'}
+                                  {opp.asin && <span className="ml-2">ASIN: {opp.asin}</span>}
+                                </p>
+                              </div>
+                            </TableCell>
+                            
+                            {/* Our Cost */}
+                            <TableCell className="text-right font-medium">
+                              ${opp.ourCost?.toFixed(2) || 'N/A'}
+                            </TableCell>
+                            
+                            {/* Shipping Cost */}
+                            <TableCell className="text-right">
+                              ${opp.shippingCost?.toFixed(2) || 'N/A'}
+                            </TableCell>
+                            
+                            {/* Buy Box Price */}
+                            <TableCell className="text-right font-medium text-blue-600">
+                              ${opp.buyBoxPrice?.toFixed(2) || 'N/A'}
+                            </TableCell>
+                            
+                            {/* Margin % */}
+                            <TableCell className="text-right">
+                              <Badge 
+                                className={
+                                  (opp.marginPercent || 0) >= 25 ? 'bg-green-600 text-white' :
+                                  (opp.marginPercent || 0) >= 15 ? 'bg-yellow-600 text-white' :
+                                  'bg-red-600 text-white'
+                                }
+                              >
+                                {opp.marginPercent ? `${opp.marginPercent.toFixed(1)}%` : 'N/A'}
                               </Badge>
-                            </div>
-                          )}
-                          {/* Risk Level Badge */}
-                          <div className="absolute top-2 left-2">
-                            <Badge className={getRiskBadgeColor(opp.riskLevel)}>
-                              {opp.riskLevel.charAt(0).toUpperCase() + opp.riskLevel.slice(1)}
-                            </Badge>
-                          </div>
-                        </div>
-                        
-                        <div className="p-4 space-y-3">
-                          {/* Product Title */}
-                          <div>
-                            <h3 className="font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                              {opp.product?.name || opp.product?.sku || 'Unknown Product'}
-                            </h3>
-                            <p className="text-xs text-gray-500 mt-1">SKU: {opp.product?.sku || 'N/A'}</p>
-                          </div>
-                          
-                          {/* Key Metrics */}
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="text-center p-2 bg-gray-50 rounded">
-                              <div className="font-semibold text-gray-900">
-                                ${opp.buyBoxPrice?.toFixed(2) || 'N/A'}
+                            </TableCell>
+                            
+                            {/* Recommendation */}
+                            <TableCell>
+                              <Badge 
+                                variant="outline"
+                                className={
+                                  opp.recommendation === 'warehouse' ? 'border-green-500 text-green-700 bg-green-50' :
+                                  opp.recommendation === 'dropship' ? 'border-blue-500 text-blue-700 bg-blue-50' :
+                                  'border-gray-500 text-gray-700'
+                                }
+                              >
+                                {opp.recommendation || 'N/A'}
+                              </Badge>
+                            </TableCell>
+                            
+                            {/* Confidence */}
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center space-x-1">
+                                <div className={`w-2 h-2 rounded-full ${(opp.confidence || 0) >= 70 ? 'bg-green-500' : (opp.confidence || 0) >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+                                <span className="text-sm">{opp.confidence || 0}%</span>
                               </div>
-                              <div className="text-xs text-gray-600">Buy Box</div>
-                            </div>
-                            <div className="text-center p-2 bg-green-50 rounded">
-                              <div className="font-semibold text-green-700">
-                                ${opp.ourCost?.toFixed(2) || 'N/A'}
-                              </div>
-                              <div className="text-xs text-gray-600">Our Cost</div>
-                            </div>
-                          </div>
-                          
-                          {/* Confidence and Recommendation */}
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center space-x-1">
-                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                              <span className="text-gray-600">{opp.confidence}% confidence</span>
-                            </div>
-                            <div className="font-medium text-blue-600">
-                              {opp.recommendation}
-                            </div>
-                          </div>
-                          
-                          {/* Reasoning */}
-                          <div className="text-xs text-gray-600 line-clamp-2">
-                            {opp.reasoning || 'No reasoning available'}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                            </TableCell>
+                            
+                            {/* Risk Level */}
+                            <TableCell className="text-center">
+                              <Badge className={getRiskBadgeColor(opp.riskLevel)}>
+                                {opp.riskLevel?.charAt(0).toUpperCase() + (opp.riskLevel?.slice(1) || '')}
+                              </Badge>
+                            </TableCell>
+                            
+                            {/* Sales Rank */}
+                            <TableCell className="text-right text-sm">
+                              {opp.salesRank ? opp.salesRank.toLocaleString() : 'N/A'}
+                            </TableCell>
+                            
+                            {/* Action Button */}
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (opp.asin) {
+                                    window.open(`https://www.amazon.com/dp/${opp.asin}`, '_blank');
+                                  }
+                                }}
+                                disabled={!opp.asin}
+                                data-testid={`view-amazon-${opp.productId}`}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
                 
