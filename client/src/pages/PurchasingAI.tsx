@@ -51,20 +51,17 @@ function ProductImage({ asin, productName, alt }: { asin?: string; productName?:
       <img 
         src={amazonImageUrl}
         alt={alt}
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+        className="w-full h-full object-cover"
         onError={() => setImageError(true)}
         loading="lazy"
       />
     );
   }
   
-  // Fallback to placeholder
+  // Fallback to placeholder icon
   return (
-    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="text-center">
-        <ShoppingCart className="h-12 w-12 mx-auto mb-2" />
-        <p className="text-xs text-gray-500 max-w-20 line-clamp-2">{productName || 'Product'}</p>
-      </div>
+    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+      <Package className="h-5 w-5 text-gray-400" />
     </div>
   );
 }
@@ -459,12 +456,22 @@ export default function PurchasingAI() {
             {/* Product Catalog Table */}
             <Card>
               <CardHeader>
-                <CardTitle>Purchasing Opportunities</CardTitle>
-                <CardDescription>
-                  {opportunitiesLoading ? 'Loading opportunities...' : 
-                    `Showing ${pagination.totalCount > 0 ? ((pagination.currentPage - 1) * pagination.limit + 1) : 0}-${Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of ${pagination.totalCount} qualified opportunities (restricted products filtered out)`
-                  }
-                </CardDescription>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle>Purchasing Opportunities</CardTitle>
+                    <CardDescription>
+                      {opportunitiesLoading ? 'Loading opportunities...' : 
+                        `Showing ${pagination.totalCount > 0 ? ((pagination.currentPage - 1) * pagination.limit + 1) : 0}-${Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of ${pagination.totalCount} qualified opportunities`
+                      }
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                      Only Listable Products
+                    </span>
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 {opportunities.length === 0 ? (

@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack Query for server state.
 - **Build Tool**: Vite.
 - **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features include:
-  - **Purchasing AI Catalog**: Modern grid layout (1-4 columns) with server-side pagination, Amazon images, ROI badges, and accessibility features
+  - **Purchasing AI Catalog**: Professional 11-column table layout optimized for 100k+ products with client-side sorting, Amazon product thumbnails, color-coded margin badges, and accessibility features. Automatically filters restricted products (canList = false) with visible "Only Listable Products" indicator badge.
   - **Table Views**: Optimization modes (compact, comfortable, spacious) with quick filter chips
   - **Documentation**: Interactive field mapping reference with categorized fields, type badges, and usage examples
   - **Data Modals**: Tabbed interfaces for logical organization with real-time calculations
