@@ -543,6 +543,7 @@ export default function PurchasingAI() {
                           >
                             Confidence
                           </SortableHeader>
+                          <TableHead className="text-center">Listing Status</TableHead>
                           <TableHead className="text-center">Risk</TableHead>
                           <SortableHeader 
                             column="salesRank" 
@@ -638,6 +639,20 @@ export default function PurchasingAI() {
                                 <div className={`w-2 h-2 rounded-full ${(opp.confidence || 0) >= 70 ? 'bg-green-500' : (opp.confidence || 0) >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
                                 <span className="text-sm">{opp.confidence || 0}%</span>
                               </div>
+                            </TableCell>
+                            
+                            {/* Listing Status */}
+                            <TableCell className="text-center">
+                              <Badge 
+                                variant="outline"
+                                className={
+                                  opp.canList === true 
+                                    ? 'border-green-500 text-green-700 bg-green-50' 
+                                    : 'border-yellow-500 text-yellow-700 bg-yellow-50'
+                                }
+                              >
+                                {opp.canList === true ? '✓ Approved' : '⚠ Needs Approval'}
+                              </Badge>
                             </TableCell>
                             
                             {/* Risk Level */}
