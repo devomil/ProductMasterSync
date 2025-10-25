@@ -45,6 +45,11 @@ router.get("/opportunities", async (req, res) => {
       conditions.push(eq(purchasingOpportunities.recommendation, recommendation as any));
     }
 
+    // Apply WHERE clause if we have conditions
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
     const opportunities = await query;
 
     res.json(opportunities.map(row => ({

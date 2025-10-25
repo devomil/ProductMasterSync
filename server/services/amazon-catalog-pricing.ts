@@ -325,35 +325,36 @@ export class AmazonCatalogPricingService {
           .where(eq(amazonAsins.asin, result.asin));
 
         // Insert or update pricing data in amazon_market_intelligence table
+        // Note: This uses select-then-update pattern. For production with high concurrency,
+        // consider adding UNIQUE constraint on asin and using onConflictDoUpdate instead.
         const existingData = await db
           .select()
           .from(amazonMarketIntelligence)
           .where(eq(amazonMarketIntelligence.asin, result.asin))
           .limit(1);
 
-        const pricingPayload = {
-          asin: result.asin,
-          buyBoxPrice: result.pricingData.competitivePrice, // Store in cents
-          listPrice: result.pricingData.listPrice,
-          salesRank: null, // Preserve existing sales rank
-          updatedAt: new Date(),
-        };
-
         if (existingData.length > 0) {
           // Update existing record, preserve sales rank if it exists
           await db
             .update(amazonMarketIntelligence)
             .set({
-              buyBoxPrice: pricingPayload.buyBoxPrice,
-              listPrice: pricingPayload.listPrice,
-              updatedAt: pricingPayload.updatedAt,
+              buyBoxPrice: result.pricingData.competitivePrice,
+              listPrice: result.pricingData.listPrice,
+              updatedAt: new Date(),
+              // salesRank is NOT updated, preserving existing value
             })
             .where(eq(amazonMarketIntelligence.asin, result.asin));
         } else {
           // Insert new record
           await db
             .insert(amazonMarketIntelligence)
-            .values(pricingPayload);
+            .values({
+              asin: result.asin,
+              buyBoxPrice: result.pricingData.competitivePrice, // Store in cents
+              listPrice: result.pricingData.listPrice,
+              salesRank: null,
+              updatedAt: new Date(),
+            });
         }
 
         console.log(`Updated marketplace data for ASIN ${result.asin}: $${(result.pricingData.competitivePrice / 100).toFixed(2)}`);

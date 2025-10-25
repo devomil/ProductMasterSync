@@ -109,7 +109,7 @@ Financial Data:
 
 Market Data:
 - Sales Rank: ${productData.salesRank ? `#${productData.salesRank.toLocaleString()} in ${productData.salesRankCategory}` : 'Not available'}
-- Can List: ${productData.canList ? 'Yes' : 'No (Restricted)'}
+- Can List: ${productData.canList === true ? 'Yes' : productData.canList === false ? 'No (Restricted)' : 'Unknown (no restriction data)'}
 
 Thresholds:
 - Dropship Min Margin: ${settings.dropshipMinMargin}%
