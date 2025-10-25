@@ -313,6 +313,8 @@ export class AmazonCatalogPricingService {
 
     for (const result of results) {
       try {
+        const { amazonMarketIntelligence } = await import('../../shared/schema');
+        
         // Update the amazonAsins table with last updated timestamp
         await db
           .update(amazonAsins)
@@ -322,8 +324,38 @@ export class AmazonCatalogPricingService {
           })
           .where(eq(amazonAsins.asin, result.asin));
 
-        // Store pricing data in a separate pricing intelligence table for historical tracking
-        // This allows us to maintain pricing history and competitive analysis
+        // Insert or update pricing data in amazon_market_intelligence table
+        const existingData = await db
+          .select()
+          .from(amazonMarketIntelligence)
+          .where(eq(amazonMarketIntelligence.asin, result.asin))
+          .limit(1);
+
+        const pricingPayload = {
+          asin: result.asin,
+          buyBoxPrice: result.pricingData.competitivePrice, // Store in cents
+          listPrice: result.pricingData.listPrice,
+          salesRank: null, // Preserve existing sales rank
+          updatedAt: new Date(),
+        };
+
+        if (existingData.length > 0) {
+          // Update existing record, preserve sales rank if it exists
+          await db
+            .update(amazonMarketIntelligence)
+            .set({
+              buyBoxPrice: pricingPayload.buyBoxPrice,
+              listPrice: pricingPayload.listPrice,
+              updatedAt: pricingPayload.updatedAt,
+            })
+            .where(eq(amazonMarketIntelligence.asin, result.asin));
+        } else {
+          // Insert new record
+          await db
+            .insert(amazonMarketIntelligence)
+            .values(pricingPayload);
+        }
+
         console.log(`Updated marketplace data for ASIN ${result.asin}: $${(result.pricingData.competitivePrice / 100).toFixed(2)}`);
         updated++;
       } catch (error) {
