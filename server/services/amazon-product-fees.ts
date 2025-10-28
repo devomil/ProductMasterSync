@@ -7,7 +7,6 @@
 
 import axios from 'axios';
 import { getAmazonConfig } from '../utils/amazon-spapi';
-import { createAWSSignature } from '../utils/aws-signature';
 
 interface FeeEstimateRequest {
   asin: string;
@@ -94,41 +93,14 @@ export async function getProductFees(request: FeeEstimateRequest): Promise<Amazo
       }
     };
 
-    // Prepare headers for AWS SigV4 signing
-    const url = `${endpoint}${path}`;
-    const bodyString = JSON.stringify(requestBody);
-    const baseHeaders = {
-      'host': new URL(endpoint).hostname,
-      'content-type': 'application/json',
-      'x-amz-access-token': accessToken
-    };
-
-    // Add AWS Signature V4 if credentials are available
-    let awsHeaders = {};
-    if (process.env.AMAZON_SP_API_AWS_ACCESS_KEY && process.env.AMAZON_SP_API_AWS_SECRET_KEY) {
-      try {
-        awsHeaders = await createAWSSignature({
-          method: 'POST',
-          url,
-          headers: baseHeaders,
-          body: bodyString,
-          service: 'execute-api',
-          region: 'us-east-1'
-        });
-        console.log('[Amazon Fees] Using AWS SigV4 authentication');
-      } catch (error) {
-        console.warn('[Amazon Fees] AWS SigV4 signing failed, proceeding with OAuth-only:', error);
-      }
-    }
-
     const response = await axios({
       method: 'POST',
-      url,
+      url: `${endpoint}${path}`,
       headers: {
-        ...baseHeaders,
-        ...awsHeaders
+        'x-amz-access-token': accessToken,
+        'Content-Type': 'application/json'
       },
-      data: bodyString
+      data: requestBody
     });
 
     // Parse the fee response
@@ -147,14 +119,15 @@ export async function getProductFees(request: FeeEstimateRequest): Promise<Amazo
     let fbaFee = 0;
     let variableClosingFee = 0;
 
-    feeDetails.forEach((fee: FeeDetail) => {
-      const amount = fee.feeAmount?.amount || 0;
+    feeDetails.forEach((fee: any) => {
+      // Amazon returns property names with capital letters
+      const amount = fee.FeeAmount?.Amount || fee.feeAmount?.amount || 0;
       
-      if (fee.feeType === 'ReferralFee') {
+      if (fee.FeeType === 'ReferralFee') {
         referralFee = amount;
-      } else if (fee.feeType === 'FBAFees' || fee.feeType === 'FulfillmentFee') {
+      } else if (fee.FeeType === 'FBAFees' || fee.FeeType === 'FulfillmentFee') {
         fbaFee = amount;
-      } else if (fee.feeType === 'VariableClosingFee') {
+      } else if (fee.FeeType === 'VariableClosingFee') {
         variableClosingFee = amount;
       }
     });
@@ -174,10 +147,8 @@ export async function getProductFees(request: FeeEstimateRequest): Promise<Amazo
     };
 
   } catch (error: any) {
-    console.error(`[Amazon Fees] Error getting fees for ASIN ${request.asin}:`, error.message);
-    
+    console.error(`[Amazon Fees] Failed to get real fees for ASIN ${request.asin}, using estimates:`, error.message);
     // Return estimated fees as fallback
-    console.warn(`[Amazon Fees] Using estimated fees for ASIN ${request.asin}`);
     return estimateFees(request.price);
   }
 }
