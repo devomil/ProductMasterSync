@@ -10,6 +10,7 @@ import {
   productSuppliers
 } from "@shared/schema";
 import { eq, and, isNotNull, sql, inArray } from "drizzle-orm";
+import { getProductFees } from "../services/amazon-product-fees";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -237,11 +238,14 @@ export async function analyzePurchasingOpportunity(productId: number) {
         supplier: productSuppliers,
       })
       .from(products)
-      .leftJoin(productAsinMapping, and(
+      .innerJoin(productAsinMapping, and(
         eq(products.id, productAsinMapping.productId),
         eq(productAsinMapping.isActive, true)
       ))
-      .leftJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+      .innerJoin(amazonMarketIntelligence, and(
+        eq(productAsinMapping.asin, amazonMarketIntelligence.asin),
+        isNotNull(amazonMarketIntelligence.buyBoxPrice)
+      ))
       .leftJoin(productSuppliers, eq(products.id, productSuppliers.productId))
       .where(eq(products.id, productId))
       .limit(1);
@@ -278,12 +282,40 @@ export async function analyzePurchasingOpportunity(productId: number) {
       supplierId: supplier?.supplierId || null,
     };
 
+    // Fetch real Amazon fees from Product Fees API
+    let amazonFees;
+    try {
+      amazonFees = await getProductFees({
+        asin: asinMapping.asin,
+        price: buyBoxPrice,
+        isAmazonFulfilled: true, // Assume FBA for now
+      });
+      console.log(`[Analyzer] Got real Amazon fees for ${asinMapping.asin}: Total $${amazonFees.totalFees.toFixed(2)} (${amazonFees.feePercentage.toFixed(1)}%)`);
+    } catch (error) {
+      console.error(`[Analyzer] Failed to get Amazon fees for ${asinMapping.asin}, using estimates`);
+      // Fallback to estimated fees
+      const estimatedReferralFee = buyBoxPrice * 0.15;
+      const estimatedFbaFee = buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90;
+      amazonFees = {
+        referralFee: estimatedReferralFee,
+        fbaFee: estimatedFbaFee,
+        variableClosingFee: 0,
+        totalFees: estimatedReferralFee + estimatedFbaFee,
+        feePercentage: ((estimatedReferralFee + estimatedFbaFee) / buyBoxPrice) * 100,
+        netProceeds: buyBoxPrice - estimatedReferralFee - estimatedFbaFee,
+        feeBreakdown: [],
+      };
+    }
+
+    // Calculate margin using real Amazon fees
+    const totalCosts = ourCost + shippingCost + amazonFees.totalFees;
+    const netProfit = buyBoxPrice - totalCosts;
+    const marginPercent = (netProfit / buyBoxPrice) * 100;
+
     // Analyze with AI
     const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
 
-    const marginPercent = ((buyBoxPrice - ourCost - shippingCost) / buyBoxPrice) * 100;
-
-    // Save opportunity to database
+    // Save opportunity to database with real Amazon fees
     const [opportunity] = await db
       .insert(purchasingOpportunities)
       .values({
@@ -302,6 +334,13 @@ export async function analyzePurchasingOpportunity(productId: number) {
         reasoning: aiResult.reasoning,
         opportunityScore: aiResult.opportunityScore,
         automationReady: aiResult.automationReady,
+        // Amazon fees from API
+        amazonReferralFee: amazonFees.referralFee,
+        amazonFbaFee: amazonFees.fbaFee,
+        amazonVariableClosingFee: amazonFees.variableClosingFee,
+        amazonTotalFees: amazonFees.totalFees,
+        amazonFeePercentage: amazonFees.feePercentage,
+        amazonNetProceeds: amazonFees.netProceeds,
       })
       .returning();
 
@@ -362,6 +401,34 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
 
         const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10;
 
+        // Fetch real Amazon fees
+        let amazonFees;
+        try {
+          amazonFees = await getProductFees({
+            asin: asinMapping.asin,
+            price: buyBoxPrice,
+            isAmazonFulfilled: true,
+          });
+        } catch (error) {
+          // Fallback to estimated fees
+          const estimatedReferralFee = buyBoxPrice * 0.15;
+          const estimatedFbaFee = buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90;
+          amazonFees = {
+            referralFee: estimatedReferralFee,
+            fbaFee: estimatedFbaFee,
+            variableClosingFee: 0,
+            totalFees: estimatedReferralFee + estimatedFbaFee,
+            feePercentage: ((estimatedReferralFee + estimatedFbaFee) / buyBoxPrice) * 100,
+            netProceeds: buyBoxPrice - estimatedReferralFee - estimatedFbaFee,
+            feeBreakdown: [],
+          };
+        }
+
+        // Calculate margin using real Amazon fees
+        const totalCosts = ourCost + shippingCost + amazonFees.totalFees;
+        const netProfit = buyBoxPrice - totalCosts;
+        const marginPercent = (netProfit / buyBoxPrice) * 100;
+
         const productData: ProductAnalysisData = {
           productId: product.id,
           sku: product.sku,
@@ -378,7 +445,6 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
         };
 
         // Use AI analysis for intelligent recommendations
-        const marginPercent = ((buyBoxPrice - ourCost - shippingCost) / buyBoxPrice) * 100;
         const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
 
         const [opportunity] = await db
@@ -399,6 +465,13 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
             reasoning: aiResult.reasoning,
             opportunityScore: aiResult.opportunityScore,
             automationReady: aiResult.automationReady,
+            // Amazon fees from API
+            amazonReferralFee: amazonFees.referralFee,
+            amazonFbaFee: amazonFees.fbaFee,
+            amazonVariableClosingFee: amazonFees.variableClosingFee,
+            amazonTotalFees: amazonFees.totalFees,
+            amazonFeePercentage: amazonFees.feePercentage,
+            amazonNetProceeds: amazonFees.netProceeds,
           })
           .returning();
 

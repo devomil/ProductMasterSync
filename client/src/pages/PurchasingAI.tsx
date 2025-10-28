@@ -515,6 +515,7 @@ export default function PurchasingAI() {
                           >
                             Shipping
                           </SortableHeader>
+                          <TableHead className="text-right">Amazon Fees</TableHead>
                           <SortableHeader 
                             column="buyBoxPrice" 
                             currentColumn={sortColumn} 
@@ -599,6 +600,22 @@ export default function PurchasingAI() {
                             {/* Shipping Cost */}
                             <TableCell className="text-right">
                               ${opp.shippingCost?.toFixed(2) || 'N/A'}
+                            </TableCell>
+                            
+                            {/* Amazon Fees */}
+                            <TableCell className="text-right">
+                              {opp.amazonTotalFees != null ? (
+                                <div className="space-y-0.5">
+                                  <div className="font-medium text-orange-600">
+                                    ${opp.amazonTotalFees.toFixed(2)}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {opp.amazonFeePercentage?.toFixed(1)}%
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">N/A</span>
+                              )}
                             </TableCell>
                             
                             {/* Buy Box Price */}

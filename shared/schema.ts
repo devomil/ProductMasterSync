@@ -1531,7 +1531,7 @@ export const insertAmazonAsinSchema = createInsertSchema(amazonAsins).omit({ id:
 export const insertAmazonMarketIntelligenceSchema = createInsertSchema(amazonMarketIntelligence).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProductAmazonLookupSchema = createInsertSchema(productAmazonLookup).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProductAsinMappingSchema = createInsertSchema(productAsinMapping).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertAmazonPriceHistorySchema = createInsertSchema(amazonPriceHistory).omit({ id: true, createdAt: true });
+export const insertAmazonPriceHistorySchema = createInsertSchema(amazonPriceHistory).omit({ id: true, capturedAt: true });
 export const insertAmazonCompetitiveAnalysisSchema = createInsertSchema(amazonCompetitiveAnalysis).omit({ id: true, createdAt: true, updatedAt: true, analysisDate: true });
 export const insertMultiAsinOpportunitySchema = createInsertSchema(multiAsinOpportunities).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSupplierAsinPerformanceSchema = createInsertSchema(supplierAsinPerformance).omit({ id: true, lastUpdated: true });
@@ -1644,6 +1644,13 @@ export const purchasingOpportunities = pgTable("purchasing_opportunities", {
   reasoning: text("reasoning"),  // AI explanation of recommendation
   opportunityScore: integer("opportunity_score").default(0),  // 0-100 overall score
   automationReady: boolean("automation_ready").default(false),  // Ready for auto-processing
+  // Amazon Fee Breakdown (from Product Fees API)
+  amazonReferralFee: real("amazon_referral_fee"),  // Amazon referral/commission fee
+  amazonFbaFee: real("amazon_fba_fee"),  // FBA fulfillment fee
+  amazonVariableClosingFee: real("amazon_variable_closing_fee"),  // Variable closing fee (media items)
+  amazonTotalFees: real("amazon_total_fees"),  // Total Amazon fees
+  amazonFeePercentage: real("amazon_fee_percentage"),  // Fees as % of price
+  amazonNetProceeds: real("amazon_net_proceeds"),  // Price minus all Amazon fees
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
