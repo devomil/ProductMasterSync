@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack Query for server state.
 - **Build Tool**: Vite.
 - **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features include:
-  - **Purchasing AI Catalog**: Professional table layout optimized for 100k+ products with client-side sorting, Amazon product thumbnails, color-coded margin badges, and accessibility features. Automatically filters restricted products (canList = false) with visible "Only Listable Products" indicator badge.
+  - **Purchasing AI Catalog**: Professional table layout optimized for 100k+ products with client-side sorting, color-coded margin badges, and accessibility features. Automatically filters restricted products (canList = false) with visible "Only Listable Products" indicator badge. Features comprehensive filtering (recommendation type, listing status, risk level, confidence, margin range) with accurate pagination counts.
     - **FBM/FBA Separation**: Separate columns for Referral Fee (Amazon commission) and FBA Fee (fulfillment cost). FBA Fee shows "FBM" for merchant-fulfilled products, dollar amount for Amazon-fulfilled products, or "N/A" for missing data.
     - **AI Setup Page**: Multi-select fulfillment preferences with checkboxes (FBM, FBA, Dropship, Warehouse), margin thresholds per method, and analysis filters. Features help tooltips explaining confidence score calculation. Accessible via Settings button in Purchasing AI header.
   - **Table Views**: Optimization modes (compact, comfortable, spacious) with quick filter chips
