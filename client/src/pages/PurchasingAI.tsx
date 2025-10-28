@@ -316,21 +316,16 @@ export default function PurchasingAI() {
 
   if (opportunitiesLoading || statsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <Activity className="mx-auto h-12 w-12 text-blue-500 animate-spin" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">Loading Purchasing AI Analysis...</h3>
-            <p className="mt-2 text-gray-500">Analyzing products for purchasing insights</p>
-          </div>
-        </div>
+      <div className="text-center py-12">
+        <Activity className="mx-auto h-12 w-12 text-blue-500 animate-spin" />
+        <h3 className="mt-4 text-lg font-medium text-gray-900">Loading Purchasing AI Analysis...</h3>
+        <p className="mt-2 text-gray-500">Analyzing products for purchasing insights</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
@@ -938,6 +933,5 @@ export default function PurchasingAI() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
   );
 }
