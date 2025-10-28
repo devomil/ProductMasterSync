@@ -223,8 +223,11 @@ export async function analyzePurchasingOpportunity(productId: number) {
     // Get settings
     const settingsResults = await db.select().from(purchasingSettings).limit(1);
     const settings = settingsResults[0] || {
+      fulfillmentMethod: 'fbm' as const,
       dropshipMinMargin: 15,
       warehouseMinMargin: 25,
+      fbmMinMargin: 15,
+      fbaMinMargin: 20,
       minConfidence: 50,
       requireCanList: true,
     };
@@ -282,20 +285,24 @@ export async function analyzePurchasingOpportunity(productId: number) {
       supplierId: supplier?.supplierId || null,
     };
 
+    // Determine fulfillment method (FBA vs FBM)
+    const isFBA = settings.fulfillmentMethod === 'fba' || settings.fulfillmentMethod === 'both';
+    const isFBM = settings.fulfillmentMethod === 'fbm' || settings.fulfillmentMethod === 'both';
+    
     // Fetch real Amazon fees from Product Fees API
     let amazonFees;
     try {
       amazonFees = await getProductFees({
         asin: asinMapping.asin,
         price: buyBoxPrice,
-        isAmazonFulfilled: true, // Assume FBA for now
+        isAmazonFulfilled: isFBA, // Use settings to determine FBA vs FBM
       });
-      console.log(`[Analyzer] Got real Amazon fees for ${asinMapping.asin}: Total $${amazonFees.totalFees.toFixed(2)} (${amazonFees.feePercentage.toFixed(1)}%)`);
+      console.log(`[Analyzer] Got real Amazon fees for ${asinMapping.asin} (${isFBA ? 'FBA' : 'FBM'}): Total $${amazonFees.totalFees.toFixed(2)} (${amazonFees.feePercentage.toFixed(1)}%)`);
     } catch (error) {
       console.error(`[Analyzer] Failed to get Amazon fees for ${asinMapping.asin}, using estimates`);
       // Fallback to estimated fees
       const estimatedReferralFee = buyBoxPrice * 0.15;
-      const estimatedFbaFee = buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90;
+      const estimatedFbaFee = isFBA ? (buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90) : 0;
       amazonFees = {
         referralFee: estimatedReferralFee,
         fbaFee: estimatedFbaFee,
@@ -307,8 +314,14 @@ export async function analyzePurchasingOpportunity(productId: number) {
       };
     }
 
-    // Calculate margin using real Amazon fees
-    const totalCosts = ourCost + shippingCost + amazonFees.totalFees;
+    // Calculate applicable Amazon fees based on fulfillment method
+    let applicableFees = amazonFees.referralFee; // FBM always includes referral fee
+    if (isFBA) {
+      applicableFees += amazonFees.fbaFee; // FBA adds fulfillment fee
+    }
+    
+    // Calculate margin using applicable Amazon fees
+    const totalCosts = ourCost + shippingCost + applicableFees;
     const netProfit = buyBoxPrice - totalCosts;
     const marginPercent = (netProfit / buyBoxPrice) * 100;
 
@@ -357,8 +370,11 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
     // Get settings
     const settingsResults = await db.select().from(purchasingSettings).limit(1);
     const settings = settingsResults[0] || {
+      fulfillmentMethod: 'fbm' as const,
       dropshipMinMargin: 15,
       warehouseMinMargin: 25,
+      fbmMinMargin: 15,
+      fbaMinMargin: 20,
       minConfidence: 50,
       requireCanList: true,
     };
@@ -401,18 +417,22 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
 
         const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10;
 
+        // Determine fulfillment method (FBA vs FBM)
+        const isFBA = settings.fulfillmentMethod === 'fba' || settings.fulfillmentMethod === 'both';
+        const isFBM = settings.fulfillmentMethod === 'fbm' || settings.fulfillmentMethod === 'both';
+        
         // Fetch real Amazon fees
         let amazonFees;
         try {
           amazonFees = await getProductFees({
             asin: asinMapping.asin,
             price: buyBoxPrice,
-            isAmazonFulfilled: true,
+            isAmazonFulfilled: isFBA, // Use settings to determine FBA vs FBM
           });
         } catch (error) {
           // Fallback to estimated fees
           const estimatedReferralFee = buyBoxPrice * 0.15;
-          const estimatedFbaFee = buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90;
+          const estimatedFbaFee = isFBA ? (buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90) : 0;
           amazonFees = {
             referralFee: estimatedReferralFee,
             fbaFee: estimatedFbaFee,
@@ -424,8 +444,14 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           };
         }
 
-        // Calculate margin using real Amazon fees
-        const totalCosts = ourCost + shippingCost + amazonFees.totalFees;
+        // Calculate applicable Amazon fees based on fulfillment method
+        let applicableFees = amazonFees.referralFee; // FBM always includes referral fee
+        if (isFBA) {
+          applicableFees += amazonFees.fbaFee; // FBA adds fulfillment fee
+        }
+        
+        // Calculate margin using applicable Amazon fees
+        const totalCosts = ourCost + shippingCost + applicableFees;
         const netProfit = buyBoxPrice - totalCosts;
         const marginPercent = (netProfit / buyBoxPrice) * 100;
 
