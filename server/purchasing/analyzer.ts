@@ -364,36 +364,25 @@ export async function analyzePurchasingOpportunity(productId: number) {
     // Analyze with AI
     const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
 
-    // Save or update opportunity in database (upsert to prevent duplicates)
-    const [opportunity] = await db
-      .insert(purchasingOpportunities)
-      .values({
-        productId: product.id,
-        asin: asinMapping.asin,
-        recommendation: aiResult.recommendation,
-        confidence: aiResult.confidence,
-        riskLevel: aiResult.riskLevel,
-        marginPercent,
-        ourCost,
-        shippingCost,
-        buyBoxPrice,
-        salesRank: marketData.salesRank,
-        salesRankCategory: null,
-        canList: null,
-        reasoning: aiResult.reasoning,
-        opportunityScore: aiResult.opportunityScore,
-        automationReady: aiResult.automationReady,
-        // Amazon fees from API
-        amazonReferralFee: amazonFees.referralFee,
-        amazonFbaFee: amazonFees.fbaFee,
-        amazonVariableClosingFee: amazonFees.variableClosingFee,
-        amazonTotalFees: amazonFees.totalFees,
-        amazonFeePercentage: amazonFees.feePercentage,
-        amazonNetProceeds: amazonFees.netProceeds,
-      })
-      .onConflictDoUpdate({
-        target: [purchasingOpportunities.productId, purchasingOpportunities.asin],
-        set: {
+    // Check if opportunity already exists
+    const existing = await db
+      .select()
+      .from(purchasingOpportunities)
+      .where(
+        and(
+          eq(purchasingOpportunities.productId, product.id),
+          eq(purchasingOpportunities.asin, asinMapping.asin)
+        )
+      )
+      .limit(1);
+
+    // Save or update opportunity in database (upsert logic)
+    let opportunity;
+    if (existing.length > 0) {
+      // Update existing opportunity
+      [opportunity] = await db
+        .update(purchasingOpportunities)
+        .set({
           recommendation: aiResult.recommendation,
           confidence: aiResult.confidence,
           riskLevel: aiResult.riskLevel,
@@ -413,9 +402,39 @@ export async function analyzePurchasingOpportunity(productId: number) {
           amazonNetProceeds: amazonFees.netProceeds,
           analysisDate: sql`NOW()`,
           updatedAt: sql`NOW()`,
-        },
-      })
-      .returning();
+        })
+        .where(eq(purchasingOpportunities.id, existing[0].id))
+        .returning();
+    } else {
+      // Insert new opportunity
+      [opportunity] = await db
+        .insert(purchasingOpportunities)
+        .values({
+          productId: product.id,
+          asin: asinMapping.asin,
+          recommendation: aiResult.recommendation,
+          confidence: aiResult.confidence,
+          riskLevel: aiResult.riskLevel,
+          marginPercent,
+          ourCost,
+          shippingCost,
+          buyBoxPrice,
+          salesRank: marketData.salesRank,
+          salesRankCategory: null,
+          canList: null,
+          reasoning: aiResult.reasoning,
+          opportunityScore: aiResult.opportunityScore,
+          automationReady: aiResult.automationReady,
+          // Amazon fees from API
+          amazonReferralFee: amazonFees.referralFee,
+          amazonFbaFee: amazonFees.fbaFee,
+          amazonVariableClosingFee: amazonFees.variableClosingFee,
+          amazonTotalFees: amazonFees.totalFees,
+          amazonFeePercentage: amazonFees.feePercentage,
+          amazonNetProceeds: amazonFees.netProceeds,
+        })
+        .returning();
+    }
 
     return opportunity;
   } catch (error) {
