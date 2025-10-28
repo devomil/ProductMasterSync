@@ -166,7 +166,7 @@ Automation Ready: true if high confidence, can list, and clear opportunity`;
 
   try {
     const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 1024,
       messages: [{
         role: "user",

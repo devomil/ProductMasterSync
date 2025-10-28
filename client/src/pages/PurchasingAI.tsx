@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,10 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle } from 'lucide-react';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle, Play } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Link } from 'wouter';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 // Sortable Table Header Component
 function SortableHeader({ column, currentColumn, direction, onClick, children, className = '' }: { 
@@ -158,6 +160,7 @@ interface OpportunityAnalytics {
 }
 
 export default function PurchasingAI() {
+  const { toast } = useToast();
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
   const [minConfidence, setMinConfidence] = useState<number>(50);
   const [selectedRecommendation, setSelectedRecommendation] = useState<string>('all');
@@ -190,6 +193,50 @@ export default function PurchasingAI() {
   const { data: stats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/purchasing/stats'],
   });
+
+  // Bulk analysis mutation
+  const bulkAnalysisMutation = useMutation({
+    mutationFn: async (limit: number) => {
+      const response = await apiRequest('POST', '/api/purchasing/analyze-bulk', { limit });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Analysis Complete!",
+        description: `Analyzed ${data.analyzed} products successfully.`,
+      });
+      // Refresh the opportunities data
+      queryClient.invalidateQueries({ queryKey: ['/api/purchasing/opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchasing/stats'] });
+      refetchOpportunities();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Failed to analyze products. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRunAnalysis = async () => {
+    if (bulkAnalysisMutation.isPending) return;
+    
+    const confirmed = window.confirm(
+      "This will analyze all products in your catalog for purchasing opportunities.\n\n" +
+      "⏱️ Time: ~3-5 minutes for 100 products\n" +
+      "📊 Rate: 0.5 requests/second for 100% API success\n\n" +
+      "Continue?"
+    );
+    
+    if (confirmed) {
+      toast({
+        title: "Analysis Starting...",
+        description: "This may take a few minutes. You can continue using the app.",
+      });
+      bulkAnalysisMutation.mutate(100);
+    }
+  };
 
   // Filter and sort opportunities client-side
   const filteredOpportunities = rawOpportunities.filter(opp => {
@@ -349,11 +396,31 @@ export default function PurchasingAI() {
                 </Button>
               </Link>
               <Button 
+                onClick={handleRunAnalysis}
+                disabled={bulkAnalysisMutation.isPending}
+                size="sm"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                data-testid="button-run-analysis"
+              >
+                {bulkAnalysisMutation.isPending ? (
+                  <>
+                    <Activity className="h-4 w-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Run Analysis
+                  </>
+                )}
+              </Button>
+              <Button 
                 onClick={handleRefresh}
                 variant="outline"
                 size="sm"
+                data-testid="button-refresh"
               >
-                Refresh Analysis
+                Refresh Data
               </Button>
             </div>
           </div>
