@@ -39,6 +39,7 @@ import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
 import PurchasingAI from "@/pages/PurchasingAI";
+import AISetup from "@/pages/AISetup";
 import MarketplaceOverview from "@/pages/MarketplaceOverview";
 import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
@@ -89,6 +90,7 @@ function Router() {
 
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
+      <Route path="/ai-setup" component={AISetup} />
       <Route path="/amazon-scaling-progress" component={() => (
         <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Amazon Progress...</span></div></div>}>
           <AmazonScalingProgress />
