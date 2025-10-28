@@ -223,7 +223,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
     // Get settings
     const settingsResults = await db.select().from(purchasingSettings).limit(1);
     const settings = settingsResults[0] || {
-      fulfillmentMethod: 'fbm' as const,
+      fulfillmentMethods: ['fbm'],
       dropshipMinMargin: 15,
       warehouseMinMargin: 25,
       fbmMinMargin: 15,
@@ -286,8 +286,8 @@ export async function analyzePurchasingOpportunity(productId: number) {
     };
 
     // Determine fulfillment method (FBA vs FBM)
-    const isFBA = settings.fulfillmentMethod === 'fba' || settings.fulfillmentMethod === 'both';
-    const isFBM = settings.fulfillmentMethod === 'fbm' || settings.fulfillmentMethod === 'both';
+    const isFBA = settings.fulfillmentMethods?.includes('fba') || false;
+    const isFBM = settings.fulfillmentMethods?.includes('fbm') || false;
     
     // Fetch real Amazon fees from Product Fees API
     let amazonFees;
@@ -370,7 +370,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
     // Get settings
     const settingsResults = await db.select().from(purchasingSettings).limit(1);
     const settings = settingsResults[0] || {
-      fulfillmentMethod: 'fbm' as const,
+      fulfillmentMethods: ['fbm'],
       dropshipMinMargin: 15,
       warehouseMinMargin: 25,
       fbmMinMargin: 15,
