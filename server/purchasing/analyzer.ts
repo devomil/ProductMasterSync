@@ -575,6 +575,17 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
         // Use AI analysis for intelligent recommendations
         const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
 
+        // Check if opportunity already exists and delete it (simple deduplication)
+        await db
+          .delete(purchasingOpportunities)
+          .where(
+            and(
+              eq(purchasingOpportunities.productId, product.id),
+              eq(purchasingOpportunities.asin, asinMapping.asin)
+            )
+          );
+
+        // Insert new opportunity
         const [opportunity] = await db
           .insert(purchasingOpportunities)
           .values({
