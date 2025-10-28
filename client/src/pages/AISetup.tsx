@@ -67,10 +67,7 @@ export default function AISetup() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: SettingsFormData) => 
-      apiRequest('/api/purchasing/settings', {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+      apiRequest('PUT', '/api/purchasing/settings', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchasing/settings'] });
       toast({
