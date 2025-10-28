@@ -7,14 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Bot } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const settingsSchema = z.object({
-  fulfillmentMethod: z.enum(['fbm', 'fba', 'both', 'dropship']),
+  fulfillmentMethods: z.array(z.enum(['fbm', 'fba', 'dropship', 'warehouse'])).min(1, "Select at least one fulfillment method"),
   dropshipMinMargin: z.number().min(0).max(100),
   warehouseMinMargin: z.number().min(0).max(100),
   fbmMinMargin: z.number().min(0).max(100),
@@ -37,7 +37,7 @@ export default function AISetup() {
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      fulfillmentMethod: 'fbm',
+      fulfillmentMethods: ['fbm'],
       dropshipMinMargin: 15,
       warehouseMinMargin: 25,
       fbmMinMargin: 15,
@@ -52,7 +52,7 @@ export default function AISetup() {
   useEffect(() => {
     if (settings) {
       form.reset({
-        fulfillmentMethod: settings.fulfillmentMethod || 'fbm',
+        fulfillmentMethods: settings.fulfillmentMethods || ['fbm'],
         dropshipMinMargin: settings.dropshipMinMargin || 15,
         warehouseMinMargin: settings.warehouseMinMargin || 25,
         fbmMinMargin: settings.fbmMinMargin || 15,
@@ -116,57 +116,146 @@ export default function AISetup() {
           {/* Fulfillment Method */}
           <Card>
             <CardHeader>
-              <CardTitle>Fulfillment Method</CardTitle>
+              <CardTitle>Fulfillment Methods</CardTitle>
               <CardDescription>
-                Choose your Amazon fulfillment strategy. This determines which fees apply to your calculations.
+                Select one or more fulfillment strategies to include in your analysis
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
                 control={form.control}
-                name="fulfillmentMethod"
-                render={({ field }) => (
+                name="fulfillmentMethods"
+                render={() => (
                   <FormItem>
-                    <FormLabel>Fulfillment Strategy</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-fulfillment-method">
-                          <SelectValue placeholder="Select fulfillment method" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="fbm">FBM (Fulfilled by Merchant) - Referral Fee Only</SelectItem>
-                        <SelectItem value="fba">FBA (Fulfilled by Amazon) - Referral + FBA Fee</SelectItem>
-                        <SelectItem value="both">Both FBM & FBA</SelectItem>
-                        <SelectItem value="dropship">Dropship Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {form.watch('fulfillmentMethod') === 'fbm' && (
-                        <span className="text-sm">
-                          <strong>FBM:</strong> You ship products yourself. Only Amazon referral fee (~15%) applies.
-                        </span>
-                      )}
-                      {form.watch('fulfillmentMethod') === 'fba' && (
-                        <span className="text-sm">
-                          <strong>FBA:</strong> Amazon handles storage & shipping. Referral fee + FBA fulfillment fee (~$3-8) apply.
-                        </span>
-                      )}
-                      {form.watch('fulfillmentMethod') === 'both' && (
-                        <span className="text-sm">
-                          <strong>Both:</strong> Mix of FBM and FBA. System will calculate fees for both methods.
-                        </span>
-                      )}
-                      {form.watch('fulfillmentMethod') === 'dropship' && (
-                        <span className="text-sm">
-                          <strong>Dropship:</strong> Supplier ships directly to customer. Lower margin requirements.
-                        </span>
-                      )}
+                    <FormLabel className="text-base">Select Fulfillment Methods</FormLabel>
+                    <FormDescription className="mb-4">
+                      Choose which fulfillment methods to analyze. You can select multiple options.
                     </FormDescription>
+                    <div className="space-y-3">
+                      <FormField
+                        control={form.control}
+                        name="fulfillmentMethods"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes('fbm')}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, 'fbm']);
+                                  } else {
+                                    field.onChange(current.filter((v) => v !== 'fbm'));
+                                  }
+                                }}
+                                data-testid="checkbox-fbm"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="font-medium">
+                                FBM (Fulfilled by Merchant)
+                              </FormLabel>
+                              <FormDescription>
+                                You ship products yourself. Only Amazon referral fee (~15%) applies.
+                              </FormDescription>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="fulfillmentMethods"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes('fba')}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, 'fba']);
+                                  } else {
+                                    field.onChange(current.filter((v) => v !== 'fba'));
+                                  }
+                                }}
+                                data-testid="checkbox-fba"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="font-medium">
+                                FBA (Fulfilled by Amazon)
+                              </FormLabel>
+                              <FormDescription>
+                                Amazon handles storage & shipping. Referral fee + FBA fulfillment fee (~$3-8) apply.
+                              </FormDescription>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="fulfillmentMethods"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes('dropship')}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, 'dropship']);
+                                  } else {
+                                    field.onChange(current.filter((v) => v !== 'dropship'));
+                                  }
+                                }}
+                                data-testid="checkbox-dropship"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="font-medium">
+                                Dropship
+                              </FormLabel>
+                              <FormDescription>
+                                Supplier ships directly to customer. Lower margin requirements.
+                              </FormDescription>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="fulfillmentMethods"
+                        render={({ field }) => (
+                          <FormItem className="flex items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes('warehouse')}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, 'warehouse']);
+                                  } else {
+                                    field.onChange(current.filter((v) => v !== 'warehouse'));
+                                  }
+                                }}
+                                data-testid="checkbox-warehouse"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="font-medium">
+                                Purchase for Stock (Warehouse)
+                              </FormLabel>
+                              <FormDescription>
+                                Buy products in bulk to stock in your warehouse. Higher margin requirements.
+                              </FormDescription>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
