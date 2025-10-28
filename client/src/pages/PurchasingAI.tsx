@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings } from 'lucide-react';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 import { Link } from 'wouter';
 
 // Sortable Table Header Component
@@ -158,6 +160,10 @@ interface OpportunityAnalytics {
 export default function PurchasingAI() {
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
   const [minConfidence, setMinConfidence] = useState<number>(50);
+  const [selectedRecommendation, setSelectedRecommendation] = useState<string>('all');
+  const [selectedListingStatus, setSelectedListingStatus] = useState<string>('all');
+  const [minMargin, setMinMargin] = useState<number>(0);
+  const [maxMargin, setMaxMargin] = useState<number>(100);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [sortColumn, setSortColumn] = useState<string>('marginPercent');
@@ -175,9 +181,9 @@ export default function PurchasingAI() {
     }
   };
 
-  // Fetch purchasing opportunities
+  // Fetch purchasing opportunities (fetch all, no server-side pagination)
   const { data: rawOpportunities = [], isLoading: opportunitiesLoading, refetch: refetchOpportunities } = useQuery<any[]>({
-    queryKey: ['/api/purchasing/opportunities', { riskLevel: selectedRisk, minConfidence, limit: productsPerPage, offset: (currentPage - 1) * productsPerPage }],
+    queryKey: ['/api/purchasing/opportunities', { riskLevel: selectedRisk, minConfidence, limit: 10000, offset: 0 }],
   });
 
   // Fetch purchasing stats
@@ -185,8 +191,31 @@ export default function PurchasingAI() {
     queryKey: ['/api/purchasing/stats'],
   });
 
-  // Sort opportunities client-side
-  const opportunities = [...rawOpportunities].sort((a, b) => {
+  // Filter and sort opportunities client-side
+  const filteredOpportunities = rawOpportunities.filter(opp => {
+    // Filter by recommendation
+    if (selectedRecommendation !== 'all' && opp.recommendation !== selectedRecommendation) {
+      return false;
+    }
+    
+    // Filter by listing status
+    if (selectedListingStatus === 'approved' && opp.canList !== true) {
+      return false;
+    }
+    if (selectedListingStatus === 'needs_approval' && opp.canList === true) {
+      return false;
+    }
+    
+    // Filter by margin range
+    const margin = opp.marginPercent || 0;
+    if (margin < minMargin || margin > maxMargin) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  const sortedOpportunities = [...filteredOpportunities].sort((a, b) => {
     let aVal, bVal;
     
     switch(sortColumn) {
@@ -230,8 +259,14 @@ export default function PurchasingAI() {
       return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
     }
   });
+  
+  // Apply client-side pagination
+  const startIndex = (currentPage - 1) * productsPerPage;
+  const endIndex = startIndex + productsPerPage;
+  const opportunities = sortedOpportunities.slice(startIndex, endIndex);
 
   const totalOpps = stats?.totalOpportunities || 0;
+  const filteredCount = filteredOpportunities.length;
   const analytics = {
     totalAnalyzed: opportunities.length,
     qualifiedOpportunities: totalOpps,
@@ -246,17 +281,17 @@ export default function PurchasingAI() {
   };
   const pagination = {
     currentPage,
-    totalPages: Math.ceil(totalOpps / productsPerPage),
-    totalCount: totalOpps,
+    totalPages: Math.ceil(filteredCount / productsPerPage),
+    totalCount: filteredCount,
     limit: productsPerPage,
-    hasNextPage: currentPage < Math.ceil(totalOpps / productsPerPage),
+    hasNextPage: currentPage < Math.ceil(filteredCount / productsPerPage),
     hasPreviousPage: currentPage > 1
   };
   
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedRisk, minConfidence]);
+  }, [selectedRisk, minConfidence, selectedRecommendation, selectedListingStatus, minMargin, maxMargin]);
 
   const handleRefresh = () => {
     refetchOpportunities();
@@ -394,15 +429,55 @@ export default function PurchasingAI() {
                 <CardDescription>Configure purchasing opportunity analysis parameters</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium">Risk Level:</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Recommendation Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Recommendation</label>
+                    <Select 
+                      value={selectedRecommendation} 
+                      onValueChange={setSelectedRecommendation}
+                      data-testid="recommendation-select"
+                    >
+                      <SelectTrigger data-testid="recommendation-trigger">
+                        <SelectValue placeholder="Select recommendation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Recommendations</SelectItem>
+                        <SelectItem value="warehouse">Warehouse</SelectItem>
+                        <SelectItem value="dropship">Dropship</SelectItem>
+                        <SelectItem value="no_opportunity">No Opportunity</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Listing Status Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Listing Status</label>
+                    <Select 
+                      value={selectedListingStatus} 
+                      onValueChange={setSelectedListingStatus}
+                      data-testid="listing-status-select"
+                    >
+                      <SelectTrigger data-testid="listing-status-trigger">
+                        <SelectValue placeholder="Select listing status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="approved">✓ Approved</SelectItem>
+                        <SelectItem value="needs_approval">⚠ Needs Approval</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Risk Level Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Risk Level</label>
                     <Select 
                       value={selectedRisk} 
                       onValueChange={setSelectedRisk}
                       data-testid="risk-level-select"
                     >
-                      <SelectTrigger className="w-[180px]" data-testid="risk-level-trigger">
+                      <SelectTrigger data-testid="risk-level-trigger">
                         <SelectValue placeholder="Select risk level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -413,23 +488,52 @@ export default function PurchasingAI() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium">Min Confidence:</label>
+
+                  {/* Min Confidence Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Min Confidence</label>
                     <Select 
                       value={minConfidence.toString()} 
                       onValueChange={(value) => setMinConfidence(Number(value))}
                       data-testid="min-confidence-select"
                     >
-                      <SelectTrigger className="w-[120px]" data-testid="min-confidence-trigger">
+                      <SelectTrigger data-testid="min-confidence-trigger">
                         <SelectValue placeholder="Select confidence" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="30" data-testid="min-confidence-30">30%</SelectItem>
-                        <SelectItem value="50" data-testid="min-confidence-50">50%</SelectItem>
-                        <SelectItem value="70" data-testid="min-confidence-70">70%</SelectItem>
-                        <SelectItem value="80" data-testid="min-confidence-80">80%</SelectItem>
+                        <SelectItem value="30">30%</SelectItem>
+                        <SelectItem value="50">50%</SelectItem>
+                        <SelectItem value="70">70%</SelectItem>
+                        <SelectItem value="80">80%</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Margin Range Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Min Margin %</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={minMargin}
+                      onChange={(e) => setMinMargin(Number(e.target.value))}
+                      data-testid="min-margin-input"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Max Margin %</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={maxMargin}
+                      onChange={(e) => setMaxMargin(Number(e.target.value))}
+                      data-testid="max-margin-input"
+                      placeholder="100"
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -499,7 +603,6 @@ export default function PurchasingAI() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[50px]"></TableHead>
                           <SortableHeader 
                             column="product" 
                             currentColumn={sortColumn} 
@@ -558,7 +661,26 @@ export default function PurchasingAI() {
                             Confidence
                           </SortableHeader>
                           <TableHead className="text-center">Listing Status</TableHead>
-                          <TableHead className="text-center">Risk</TableHead>
+                          <TableHead className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <span>Risk</span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-sm">
+                                      Risk assessment based on sales velocity, competition, and market conditions. 
+                                      <strong className="block mt-1">Low:</strong> Proven demand, good sales rank
+                                      <strong className="block mt-1">Medium:</strong> Moderate competition or limited data
+                                      <strong className="block mt-1">High:</strong> Uncertain demand or high competition
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </TableHead>
                           <SortableHeader 
                             column="salesRank" 
                             currentColumn={sortColumn} 
@@ -581,17 +703,6 @@ export default function PurchasingAI() {
                             }}
                             data-testid={`opportunity-row-${opp.productId}`}
                           >
-                            {/* Product Image */}
-                            <TableCell>
-                              <div className="w-10 h-10 rounded overflow-hidden bg-gray-100">
-                                <ProductImage 
-                                  asin={opp.asin} 
-                                  productName={opp.product?.name} 
-                                  alt={opp.product?.name || 'Product'} 
-                                />
-                              </div>
-                            </TableCell>
-                            
                             {/* Product Name & SKU */}
                             <TableCell>
                               <div className="max-w-xs">
