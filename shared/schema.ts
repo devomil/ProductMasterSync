@@ -1624,9 +1624,9 @@ export const recommendationTypeEnum = pgEnum('recommendation_type', [
 export const riskLevelEnum = pgEnum('risk_level', [
   'low', 'medium', 'high'
 ]);
-export const fulfillmentMethodEnum = pgEnum('fulfillment_method', [
-  'fbm', 'fba', 'both', 'dropship'
-]);
+// Fulfillment method options (no longer enum since we support multiple selections)
+export const FULFILLMENT_METHODS = ['fbm', 'fba', 'dropship', 'warehouse'] as const;
+export type FulfillmentMethod = typeof FULFILLMENT_METHODS[number];
 
 // Purchasing Opportunities table - AI-generated purchasing recommendations
 export const purchasingOpportunities = pgTable("purchasing_opportunities", {
@@ -1661,8 +1661,8 @@ export const purchasingOpportunities = pgTable("purchasing_opportunities", {
 // Purchasing Settings table - Configuration for AI analysis
 export const purchasingSettings = pgTable("purchasing_settings", {
   id: serial("id").primaryKey(),
-  // Fulfillment preferences
-  fulfillmentMethod: fulfillmentMethodEnum("fulfillment_method").default('fbm'),  // Default to FBM (Fulfilled by Merchant)
+  // Fulfillment preferences (array to support multiple selections)
+  fulfillmentMethods: text("fulfillment_methods").array().default(['fbm']),  // Default to FBM (Fulfilled by Merchant)
   // Margin thresholds
   dropshipMinMargin: integer("dropship_min_margin").default(15),  // Minimum margin % for dropship recommendation
   warehouseMinMargin: integer("warehouse_min_margin").default(25),  // Minimum margin % for warehouse recommendation
