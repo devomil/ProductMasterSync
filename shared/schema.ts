@@ -1624,6 +1624,9 @@ export const recommendationTypeEnum = pgEnum('recommendation_type', [
 export const riskLevelEnum = pgEnum('risk_level', [
   'low', 'medium', 'high'
 ]);
+export const fulfillmentMethodEnum = pgEnum('fulfillment_method', [
+  'fbm', 'fba', 'both', 'dropship'
+]);
 
 // Purchasing Opportunities table - AI-generated purchasing recommendations
 export const purchasingOpportunities = pgTable("purchasing_opportunities", {
@@ -1658,8 +1661,14 @@ export const purchasingOpportunities = pgTable("purchasing_opportunities", {
 // Purchasing Settings table - Configuration for AI analysis
 export const purchasingSettings = pgTable("purchasing_settings", {
   id: serial("id").primaryKey(),
+  // Fulfillment preferences
+  fulfillmentMethod: fulfillmentMethodEnum("fulfillment_method").default('fbm'),  // Default to FBM (Fulfilled by Merchant)
+  // Margin thresholds
   dropshipMinMargin: integer("dropship_min_margin").default(15),  // Minimum margin % for dropship recommendation
   warehouseMinMargin: integer("warehouse_min_margin").default(25),  // Minimum margin % for warehouse recommendation
+  fbmMinMargin: integer("fbm_min_margin").default(15),  // Minimum margin % for FBM (Fulfilled by Merchant)
+  fbaMinMargin: integer("fba_min_margin").default(20),  // Minimum margin % for FBA (Fulfilled by Amazon)
+  // Analysis filters
   minConfidence: integer("min_confidence").default(50),  // Minimum confidence threshold
   riskLevelFilter: text("risk_level_filter").default("all"),  // Filter by risk level
   maxSalesRank: integer("max_sales_rank"),  // Maximum acceptable sales rank (lower is better)
