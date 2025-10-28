@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Bot } from "lucide-react";
+import { Loader2, Save, Bot, HelpCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const settingsSchema = z.object({
@@ -375,7 +376,32 @@ export default function AISetup() {
                 name="minConfidence"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Minimum Confidence Score (%)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      Minimum Confidence Score (%)
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-md">
+                            <div className="space-y-2">
+                              <p className="font-semibold">How Confidence Score is Calculated:</p>
+                              <ul className="text-sm space-y-1.5">
+                                <li>• <strong>90-95%:</strong> Very certain about recommendation (e.g., clear restrictions or margins far below thresholds)</li>
+                                <li>• <strong>80-85%:</strong> High confidence with good sales rank data (sales rank {'<'} 10,000 for warehouse or {'<'} 50,000 for dropship)</li>
+                                <li>• <strong>65-70%:</strong> Moderate confidence with limited sales history or weaker market data</li>
+                              </ul>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                <strong>Note:</strong> High confidence can indicate certainty in <em>any</em> recommendation - including "no opportunity." For example, 95% confidence on a restricted product means we're very sure it's not a good opportunity.
+                              </p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Factors: profit margins vs thresholds, Amazon sales rank, listing restrictions, and data completeness.
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type="number"
