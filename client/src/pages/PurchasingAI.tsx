@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings } from 'lucide-react';
+import { Link } from 'wouter';
 
 // Sortable Table Header Component
 function SortableHeader({ column, currentColumn, direction, onClick, children, className = '' }: { 
@@ -306,6 +307,17 @@ export default function PurchasingAI() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <Link href="/ai-setup">
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="button-ai-setup"
+                >
+                  <Settings className="h-4 w-4" />
+                  AI Setup
+                </Button>
+              </Link>
               <Button 
                 onClick={handleRefresh}
                 variant="outline"
@@ -515,7 +527,8 @@ export default function PurchasingAI() {
                           >
                             Shipping
                           </SortableHeader>
-                          <TableHead className="text-right">Amazon Fees</TableHead>
+                          <TableHead className="text-right">Referral Fee</TableHead>
+                          <TableHead className="text-right">FBA Fee</TableHead>
                           <SortableHeader 
                             column="buyBoxPrice" 
                             currentColumn={sortColumn} 
@@ -602,17 +615,25 @@ export default function PurchasingAI() {
                               ${opp.shippingCost?.toFixed(2) || 'N/A'}
                             </TableCell>
                             
-                            {/* Amazon Fees */}
+                            {/* Referral Fee */}
                             <TableCell className="text-right">
-                              {opp.amazonTotalFees != null ? (
-                                <div className="space-y-0.5">
-                                  <div className="font-medium text-orange-600">
-                                    ${opp.amazonTotalFees.toFixed(2)}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {opp.amazonFeePercentage?.toFixed(1)}%
-                                  </div>
+                              {opp.amazonReferralFee != null ? (
+                                <div className="font-medium text-orange-600">
+                                  ${opp.amazonReferralFee.toFixed(2)}
                                 </div>
+                              ) : (
+                                <span className="text-gray-400">N/A</span>
+                              )}
+                            </TableCell>
+                            
+                            {/* FBA Fee */}
+                            <TableCell className="text-right">
+                              {opp.amazonFbaFee != null && opp.amazonFbaFee > 0 ? (
+                                <div className="font-medium text-purple-600">
+                                  ${opp.amazonFbaFee.toFixed(2)}
+                                </div>
+                              ) : opp.amazonFbaFee === 0 ? (
+                                <span className="text-gray-500">FBM</span>
                               ) : (
                                 <span className="text-gray-400">N/A</span>
                               )}
