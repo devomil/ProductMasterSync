@@ -14,9 +14,9 @@ import { getProductFees } from "../services/amazon-product-fees";
 import { OptimizedRateLimiter } from "../services/optimized-rate-limiter";
 
 // Dedicated rate limiter for Amazon Product Fees API
-// Conservative limit of 1 req/sec to respect Amazon's unknown rate limit
+// Ultra-conservative limit of 0.5 req/sec to eliminate 429 errors completely
 const feesRateLimiter = new OptimizedRateLimiter({
-  maxRequestsPerSecond: 1, // Very conservative for unknown API limit
+  maxRequestsPerSecond: 0.5, // Ultra-conservative to prevent all throttling
   maxBurstRequests: 2,
   retryDelayMs: 2000,
   maxRetries: 3,

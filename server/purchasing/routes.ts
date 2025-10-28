@@ -252,7 +252,7 @@ router.get("/rate-limit-status", async (req, res) => {
         availableTokens: status.tokenBucket,
         circuitBreakerOpen: status.circuitBreakerOpen,
         failureCount: status.failureCount,
-        maxRequestsPerSecond: 1,
+        maxRequestsPerSecond: 0.5,
         status: status.circuitBreakerOpen ? 'CIRCUIT_OPEN' : status.queueLength > 50 ? 'BUSY' : 'HEALTHY'
       },
       timestamp: new Date().toISOString()
