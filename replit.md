@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
 - **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features include:
   - **Purchasing AI Catalog**: Professional table layout optimized for 100k+ products with client-side sorting, Amazon product thumbnails, color-coded margin badges, and accessibility features. Automatically filters restricted products (canList = false) with visible "Only Listable Products" indicator badge.
     - **FBM/FBA Separation**: Separate columns for Referral Fee (Amazon commission) and FBA Fee (fulfillment cost). FBA Fee shows "FBM" for merchant-fulfilled products, dollar amount for Amazon-fulfilled products, or "N/A" for missing data.
-    - **AI Setup Page**: Configure fulfillment preferences (FBM, FBA, both, dropship), margin thresholds per method, and analysis filters via Settings button in Purchasing AI header.
+    - **AI Setup Page**: Multi-select fulfillment preferences with checkboxes (FBM, FBA, Dropship, Warehouse), margin thresholds per method, and analysis filters. Features help tooltips explaining confidence score calculation. Accessible via Settings button in Purchasing AI header.
   - **Table Views**: Optimization modes (compact, comfortable, spacious) with quick filter chips
   - **Documentation**: Interactive field mapping reference with categorized fields, type badges, and usage examples
   - **Data Modals**: Tabbed interfaces for logical organization with real-time calculations
@@ -50,7 +50,7 @@ Preferred communication style: Simple, everyday language.
       - **Supplier Isolation**: Product category updates are scoped to specific suppliers via `product_suppliers` junction table to prevent cross-contamination
     - **Product-Supplier Linking**: All product imports now automatically create `product_suppliers` relationships to track which products come from which suppliers. This enables proper supplier scoping for category mapping and other multi-supplier operations.
     - **Field Mapping Documentation**: Complete reference guide (`/field-mapping-docs`) documenting all 35+ catalog fields and 25+ detail fields organized by category with field types, requirements, descriptions, and examples.
-    - **Purchasing AI Configuration**: Configurable fulfillment method (FBM/FBA/both/dropship) with separate margin thresholds per method. FBM calculates referral fees only, FBA calculates referral + FBA fulfillment fees. Settings persist in `purchasing_settings` table with defaults: FBM fulfillment, 15% FBM margin, 20% FBA margin.
+    - **Purchasing AI Configuration**: Multi-select fulfillment preferences via checkboxes (FBM, FBA, Dropship, Warehouse) allowing simultaneous selection of multiple methods. Each method has separate margin threshold configuration. FBM calculates referral fees only, FBA calculates referral + FBA fulfillment fees. Settings persist in `purchasing_settings` table with `fulfillmentMethods` stored as text array. Includes informative tooltip explaining confidence score calculation (65-95% range based on margins, sales rank, and restrictions). Defaults: ['fbm'], 15% FBM margin, 20% FBA margin.
     - **Performance Optimization**: Implemented intelligent caching and optimized queries for sub-second API responses.
 
 ## System Design
