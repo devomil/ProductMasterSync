@@ -7,7 +7,7 @@ import {
   productAmazonLookup 
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-import { analyzePurchasingOpportunity, analyzeBulkOpportunities } from "./analyzer";
+import { analyzePurchasingOpportunity, analyzeBulkOpportunities, getFeesRateLimiterStatus } from "./analyzer";
 
 const router = express.Router();
 
@@ -237,6 +237,29 @@ router.post("/refresh", async (req, res) => {
   } catch (error) {
     console.error('[Purchasing AI] Error refreshing opportunities:', error);
     res.status(500).json({ error: 'Failed to refresh opportunities' });
+  }
+});
+
+// Get rate limiter status (for monitoring during bulk analysis)
+router.get("/rate-limit-status", async (req, res) => {
+  try {
+    const status = getFeesRateLimiterStatus();
+    res.json({
+      success: true,
+      rateLimiter: {
+        queueLength: status.queueLength,
+        activeRequests: status.activeRequests,
+        availableTokens: status.tokenBucket,
+        circuitBreakerOpen: status.circuitBreakerOpen,
+        failureCount: status.failureCount,
+        maxRequestsPerSecond: 1,
+        status: status.circuitBreakerOpen ? 'CIRCUIT_OPEN' : status.queueLength > 50 ? 'BUSY' : 'HEALTHY'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Purchasing AI] Error fetching rate limiter status:', error);
+    res.status(500).json({ error: 'Failed to fetch rate limiter status' });
   }
 });
 

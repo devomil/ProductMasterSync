@@ -605,3 +605,8 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
     throw error;
   }
 }
+
+// Export rate limiter status for monitoring
+export function getFeesRateLimiterStatus() {
+  return feesRateLimiter.getStatus();
+}
