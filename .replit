@@ -88,9 +88,5 @@ externalPort = 8081
 localPort = 46207
 externalPort = 3002
 
-[[ports]]
-localPort = 46579
-externalPort = 8099
-
 [agent]
 integrations = ["javascript_anthropic==1.0.0"]
