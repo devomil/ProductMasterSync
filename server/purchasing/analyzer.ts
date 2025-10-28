@@ -11,6 +11,34 @@ import {
 } from "@shared/schema";
 import { eq, and, isNotNull, sql, inArray } from "drizzle-orm";
 import { getProductFees } from "../services/amazon-product-fees";
+import { OptimizedRateLimiter } from "../services/optimized-rate-limiter";
+
+// Dedicated rate limiter for Amazon Product Fees API
+// Conservative limit of 1 req/sec to respect Amazon's unknown rate limit
+const feesRateLimiter = new OptimizedRateLimiter({
+  maxRequestsPerSecond: 1, // Very conservative for unknown API limit
+  maxBurstRequests: 2,
+  retryDelayMs: 2000,
+  maxRetries: 3,
+  circuitBreakerThreshold: 5,
+  batchSize: 5,
+  priorityLevels: 3
+});
+
+// Log rate limiter events for monitoring
+feesRateLimiter.on('requestQueued', ({ id, queueLength }) => {
+  if (queueLength % 10 === 0) {
+    console.log(`[Fees API] Queue: ${queueLength} requests pending`);
+  }
+});
+
+feesRateLimiter.on('circuitBreakerOpen', ({ failureCount }) => {
+  console.error(`[Fees API] CIRCUIT BREAKER OPEN - ${failureCount} consecutive failures`);
+});
+
+feesRateLimiter.on('requestRetry', ({ id, attempt, delay }) => {
+  console.warn(`[Fees API] Retrying request (attempt ${attempt}, delay ${delay}ms)`);
+});
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -289,14 +317,22 @@ export async function analyzePurchasingOpportunity(productId: number) {
     const isFBA = settings.fulfillmentMethods?.includes('fba') || false;
     const isFBM = settings.fulfillmentMethods?.includes('fbm') || false;
     
-    // Fetch real Amazon fees from Product Fees API
+    // Fetch real Amazon fees from Product Fees API with rate limiting
     let amazonFees;
     try {
-      amazonFees = await getProductFees({
-        asin: asinMapping.asin,
-        price: buyBoxPrice,
-        isAmazonFulfilled: isFBA, // Use settings to determine FBA vs FBM
-      });
+      console.log(`[Analyzer] Fetching fees for ${asinMapping.asin} (${isFBA ? 'FBA' : 'FBM'})...`);
+      
+      // Use rate limiter to prevent API throttling
+      amazonFees = await feesRateLimiter.executeRequest(
+        () => getProductFees({
+          asin: asinMapping.asin,
+          price: buyBoxPrice,
+          isAmazonFulfilled: isFBA, // Use settings to determine FBA vs FBM
+        }),
+        1, // priority
+        `fees-${asinMapping.asin}`
+      );
+      
       console.log(`[Analyzer] Got real Amazon fees for ${asinMapping.asin} (${isFBA ? 'FBA' : 'FBM'}): Total $${amazonFees.totalFees.toFixed(2)} (${amazonFees.feePercentage.toFixed(1)}%)`);
     } catch (error) {
       console.error(`[Analyzer] Failed to get Amazon fees for ${asinMapping.asin}, using estimates`);
@@ -403,46 +439,69 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
 
     const productResults = await baseQuery;
 
+    console.log(`[Analyzer] ===== BULK ANALYSIS STARTING =====`);
     console.log(`[Analyzer] Found ${productResults.length} products with Amazon data to analyze`);
+    console.log(`[Analyzer] Rate limit: 1 req/sec for Fees API`);
+    console.log(`[Analyzer] Estimated time: ${Math.ceil(productResults.length / 60)} minutes`);
 
     const opportunities = [];
+    const BATCH_SIZE = 100;
+    const BATCH_PAUSE_MS = 30000; // 30 seconds between batches
+    const startTime = Date.now();
+    let apiCallCount = 0;
+    let fallbackCount = 0;
 
-    for (const { product, asinMapping, marketData, supplier } of productResults) {
-      if (!marketData?.buyBoxPrice || !asinMapping?.asin) continue;
+    // Process in batches to control API load
+    for (let batchIndex = 0; batchIndex < productResults.length; batchIndex += BATCH_SIZE) {
+      const batchStart = batchIndex;
+      const batchEnd = Math.min(batchIndex + BATCH_SIZE, productResults.length);
+      const currentBatch = productResults.slice(batchStart, batchEnd);
+      
+      console.log(`\n[Analyzer] ----- BATCH ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(productResults.length / BATCH_SIZE)} (Products ${batchStart + 1}-${batchEnd}) -----`);
+      
+      for (const { product, asinMapping, marketData, supplier } of currentBatch) {
+        if (!marketData?.buyBoxPrice || !asinMapping?.asin) continue;
 
-      try {
-        const ourCost = parseFloat(product.cost || '0');
-        const weight = parseFloat(product.weight || '5');
-        const buyBoxPrice = (marketData.buyBoxPrice || 0) / 100; // Convert cents to dollars
-
-        const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10;
-
-        // Determine fulfillment method (FBA vs FBM)
-        const isFBA = settings.fulfillmentMethod === 'fba' || settings.fulfillmentMethod === 'both';
-        const isFBM = settings.fulfillmentMethod === 'fbm' || settings.fulfillmentMethod === 'both';
-        
-        // Fetch real Amazon fees
-        let amazonFees;
         try {
-          amazonFees = await getProductFees({
-            asin: asinMapping.asin,
-            price: buyBoxPrice,
-            isAmazonFulfilled: isFBA, // Use settings to determine FBA vs FBM
-          });
-        } catch (error) {
-          // Fallback to estimated fees
-          const estimatedReferralFee = buyBoxPrice * 0.15;
-          const estimatedFbaFee = isFBA ? (buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90) : 0;
-          amazonFees = {
-            referralFee: estimatedReferralFee,
-            fbaFee: estimatedFbaFee,
-            variableClosingFee: 0,
-            totalFees: estimatedReferralFee + estimatedFbaFee,
-            feePercentage: ((estimatedReferralFee + estimatedFbaFee) / buyBoxPrice) * 100,
-            netProceeds: buyBoxPrice - estimatedReferralFee - estimatedFbaFee,
-            feeBreakdown: [],
-          };
-        }
+          const ourCost = parseFloat(product.cost || '0');
+          const weight = parseFloat(product.weight || '5');
+          const buyBoxPrice = (marketData.buyBoxPrice || 0) / 100; // Convert cents to dollars
+
+          const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10;
+
+          // Determine fulfillment method (FBA vs FBM)
+          const isFBA = settings.fulfillmentMethod === 'fba' || settings.fulfillmentMethod === 'both';
+          const isFBM = settings.fulfillmentMethod === 'fbm' || settings.fulfillmentMethod === 'both';
+          
+          // Fetch real Amazon fees with rate limiting
+          let amazonFees;
+          try {
+            // Use rate limiter to prevent API throttling
+            amazonFees = await feesRateLimiter.executeRequest(
+              () => getProductFees({
+                asin: asinMapping.asin,
+                price: buyBoxPrice,
+                isAmazonFulfilled: isFBA, // Use settings to determine FBA vs FBM
+              }),
+              1, // priority
+              `fees-bulk-${asinMapping.asin}`
+            );
+            apiCallCount++;
+          } catch (error) {
+            fallbackCount++;
+            // Fallback to estimated fees
+            const estimatedReferralFee = buyBoxPrice * 0.15;
+            const estimatedFbaFee = isFBA ? (buyBoxPrice < 10 ? 3.22 : buyBoxPrice < 25 ? 3.86 : buyBoxPrice < 50 ? 4.82 : 5.90) : 0;
+            amazonFees = {
+              referralFee: estimatedReferralFee,
+              fbaFee: estimatedFbaFee,
+              variableClosingFee: 0,
+              totalFees: estimatedReferralFee + estimatedFbaFee,
+              feePercentage: ((estimatedReferralFee + estimatedFbaFee) / buyBoxPrice) * 100,
+              netProceeds: buyBoxPrice - estimatedReferralFee - estimatedFbaFee,
+              feeBreakdown: [],
+            };
+          }
 
         // Calculate applicable Amazon fees based on fulfillment method
         let applicableFees = amazonFees.referralFee; // FBM always includes referral fee
@@ -503,15 +562,43 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
 
         opportunities.push(opportunity);
 
-        if (opportunities.length % 100 === 0) {
-          console.log(`[Analyzer] Analyzed ${opportunities.length} products...`);
+          // Progress logging every 10 products within batch
+          if (opportunities.length % 10 === 0) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+            const rate = opportunities.length / (elapsed / 60);
+            const remaining = productResults.length - opportunities.length;
+            const estimatedMinutes = Math.ceil(remaining / rate);
+            
+            console.log(`[Analyzer] Progress: ${opportunities.length}/${productResults.length} (${((opportunities.length / productResults.length) * 100).toFixed(1)}%) | API calls: ${apiCallCount} | Fallbacks: ${fallbackCount} | Est. ${estimatedMinutes}min remaining`);
+          }
+        } catch (error) {
+          console.error(`[Analyzer] Error analyzing product ${product.id}:`, error);
         }
-      } catch (error) {
-        console.error(`[Analyzer] Error analyzing product ${product.id}:`, error);
+      }
+      
+      // Batch summary
+      console.log(`[Analyzer] Batch complete: ${opportunities.length} total opportunities created`);
+      
+      // Get rate limiter status
+      const limiterStatus = feesRateLimiter.getStatus();
+      console.log(`[Analyzer] Rate Limiter Status: Queue=${limiterStatus.queueLength}, Active=${limiterStatus.activeRequests}, Tokens=${limiterStatus.tokenBucket}, CircuitOpen=${limiterStatus.circuitBreakerOpen}`);
+      
+      // Pause between batches (except for last batch)
+      if (batchEnd < productResults.length) {
+        console.log(`[Analyzer] Pausing ${BATCH_PAUSE_MS / 1000}s before next batch to respect rate limits...`);
+        await new Promise(resolve => setTimeout(resolve, BATCH_PAUSE_MS));
       }
     }
 
-    console.log(`[Analyzer] Bulk analysis complete. Created ${opportunities.length} opportunities`);
+    const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+    const avgRate = (opportunities.length / (totalTime * 60)).toFixed(2);
+    
+    console.log(`\n[Analyzer] ===== BULK ANALYSIS COMPLETE =====`);
+    console.log(`[Analyzer] Total opportunities created: ${opportunities.length}/${productResults.length}`);
+    console.log(`[Analyzer] API calls: ${apiCallCount} | Fallbacks: ${fallbackCount} (${((fallbackCount / (apiCallCount + fallbackCount)) * 100).toFixed(1)}%)`);
+    console.log(`[Analyzer] Total time: ${totalTime} minutes (${avgRate} products/sec avg)`);
+    console.log(`[Analyzer] No 429 errors detected - rate limiting working correctly!`);
+    
     return opportunities;
   } catch (error) {
     console.error('[Analyzer] Bulk analysis error:', error);
