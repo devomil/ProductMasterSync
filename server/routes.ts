@@ -865,57 +865,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log('Clearing all products from database...');
+      console.log('[Clear All] Starting database cleanup...');
       
       // Get count before deletion
       const countResult = await db
         .select({ count: sql<number>`count(*)` })
         .from(products);
-      const totalProducts = countResult[0]?.count || 0;
+      const totalProducts = Number(countResult[0]?.count) || 0;
+      
+      console.log(`[Clear All] Found ${totalProducts} products to delete`);
       
       // Delete related data first to respect foreign key constraints
       // Use try-catch for each table to handle cases where tables don't exist yet
       
       try {
-        console.log('Deleting product-supplier relationships...');
-        await db.delete(productSuppliers);
+        console.log('[Clear All] Deleting product-supplier relationships...');
+        const result = await db.delete(productSuppliers);
+        console.log(`[Clear All] Deleted product-supplier relationships`);
       } catch (e) {
-        console.log('productSuppliers table does not exist or is empty, skipping...');
+        console.log('[Clear All] productSuppliers: skipped (table empty or error):', (e as Error).message);
       }
       
       try {
-        console.log('Deleting product-related data...');
-        await db.delete(productAsinMapping);
+        console.log('[Clear All] Deleting product-ASIN mappings...');
+        const result = await db.delete(productAsinMapping);
+        console.log(`[Clear All] Deleted product-ASIN mappings`);
       } catch (e) {
-        console.log('productAsinMapping table does not exist or is empty, skipping...');
+        console.log('[Clear All] productAsinMapping: skipped (table empty or error):', (e as Error).message);
       }
       
       try {
-        console.log('Deleting Amazon market intelligence...');
-        await db.delete(amazonMarketIntelligence);
+        console.log('[Clear All] Deleting Amazon market intelligence...');
+        const result = await db.delete(amazonMarketIntelligence);
+        console.log(`[Clear All] Deleted Amazon market intelligence`);
       } catch (e) {
-        console.log('amazonMarketIntelligence table does not exist or is empty, skipping...');
+        console.log('[Clear All] amazonMarketIntelligence: skipped (table empty or error):', (e as Error).message);
       }
       
       try {
-        console.log('Deleting product restrictions...');
-        await db.delete(productRestrictions);
+        console.log('[Clear All] Deleting product restrictions...');
+        const result = await db.delete(productRestrictions);
+        console.log(`[Clear All] Deleted product restrictions`);
       } catch (e) {
-        console.log('productRestrictions table does not exist or is empty, skipping...');
+        console.log('[Clear All] productRestrictions: skipped (table empty or error):', (e as Error).message);
       }
       
       try {
-        console.log('Deleting Amazon ASINs...');
-        await db.delete(amazonAsins);
+        console.log('[Clear All] Deleting Amazon ASINs...');
+        const result = await db.delete(amazonAsins);
+        console.log(`[Clear All] Deleted Amazon ASINs`);
       } catch (e) {
-        console.log('amazonAsins table does not exist or is empty, skipping...');
+        console.log('[Clear All] amazonAsins: skipped (table empty or error):', (e as Error).message);
       }
       
       // Delete all products
-      console.log('Deleting all products...');
+      console.log('[Clear All] Deleting all products...');
       await db.delete(products);
       
-      console.log(`Successfully cleared ${totalProducts} products and related data`);
+      console.log(`[Clear All] ✅ Successfully cleared ${totalProducts} products and related data`);
       
       res.json({
         success: true,
