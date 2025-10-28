@@ -364,7 +364,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
     // Analyze with AI
     const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
 
-    // Save opportunity to database with real Amazon fees
+    // Save or update opportunity in database (upsert to prevent duplicates)
     const [opportunity] = await db
       .insert(purchasingOpportunities)
       .values({
@@ -390,6 +390,30 @@ export async function analyzePurchasingOpportunity(productId: number) {
         amazonTotalFees: amazonFees.totalFees,
         amazonFeePercentage: amazonFees.feePercentage,
         amazonNetProceeds: amazonFees.netProceeds,
+      })
+      .onConflictDoUpdate({
+        target: [purchasingOpportunities.productId, purchasingOpportunities.asin],
+        set: {
+          recommendation: aiResult.recommendation,
+          confidence: aiResult.confidence,
+          riskLevel: aiResult.riskLevel,
+          marginPercent,
+          ourCost,
+          shippingCost,
+          buyBoxPrice,
+          salesRank: marketData.salesRank,
+          reasoning: aiResult.reasoning,
+          opportunityScore: aiResult.opportunityScore,
+          automationReady: aiResult.automationReady,
+          amazonReferralFee: amazonFees.referralFee,
+          amazonFbaFee: amazonFees.fbaFee,
+          amazonVariableClosingFee: amazonFees.variableClosingFee,
+          amazonTotalFees: amazonFees.totalFees,
+          amazonFeePercentage: amazonFees.feePercentage,
+          amazonNetProceeds: amazonFees.netProceeds,
+          analysisDate: sql`NOW()`,
+          updatedAt: sql`NOW()`,
+        },
       })
       .returning();
 

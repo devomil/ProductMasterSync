@@ -1656,6 +1656,11 @@ export const purchasingOpportunities = pgTable("purchasing_opportunities", {
   amazonNetProceeds: real("amazon_net_proceeds"),  // Price minus all Amazon fees
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    // Unique constraint to prevent duplicate opportunities for same product-ASIN pair
+    productAsinIdx: uniqueIndex("purchasing_opportunities_product_asin_idx").on(table.productId, table.asin),
+  };
 });
 
 // Purchasing Settings table - Configuration for AI analysis
