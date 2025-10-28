@@ -104,7 +104,7 @@ router.get("/settings", async (req, res) => {
       // Return default settings
       res.json({
         id: 1,
-        fulfillmentMethod: 'fbm',
+        fulfillmentMethods: ['fbm'],
         dropshipMinMargin: 15,
         warehouseMinMargin: 25,
         fbmMinMargin: 15,
@@ -127,7 +127,7 @@ router.get("/settings", async (req, res) => {
 router.put("/settings", async (req, res) => {
   try {
     const {
-      fulfillmentMethod,
+      fulfillmentMethods,
       dropshipMinMargin,
       warehouseMinMargin,
       fbmMinMargin,
@@ -142,7 +142,7 @@ router.put("/settings", async (req, res) => {
     
     if (existing.length === 0) {
       const [newSettings] = await db.insert(purchasingSettings).values({
-        fulfillmentMethod,
+        fulfillmentMethods,
         dropshipMinMargin,
         warehouseMinMargin,
         fbmMinMargin,
@@ -157,7 +157,7 @@ router.put("/settings", async (req, res) => {
       const [updated] = await db
         .update(purchasingSettings)
         .set({
-          fulfillmentMethod,
+          fulfillmentMethods,
           dropshipMinMargin,
           warehouseMinMargin,
           fbmMinMargin,
