@@ -187,7 +187,7 @@ router.post('/amazon/batch-sync', async (req, res) => {
 
     // Validate limit
     const limitSchema = z.object({
-      limit: z.number().int().positive().max(50).optional().default(10)
+      limit: z.number().int().positive().max(500).optional().default(10)
     });
     
     const validationResult = limitSchema.safeParse(req.body);

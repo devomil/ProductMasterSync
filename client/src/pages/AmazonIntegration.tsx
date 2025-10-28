@@ -36,7 +36,7 @@ const removeEdcPrefix = (sku: string): string => {
 };
 
 export default function AmazonIntegration() {
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading } = useQuery<{ products: any[] }>({
     queryKey: ['/api/products?limit=1000'], // Get enough products to calculate metrics
   });
 

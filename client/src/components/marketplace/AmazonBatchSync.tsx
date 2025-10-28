@@ -45,7 +45,7 @@ export function AmazonBatchSync() {
   const batchSyncMutation = useBatchSyncAmazonData();
 
   // Check if configuration is valid
-  const isConfigValid = configStatus?.configValid;
+  const isConfigValid = (configStatus as { configValid?: boolean; missingEnvVars?: string[] } | undefined)?.configValid;
 
   // Handle batch sync click
   const handleBatchSync = () => {
@@ -80,10 +80,10 @@ export function AmazonBatchSync() {
       </CardHeader>
       <CardContent>
         {!isConfigStatusLoading && !isConfigValid ? (
-          <Alert variant="warning" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuration Required</AlertTitle>
-            <AlertDescription>
+          <Alert className="mb-4 border-yellow-500 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertTitle className="text-yellow-800">Configuration Required</AlertTitle>
+            <AlertDescription className="text-yellow-700">
               Amazon SP-API configuration is incomplete. Click the "Configure API" button to set up the required credentials.
             </AlertDescription>
           </Alert>
@@ -97,7 +97,7 @@ export function AmazonBatchSync() {
             <Slider
               id="batch-size"
               min={1}
-              max={50}
+              max={500}
               step={1}
               value={[batchSize]}
               onValueChange={(value) => setBatchSize(value[0])}
@@ -187,7 +187,7 @@ export function AmazonBatchSync() {
                 <Info className="h-4 w-4" />
                 <AlertTitle>Amazon SP-API Credentials</AlertTitle>
                 <AlertDescription>
-                  {configStatus?.configValid ? (
+                  {(configStatus as { configValid?: boolean; missingEnvVars?: string[] } | undefined)?.configValid ? (
                     <div>
                       <p className="mb-2">✓ All required credentials are configured</p>
                       <ul className="mt-2 list-disc list-inside space-y-1 text-sm">
@@ -201,7 +201,7 @@ export function AmazonBatchSync() {
                     <div>
                       <p className="mb-2">Missing required credentials:</p>
                       <ul className="mt-2 list-disc list-inside space-y-1">
-                        {configStatus?.missingEnvVars?.map((envVar: string) => (
+                        {((configStatus as { configValid?: boolean; missingEnvVars?: string[] } | undefined)?.missingEnvVars || []).map((envVar: string) => (
                           <li key={envVar} className="text-red-600">{envVar}</li>
                         ))}
                       </ul>
@@ -210,11 +210,11 @@ export function AmazonBatchSync() {
                 </AlertDescription>
               </Alert>
               
-              {!configStatus?.configValid && (
-                <Alert variant="warning">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Missing Credentials</AlertTitle>
-                  <AlertDescription>
+              {!(configStatus as { configValid?: boolean; missingEnvVars?: string[] } | undefined)?.configValid && (
+                <Alert className="border-yellow-500 bg-yellow-50">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertTitle className="text-yellow-800">Missing Credentials</AlertTitle>
+                  <AlertDescription className="text-yellow-700">
                     Some credentials are not configured. Please add them in the Replit Secrets panel to enable Amazon integration.
                   </AlertDescription>
                 </Alert>

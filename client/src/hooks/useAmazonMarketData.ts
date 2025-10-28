@@ -64,13 +64,13 @@ export function useAmazonMarketData(productId: number) {
 export function useFetchAmazonDataByUpc(productId: number) {
   const mutation = useMutation({
     mutationFn: async (upc: string) => {
-      return apiRequest(`/api/marketplace/amazon/fetch/${productId}`, {
+      const response = await fetch(`/api/marketplace/amazon/fetch/${productId}`, {
         method: 'POST',
-        body: JSON.stringify({ upc }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upc })
       });
+      if (!response.ok) throw new Error('Fetch Amazon data failed');
+      return response.json();
     },
     onSuccess: () => {
       // Invalidate the Amazon data query
@@ -110,7 +110,13 @@ export function useAmazonConfigStatus() {
 export function useBatchSyncAmazonData() {
   const mutation = useMutation({
     mutationFn: async (limit: number = 10) => {
-      return apiRequest('POST', '/api/marketplace/amazon/batch-sync', { limit });
+      const response = await fetch('/api/marketplace/amazon/batch-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit })
+      });
+      if (!response.ok) throw new Error('Batch sync failed');
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
@@ -190,9 +196,11 @@ export function useAmazonSchedulerStatus() {
 export function useTriggerAmazonSyncJob() {
   const mutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('/api/marketplace/amazon/scheduler/trigger', {
-        method: 'POST',
+      const response = await fetch('/api/marketplace/amazon/scheduler/trigger', {
+        method: 'POST'
       });
+      if (!response.ok) throw new Error('Trigger sync job failed');
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
