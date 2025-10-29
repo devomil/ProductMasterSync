@@ -1,0 +1,180 @@
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+Clear all products error: error: update or delete on table "products" violates foreign key constraint "purchasing_opportunities_product_id_fkey" on table "purchasing_opportunities"
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+at async file:///home/runner/workspace/dist/index.js:5751:7 {
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+length: 368,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+severity: 'ERROR',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+code: '23503',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+detail: 'Key (id)=(3548) is still referenced from table "purchasing_opportunities".',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+hint: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+position: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+internalPosition: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+internalQuery: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+where: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+schema: 'public',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+table: 'purchasing_opportunities',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+column: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+dataType: undefined,
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+constraint: 'purchasing_opportunities_product_id_fkey',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+file: 'ri_triggers.c',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+line: '2621',
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+routine: 'ri_ReportViolation'
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+}
+2025-10-29 09:05:14.79
+e92ef2c6
+User
+2:05:14 PM [express] POST /api/products/clear-all 500 in 292ms :: {"success":false,"message":"Failed…
+2025-10-29 09:05:33.92
+e92ef2c6
+User
+2:05:33 PM [express] GET /api/marketplace/amazon/sync-logs/recent 200 in 1ms
+2025-10-29 09:05:33.96
+e92ef2c6
+User
+2:05:33 PM [express] GET /api/marketplace/amazon/config-status 200 in 1ms
+2025-10-29 09:05:34.09
+e92ef2c6
+User
+2:05:34 PM [express] GET /api/products 304 in 143ms :: {"products":[{"id":3637,"sku":"EDC100100","us…
+2025-10-29 09:05:36.72
+e92ef2c6
+User
+2:05:36 PM [express] GET /api/marketplace/amazon/config-status 304 in 2ms
+2025-10-29 09:05:36.72
+e92ef2c6
+User
+2:05:36 PM [express] GET /api/marketplace/amazon/sync-stats 200 in 3ms
+2025-10-29 09:05:36.72
+e92ef2c6
+User
+2:05:36 PM [express] GET /api/marketplace/amazon/scheduler/status 200 in 3ms
+2025-10-29 09:05:37.77
+e92ef2c6
+User
+2:05:37 PM [express] GET /api/marketplace/amazon/config-status 304 in 1ms
+2025-10-29 09:06:06.82
+e92ef2c6
+User
+2:06:06 PM [express] GET /api/marketplace/amazon/scheduler/status 304 in 2ms
+2025-10-29 09:06:07.83
+e92ef2c6
+User
+2:06:07 PM [express] GET /api/marketplace/amazon/config-status 304 in 1ms
+2025-10-29 09:06:08.89
+e92ef2c6
+User
+2:06:08 PM [express] GET /api/marketplace/amazon/config-status 304 in 1ms
+2025-10-29 09:06:10.28
+e92ef2c6
+User
+2:06:10 PM [express] GET /api/marketplace/amazon/sync-stats 304 in 1ms
+2025-10-29 09:06:12.02
+e92ef2c6
+User
+[2025-10-29T14:06:12.025Z] [automation] Checking automations at 14:06:12 (14:06) - found 1 automation(s)
+2025-10-29 09:06:29.16
+e92ef2c6
+User
+2:06:29 PM [express] GET /api/marketplace/amazon/sync-stats 304 in 1ms
+2025-10-29 09:06:29.18
+e92ef2c6
+User
+2:06:29 PM [express] GET /api/marketplace/amazon/scheduler/status 304 in 14ms
+2025-10-29 09:06:29.18
+e92ef2c6
+User
+2:06:29 PM [express] GET /api/marketplace/amazon/config-status 304 in 3ms
+2025-10-29 09:06:30.25
+e92ef2c6
+User
+2:06:30 PM [express] GET /api/marketplace/amazon/config-status 304 in 1ms
+2025-10-29 09:06:33.97
+e92ef2c6
+User
+2:06:33 PM [express] GET /api/marketplace/amazon/sync-logs/recent 304 in 1ms
+2025-10-29 09:06:59.25
+e92ef2c6
+User
+2:06:59 PM [express] GET /api/marketplace/amazon/scheduler/status 304 in 1ms
+2025-10-29 09:07:00.32
+e92ef2c6
+User
+2:07:00 PM [express] GET /api/marketplace/amazon/config-status 304 in 0ms
+2025-10-29 09:07:01.38
+e92ef2c6
+User
+2:07:01 PM [express] GET /api/marketplace/amazon/config-status 304 in 1ms
+2025-10-29 09:07:12.12
+e92ef2c6
+User
+[2025-10-29T14:07:12.124Z] [automation] Checking automations at 14:07:12 (14:07) - found 1 automation(s)
+2025-10-29 09:08:12.13
+e92ef2c6
+User
+[2025-10-29T14:08:12.130Z] [automation] Checking automations at 14:08:12 (14:08) - found 1 automation(s)

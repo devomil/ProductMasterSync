@@ -36,7 +36,8 @@ import {
   amazonPriceHistory,
   salesRankings,
   productRestrictions,
-  productSuppliers
+  productSuppliers,
+  purchasingOpportunities
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -916,6 +917,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Clear All] Deleted Amazon ASINs`);
       } catch (e) {
         console.log('[Clear All] amazonAsins: skipped (table empty or error):', (e as Error).message);
+      }
+      
+      try {
+        console.log('[Clear All] Deleting purchasing opportunities...');
+        const result = await db.delete(purchasingOpportunities);
+        console.log(`[Clear All] Deleted purchasing opportunities`);
+      } catch (e) {
+        console.log('[Clear All] purchasingOpportunities: skipped (table empty or error):', (e as Error).message);
       }
       
       // Delete all products
