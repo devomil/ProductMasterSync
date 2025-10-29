@@ -1703,7 +1703,53 @@ export const insertPurchasingSettingsSchema = createInsertSchema(purchasingSetti
   updatedAt: true 
 });
 
+// Marketplace Credentials table - Store API credentials for marketplace integrations
+export const marketplaceCredentials = pgTable("marketplace_credentials", {
+  id: serial("id").primaryKey(),
+  marketplace: marketplaceEnum("marketplace").notNull(),  // amazon, walmart, ebay, newegg
+  
+  // Amazon SP-API credentials
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  refreshToken: text("refresh_token"),
+  marketplaceId: text("marketplace_id").default('ATVPDKIKX0DER'),  // US marketplace by default
+  sellerId: text("seller_id"),
+  
+  // Other marketplace credentials (for future use)
+  apiKey: text("api_key"),
+  apiSecret: text("api_secret"),
+  accessToken: text("access_token"),
+  
+  // Additional config
+  endpoint: text("endpoint"),
+  region: text("region").default('us-east-1'),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  lastValidated: timestamp("last_validated"),
+  validationError: text("validation_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    marketplaceIdx: uniqueIndex("marketplace_credentials_marketplace_idx").on(table.marketplace),
+  };
+});
+
+// Marketplace credential schemas
+export const insertMarketplaceCredentialSchema = createInsertSchema(marketplaceCredentials).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  lastValidated: true,
+  validationError: true
+});
+
 // Types
+export type MarketplaceCredential = typeof marketplaceCredentials.$inferSelect;
+export type InsertMarketplaceCredential = z.infer<typeof insertMarketplaceCredentialSchema>;
+
 export type PurchasingOpportunity = typeof purchasingOpportunities.$inferSelect;
 export type PurchasingSettings = typeof purchasingSettings.$inferSelect;
 export type InsertPurchasingOpportunity = z.infer<typeof insertPurchasingOpportunitySchema>;

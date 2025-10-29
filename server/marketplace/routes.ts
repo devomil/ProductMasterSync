@@ -9,32 +9,163 @@ import { z } from 'zod';
 import { fetchAmazonDataByUpc, getAmazonDataForProduct, batchSyncAmazonData } from './amazon-service';
 import { syncProductWithAmazon } from './amazon-spapi-service';
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb, validateAmazonConfig as validateDbConfig } from '../utils/get-amazon-config-from-db';
 import { scheduler } from '../utils/scheduler';
 import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct, getRecentSyncLogs } from './repository';
 import { amazonListingsRestrictionsService } from './amazon-listings-restrictions';
 import { db } from '../db';
-import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
+import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping, marketplaceCredentials, insertMarketplaceCredentialSchema } from '../../shared/schema';
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
 
 const router = Router();
 
 /**
- * GET /marketplace/amazon/config-status
- * Check Amazon SP-API configuration status
+ * GET /marketplace/credentials/:marketplace
+ * Get marketplace credentials (without exposing secrets)
  */
-router.get('/amazon/config-status', (req, res) => {
+router.get('/credentials/:marketplace', async (req, res) => {
+  try {
+    const { marketplace } = req.params;
+    
+    const credentials = await db
+      .select()
+      .from(marketplaceCredentials)
+      .where(eq(marketplaceCredentials.marketplace, marketplace as any))
+      .limit(1);
+    
+    if (credentials.length === 0) {
+      return res.json({ configured: false });
+    }
+    
+    // Don't expose sensitive data - only return configuration status
+    const cred = credentials[0];
+    return res.json({
+      configured: true,
+      marketplace: cred.marketplace,
+      isActive: cred.isActive,
+      lastValidated: cred.lastValidated,
+      validationError: cred.validationError,
+      // Indicate which fields are set without exposing values
+      hasClientId: !!cred.clientId,
+      hasClientSecret: !!cred.clientSecret,
+      hasRefreshToken: !!cred.refreshToken,
+    });
+  } catch (error) {
+    console.error('Error fetching marketplace credentials:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/credentials
+ * Save or update marketplace credentials
+ */
+router.post('/credentials', async (req, res) => {
+  try {
+    const validationResult = insertMarketplaceCredentialSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      return res.status(400).json({ 
+        error: 'Invalid credentials data',
+        details: validationResult.error.format()
+      });
+    }
+    
+    const { marketplace, ...credData } = validationResult.data;
+    
+    // Check if credentials already exist for this marketplace
+    const existing = await db
+      .select()
+      .from(marketplaceCredentials)
+      .where(eq(marketplaceCredentials.marketplace, marketplace as any))
+      .limit(1);
+    
+    let result;
+    if (existing.length > 0) {
+      // Update existing credentials
+      result = await db
+        .update(marketplaceCredentials)
+        .set({
+          ...credData,
+          updatedAt: new Date(),
+        })
+        .where(eq(marketplaceCredentials.marketplace, marketplace as any))
+        .returning();
+    } else {
+      // Insert new credentials
+      result = await db
+        .insert(marketplaceCredentials)
+        .values({
+          marketplace: marketplace as any,
+          ...credData,
+        })
+        .returning();
+    }
+    
+    console.log(`Marketplace credentials saved for ${marketplace}`);
+    
+    return res.json({
+      success: true,
+      message: `Credentials ${existing.length > 0 ? 'updated' : 'saved'} successfully`,
+      marketplace,
+    });
+  } catch (error) {
+    console.error('Error saving marketplace credentials:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * DELETE /marketplace/credentials/:marketplace
+ * Delete marketplace credentials
+ */
+router.delete('/credentials/:marketplace', async (req, res) => {
+  try {
+    const { marketplace } = req.params;
+    
+    await db
+      .delete(marketplaceCredentials)
+      .where(eq(marketplaceCredentials.marketplace, marketplace as any));
+    
+    console.log(`Marketplace credentials deleted for ${marketplace}`);
+    
+    return res.json({
+      success: true,
+      message: 'Credentials deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting marketplace credentials:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/config-status
+ * Check Amazon SP-API configuration status (uses new async config loader)
+ */
+router.get('/amazon/config-status', async (req, res) => {
   try {
     console.log('Checking Amazon SP-API config status');
-    console.log('Query params:', req.query);
     
-    // This route doesn't need any parameters, just checks config from env vars
-    const config = getAmazonConfig();
-    const isValid = validateAmazonConfig(config);
+    // Use new async config loader that checks database first
+    const config = await getAmazonConfigFromDb();
+    const isValid = validateDbConfig(config);
     
-    // If we have parameters, ignore them - this API just checks env vars
+    // Check source
+    const dbCredentials = await db
+      .select()
+      .from(marketplaceCredentials)
+      .where(eq(marketplaceCredentials.marketplace, 'amazon'))
+      .limit(1);
+    
+    const source = (dbCredentials.length > 0 && dbCredentials[0].isActive && dbCredentials[0].clientId) 
+      ? 'database' 
+      : 'environment';
+    
     const result = {
       configValid: isValid,
+      source,
       missingEnvVars: !isValid ? [
         !config.clientId && 'AMAZON_SP_API_CLIENT_ID',
         !config.clientSecret && 'AMAZON_SP_API_CLIENT_SECRET',

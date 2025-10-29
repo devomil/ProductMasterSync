@@ -12,6 +12,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useAutoSyncStatus } from '@/hooks/useAutoSyncStatus';
+import AmazonCredentialsModal from '@/components/AmazonCredentialsModal';
 
 interface MarketplaceStatus {
   name: string;
@@ -26,6 +27,7 @@ interface MarketplaceStatus {
 
 export default function MarketplaceOverview() {
   const { toast } = useToast();
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   
   // Use persistent auto-sync status management
   const { 
@@ -177,6 +179,11 @@ export default function MarketplaceOverview() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <AmazonCredentialsModal 
+        open={showCredentialsModal} 
+        onOpenChange={setShowCredentialsModal}
+      />
+      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Marketplace Hub</h1>
@@ -245,11 +252,14 @@ export default function MarketplaceOverview() {
               ) : (
                 <Badge variant="destructive">Not Configured</Badge>
               )}
-              <Link href="/marketplaces/amazon">
-                <Button size="sm">
-                  Configure
-                </Button>
-              </Link>
+              <Button 
+                size="sm" 
+                onClick={() => setShowCredentialsModal(true)}
+                data-testid="button-configure-amazon"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configure
+              </Button>
             </div>
           </div>
         </CardHeader>
