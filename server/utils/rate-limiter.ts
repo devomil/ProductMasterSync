@@ -99,4 +99,7 @@ export class AmazonRateLimiter {
 }
 
 // Singleton instance for the application to use
-export const amazonRateLimiter = new AmazonRateLimiter();
+// Amazon Catalog Items API 2022-04-01 has strict rate limits:
+// - 2 requests per second (steady state)
+// - 2 burst capacity
+export const amazonRateLimiter = new AmazonRateLimiter(2, 2);

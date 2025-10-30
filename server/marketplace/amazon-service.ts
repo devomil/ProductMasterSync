@@ -236,31 +236,39 @@ export async function batchSyncAmazonData(limit: number = 10) {
     productIds: [] as number[],
   };
   
+  console.log(`🚀 Starting batch sync for ${products.length} products (2 req/sec rate limit)`);
+  
   // Process each product sequentially (to respect rate limits)
-  for (const product of products) {
+  for (let i = 0; i < products.length; i++) {
+    const product = products[i];
     results.processed++;
     results.productIds.push(product.id);
     
+    console.log(`[${i + 1}/${products.length}] Syncing product ${product.id} (UPC: ${product.upc})...`);
+    
     try {
       if (!product.upc) {
-        // Skip products without UPC
+        console.log(`  ⚠️ Skipped - No UPC`);
         continue;
       }
       
-      // Perform the sync
+      // Perform the sync (rate limiter automatically waits)
       await fetchAmazonDataByUpc(product.id, product.upc);
       results.successful++;
+      console.log(`  ✅ Success`);
     } catch (error) {
-      console.error(`Error syncing product ${product.id}:`, error);
+      console.error(`  ❌ Failed: ${(error as Error).message}`);
       results.failed++;
       
-      // If we hit rate limits, stop processing more
-      if ((error as Error).message.includes('rate') && (error as Error).message.includes('limit')) {
-        console.log('Rate limit reached, stopping batch processing');
+      // If we hit rate limits despite the limiter, stop processing
+      if ((error as Error).message.includes('429') || (error as Error).message.includes('QuotaExceeded')) {
+        console.log('⚠️ Rate limit error despite rate limiter - stopping batch');
         break;
       }
     }
   }
+  
+  console.log(`✅ Batch sync complete: ${results.successful} successful, ${results.failed} failed`);
   
   return results;
 }
