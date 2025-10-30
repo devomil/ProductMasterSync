@@ -258,18 +258,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Load route modules safely with error handling
   const loadRouteModule = async (modulePath: string, routeName: string) => {
     try {
-      // In production (compiled JS), we need .js extension for ESM imports
-      // In dev (TypeScript), .ts extension is not needed
-      const resolvedPath = modulePath.endsWith('.js') || modulePath.endsWith('.ts') 
-        ? modulePath 
-        : `${modulePath}.js`;
+      // Use URL-based resolution for proper ESM module loading in both dev and production
+      // This handles the .js extension requirement in production builds
+      const moduleUrl = new URL(`${modulePath}.js`, import.meta.url);
       
-      console.log(`Loading ${routeName} routes from: ${resolvedPath}`);
-      const module = await import(resolvedPath);
-      console.log(`✅ Successfully loaded ${routeName} routes`);
+      console.log(`[Route Loader] Loading ${routeName} routes from: ${moduleUrl.href}`);
+      const module = await import(moduleUrl.href);
+      console.log(`[Route Loader] ✅ Successfully loaded ${routeName} routes`);
       return module;
     } catch (error) {
-      console.error(`❌ Failed to load ${routeName} routes from ${modulePath}:`, error);
+      console.error(`[Route Loader] ❌ Failed to load ${routeName} routes from ${modulePath}:`, error);
+      console.error(`[Route Loader] Error details:`, error instanceof Error ? error.message : error);
       return null;
     }
   };
