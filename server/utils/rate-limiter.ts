@@ -110,8 +110,32 @@ export class AmazonRateLimiter {
   }
 }
 
-// Singleton instance for the application to use
-// Amazon Catalog Items API 2022-04-01 has strict rate limits:
-// - 2 requests per second (steady state)
-// - 2 burst capacity
-export const amazonRateLimiter = new AmazonRateLimiter(2, 2);
+// Singleton instances for different Amazon SP-API endpoints
+// Based on official Amazon SP-API documentation:
+// https://developer-docs.amazon.com/sp-api/docs/
+
+/**
+ * Amazon Catalog Items API 2022-04-01
+ * Documentation: https://developer-docs.amazon.com/sp-api/docs/catalog-items-api-rate-limits
+ * - searchCatalogItems: 2 requests per second, 2 burst
+ * - getCatalogItem: 2 requests per second, 2 burst
+ */
+export const amazonCatalogRateLimiter = new AmazonRateLimiter(2, 2);
+
+/**
+ * Amazon Product Pricing API v0
+ * Documentation: https://developer-docs.amazon.com/sp-api/docs/product-pricing-api-rate-limits
+ * - getPricing: 0.5 requests per second, 1 burst
+ * - getCompetitivePricing: 0.5 requests per second, 1 burst
+ * - getItemOffers: 0.5 requests per second, 1 burst
+ */
+export const amazonPricingRateLimiter = new AmazonRateLimiter(0.5, 1);
+
+/**
+ * Amazon Listings API
+ * - getListingOffers: 1 request per second, 2 burst
+ */
+export const amazonListingsRateLimiter = new AmazonRateLimiter(1, 2);
+
+// Backward compatibility - default to catalog rate limiter
+export const amazonRateLimiter = amazonCatalogRateLimiter;

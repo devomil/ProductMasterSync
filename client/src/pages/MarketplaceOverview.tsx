@@ -331,7 +331,13 @@ export default function MarketplaceOverview() {
                           queryClient.invalidateQueries({ queryKey: ['/api/products'] });
                           
                           // Show appropriate message based on results
-                          if (result.failed === 0) {
+                          if (result.processed === 0) {
+                            toast({
+                              title: '✅ All Products Up to Date!',
+                              description: 'No products need syncing. All products with UPC codes were synced within the last 24 hours.',
+                              className: 'bg-blue-50 border-blue-200'
+                            });
+                          } else if (result.failed === 0) {
                             toast({
                               title: '✅ Amazon Sync Successful!',
                               description: `All ${result.successful} products synced successfully! Batch ID: ${result.batchId}`,
@@ -340,13 +346,13 @@ export default function MarketplaceOverview() {
                           } else if (result.successful > 0) {
                             toast({
                               title: '⚠️ Amazon Sync Partially Successful',
-                              description: `Synced ${result.successful} of ${result.processed} products. ${result.failed} failed due to rate limiting. Batch ID: ${result.batchId}`,
+                              description: `Synced ${result.successful} of ${result.processed} products. ${result.failed} failed. Batch ID: ${result.batchId}`,
                               className: 'bg-yellow-50 border-yellow-200'
                             });
                           } else {
                             toast({
                               title: 'Sync Failed',
-                              description: `All ${result.processed} products failed to sync. Please try again.`,
+                              description: `All ${result.processed} products failed to sync. Please check your Amazon credentials.`,
                               variant: 'destructive'
                             });
                           }
