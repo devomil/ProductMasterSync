@@ -315,10 +315,14 @@ export default function MarketplaceOverview() {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
-                              batchSize: 3,
-                              productIds: (products as any[]).slice(0, 3).map((p: any) => p.id)
+                              limit: 10
                             })
                           });
+                          
+                          if (!response.ok) {
+                            throw new Error('Batch sync request failed');
+                          }
+                          
                           const result = await response.json();
                           console.log('Batch sync result:', result);
                           
@@ -326,11 +330,26 @@ export default function MarketplaceOverview() {
                           queryClient.invalidateQueries({ queryKey: ['/api/marketplace/status'] });
                           queryClient.invalidateQueries({ queryKey: ['/api/products'] });
                           
-                          toast({
-                            title: '✅ Amazon Sync Test Successful!',
-                            description: `Connected successfully! Testing sync with 3 products. Batch ID: ${result.batchId}`,
-                            className: 'bg-green-50 border-green-200'
-                          });
+                          // Show appropriate message based on results
+                          if (result.failed === 0) {
+                            toast({
+                              title: '✅ Amazon Sync Successful!',
+                              description: `All ${result.successful} products synced successfully! Batch ID: ${result.batchId}`,
+                              className: 'bg-green-50 border-green-200'
+                            });
+                          } else if (result.successful > 0) {
+                            toast({
+                              title: '⚠️ Amazon Sync Partially Successful',
+                              description: `Synced ${result.successful} of ${result.processed} products. ${result.failed} failed due to rate limiting. Batch ID: ${result.batchId}`,
+                              className: 'bg-yellow-50 border-yellow-200'
+                            });
+                          } else {
+                            toast({
+                              title: 'Sync Failed',
+                              description: `All ${result.processed} products failed to sync. Please try again.`,
+                              variant: 'destructive'
+                            });
+                          }
                         } else {
                           const error = await testResponse.json();
                           console.error('Amazon authentication test failed:', error);

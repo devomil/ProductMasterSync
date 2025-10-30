@@ -88,13 +88,25 @@ export class AmazonRateLimiter {
    * @returns Promise that resolves when a token becomes available and is consumed
    */
   public async waitAndConsume(): Promise<void> {
-    const waitTime = this.getWaitTime();
-    
-    if (waitTime > 0) {
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+    // Loop until we successfully consume a token
+    while (true) {
+      this.refillBucket();
+      
+      if (this.bucket.tokens >= 1) {
+        // We have a token, consume it and return
+        this.bucket.tokens -= 1;
+        return;
+      }
+      
+      // Calculate wait time for one token
+      const timeForOneToken = (1 - this.bucket.tokens) / this.bucket.refillRate;
+      const waitTime = Math.min(Math.ceil(timeForOneToken), this.MAX_WAIT_TIME);
+      
+      // Wait for the token to become available
+      if (waitTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
-    
-    this.consumeToken();
   }
 }
 
