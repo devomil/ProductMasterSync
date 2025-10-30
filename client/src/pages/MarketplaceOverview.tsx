@@ -524,22 +524,22 @@ export default function MarketplaceOverview() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <CardTitle className="text-sm font-medium">Products in Catalog</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {marketplaces.reduce((sum, m) => sum + m.total_products, 0)}
+              {(products as any[]).length}
             </div>
             <p className="text-xs text-muted-foreground">
-              across all marketplaces
+              total products ready to sync
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Mapped Products</CardTitle>
+            <CardTitle className="text-sm font-medium">Amazon Mappings</CardTitle>
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -547,7 +547,7 @@ export default function MarketplaceOverview() {
               {marketplaces.reduce((sum, m) => sum + m.mapped_products, 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {Math.round((marketplaces.reduce((sum, m) => sum + m.mapped_products, 0) / Math.max(1, marketplaces.reduce((sum, m) => sum + m.total_products, 0))) * 100)}% completion rate
+              products with Amazon ASIN data
             </p>
           </CardContent>
         </Card>
