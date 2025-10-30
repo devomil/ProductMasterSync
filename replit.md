@@ -55,6 +55,65 @@ Preferred communication style: Simple, everyday language.
 - **Database**: Neon PostgreSQL with optimized connection pooling.
 - **Performance**: Optimized for 1 million+ products with intelligent caching and database indexes.
 
+## Deployment Best Practices
+
+### Route Module Imports
+**CRITICAL: Always use static imports for route modules.** Dynamic imports work in development (TypeScript/tsx) but fail in production because esbuild bundles everything into a single `dist/index.js` file.
+
+✅ **CORRECT - Static Imports:**
+```typescript
+import marketplaceRoutes from "./marketplace/routes";
+import purchasingRoutes from "./purchasing/routes";
+
+app.use("/api/marketplace", marketplaceRoutes);
+app.use("/api/purchasing", purchasingRoutes);
+```
+
+❌ **AVOID - Dynamic Imports:**
+```typescript
+const module = await import("./marketplace/routes");
+app.use("/api/marketplace", module.default);
+```
+
+**Why:** In production, the build process bundles all TypeScript files into one JavaScript file. Dynamic imports try to load separate files that don't exist in the bundled output, causing 404 errors and returning HTML instead of JSON.
+
+### Testing Production Builds
+Before deploying to production, test the production build locally:
+
+```bash
+npm run build        # Build production bundle (creates dist/ directory)
+npm run start        # Test production build locally
+```
+
+If it works with `npm run start`, it should work in production deployment.
+
+### Database Migration Workflow
+
+**Development to Production:**
+1. **Development**: Make schema changes in `shared/schema.ts`
+2. **Development**: Run `npm run db:push` (or `npm run db:push --force` if data-loss warnings)
+3. **Development**: Test thoroughly with development database
+4. **Production**: Deploy code to production (includes schema changes)
+5. **Production**: Use Replit Database pane → Switch to "Production" → Push schema changes
+   - Alternative: Let Drizzle auto-create tables on first use (safe for new tables)
+
+**Important:** Development and production use separate databases:
+- **Development DB**: `ep-round-bread-a6qf8xb1.us-west-2.aws.neon.tech` (US West)
+- **Production DB**: `ep-dawn-bread-ady0zk97.c-2.us-east-1.aws.neon.tech` (US East)
+
+### Preview Deployments
+Always test major changes with preview deployments first:
+1. Click **"Create preview deploy"** instead of "Approve and publish"
+2. Test all functionality in preview environment
+3. Verify API endpoints, database connections, and route loading
+4. Once confirmed → Click "Approve and publish" for production
+
+This prevents downtime and catches issues before affecting live users.
+
+### Lessons Learned
+- **October 2025**: Fixed production deployment issue where marketplace routes failed to load due to dynamic imports being incompatible with esbuild's bundling process. Solution: Converted all route module imports to static imports in `server/routes.ts`.
+- **Route Loading**: The `loadRouteModule()` helper function was removed because production builds don't support dynamic file-based module loading.
+
 # External Dependencies
 
 ## APIs and Services
