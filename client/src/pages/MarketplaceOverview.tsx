@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap, Activity, BarChart3 } from 'lucide-react';
+import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap, Activity, BarChart3, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
@@ -28,6 +28,7 @@ interface MarketplaceStatus {
 export default function MarketplaceOverview() {
   const { toast } = useToast();
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [isTestingSyncButton, setIsTestingSyncButton] = useState(false);
   
   // Use persistent auto-sync status management
   const { 
@@ -345,7 +346,9 @@ export default function MarketplaceOverview() {
                 <Button 
                   size="sm" 
                   className="bg-orange-500 hover:bg-orange-600"
+                  disabled={isTestingSyncButton}
                   onClick={async () => {
+                    setIsTestingSyncButton(true);
                     try {
                       // First test with a single UPC to verify authentication
                       const testProduct = (products as any[]).find((p: any) => p.usin || p.upc);
@@ -371,8 +374,9 @@ export default function MarketplaceOverview() {
                           const result = await response.json();
                           console.log('Batch sync result:', result);
                           toast({
-                            title: 'Amazon Sync Test Started',
-                            description: `Testing sync with 3 products. Batch ID: ${result.batchId}`,
+                            title: '✅ Amazon Sync Test Successful!',
+                            description: `Connected successfully! Testing sync with 3 products. Batch ID: ${result.batchId}`,
+                            className: 'bg-green-50 border-green-200'
                           });
                         } else {
                           const error = await testResponse.json();
@@ -391,11 +395,23 @@ export default function MarketplaceOverview() {
                         description: 'Amazon sync failed. Please check your connection and credentials.',
                         variant: 'destructive'
                       });
+                    } finally {
+                      setIsTestingSyncButton(false);
                     }
                   }}
+                  data-testid="button-test-amazon-sync"
                 >
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Test Amazon Sync
+                  {isTestingSyncButton ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Test Amazon Sync
+                    </>
+                  )}
                 </Button>
                 
                 <Button 
