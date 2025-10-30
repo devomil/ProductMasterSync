@@ -8,7 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { CheckCircle, AlertCircle, XCircle, TrendingUp, MapPin, Settings, Eye, Play, Zap, Activity, BarChart3, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'wouter';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useAutoSyncStatus } from '@/hooks/useAutoSyncStatus';
