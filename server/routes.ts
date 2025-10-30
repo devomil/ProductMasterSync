@@ -48,6 +48,10 @@ import { parse as parseCsv } from "csv-parse/sync";
 // Import connections routes
 import { registerConnectionsRoutes } from "./connections";
 
+// Import marketplace and purchasing routes
+import marketplaceRoutes from "./marketplace/routes";
+import purchasingRoutes from "./purchasing/routes";
+
 // Set up multer for file uploads
 const upload = multer({
   storage: multer.diskStorage({
@@ -254,34 +258,6 @@ async function simulateAmazonSearch(productData: any, sampleAsins: string[], mer
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
-  // Load route modules safely with error handling
-  const loadRouteModule = async (modulePath: string, routeName: string) => {
-    // Try multiple import strategies for maximum compatibility
-    const importStrategies = [
-      { name: 'with .js extension', path: `${modulePath}.js` },
-      { name: 'without extension', path: modulePath },
-      { name: 'relative path with .js', path: `.${modulePath}.js` },
-    ];
-    
-    for (const { name, path } of importStrategies) {
-      try {
-        console.log(`[Route Loader] Attempting to load ${routeName} routes (${name}: ${path})...`);
-        const module = await import(path).catch(() => null);
-        if (module && module.default) {
-          console.log(`[Route Loader] ✅ Successfully loaded ${routeName} routes using ${name}`);
-          return module;
-        }
-      } catch (error) {
-        // Silently continue to next strategy
-      }
-    }
-    
-    // All strategies failed - this is OK for optional modules
-    console.log(`[Route Loader] ⚠️  Could not load ${routeName} routes (optional module, skipping)`);
-    return null;
-  };
-
   // Suppliers API with proper pagination for million+ supplier scale
   app.get("/api/suppliers", async (req, res) => {
     try {
@@ -1671,63 +1647,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Amazon Bulk Processing Status Endpoints removed - handled by marketplace module
 
+  // Register marketplace routes (static import - works in both dev and production)
+  app.use("/api/marketplace", marketplaceRoutes);
+  console.log("✅ Marketplace routes registered");
+  
+  // Marketplace readiness statistics
+  app.get('/api/marketplace/readiness-stats', async (req, res) => {
+    try {
+      const readinessStats = await db.select({
+        totalProducts: sql`COUNT(*)`,
+        upcReady: sql`COUNT(CASE WHEN ${products.upc} IS NOT NULL AND ${products.upc} != '' THEN 1 END)`,
+        mpnReady: sql`COUNT(CASE WHEN ${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '' THEN 1 END)`,
+        bothReady: sql`COUNT(CASE WHEN ${products.upc} IS NOT NULL AND ${products.upc} != '' AND ${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '' THEN 1 END)`,
+        amazonSynced: sql`COUNT(CASE WHEN ${products.lastAmazonSync} IS NOT NULL THEN 1 END)`
+      }).from(products);
 
-
-  // Load optional route modules
-  try {
-    const marketplaceModule = await loadRouteModule("./marketplace/routes", "marketplace");
-    if (marketplaceModule?.default) {
-      app.use("/api/marketplace", marketplaceModule.default);
+      const stats = readinessStats[0];
       
-      // Marketplace readiness statistics
-      app.get('/api/marketplace/readiness-stats', async (req, res) => {
-        try {
-          const readinessStats = await db.select({
-            totalProducts: sql`COUNT(*)`,
-            upcReady: sql`COUNT(CASE WHEN ${products.upc} IS NOT NULL AND ${products.upc} != '' THEN 1 END)`,
-            mpnReady: sql`COUNT(CASE WHEN ${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '' THEN 1 END)`,
-            bothReady: sql`COUNT(CASE WHEN ${products.upc} IS NOT NULL AND ${products.upc} != '' AND ${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '' THEN 1 END)`,
-            amazonSynced: sql`COUNT(CASE WHEN ${products.lastAmazonSync} IS NOT NULL THEN 1 END)`
-          }).from(products);
-
-          const stats = readinessStats[0];
-          
-          res.json({
-            success: true,
-            stats: {
-              total: stats.totalProducts,
-              upcReady: stats.upcReady,
-              mpnReady: stats.mpnReady,
-              bothReady: stats.bothReady,
-              amazonSynced: stats.amazonSynced,
-              upcReadyPercent: Math.round((Number(stats.upcReady) / Number(stats.totalProducts)) * 100),
-              mpnReadyPercent: Math.round((Number(stats.mpnReady) / Number(stats.totalProducts)) * 100),
-              amazonSyncedPercent: Math.round((Number(stats.amazonSynced) / Number(stats.totalProducts)) * 100)
-            }
-          });
-        } catch (error) {
-          console.error('Error getting readiness stats:', error);
-          res.status(500).json({
-            success: false,
-            error: 'Failed to fetch marketplace readiness statistics'
-          });
+      res.json({
+        success: true,
+        stats: {
+          total: stats.totalProducts,
+          upcReady: stats.upcReady,
+          mpnReady: stats.mpnReady,
+          bothReady: stats.bothReady,
+          amazonSynced: stats.amazonSynced,
+          upcReadyPercent: Math.round((Number(stats.upcReady) / Number(stats.totalProducts)) * 100),
+          mpnReadyPercent: Math.round((Number(stats.mpnReady) / Number(stats.totalProducts)) * 100),
+          amazonSyncedPercent: Math.round((Number(stats.amazonSynced) / Number(stats.totalProducts)) * 100)
         }
       });
+    } catch (error) {
+      console.error('Error getting readiness stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch marketplace readiness statistics'
+      });
     }
-  } catch (error) {
-    console.warn("Marketplace routes not available:", error);
-  }
+  });
 
-  // Load purchasing AI routes
-  try {
-    const purchasingModule = await loadRouteModule("./purchasing/routes", "purchasing");
-    if (purchasingModule?.default) {
-      app.use("/api/purchasing", purchasingModule.default);
-      console.log("✅ Purchasing AI routes loaded successfully");
-    }
-  } catch (error) {
-    console.warn("Purchasing AI routes not available:", error);
-  }
+  // Register purchasing AI routes (static import - works in both dev and production)
+  app.use("/api/purchasing", purchasingRoutes);
+  console.log("✅ Purchasing AI routes registered");
 
   // Commented out to prevent conflicts with data sources CRUD operations
   // Register connections routes for test connection functionality
