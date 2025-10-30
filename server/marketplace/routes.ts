@@ -340,7 +340,7 @@ router.post('/amazon/bulk-control/:jobId', (req, res) => {
 router.post('/amazon/fetch/:productId', async (req, res) => {
   try {
     // Validate config first
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     if (!validateAmazonConfig(config)) {
       return res.status(400).json({ 
         error: 'Amazon SP-API configuration is missing. Please set the required environment variables.', 
@@ -393,7 +393,7 @@ router.post('/amazon/fetch/:productId', async (req, res) => {
 router.post('/amazon/batch-sync', async (req, res) => {
   try {
     // Validate config first
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     if (!validateAmazonConfig(config)) {
       return res.status(400).json({ 
         error: 'Amazon SP-API configuration is missing. Please set the required environment variables.', 
@@ -538,7 +538,7 @@ router.get('/amazon/scheduler/status', (req, res) => {
 router.post('/amazon/scheduler/trigger', async (req, res) => {
   try {
     // Validate config first
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     if (!validateAmazonConfig(config)) {
       return res.status(400).json({ 
         error: 'Amazon SP-API configuration is missing. Please set the required environment variables.',
@@ -580,7 +580,7 @@ router.post('/amazon/scheduler/trigger', async (req, res) => {
 router.post('/amazon/test-upc', async (req, res) => {
   try {
     // Validate config first
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     if (!validateAmazonConfig(config)) {
       return res.status(400).json({ 
         error: 'Amazon SP-API configuration is missing. Please set the required environment variables.',
@@ -877,7 +877,7 @@ router.get('/analytics/opportunities', async (req: Request, res: Response) => {
 router.post('/sync/products', async (req: Request, res: Response) => {
   try {
     // Check configuration using the new Amazon utils
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     const isValid = validateAmazonConfig(config);
     
     if (!isValid) {
@@ -1638,11 +1638,10 @@ router.get('/amazon/market-intelligence/:productId', async (req, res) => {
     const { 
       getCatalogItem, 
       getBuyBoxPricing, 
-      getListingRestrictions,
-      getAmazonConfig 
+      getListingRestrictions
     } = await import('../utils/amazon-spapi');
     
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     const asins = asinMappings.map(m => m.asin);
     
     // Fetch buy box pricing for all ASINs

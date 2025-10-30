@@ -8,7 +8,8 @@
  * - AI-ready profitability analysis
  */
 
-import { searchCatalogItemsByUPC, getAmazonConfig } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { amazonRateLimiter } from '../utils/rate-limiter';
 import { db } from '../db';
 import { 
@@ -131,7 +132,7 @@ export async function searchAmazonProduct(productId: number): Promise<AmazonSear
  */
 async function searchByUPC(upc: string, lookupId: number): Promise<AmazonSearchResult> {
   try {
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     await amazonRateLimiter.waitAndConsume();
     
     const catalogItems = await searchCatalogItemsByUPC(upc, config);
@@ -166,7 +167,7 @@ async function searchByUPC(upc: string, lookupId: number): Promise<AmazonSearchR
  */
 async function searchByManufacturerPart(partNumber: string, productName: string, lookupId: number): Promise<AmazonSearchResult> {
   try {
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     await amazonRateLimiter.waitAndConsume();
     
     // Try exact part number match first
@@ -208,7 +209,7 @@ async function searchByManufacturerPart(partNumber: string, productName: string,
  */
 async function searchByIntelligentKeywords(productName: string, brand: string, lookupId: number): Promise<AmazonSearchResult> {
   try {
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     
     // Clean and optimize search terms
     const cleanName = productName

@@ -8,7 +8,8 @@
 import { db } from '../db';
 import { eq, and, isNull, lt, desc, sql, inArray } from 'drizzle-orm';
 import { products, amazonAsins, amazonMarketIntelligence, productAsinMapping } from '../../shared/schema';
-import { searchCatalogItemsByUPC, getAmazonConfig } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { amazonRateLimiter } from '../utils/rate-limiter';
 import { 
   saveAmazonAsin, 
@@ -186,7 +187,7 @@ export class AIPurchasingEngine {
     if (product.upc) {
       try {
         await amazonRateLimiter.waitAndConsume();
-        const config = getAmazonConfig();
+        const config = await getAmazonConfigFromDb();
         const catalogItems = await searchCatalogItemsByUPC(product.upc, config);
         
         for (const item of catalogItems) {

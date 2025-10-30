@@ -13,6 +13,7 @@
 import { SellingPartnerApiAuth } from '@sp-api-sdk/auth';
 import { CatalogItemsApiClient } from '@sp-api-sdk/catalog-items-api-2022-04-01';
 import { createAsinRecord, saveAmazonMarketData } from './repository';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 
 /**
  * Dynamic Rate Limiter using Amazon's response headers
@@ -89,23 +90,24 @@ interface AmazonConfig {
 }
 
 /**
- * Get Amazon SP-API configuration from environment
+ * Get Amazon SP-API configuration from database first, then environment fallback
  */
-function getAmazonConfig(): AmazonConfig {
+async function getAmazonConfig(): Promise<AmazonConfig> {
+  const dbConfig = await getAmazonConfigFromDb();
   return {
-    clientId: process.env.AMAZON_SP_API_CLIENT_ID || '',
-    clientSecret: process.env.AMAZON_SP_API_CLIENT_SECRET || '',
-    refreshToken: process.env.AMAZON_SP_API_REFRESH_TOKEN || '',
+    clientId: dbConfig.clientId,
+    clientSecret: dbConfig.clientSecret,
+    refreshToken: dbConfig.refreshToken,
     region: 'na',
-    marketplaceId: 'ATVPDKIKX0DER' // US marketplace
+    marketplaceId: dbConfig.marketplaceId || 'ATVPDKIKX0DER' // US marketplace
   };
 }
 
 /**
  * Create authenticated SP-API client
  */
-function createSpApiClient(): CatalogItemsApiClient {
-  const config = getAmazonConfig();
+async function createSpApiClient(): Promise<CatalogItemsApiClient> {
+  const config = await getAmazonConfig();
   
   const auth = new SellingPartnerApiAuth({
     clientId: config.clientId,
@@ -124,8 +126,8 @@ function createSpApiClient(): CatalogItemsApiClient {
  * Search Amazon catalog by UPC with comprehensive data and rate limiting
  */
 export async function searchCatalogItemsByUPC(upc: string): Promise<any[]> {
-  const client = createSpApiClient();
-  const config = getAmazonConfig();
+  const client = await createSpApiClient();
+  const config = await getAmazonConfig();
   
   try {
     console.log(`Searching Amazon catalog for UPC: ${upc}`);
@@ -180,8 +182,8 @@ export async function searchCatalogItemsByUPC(upc: string): Promise<any[]> {
  * Get detailed catalog item data by ASIN with rate limiting
  */
 export async function getCatalogItem(asin: string): Promise<any | null> {
-  const client = createSpApiClient();
-  const config = getAmazonConfig();
+  const client = await createSpApiClient();
+  const config = await getAmazonConfig();
   
   try {
     console.log(`Getting detailed data for ASIN: ${asin}`);

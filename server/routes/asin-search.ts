@@ -6,7 +6,8 @@
  */
 
 import { Request, Response } from 'express';
-import { searchProductMultipleWays, searchByManufacturerNumber, searchCatalogItemsByUPC, getAmazonConfig } from '../utils/amazon-spapi';
+import { searchProductMultipleWays, searchByManufacturerNumber, searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 
 /**
  * Search for multiple ASINs using UPC and manufacturer number
@@ -114,7 +115,7 @@ export async function searchByUPC(req: Request, res: Response) {
       });
     }
 
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     const results = await searchCatalogItemsByUPC(upc, config);
 
     const asins = results.map(item => ({

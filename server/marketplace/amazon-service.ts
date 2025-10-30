@@ -13,7 +13,8 @@ import {
   createAsinRecord
 } from './repository';
 import { amazonRateLimiter } from '../utils/rate-limiter';
-import { searchCatalogItemsByUPC, getAmazonConfig } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { InsertAmazonSyncLog } from '@shared/schema';
 
 /**
@@ -23,7 +24,7 @@ import { InsertAmazonSyncLog } from '@shared/schema';
  */
 export async function fetchAmazonDataByUpc(productId: number, upc: string) {
   const startTime = Date.now();
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigFromDb();
   let syncLog: any = {
     product_id: productId,
     upc: upc,

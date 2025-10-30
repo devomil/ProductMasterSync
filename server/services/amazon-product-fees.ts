@@ -6,7 +6,7 @@
  */
 
 import axios from 'axios';
-import { getAmazonConfig } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 
 interface FeeEstimateRequest {
   asin: string;
@@ -41,7 +41,7 @@ async function getAccessToken(): Promise<string> {
     return tokenCache.access_token;
   }
 
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigFromDb();
   
   try {
     const response = await axios.post('https://api.amazon.com/auth/o2/token', {
@@ -68,7 +68,7 @@ async function getAccessToken(): Promise<string> {
  * Get fee estimate for a product by ASIN
  */
 export async function getProductFees(request: FeeEstimateRequest): Promise<AmazonFeesResponse> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigFromDb();
   const accessToken = await getAccessToken();
 
   try {

@@ -68,7 +68,7 @@ async function getAccessToken(config: SPAPIConfig): Promise<string> {
  * Search catalog items by UPC (alias for compatibility)
  */
 export async function searchAmazonCatalog(upc: string): Promise<any[]> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   return searchCatalogItemsByUPC(upc, config);
 }
 
@@ -258,9 +258,13 @@ export function extractMarketData(item: any): any {
 }
 
 /**
- * Load Amazon SP-API configuration from environment variables
+ * Load Amazon SP-API configuration from database first, then environment variables
+ * @deprecated Use getAmazonConfigAsync() for async contexts - this sync version loads from env vars only
  */
 export function getAmazonConfig(): SPAPIConfig {
+  // NOTE: This synchronous function can only read from environment variables
+  // For database-first config loading, use getAmazonConfigAsync() instead
+  console.warn('[Amazon Config] Using synchronous getAmazonConfig() - consider using getAmazonConfigAsync() for DB support');
   return {
     clientId: process.env.AMAZON_SP_API_CLIENT_ID || '',
     clientSecret: process.env.AMAZON_SP_API_CLIENT_SECRET || '',
@@ -268,6 +272,15 @@ export function getAmazonConfig(): SPAPIConfig {
     marketplaceId: process.env.AMAZON_SP_API_MARKETPLACE_ID || 'ATVPDKIKX0DER', // Default US marketplace
     endpoint: process.env.AMAZON_SP_API_ENDPOINT || 'https://sellingpartnerapi-na.amazon.com'
   };
+}
+
+/**
+ * Load Amazon SP-API configuration from database first, then fallback to environment variables
+ * This is the PREFERRED way to get Amazon config
+ */
+export async function getAmazonConfigAsync(): Promise<SPAPIConfig> {
+  const { getAmazonConfigFromDb } = await import('./get-amazon-config-from-db');
+  return getAmazonConfigFromDb();
 }
 
 /**
@@ -287,7 +300,7 @@ export function validateAmazonConfig(config: SPAPIConfig): boolean {
  * Search catalog items by keywords
  */
 export async function searchCatalogItemsByKeywords(keywords: string): Promise<any> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   
   if (!validateAmazonConfig(config)) {
     throw new Error('Invalid Amazon SP-API configuration');
@@ -331,7 +344,7 @@ export async function searchCatalogItemsByKeywords(keywords: string): Promise<an
  * Get pricing information including buy box pricing using SP-API Product Pricing API
  */
 export async function getPricing(asins: string[]): Promise<any[]> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   const accessToken = await getAccessToken(config);
   const results = [];
   const batchSize = 20;
@@ -381,7 +394,7 @@ export async function getPricing(asins: string[]): Promise<any[]> {
  * Get competitive pricing information for ASINs using SP-API Product Pricing API
  */
 export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   const accessToken = await getAccessToken(config);
   const results = [];
   const batchSize = 20;
@@ -431,7 +444,7 @@ export async function getCompetitivePricing(asins: string[]): Promise<any[]> {
  * Get item offers (lowest priced offers) for ASINs using SP-API
  */
 export async function getItemOffers(asins: string[]): Promise<any[]> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   
   if (!validateAmazonConfig(config)) {
     throw new Error('Amazon SP-API configuration is invalid');
@@ -476,7 +489,7 @@ export async function getItemOffers(asins: string[]): Promise<any[]> {
  * Uses v0 Pricing API with OAuth-only authentication
  */
 export async function getBuyBoxPricing(asins: string[]): Promise<any[]> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   
   if (!validateAmazonConfig(config)) {
     throw new Error('Amazon SP-API configuration is invalid');
@@ -632,7 +645,7 @@ export async function getListingRestrictions(asin: string, marketplaceId: string
   error?: string;
   lastChecked: Date;
 }> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   
   if (!validateAmazonConfig(config)) {
     throw new Error('Amazon SP-API configuration is invalid');
@@ -692,7 +705,7 @@ export async function getListingRestrictions(asin: string, marketplaceId: string
  * Search for products by manufacturer number using SP-API Catalog Items API
  */
 export async function searchByManufacturerNumber(manufacturerNumber: string): Promise<any[]> {
-  const config = getAmazonConfig();
+  const config = await getAmazonConfigAsync();
   
   if (!validateAmazonConfig(config)) {
     throw new Error('Amazon SP-API configuration is invalid');
@@ -735,7 +748,7 @@ export async function searchProductMultipleWays(upc: string, manufacturerNumber?
   // Search by UPC first
   if (upc) {
     try {
-      const config = getAmazonConfig();
+      const config = await getAmazonConfigAsync();
       const upcResults = await searchCatalogItemsByUPC(upc, config);
       results.push(...upcResults);
     } catch (error) {

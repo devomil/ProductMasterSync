@@ -8,7 +8,8 @@
  */
 
 import { Router } from 'express';
-import { searchCatalogItemsByUPC, getAmazonConfig } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { amazonRateLimiter } from '../utils/rate-limiter';
 import { db } from '../db';
 import { products } from '../../shared/schema';
@@ -245,7 +246,7 @@ router.post('/batch-process', async (req, res) => {
  */
 async function performUPCSearch(upc: string, lookupId: number): Promise<any[]> {
   try {
-    const config = getAmazonConfig();
+    const config = await getAmazonConfigFromDb();
     await amazonRateLimiter.waitAndConsume();
     
     const catalogItems = await searchCatalogItemsByUPC(upc, config);
