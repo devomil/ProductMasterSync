@@ -79,63 +79,10 @@ export default function MarketplaceOverview() {
     enabled: !!isAutoSyncEnabled
   });
 
-  // Fetch marketplace status data using real product catalog information
+  // Fetch marketplace status data from API (real-time statistics from database)
   const { data: marketplaces = [] } = useQuery({
     queryKey: ['/api/marketplace/status'],
-    queryFn: async () => {
-      // Calculate real marketplace status based on product catalog and current sync job
-      const totalProducts = products.length;
-      const productsWithUPC = products.filter((p: any) => p.usin || p.upc).length;
-      const productsWithASIN = products.filter((p: any) => p.usin).length;
-      
-      // Get current sync progress from bulk job status or calculate from actual data
-      const currentMappedProducts = bulkJobStatus?.successfulSyncs || amazonSyncStats?.totalMapped || productsWithASIN;
-      const apiCallsToday = bulkJobStatus?.processedCount || amazonSyncStats?.apiCallsToday || 0;
-      
-      return [
-        {
-          name: 'Amazon',
-          status: amazonConfig?.configValid ? 'connected' : 'error',
-          last_sync: lastCompletedTime || new Date().toISOString(),
-          total_products: totalProducts,
-          mapped_products: currentMappedProducts,
-          mapping_rules: 12,
-          api_calls_today: apiCallsToday,
-          error_rate: amazonConfig?.configValid ? 2.1 : 50.0
-        },
-        {
-          name: 'Walmart',
-          status: 'disconnected',
-          last_sync: null,
-          total_products: 0,
-          mapped_products: 0,
-          mapping_rules: 0,
-          api_calls_today: 0,
-          error_rate: 0
-        },
-        {
-          name: 'eBay',
-          status: 'disconnected',
-          last_sync: null,
-          total_products: 0,
-          mapped_products: 0,
-          mapping_rules: 0,
-          api_calls_today: 0,
-          error_rate: 0
-        },
-        {
-          name: 'Newegg',
-          status: 'disconnected',
-          last_sync: null,
-          total_products: 0,
-          mapped_products: 0,
-          mapping_rules: 0,
-          api_calls_today: 0,
-          error_rate: 0
-        }
-      ] as MarketplaceStatus[];
-    },
-    enabled: !!products && !!amazonConfig
+    refetchInterval: 5000, // Refresh every 5 seconds to show live updates
   });
 
   const getStatusIcon = (status: string) => {
@@ -374,6 +321,11 @@ export default function MarketplaceOverview() {
                           });
                           const result = await response.json();
                           console.log('Batch sync result:', result);
+                          
+                          // Invalidate cache to refresh statistics immediately
+                          queryClient.invalidateQueries({ queryKey: ['/api/marketplace/status'] });
+                          queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+                          
                           toast({
                             title: '✅ Amazon Sync Test Successful!',
                             description: `Connected successfully! Testing sync with 3 products. Batch ID: ${result.batchId}`,
