@@ -86,10 +86,11 @@ export default function MarketplaceOverview() {
       // Calculate real marketplace status based on product catalog and current sync job
       const totalProducts = products.length;
       const productsWithUPC = products.filter((p: any) => p.usin || p.upc).length;
+      const productsWithASIN = products.filter((p: any) => p.usin).length;
       
-      // Get current sync progress from bulk job status
-      const currentMappedProducts = bulkJobStatus?.successfulSyncs || amazonSyncStats?.totalMapped || 1326;
-      const apiCallsToday = bulkJobStatus?.processedCount || amazonSyncStats?.apiCallsToday || 1240;
+      // Get current sync progress from bulk job status or calculate from actual data
+      const currentMappedProducts = bulkJobStatus?.successfulSyncs || amazonSyncStats?.totalMapped || productsWithASIN;
+      const apiCallsToday = bulkJobStatus?.processedCount || amazonSyncStats?.apiCallsToday || 0;
       
       return [
         {
