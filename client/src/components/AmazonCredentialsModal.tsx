@@ -21,6 +21,7 @@ export default function AmazonCredentialsModal({ open, onOpenChange }: AmazonCre
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
+  const [sellerId, setSellerId] = useState('');
   const [showSecrets, setShowSecrets] = useState(false);
 
   const saveCredentialsMutation = useMutation({
@@ -41,6 +42,7 @@ export default function AmazonCredentialsModal({ open, onOpenChange }: AmazonCre
       setClientId('');
       setClientSecret('');
       setRefreshToken('');
+      setSellerId('');
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -55,7 +57,7 @@ export default function AmazonCredentialsModal({ open, onOpenChange }: AmazonCre
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!clientId || !clientSecret || !refreshToken) {
+    if (!clientId || !clientSecret || !refreshToken || !sellerId) {
       toast({
         title: 'Missing Information',
         description: 'Please fill in all required fields.',
@@ -69,6 +71,7 @@ export default function AmazonCredentialsModal({ open, onOpenChange }: AmazonCre
       clientId,
       clientSecret,
       refreshToken,
+      sellerId,
       marketplaceId: 'ATVPDKIKX0DER',  // US marketplace
       endpoint: 'https://sellingpartnerapi-na.amazon.com',
       isActive: true
@@ -97,6 +100,7 @@ export default function AmazonCredentialsModal({ open, onOpenChange }: AmazonCre
                     <li>Click "Develop apps" and create a new app (or select existing)</li>
                     <li>Under "LWA Credentials", copy your Client ID and Client Secret</li>
                     <li>Click "Authorize" and follow the OAuth flow to get your Refresh Token</li>
+                    <li>Find your Seller ID in <a href="https://sellercentral.amazon.com/sw/AccountInfo/SellerProfileView/step/View" target="_blank" rel="noopener noreferrer" className="underline font-medium">Account Info</a> under "Merchant Token"</li>
                   </ol>
                 </div>
               </AlertDescription>
@@ -158,6 +162,21 @@ export default function AmazonCredentialsModal({ open, onOpenChange }: AmazonCre
                   className="pr-10"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sellerId">Seller ID / Merchant Token *</Label>
+              <Input
+                id="sellerId"
+                value={sellerId}
+                onChange={(e) => setSellerId(e.target.value)}
+                placeholder="A10D4VTYI7RMZ2"
+                required
+                data-testid="input-amazon-seller-id"
+              />
+              <p className="text-xs text-muted-foreground">
+                Also known as "Merchant Token" - find this in your Account Info
+              </p>
             </div>
 
             {saveCredentialsMutation.isError && (
