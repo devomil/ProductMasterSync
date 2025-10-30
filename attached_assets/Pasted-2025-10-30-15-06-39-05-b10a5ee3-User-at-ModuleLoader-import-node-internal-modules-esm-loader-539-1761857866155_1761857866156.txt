@@ -1,0 +1,192 @@
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at ModuleLoader.import (node:internal/modules/esm/loader:539:34)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:221:31)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at importModuleDynamicallyCallback (node:internal/modules/esm/utils:260:12) {
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+url: 'file:///home/runner/workspace/dist/marketplace/routes.js'
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+}
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+❌ Failed to load purchasing routes from ./purchasing/routes: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/workspace/dist/purchasing/routes.js' imported from /home/runner/workspace/dist/index.js
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:642:12)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:591:25)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:574:38)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:236:38)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at ModuleLoader.import (node:internal/modules/esm/loader:539:34)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:221:31)
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+at importModuleDynamicallyCallback (node:internal/modules/esm/utils:260:12) {
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+url: 'file:///home/runner/workspace/dist/purchasing/routes.js'
+2025-10-30 15:06:39.05
+b10a5ee3
+User
+}
+2025-10-30 15:14:23.87
+63fe97d5
+User
+❌ Failed to load marketplace routes from ./marketplace/routes: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/workspace/dist/marketplace/routes.js' imported from /home/runner/workspace/dist/index.js
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:642:12)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:591:25)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:574:38)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:236:38)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.import (node:internal/modules/esm/loader:539:34)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:221:31)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at importModuleDynamicallyCallback (node:internal/modules/esm/utils:260:12) {
+2025-10-30 15:14:23.87
+63fe97d5
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2025-10-30 15:14:23.87
+63fe97d5
+User
+url: 'file:///home/runner/workspace/dist/marketplace/routes.js'
+2025-10-30 15:14:23.87
+63fe97d5
+User
+}
+2025-10-30 15:14:23.87
+63fe97d5
+User
+❌ Failed to load purchasing routes from ./purchasing/routes: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/runner/workspace/dist/purchasing/routes.js' imported from /home/runner/workspace/dist/index.js
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:642:12)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:591:25)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:574:38)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:236:38)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.import (node:internal/modules/esm/loader:539:34)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:221:31)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at importModuleDynamicallyCallback (node:internal/modules/esm/utils:260:12) {
+2025-10-30 15:14:23.87
+63fe97d5
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2025-10-30 15:14:23.87
+63fe97d5
+User
+url: 'file:///home/runner/workspace/dist/purchasing/routes.js'
+2025-10-30 15:14:23.87
+63fe97d5
+User
+}
