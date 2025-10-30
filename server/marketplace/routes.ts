@@ -163,17 +163,23 @@ router.get('/status', async (req, res) => {
     const config = await getAmazonConfigFromDb();
     const isValid = validateDbConfig(config);
     
-    // Get today's API call count from sync logs
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const apiCallsResult = await db.execute(sql`
-      SELECT COUNT(*) as api_calls
-      FROM amazon_sync_log
-      WHERE created_at >= ${today.toISOString()}
-    `);
-    
-    const apiCallsToday = parseInt((apiCallsResult.rows[0] as any)?.api_calls || '0');
+    // Get today's API call count from sync logs (if table exists)
+    let apiCallsToday = 0;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const apiCallsResult = await db.execute(sql`
+        SELECT COUNT(*) as api_calls
+        FROM amazon_sync_log
+        WHERE created_at >= ${today.toISOString()}
+      `);
+      
+      apiCallsToday = parseInt((apiCallsResult.rows[0] as any)?.api_calls || '0');
+    } catch (error) {
+      // Table doesn't exist yet, use 0
+      console.log('amazon_sync_log table not found, using 0 for API calls');
+    }
     
     return res.json([
       {
