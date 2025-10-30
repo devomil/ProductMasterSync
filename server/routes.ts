@@ -257,20 +257,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Load route modules safely with error handling
   const loadRouteModule = async (modulePath: string, routeName: string) => {
-    try {
-      // Use URL-based resolution for proper ESM module loading in both dev and production
-      // This handles the .js extension requirement in production builds
-      const moduleUrl = new URL(`${modulePath}.js`, import.meta.url);
-      
-      console.log(`[Route Loader] Loading ${routeName} routes from: ${moduleUrl.href}`);
-      const module = await import(moduleUrl.href);
-      console.log(`[Route Loader] ✅ Successfully loaded ${routeName} routes`);
-      return module;
-    } catch (error) {
-      console.error(`[Route Loader] ❌ Failed to load ${routeName} routes from ${modulePath}:`, error);
-      console.error(`[Route Loader] Error details:`, error instanceof Error ? error.message : error);
-      return null;
+    // Try multiple import strategies for maximum compatibility
+    const importStrategies = [
+      // Strategy 1: Direct import with .js extension (production)
+      async () => await import(`${modulePath}.js`),
+      // Strategy 2: Direct import without extension (development)  
+      async () => await import(modulePath),
+      // Strategy 3: Relative import with .js extension
+      async () => await import(`.${modulePath}.js`),
+    ];
+    
+    for (const strategy of importStrategies) {
+      try {
+        console.log(`[Route Loader] Attempting to load ${routeName} routes...`);
+        const module = await strategy();
+        console.log(`[Route Loader] ✅ Successfully loaded ${routeName} routes`);
+        return module;
+      } catch (error) {
+        // Continue to next strategy
+        continue;
+      }
     }
+    
+    // All strategies failed
+    console.error(`[Route Loader] ❌ Failed to load ${routeName} routes from ${modulePath} using all strategies`);
+    return null;
   };
 
   // Suppliers API with proper pagination for million+ supplier scale
