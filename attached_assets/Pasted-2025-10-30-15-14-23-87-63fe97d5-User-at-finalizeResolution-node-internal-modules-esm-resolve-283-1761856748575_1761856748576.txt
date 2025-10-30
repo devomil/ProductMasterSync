@@ -1,0 +1,136 @@
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at moduleResolve (node:internal/modules/esm/resolve:952:10)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:642:12)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at #cachedDefaultResolve (node:internal/modules/esm/loader:591:25)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.resolve (node:internal/modules/esm/loader:574:38)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:236:38)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at ModuleLoader.import (node:internal/modules/esm/loader:539:34)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:221:31)
+2025-10-30 15:14:23.87
+63fe97d5
+User
+at importModuleDynamicallyCallback (node:internal/modules/esm/utils:260:12) {
+2025-10-30 15:14:23.87
+63fe97d5
+User
+code: 'ERR_MODULE_NOT_FOUND',
+2025-10-30 15:14:23.87
+63fe97d5
+User
+url: 'file:///home/runner/workspace/dist/purchasing/routes.js'
+2025-10-30 15:14:23.87
+63fe97d5
+User
+}
+2025-10-30 15:14:24.69
+b10a5ee3
+User
+8:14:24 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:14:39.07
+b10a5ee3
+User
+[2025-10-30T20:14:39.076Z] [automation] Checking automations at 20:14:39 (20:14) - found 1 automation(s)
+2025-10-30 15:15:15.33
+63fe97d5
+User
+8:15:15 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:15:20.43
+63fe97d5
+User
+8:15:20 PM [express] GET /api/marketplace/status 304 in 3ms
+2025-10-30 15:15:23.88
+63fe97d5
+User
+[2025-10-30T20:15:23.882Z] [automation] Checking automations at 20:15:23 (20:15) - found 1 automation(s)
+2025-10-30 15:15:25.50
+63fe97d5
+User
+8:15:25 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:15:30.54
+63fe97d5
+User
+8:15:30 PM [express] GET /api/marketplace/status 304 in 2ms
+2025-10-30 15:15:35.60
+63fe97d5
+User
+8:15:35 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:15:39.10
+b10a5ee3
+User
+[2025-10-30T20:15:39.107Z] [automation] Checking automations at 20:15:39 (20:15) - found 1 automation(s)
+2025-10-30 15:15:40.64
+63fe97d5
+User
+8:15:40 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:15:45.83
+63fe97d5
+User
+8:15:45 PM [express] GET /api/marketplace/status 304 in 2ms
+2025-10-30 15:15:50.88
+63fe97d5
+User
+8:15:50 PM [express] GET /api/marketplace/status 304 in 2ms
+2025-10-30 15:15:55.95
+63fe97d5
+User
+8:15:55 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:16:01.01
+63fe97d5
+User
+8:16:01 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:16:06.09
+63fe97d5
+User
+8:16:06 PM [express] GET /api/marketplace/status 304 in 3ms
+2025-10-30 15:16:11.13
+63fe97d5
+User
+8:16:11 PM [express] GET /api/marketplace/status 304 in 4ms
+2025-10-30 15:16:16.21
+63fe97d5
+User
+8:16:16 PM [express] GET /api/marketplace/status 304 in 2ms
+2025-10-30 15:16:21.27
+63fe97d5
+User
+8:16:21 PM [express] GET /api/marketplace/status 304 in 3ms
+2025-10-30 15:16:23.88
+63fe97d5
+User
+[2025-10-30T20:16:23.884Z] [automation] Checking automations at 20:16:23 (20:16) - found 1 automation(s)
+2025-10-30 15:16:26.34
+63fe97d5
+User
+8:16:26 PM [express] GET /api/marketplace/status 304 in 1ms
+2025-10-30 15:16:31.42
+63fe97d5
+User
+8:16:31 PM [express] GET /api/marketplace/status 304 in 1ms

@@ -259,28 +259,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const loadRouteModule = async (modulePath: string, routeName: string) => {
     // Try multiple import strategies for maximum compatibility
     const importStrategies = [
-      // Strategy 1: Direct import with .js extension (production)
-      async () => await import(`${modulePath}.js`),
-      // Strategy 2: Direct import without extension (development)  
-      async () => await import(modulePath),
-      // Strategy 3: Relative import with .js extension
-      async () => await import(`.${modulePath}.js`),
+      { name: 'with .js extension', path: `${modulePath}.js` },
+      { name: 'without extension', path: modulePath },
+      { name: 'relative path with .js', path: `.${modulePath}.js` },
     ];
     
-    for (const strategy of importStrategies) {
+    for (const { name, path } of importStrategies) {
       try {
-        console.log(`[Route Loader] Attempting to load ${routeName} routes...`);
-        const module = await strategy();
-        console.log(`[Route Loader] ✅ Successfully loaded ${routeName} routes`);
-        return module;
+        console.log(`[Route Loader] Attempting to load ${routeName} routes (${name}: ${path})...`);
+        const module = await import(path).catch(() => null);
+        if (module && module.default) {
+          console.log(`[Route Loader] ✅ Successfully loaded ${routeName} routes using ${name}`);
+          return module;
+        }
       } catch (error) {
-        // Continue to next strategy
-        continue;
+        // Silently continue to next strategy
       }
     }
     
-    // All strategies failed
-    console.error(`[Route Loader] ❌ Failed to load ${routeName} routes from ${modulePath} using all strategies`);
+    // All strategies failed - this is OK for optional modules
+    console.log(`[Route Loader] ⚠️  Could not load ${routeName} routes (optional module, skipping)`);
     return null;
   };
 
