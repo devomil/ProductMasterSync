@@ -1,0 +1,188 @@
+25-10-30 16:16:00.21
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:00.27
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:00.31
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:00.31
+597a4300
+User
+9:16:00 PM [express] GET /api/marketplace/status 200 in 270ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:05.53
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:05.60
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:05.63
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:05.63
+597a4300
+User
+9:16:05 PM [express] GET /api/marketplace/status 200 in 269ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:10.85
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:10.91
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:10.95
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:10.95
+597a4300
+User
+9:16:10 PM [express] GET /api/marketplace/status 200 in 269ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:16.18
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:16.24
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:16.28
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:16.28
+597a4300
+User
+9:16:16 PM [express] GET /api/marketplace/status 200 in 270ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:18.36
+f1209b6e
+User
+[2025-10-30T21:16:18.366Z] [automation] Checking automations at 21:16:18 (21:16) - found 1 automation(s)
+2025-10-30 16:16:21.48
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:21.55
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:21.58
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:21.58
+597a4300
+User
+9:16:21 PM [express] GET /api/marketplace/status 200 in 261ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:26.81
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:26.88
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:26.91
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:26.91
+597a4300
+User
+9:16:26 PM [express] GET /api/marketplace/status 200 in 267ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:32.13
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:32.20
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:32.23
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:32.23
+597a4300
+User
+9:16:32 PM [express] GET /api/marketplace/status 200 in 271ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:33.76
+597a4300
+User
+[2025-10-30T21:16:33.765Z] [automation] Checking automations at 21:16:33 (21:16) - found 1 automation(s)
+2025-10-30 16:16:37.44
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:37.50
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:37.53
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:37.54
+597a4300
+User
+9:16:37 PM [express] GET /api/marketplace/status 200 in 264ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:42.75
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:42.93
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:42.96
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:42.96
+597a4300
+User
+9:16:42 PM [express] GET /api/marketplace/status 200 in 375ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:48.22
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:48.41
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:48.44
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:48.44
+597a4300
+User
+9:16:48 PM [express] GET /api/marketplace/status 200 in 400ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:53.71
+597a4300
+User
+Database connected successfully
+2025-10-30 16:16:53.77
+597a4300
+User
+[Amazon Config] Using environment variable credentials
+2025-10-30 16:16:53.80
+597a4300
+User
+amazon_sync_log table not found, using 0 for API calls
+2025-10-30 16:16:53.81
+597a4300
+User
+9:16:53 PM [express] GET /api/marketplace/status 200 in 260ms :: [{"name":"Amazon","status":"connect…
+2025-10-30 16:16:59.02
+597a4300
+User
+Database connected successfully
