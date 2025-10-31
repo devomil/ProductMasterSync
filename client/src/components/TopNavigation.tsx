@@ -109,26 +109,6 @@ const TopNavigation = () => {
                     Categories
                   </Link>
                 </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Link to="/amazon-integration" className="flex items-center gap-2 w-full">
-                    <ShoppingCart className="h-4 w-4" />
-                    Amazon Integration
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/multi-asin" className="flex items-center gap-2 w-full">
-                    <Zap className="h-4 w-4" />
-                    Multi-ASIN Search
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/amazon-scaling-progress" className="flex items-center gap-2 w-full">
-                    <BarChart3 className="h-4 w-4" />
-                    Amazon Progress Monitor
-                  </Link>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
