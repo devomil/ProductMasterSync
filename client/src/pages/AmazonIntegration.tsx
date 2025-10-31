@@ -65,9 +65,13 @@ export default function AmazonIntegration() {
             Connect your product catalog with Amazon's Selling Partner API
           </p>
         </div>
-        <Button variant="outline">
+        <Button 
+          variant="outline"
+          onClick={() => setActiveTab('sync')}
+          data-testid="button-settings"
+        >
           <Settings className="mr-2 h-4 w-4" />
-          Settings
+          API Settings
         </Button>
       </div>
 
