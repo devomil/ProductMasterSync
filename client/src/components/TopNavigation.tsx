@@ -282,24 +282,102 @@ const TopNavigation = () => {
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                <DropdownMenuItem>
-                  <Link to="/marketplaces/walmart" className="flex items-center gap-2 w-full">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
                     <Package className="h-4 w-4" />
-                    Walmart
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/marketplaces/ebay" className="flex items-center gap-2 w-full">
+                    <span>Walmart</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/walmart" className="flex items-center gap-2 w-full">
+                        <Package className="h-4 w-4" />
+                        Overview
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/walmart/integration" className="flex items-center gap-2 w-full">
+                        <LinkIcon className="h-4 w-4" />
+                        Integration
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/walmart/product-sync" className="flex items-center gap-2 w-full">
+                        <Activity className="h-4 w-4" />
+                        Product Sync
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/walmart/analytics" className="flex items-center gap-2 w-full">
+                        <BarChart3 className="h-4 w-4" />
+                        Analytics
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
                     <Package className="h-4 w-4" />
-                    eBay
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/marketplaces/newegg" className="flex items-center gap-2 w-full">
+                    <span>eBay</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/ebay" className="flex items-center gap-2 w-full">
+                        <Package className="h-4 w-4" />
+                        Overview
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/ebay/integration" className="flex items-center gap-2 w-full">
+                        <LinkIcon className="h-4 w-4" />
+                        Integration
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/ebay/product-sync" className="flex items-center gap-2 w-full">
+                        <Activity className="h-4 w-4" />
+                        Product Sync
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/ebay/analytics" className="flex items-center gap-2 w-full">
+                        <BarChart3 className="h-4 w-4" />
+                        Analytics
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
                     <Package className="h-4 w-4" />
-                    Newegg
-                  </Link>
-                </DropdownMenuItem>
+                    <span>Newegg</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/newegg" className="flex items-center gap-2 w-full">
+                        <Package className="h-4 w-4" />
+                        Overview
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/newegg/integration" className="flex items-center gap-2 w-full">
+                        <LinkIcon className="h-4 w-4" />
+                        Integration
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/newegg/product-sync" className="flex items-center gap-2 w-full">
+                        <Activity className="h-4 w-4" />
+                        Product Sync
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/newegg/analytics" className="flex items-center gap-2 w-full">
+                        <BarChart3 className="h-4 w-4" />
+                        Analytics
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               </DropdownMenuContent>
             </DropdownMenu>
 

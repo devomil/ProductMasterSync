@@ -113,7 +113,114 @@ function Router() {
           <AmazonScalingProgress />
         </Suspense>
       )} />
+      
+      {/* Walmart Marketplace Routes */}
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />
+      <Route path="/marketplaces/walmart/integration" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Walmart Integration</h1>
+            <p className="text-muted-foreground">Configure your Walmart Marketplace API credentials and settings.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/walmart/product-sync" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Walmart Product Sync</h1>
+            <p className="text-muted-foreground">Sync your products to Walmart Marketplace.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/walmart/analytics" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Walmart Analytics</h1>
+            <p className="text-muted-foreground">View performance metrics and insights for your Walmart listings.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      
+      {/* eBay Marketplace Routes */}
+      <Route path="/marketplaces/ebay" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">eBay Marketplace</h1>
+            <p className="text-muted-foreground">Manage your eBay marketplace integration.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/ebay/integration" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">eBay Integration</h1>
+            <p className="text-muted-foreground">Configure your eBay API credentials and settings.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/ebay/product-sync" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">eBay Product Sync</h1>
+            <p className="text-muted-foreground">Sync your products to eBay.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/ebay/analytics" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">eBay Analytics</h1>
+            <p className="text-muted-foreground">View performance metrics and insights for your eBay listings.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      
+      {/* Newegg Marketplace Routes */}
+      <Route path="/marketplaces/newegg" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Newegg Marketplace</h1>
+            <p className="text-muted-foreground">Manage your Newegg marketplace integration.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/newegg/integration" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Newegg Integration</h1>
+            <p className="text-muted-foreground">Configure your Newegg API credentials and settings.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/newegg/product-sync" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Newegg Product Sync</h1>
+            <p className="text-muted-foreground">Sync your products to Newegg.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      <Route path="/marketplaces/newegg/analytics" component={() => (
+        <div className="container mx-auto p-6">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl font-bold">Newegg Analytics</h1>
+            <p className="text-muted-foreground">View performance metrics and insights for your Newegg listings.</p>
+            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
+          </div>
+        </div>
+      )} />
+      
+      {/* Fallback for other marketplaces */}
       <Route path="/marketplaces/:marketplace" component={() => <div className="container mx-auto p-6"><div className="text-center"><h1 className="text-2xl font-bold mb-4">Marketplace Integration</h1><p className="text-muted-foreground">This marketplace integration is coming soon...</p></div></div>} />
       <Route path="/field-mapping-docs" component={FieldMappingDocs} />
       {/* Fallback to 404 */}
