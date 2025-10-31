@@ -786,6 +786,15 @@ export const amazonMarketIntelligence = pgTable("amazon_market_intelligence", {
   isHazmat: boolean("is_hazmat").default(false),
   requiresApproval: boolean("requires_approval").default(false),
   ageRestricted: boolean("age_restricted").default(false),
+  canList: boolean("can_list"), // Can the product be listed on Amazon (from Listings Restrictions API)
+  listingRestrictions: json("listing_restrictions"), // Full restrictions data
+  
+  // Amazon Fees (from Product Fees API)
+  referralFee: integer("referral_fee"), // Referral fee in cents
+  fbaFee: integer("fba_fee"), // FBA fulfillment fee in cents
+  variableClosingFee: integer("variable_closing_fee"), // Variable closing fee in cents
+  totalFees: integer("total_fees"), // Total Amazon fees in cents
+  lastFeeCheck: timestamp("last_fee_check"), // When fees were last checked
   
   // Profitability metrics (calculated fields)
   profitMarginPercent: real("profit_margin_percent"),

@@ -85,7 +85,18 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
       profit_margin_percent: data.profitMarginPercent,
       opportunity_score: data.opportunityScore,
       competition_level: data.competitionLevel,
-      estimated_sales_per_month: data.estimatedSalesPerMonth
+      estimated_sales_per_month: data.estimatedSalesPerMonth,
+      // Amazon fees (from Product Fees API)
+      referral_fee: data.referralFee,
+      fba_fee: data.fbaFee,
+      variable_closing_fee: data.variableClosingFee,
+      total_fees: data.totalFees,
+      last_fee_check: data.lastFeeCheck,
+      // Listing restrictions (from Listings Restrictions API)
+      can_list: data.canList,
+      listing_restrictions: data.listingRestrictions,
+      // Buy box price
+      buy_box_price: data.buyBoxPrice
     };
     
     console.log('Filtered data for DB insert:', JSON.stringify(filteredData, null, 2));

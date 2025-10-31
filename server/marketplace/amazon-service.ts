@@ -77,20 +77,71 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
         productType: item.productType || ''
       });
 
-      const marketData = {
+      // Initialize market data with catalog data
+      const marketData: any = {
         asin: item.asin || '',
-        currentPrice: item.price ? Math.round(parseFloat(item.price) * 100) : null, // Convert to cents
+        currentPrice: item.price ? Math.round(parseFloat(item.price) * 100) : null,
         listPrice: item.listPrice ? Math.round(parseFloat(item.listPrice) * 100) : null,
         salesRank: item.salesRank || null,
         categoryRank: item.categoryRank || null,
         inStock: item.inStock !== false,
         fulfillmentMethod: item.fulfillmentMethod || 'FBA',
         isPrime: item.isPrime || false,
-        profitMarginPercent: null, // Will be calculated
-        opportunityScore: Math.floor(Math.random() * 100) + 1, // Placeholder scoring
+        profitMarginPercent: null,
+        opportunityScore: Math.floor(Math.random() * 100) + 1,
         competitionLevel: 'medium',
         estimatedSalesPerMonth: null
       };
+
+      // Fetch additional market intelligence data
+      try {
+        // 1. Get competitive pricing (buy box price)
+        const { getCompetitivePricing } = await import('../utils/amazon-spapi');
+        const pricingData = await getCompetitivePricing([item.asin]);
+        if (pricingData && pricingData.length > 0 && pricingData[0].Product?.CompetitivePricing?.CompetitivePrices) {
+          const buyBoxPrice = pricingData[0].Product.CompetitivePricing.CompetitivePrices[0]?.Price?.LandedPrice?.Amount;
+          if (buyBoxPrice) {
+            marketData.buyBoxPrice = Math.round(parseFloat(buyBoxPrice) * 100);
+            marketData.currentPrice = marketData.buyBoxPrice;
+          }
+        }
+
+        // 2. Get Amazon fees (referral + FBA fees)
+        if (marketData.currentPrice || marketData.buyBoxPrice) {
+          const { getProductFees } = await import('../services/amazon-product-fees');
+          const priceForFees = (marketData.buyBoxPrice || marketData.currentPrice) / 100;
+          const feesData = await getProductFees({
+            asin: item.asin,
+            price: priceForFees,
+            isAmazonFulfilled: true
+          });
+          
+          if (feesData) {
+            marketData.referralFee = Math.round(feesData.referralFee * 100);
+            marketData.fbaFee = Math.round(feesData.fbaFee * 100);
+            marketData.variableClosingFee = Math.round(feesData.variableClosingFee * 100);
+            marketData.totalFees = Math.round(feesData.totalFees * 100);
+            marketData.lastFeeCheck = new Date();
+          }
+        }
+
+        // 3. Get listing restrictions
+        const { amazonListingsRestrictionsService } = await import('./amazon-listings-restrictions');
+        const restrictionsData = await amazonListingsRestrictionsService.getListingsRestrictions(
+          item.asin,
+          config.sellerId || '',
+          [config.marketplaceId],
+          'new_new'
+        );
+        
+        if (restrictionsData) {
+          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(restrictionsData.restrictions);
+          marketData.canList = listingStatus.allowed;
+          marketData.listingRestrictions = restrictionsData.restrictions;
+        }
+      } catch (enrichmentError) {
+        console.log(`[Sync] Warning: Could not fetch complete market intelligence for ${item.asin}:`, (enrichmentError as Error).message);
+      }
       
       const savedData = await saveAmazonMarketData(marketData);
       
