@@ -120,9 +120,12 @@ async function analyzeWithAI(
   settings: any,
   ourCost: number,
   shippingCost: number,
-  buyBoxPrice: number
+  buyBoxPrice: number,
+  amazonFees: number,
+  actualMarginPercent: number
 ): Promise<AIRecommendation> {
-  const marginPercent = ((buyBoxPrice - ourCost - shippingCost) / buyBoxPrice) * 100;
+  const totalCost = ourCost + shippingCost + amazonFees;
+  const netProfit = buyBoxPrice - totalCost;
 
   const prompt = `Analyze this product for purchasing opportunities:
 
@@ -133,8 +136,11 @@ ASIN: ${productData.asin}
 Financial Data:
 - Our Cost: $${ourCost.toFixed(2)}
 - Shipping Cost: $${shippingCost.toFixed(2)}
+- Amazon Fees: $${amazonFees.toFixed(2)}
+- Total Costs: $${totalCost.toFixed(2)}
 - Amazon Buy Box Price: $${buyBoxPrice.toFixed(2)}
-- Calculated Margin: ${marginPercent.toFixed(1)}%
+- Net Profit: $${netProfit.toFixed(2)}
+- Actual Margin (after ALL costs): ${actualMarginPercent.toFixed(1)}%
 
 Market Data:
 - Sales Rank: ${productData.salesRank ? `#${productData.salesRank.toLocaleString()} in ${productData.salesRankCategory}` : 'Not available'}
@@ -143,6 +149,8 @@ Market Data:
 Thresholds:
 - Dropship Min Margin: ${settings.dropshipMinMargin}%
 - Warehouse Min Margin: ${settings.warehouseMinMargin}%
+
+IMPORTANT: Use the "Actual Margin (after ALL costs)" of ${actualMarginPercent.toFixed(1)}% for your decision. This already includes our cost, shipping, and Amazon fees.
 
 Analyze this product and provide a recommendation. Respond in JSON format:
 {
@@ -183,10 +191,10 @@ Automation Ready: true if high confidence, can list, and clear opportunity`;
     }
 
     // Fallback to rule-based if AI parsing fails
-    return ruleBasedRecommendation(marginPercent, productData, settings);
+    return ruleBasedRecommendation(actualMarginPercent, productData, settings);
   } catch (error) {
     console.error('[Analyzer] AI analysis error, falling back to rules:', error);
-    return ruleBasedRecommendation(marginPercent, productData, settings);
+    return ruleBasedRecommendation(actualMarginPercent, productData, settings);
   }
 }
 
@@ -361,8 +369,8 @@ export async function analyzePurchasingOpportunity(productId: number) {
     const netProfit = buyBoxPrice - totalCosts;
     const marginPercent = (netProfit / buyBoxPrice) * 100;
 
-    // Analyze with AI
-    const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
+    // Analyze with AI (pass actual margin and Amazon fees)
+    const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice, applicableFees, marginPercent);
 
     // Check if opportunity already exists
     const existing = await db
@@ -572,8 +580,8 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           supplierId: supplier?.supplierId || null,
         };
 
-        // Use AI analysis for intelligent recommendations
-        const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice);
+        // Use AI analysis for intelligent recommendations (pass actual margin and Amazon fees)
+        const aiResult = await analyzeWithAI(productData, settings, ourCost, shippingCost, buyBoxPrice, applicableFees, marginPercent);
 
         // Check if opportunity already exists and delete it (simple deduplication)
         await db
