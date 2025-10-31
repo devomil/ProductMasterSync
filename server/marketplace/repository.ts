@@ -101,27 +101,17 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
     
     console.log('Filtered data for DB upsert:', JSON.stringify(filteredData, null, 2));
     
-    // Try insert first, then update on conflict
-    try {
-      const [savedData] = await db
-        .insert(amazonMarketIntelligence)
-        .values(filteredData)
-        .returning();
-      return savedData;
-    } catch (insertError: any) {
-      // If duplicate key error (23505), update the existing record
-      if (insertError.code === '23505') {
-        console.log(`[Repository] ASIN ${filteredData.asin} already exists, updating...`);
-        const [updatedData] = await db
-          .update(amazonMarketIntelligence)
-          .set(filteredData)
-          .where(eq(amazonMarketIntelligence.asin, filteredData.asin))
-          .returning();
-        return updatedData;
-      }
-      // Re-throw other errors
-      throw insertError;
-    }
+    // Use Drizzle's onConflictDoUpdate for proper upsert
+    const [savedData] = await db
+      .insert(amazonMarketIntelligence)
+      .values(filteredData)
+      .onConflictDoUpdate({
+        target: amazonMarketIntelligence.asin,
+        set: filteredData
+      })
+      .returning();
+    
+    return savedData;
   } catch (error: any) {
     console.error('Error saving Amazon market data:', error);
     throw error;

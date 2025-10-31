@@ -812,7 +812,7 @@ export const amazonMarketIntelligence = pgTable("amazon_market_intelligence", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
-    asinIdx: index("amazon_market_intelligence_asin_idx").on(table.asin),
+    asinIdx: uniqueIndex("amazon_market_intelligence_asin_idx").on(table.asin),
     salesRankIdx: index("amazon_market_intelligence_sales_rank_idx").on(table.salesRank),
     priceIdx: index("amazon_market_intelligence_price_idx").on(table.currentPrice),
     opportunityIdx: index("amazon_market_intelligence_opportunity_idx").on(table.opportunityScore),
