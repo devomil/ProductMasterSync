@@ -38,6 +38,8 @@ Preferred communication style: Simple, everyday language.
     - **Amazon Marketplace Integration**: ASIN discovery via SP-API, pricing intelligence, market opportunity analysis, UPC to ASIN mapping. Includes bulk processing with dynamic rate limiting and database-first credential management.
       - **Credentials Management**: Stored in `marketplace_credentials` table with UI configuration, async loader checks database first, all 20+ API entry points updated
       - **Catalog API Rate Limiting**: Fixed 429 errors by configuring 2 req/sec limit (Amazon's strict Catalog Items API limit), achieving 100% success rate with automatic throttling
+      - **Full Catalog Sync**: Enhanced batch sync with checkbox option to process entire catalog (30,000+ products) or custom batch sizes up to 5,000 products. Batch size slider with step increments for better UX.
+      - **Automated Scheduler**: Always-on Amazon sync job runs every 2 hours, processing 10 products per run. Status detection based on API job type rather than hardcoded job ID.
     - **Inventory Management**: Automated data pull jobs, scheduling, dependency management, error handling, and real-time monitoring.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations.
     - **EDC SKU Generation**: Unique sequential SKU system.
