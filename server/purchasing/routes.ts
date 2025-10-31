@@ -71,9 +71,10 @@ router.get("/stats", async (req, res) => {
     // Only count non-restricted products (same filter as opportunities)
     const stats = await db
       .select({
-        totalOpportunities: sql<number>`COUNT(*)`,
-        avgConfidence: sql<number>`ROUND(AVG(confidence))`,
-        avgOpportunityScore: sql<number>`ROUND(AVG(opportunity_score))`,
+        totalAnalyzed: sql<number>`COUNT(*)`,
+        totalOpportunities: sql<number>`SUM(CASE WHEN recommendation IN ('dropship', 'warehouse') THEN 1 ELSE 0 END)`,
+        avgConfidence: sql<number>`ROUND(AVG(CASE WHEN recommendation IN ('dropship', 'warehouse') THEN confidence ELSE NULL END))`,
+        avgOpportunityScore: sql<number>`ROUND(AVG(CASE WHEN recommendation IN ('dropship', 'warehouse') THEN opportunity_score ELSE NULL END))`,
         automationReady: sql<number>`SUM(CASE WHEN automation_ready THEN 1 ELSE 0 END)`,
         dropshipCount: sql<number>`SUM(CASE WHEN recommendation = 'dropship' THEN 1 ELSE 0 END)`,
         warehouseCount: sql<number>`SUM(CASE WHEN recommendation = 'warehouse' THEN 1 ELSE 0 END)`,
@@ -82,6 +83,7 @@ router.get("/stats", async (req, res) => {
       .where(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
 
     res.json(stats[0] || {
+      totalAnalyzed: 0,
       totalOpportunities: 0,
       avgConfidence: 0,
       avgOpportunityScore: 0,
