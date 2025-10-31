@@ -96,44 +96,32 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
       can_list: data.canList,
       listing_restrictions: data.listingRestrictions,
       // Buy box price
-      buy_box_price: data.buyBoxPrice,
-      // Update timestamp
-      updated_at: sql`CURRENT_TIMESTAMP`
+      buy_box_price: data.buyBoxPrice
     };
     
     console.log('Filtered data for DB upsert:', JSON.stringify(filteredData, null, 2));
     
-    // Use onConflictDoUpdate to update existing records instead of skipping
-    const [savedData] = await db
-      .insert(amazonMarketIntelligence)
-      .values(filteredData)
-      .onConflictDoUpdate({
-        target: amazonMarketIntelligence.asin,
-        set: {
-          current_price: filteredData.current_price,
-          list_price: filteredData.list_price,
-          sales_rank: filteredData.sales_rank,
-          category_rank: filteredData.category_rank,
-          in_stock: filteredData.in_stock,
-          fulfillment_method: filteredData.fulfillment_method,
-          is_prime: filteredData.is_prime,
-          profit_margin_percent: filteredData.profit_margin_percent,
-          opportunity_score: filteredData.opportunity_score,
-          competition_level: filteredData.competition_level,
-          estimated_sales_per_month: filteredData.estimated_sales_per_month,
-          referral_fee: filteredData.referral_fee,
-          fba_fee: filteredData.fba_fee,
-          variable_closing_fee: filteredData.variable_closing_fee,
-          total_fees: filteredData.total_fees,
-          last_fee_check: filteredData.last_fee_check,
-          can_list: filteredData.can_list,
-          listing_restrictions: filteredData.listing_restrictions,
-          buy_box_price: filteredData.buy_box_price,
-          updated_at: sql`CURRENT_TIMESTAMP`
-        }
-      })
-      .returning();
-    return savedData;
+    // Try insert first, then update on conflict
+    try {
+      const [savedData] = await db
+        .insert(amazonMarketIntelligence)
+        .values(filteredData)
+        .returning();
+      return savedData;
+    } catch (insertError: any) {
+      // If duplicate key error (23505), update the existing record
+      if (insertError.code === '23505') {
+        console.log(`[Repository] ASIN ${filteredData.asin} already exists, updating...`);
+        const [updatedData] = await db
+          .update(amazonMarketIntelligence)
+          .set(filteredData)
+          .where(eq(amazonMarketIntelligence.asin, filteredData.asin))
+          .returning();
+        return updatedData;
+      }
+      // Re-throw other errors
+      throw insertError;
+    }
   } catch (error: any) {
     console.error('Error saving Amazon market data:', error);
     throw error;
