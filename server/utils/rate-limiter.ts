@@ -137,5 +137,19 @@ export const amazonPricingRateLimiter = new AmazonRateLimiter(0.5, 1);
  */
 export const amazonListingsRateLimiter = new AmazonRateLimiter(1, 2);
 
+/**
+ * Amazon Product Fees API
+ * Documentation: https://developer-docs.amazon.com/sp-api/docs/product-fees-api-rate-limits
+ * - getMyFeesEstimate: 1 request per second, 1 burst
+ */
+export const amazonFeesRateLimiter = new AmazonRateLimiter(1, 1);
+
+/**
+ * Amazon Listings Restrictions API
+ * Documentation: https://developer-docs.amazon.com/sp-api/docs/listings-restrictions-api-rate-limits
+ * - getListingsRestrictions: 5 requests per second, 10 burst
+ */
+export const amazonListingsRestrictionsRateLimiter = new AmazonRateLimiter(5, 10);
+
 // Backward compatibility - default to catalog rate limiter
 export const amazonRateLimiter = amazonCatalogRateLimiter;

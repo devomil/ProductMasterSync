@@ -18,6 +18,44 @@ import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { InsertAmazonSyncLog } from '@shared/schema';
 
 /**
+ * Retry helper with exponential backoff
+ * @param fn - Async function to retry
+ * @param maxRetries - Maximum number of retry attempts
+ * @param initialDelay - Initial delay in milliseconds
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Check if it's a rate limit error (429)
+      const is429Error = lastError.message.includes('429') || lastError.message.toLowerCase().includes('throttl');
+      
+      if (attempt < maxRetries && is429Error) {
+        // Exponential backoff: 1s, 2s, 4s, 8s...
+        const delay = initialDelay * Math.pow(2, attempt);
+        console.log(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed with 429. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // If not a 429 error or we're out of retries, throw
+      throw lastError;
+    }
+  }
+  
+  throw lastError!;
+}
+
+/**
  * Fetch Amazon marketplace data for a product by UPC
  * @param productId 
  * @param upc 
@@ -93,11 +131,19 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
         estimatedSalesPerMonth: null
       };
 
-      // Fetch additional market intelligence data
+      // Fetch additional market intelligence data with rate limiting and retry logic
       try {
-        // 1. Get competitive pricing (buy box price)
+        const { amazonPricingRateLimiter, amazonFeesRateLimiter, amazonListingsRestrictionsRateLimiter } = await import('../utils/rate-limiter');
+        
+        // 1. Get competitive pricing (buy box price) with rate limiting
+        await amazonPricingRateLimiter.waitAndConsume();
         const { getCompetitivePricing } = await import('../utils/amazon-spapi');
-        const pricingData = await getCompetitivePricing([item.asin]);
+        const pricingData = await retryWithBackoff(
+          async () => await getCompetitivePricing([item.asin]),
+          3, // max retries
+          1000 // initial delay
+        );
+        
         if (pricingData && pricingData.length > 0 && pricingData[0].Product?.CompetitivePricing?.CompetitivePrices) {
           const buyBoxPrice = pricingData[0].Product.CompetitivePricing.CompetitivePrices[0]?.Price?.LandedPrice?.Amount;
           if (buyBoxPrice) {
@@ -106,15 +152,21 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
           }
         }
 
-        // 2. Get Amazon fees (referral + FBA fees)
+        // 2. Get Amazon fees (referral + FBA fees) with rate limiting
         if (marketData.currentPrice || marketData.buyBoxPrice) {
+          await amazonFeesRateLimiter.waitAndConsume();
           const { getProductFees } = await import('../services/amazon-product-fees');
           const priceForFees = (marketData.buyBoxPrice || marketData.currentPrice) / 100;
-          const feesData = await getProductFees({
-            asin: item.asin,
-            price: priceForFees,
-            isAmazonFulfilled: true
-          });
+          
+          const feesData = await retryWithBackoff(
+            async () => await getProductFees({
+              asin: item.asin,
+              price: priceForFees,
+              isAmazonFulfilled: true
+            }),
+            3,
+            1000
+          );
           
           if (feesData) {
             marketData.referralFee = Math.round(feesData.referralFee * 100);
@@ -125,13 +177,19 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
           }
         }
 
-        // 3. Get listing restrictions
+        // 3. Get listing restrictions with rate limiting
+        await amazonListingsRestrictionsRateLimiter.waitAndConsume();
         const { amazonListingsRestrictionsService } = await import('./amazon-listings-restrictions');
-        const restrictionsData = await amazonListingsRestrictionsService.getListingsRestrictions(
-          item.asin,
-          config.sellerId || '',
-          [config.marketplaceId],
-          'new_new'
+        
+        const restrictionsData = await retryWithBackoff(
+          async () => await amazonListingsRestrictionsService.getListingsRestrictions(
+            item.asin,
+            config.sellerId || '',
+            [config.marketplaceId],
+            'new_new'
+          ),
+          3,
+          1000
         );
         
         if (restrictionsData) {
@@ -141,6 +199,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
         }
       } catch (enrichmentError) {
         console.log(`[Sync] Warning: Could not fetch complete market intelligence for ${item.asin}:`, (enrichmentError as Error).message);
+        // Continue with partial data - we'll save what we have
       }
       
       const savedData = await saveAmazonMarketData(marketData);

@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
       - **Catalog API Rate Limiting**: Fixed 429 errors by configuring 2 req/sec limit (Amazon's strict Catalog Items API limit), achieving 100% success rate with automatic throttling
       - **Full Catalog Sync**: Enhanced batch sync with checkbox option to process entire catalog (30,000+ products) or custom batch sizes up to 5,000 products. Batch size slider with step increments for better UX.
       - **Automated Scheduler**: Always-on Amazon sync job runs every 2 hours, processing 10 products per run. Status detection based on API job type rather than hardcoded job ID.
+      - **Market Intelligence Enhancement**: Batch sync now fetches complete market data: buy box pricing (Competitive Pricing API), Amazon fees (Product Fees API), and listing restrictions (Listings Restrictions API). Each API call is rate-limited with dedicated token buckets and retry logic with exponential backoff (1s, 2s, 4s delays). Repository uses upsert to update existing ASIN data on subsequent syncs.
     - **Inventory Management**: Automated data pull jobs, scheduling, dependency management, error handling, and real-time monitoring.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations.
     - **EDC SKU Generation**: Unique sequential SKU system.
