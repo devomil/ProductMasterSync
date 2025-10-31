@@ -78,28 +78,41 @@ function Router() {
       <Route path="/approvals" component={Approvals} />
       <Route path="/validation-rules" component={ValidationRules} />
       <Route path="/audit-logs" component={AuditLogs} />
-      <Route path="/amazon-integration" component={AmazonIntegration} />
-      <Route path="/amazon-analytics" component={AmazonAnalyticsFixed} />
-      <Route path="/multi-asin" component={MultiASINSearch} />
       <Route path="/ai-purchasing" component={AIPurchasing} />
       <Route path="/asin-demo" component={ASINDemo} />
       <Route path="/batch-processing" component={BatchProcessing} />
       <Route path="/sample-data-test" component={SampleDataTest} />
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
       <Route path="/gamified-mapping" component={GamifiedMapping} />
+      <Route path="/amazon-analytics" component={AmazonAnalyticsFixed} />
 
       <Route path="/system-analysis" component={SystemAnalysis} />
       <Route path="/purchasing-ai" component={PurchasingAI} />
       <Route path="/ai-setup" component={AISetup} />
+      
+      {/* Marketplaces */}
+      <Route path="/marketplaces/overview" component={MarketplaceOverview} />
+      <Route path="/marketplace-overview" component={MarketplaceOverview} />
+      
+      {/* Amazon Marketplace Routes */}
+      <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />
+      <Route path="/marketplace-amazon" component={MarketplaceAmazon} />
+      <Route path="/marketplaces/amazon/integration" component={AmazonIntegration} />
+      <Route path="/marketplaces/amazon/multi-asin" component={MultiASINSearch} />
+      <Route path="/marketplaces/amazon/sync-progress" component={() => (
+        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Amazon Progress...</span></div></div>}>
+          <AmazonScalingProgress />
+        </Suspense>
+      )} />
+      
+      {/* Legacy route redirects for backwards compatibility */}
+      <Route path="/amazon-integration" component={AmazonIntegration} />
+      <Route path="/multi-asin" component={MultiASINSearch} />
       <Route path="/amazon-scaling-progress" component={() => (
         <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Amazon Progress...</span></div></div>}>
           <AmazonScalingProgress />
         </Suspense>
       )} />
-      <Route path="/marketplaces/overview" component={MarketplaceOverview} />
-      <Route path="/marketplace-overview" component={MarketplaceOverview} />
-      <Route path="/marketplaces/amazon" component={MarketplaceAmazon} />
-      <Route path="/marketplace-amazon" component={MarketplaceAmazon} />
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />
       <Route path="/marketplaces/:marketplace" component={() => <div className="container mx-auto p-6"><div className="text-center"><h1 className="text-2xl font-bold mb-4">Marketplace Integration</h1><p className="text-muted-foreground">This marketplace integration is coming soon...</p></div></div>} />
       <Route path="/field-mapping-docs" component={FieldMappingDocs} />

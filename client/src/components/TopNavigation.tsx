@@ -27,6 +27,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
@@ -247,12 +250,38 @@ const TopNavigation = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Link to="/marketplaces/amazon" className="flex items-center gap-2 w-full">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
                     <Package className="h-4 w-4" />
-                    Amazon
-                  </Link>
-                </DropdownMenuItem>
+                    <span>Amazon</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/amazon" className="flex items-center gap-2 w-full">
+                        <Package className="h-4 w-4" />
+                        Overview
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/amazon/integration" className="flex items-center gap-2 w-full">
+                        <LinkIcon className="h-4 w-4" />
+                        Integration
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/amazon/multi-asin" className="flex items-center gap-2 w-full">
+                        <BarChart3 className="h-4 w-4" />
+                        Multi-ASIN Search
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link to="/marketplaces/amazon/sync-progress" className="flex items-center gap-2 w-full">
+                        <Activity className="h-4 w-4" />
+                        Sync Progress
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuItem>
                   <Link to="/marketplaces/walmart" className="flex items-center gap-2 w-full">
                     <Package className="h-4 w-4" />
