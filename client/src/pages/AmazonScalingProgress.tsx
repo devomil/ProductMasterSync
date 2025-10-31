@@ -132,9 +132,9 @@ export default function AmazonScalingProgress() {
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Amazon Catalog Scaling Progress</h1>
+          <h1 className="text-3xl font-bold">Purchasing AI Analysis Progress</h1>
           <p className="text-muted-foreground mt-2">
-            Real-time monitoring of Amazon marketplace synchronization across your entire catalog
+            Real-time monitoring of AI-powered opportunity analysis and market intelligence gathering
           </p>
         </div>
         <Button variant="outline" onClick={() => refetch()} className="flex items-center space-x-2">
@@ -157,8 +157,8 @@ export default function AmazonScalingProgress() {
           </div>
           <CardDescription>
             {scalingData.isComplete 
-              ? 'Amazon catalog scaling has reached completion thresholds'
-              : 'Amazon marketplace synchronization is actively running'
+              ? 'AI analysis has reached completion thresholds - all eligible products analyzed'
+              : 'AI-powered opportunity analysis is actively processing your product catalog'
             }
           </CardDescription>
         </CardHeader>

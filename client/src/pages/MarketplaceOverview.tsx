@@ -283,10 +283,10 @@ export default function MarketplaceOverview() {
                 View Products
               </Button>
             </Link>
-            <Link href="/amazon-scaling-progress">
+            <Link href="/purchasing-ai/analysis-progress">
               <Button variant="outline" size="sm">
                 <BarChart3 className="h-4 w-4 mr-2" />
-                Progress Monitor
+                AI Analysis Progress
               </Button>
             </Link>
             {amazonConfig?.configValid && (products as any[]).length > 0 && (

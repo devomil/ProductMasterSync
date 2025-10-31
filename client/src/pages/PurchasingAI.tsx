@@ -414,6 +414,17 @@ export default function PurchasingAI() {
                   </>
                 )}
               </Button>
+              <Link href="/purchasing-ai/analysis-progress">
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="button-view-progress"
+                >
+                  <Activity className="h-4 w-4" />
+                  View Progress
+                </Button>
+              </Link>
               <Button 
                 onClick={handleRefresh}
                 variant="outline"

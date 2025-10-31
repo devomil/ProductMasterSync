@@ -99,8 +99,10 @@ function Router() {
       <Route path="/marketplace-amazon" component={MarketplaceAmazon} />
       <Route path="/marketplaces/amazon/integration" component={AmazonIntegration} />
       <Route path="/marketplaces/amazon/multi-asin" component={MultiASINSearch} />
-      <Route path="/marketplaces/amazon/sync-progress" component={() => (
-        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Amazon Progress...</span></div></div>}>
+      
+      {/* Purchasing AI Analysis Progress */}
+      <Route path="/purchasing-ai/analysis-progress" component={() => (
+        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Analysis Progress...</span></div></div>}>
           <AmazonScalingProgress />
         </Suspense>
       )} />
@@ -109,7 +111,12 @@ function Router() {
       <Route path="/amazon-integration" component={AmazonIntegration} />
       <Route path="/multi-asin" component={MultiASINSearch} />
       <Route path="/amazon-scaling-progress" component={() => (
-        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Amazon Progress...</span></div></div>}>
+        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Analysis Progress...</span></div></div>}>
+          <AmazonScalingProgress />
+        </Suspense>
+      )} />
+      <Route path="/marketplaces/amazon/sync-progress" component={() => (
+        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Analysis Progress...</span></div></div>}>
           <AmazonScalingProgress />
         </Suspense>
       )} />

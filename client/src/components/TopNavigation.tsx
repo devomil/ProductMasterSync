@@ -254,12 +254,6 @@ const TopNavigation = () => {
                         Multi-ASIN Search
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Link to="/marketplaces/amazon/sync-progress" className="flex items-center gap-2 w-full">
-                        <Activity className="h-4 w-4" />
-                        Sync Progress
-                      </Link>
-                    </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSub>

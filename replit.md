@@ -13,11 +13,13 @@ Preferred communication style: Simple, everyday language.
 - **UI Library**: Shadcn/ui components built on Radix UI.
 - **Styling**: Tailwind CSS with custom design tokens.
 - **State Management**: TanStack Query for server state.
-- **Navigation Structure**: Marketplace-organized navigation with nested dropdown submenus for scalability. Each marketplace (Amazon, Walmart, eBay, Newegg) has a consistent submenu structure with:
-  - **Overview**: Main marketplace dashboard
-  - **Integration**: API credentials and configuration
-  - **Product Sync/Multi-ASIN Search**: Product synchronization tools
-  - **Analytics/Sync Progress**: Performance metrics and monitoring
+- **Navigation Structure**: Marketplace-organized navigation with nested dropdown submenus for scalability. Each marketplace (Amazon, Walmart, eBay, Newegg) has a consistent submenu structure:
+  - **Amazon Submenu**:
+    - Overview (`/marketplaces/amazon`) - Main marketplace dashboard
+    - Integration (`/marketplaces/amazon/integration`) - API credentials and ASIN sync with monitoring
+    - Multi-ASIN Search (`/marketplaces/amazon/multi-asin`) - Bulk ASIN lookup tool
+  - **Other Marketplaces**: Overview, Integration, Product Sync, Analytics (placeholders ready for implementation)
+  - **Purchasing AI**: Single navigation button with analysis progress at `/purchasing-ai/analysis-progress`
 - **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features include:
   - **Purchasing AI Catalog**: Professional table layout optimized for 100k+ products with client-side sorting, color-coded margin badges, and comprehensive filtering. Automatically filters restricted products and separates FBM/FBA costs.
   - **AI Setup Page**: Multi-select fulfillment preferences (FBM, FBA, Dropship, Warehouse) with margin thresholds and analysis filters.
