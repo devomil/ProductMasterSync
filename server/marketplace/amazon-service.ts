@@ -240,7 +240,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
       asins_found: catalogItems.length,
       sync_duration_ms: endTime - startTime
     };
-    // await createSyncLog(syncLog);
+    await createSyncLog(syncLog);
     
     return savedItems;
   } catch (error) {
@@ -261,7 +261,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
       responseTimeMs: endTime - startTime,
       errorMessage: errorMessage.substring(0, 255) // Trim to fit in DB column
     };
-    // await createSyncLog(syncLog);
+    await createSyncLog(syncLog);
     
     throw error;
   }
