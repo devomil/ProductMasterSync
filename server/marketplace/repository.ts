@@ -73,30 +73,31 @@ export async function saveAmazonMarketData(data: any): Promise<any> {
     console.log('Repository received data:', JSON.stringify(data, null, 2));
     
     // Map only the core fields that we know exist in the database
+    // IMPORTANT: Use camelCase property names (matching schema), not snake_case column names
     const filteredData = {
       asin: data.asin,
-      current_price: data.currentPrice,
-      list_price: data.listPrice,
-      sales_rank: data.salesRank,
-      category_rank: data.categoryRank,
-      in_stock: data.inStock,
-      fulfillment_method: data.fulfillmentMethod,
-      is_prime: data.isPrime,
-      profit_margin_percent: data.profitMarginPercent,
-      opportunity_score: data.opportunityScore,
-      competition_level: data.competitionLevel,
-      estimated_sales_per_month: data.estimatedSalesPerMonth,
+      currentPrice: data.currentPrice,
+      listPrice: data.listPrice,
+      salesRank: data.salesRank,
+      categoryRank: data.categoryRank,
+      inStock: data.inStock,
+      fulfillmentMethod: data.fulfillmentMethod,
+      isPrime: data.isPrime,
+      profitMarginPercent: data.profitMarginPercent,
+      opportunityScore: data.opportunityScore,
+      competitionLevel: data.competitionLevel,
+      estimatedSalesPerMonth: data.estimatedSalesPerMonth,
       // Amazon fees (from Product Fees API)
-      referral_fee: data.referralFee,
-      fba_fee: data.fbaFee,
-      variable_closing_fee: data.variableClosingFee,
-      total_fees: data.totalFees,
-      last_fee_check: data.lastFeeCheck,
+      referralFee: data.referralFee,
+      fbaFee: data.fbaFee,
+      variableClosingFee: data.variableClosingFee,
+      totalFees: data.totalFees,
+      lastFeeCheck: data.lastFeeCheck,
       // Listing restrictions (from Listings Restrictions API)
-      can_list: data.canList,
-      listing_restrictions: data.listingRestrictions,
+      canList: data.canList,
+      listingRestrictions: data.listingRestrictions,
       // Buy box price
-      buy_box_price: data.buyBoxPrice
+      buyBoxPrice: data.buyBoxPrice
     };
     
     console.log('Filtered data for DB upsert:', JSON.stringify(filteredData, null, 2));
