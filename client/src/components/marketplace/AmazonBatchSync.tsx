@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 
 export function AmazonBatchSync() {
   const [batchSize, setBatchSize] = useState<number>(10);
+  const [isFullCatalog, setIsFullCatalog] = useState<boolean>(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
   
   const { data: configStatus, isLoading: isConfigStatusLoading } = useAmazonConfigStatus();
@@ -54,7 +55,10 @@ export function AmazonBatchSync() {
       return;
     }
     
-    batchSyncMutation.mutate(batchSize);
+    // If full catalog is selected, use a very large number (999999)
+    // Otherwise use the specified batch size
+    const effectiveLimit = isFullCatalog ? 999999 : batchSize;
+    batchSyncMutation.mutate(effectiveLimit);
   };
 
   // Handle "save" config click
@@ -91,20 +95,50 @@ export function AmazonBatchSync() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label htmlFor="batch-size">Batch Size: {batchSize} products</Label>
+            <div className="flex items-center space-x-2 mb-3">
+              <input
+                type="checkbox"
+                id="full-catalog"
+                checked={isFullCatalog}
+                onChange={(e) => setIsFullCatalog(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                data-testid="checkbox-full-catalog"
+              />
+              <Label htmlFor="full-catalog" className="cursor-pointer font-medium">
+                Sync Full Product Catalog
+              </Label>
             </div>
-            <Slider
-              id="batch-size"
-              min={1}
-              max={500}
-              step={1}
-              value={[batchSize]}
-              onValueChange={(value) => setBatchSize(value[0])}
-            />
-            <p className="text-sm text-muted-foreground">
-              Number of products to process in a single batch. Higher values may take longer but process more products.
-            </p>
+            
+            {!isFullCatalog && (
+              <>
+                <div className="flex justify-between">
+                  <Label htmlFor="batch-size">Batch Size: {batchSize} products</Label>
+                </div>
+                <Slider
+                  id="batch-size"
+                  min={1}
+                  max={5000}
+                  step={10}
+                  value={[batchSize]}
+                  onValueChange={(value) => setBatchSize(value[0])}
+                  data-testid="slider-batch-size"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Number of products to process in a single batch. Higher values may take longer but process more products.
+                </p>
+              </>
+            )}
+            
+            {isFullCatalog && (
+              <div className="rounded-md bg-blue-50 p-4 border border-blue-200">
+                <p className="text-sm text-blue-800 font-medium">
+                  🚀 Full catalog sync enabled
+                </p>
+                <p className="text-sm text-blue-600 mt-1">
+                  This will process all products in your catalog with UPC codes. For large catalogs (30,000+ products), this may take several hours.
+                </p>
+              </div>
+            )}
           </div>
 
           {syncStats && !isStatsLoading && (

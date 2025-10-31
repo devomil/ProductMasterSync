@@ -405,9 +405,9 @@ router.post('/amazon/batch-sync', async (req, res) => {
       });
     }
 
-    // Validate limit
+    // Validate limit - allow large values for full catalog sync
     const limitSchema = z.object({
-      limit: z.number().int().positive().max(500).optional().default(10)
+      limit: z.number().int().positive().max(999999).optional().default(10)
     });
     
     const validationResult = limitSchema.safeParse(req.body);
@@ -420,6 +420,7 @@ router.post('/amazon/batch-sync', async (req, res) => {
 
     // Run batch sync
     const { limit } = validationResult.data;
+    console.log(`🚀 Starting Amazon batch sync with limit: ${limit}${limit > 10000 ? ' (FULL CATALOG SYNC)' : ''}`);
     const result = await batchSyncAmazonData(limit);
     
     return res.json({
@@ -518,7 +519,10 @@ router.get('/amazon/batch-logs/:batchId', async (req, res) => {
 router.get('/amazon/scheduler/status', (req, res) => {
   try {
     const jobs = scheduler.getJobs();
-    const amazonSyncJob = jobs.find(job => job.id === 'amazon-sync');
+    // Look for API job with amazon type (scheduler creates job with ID like 'job--999999')
+    const amazonSyncJob = jobs.find(job => 
+      job.type === 'api' && job.config?.apiType === 'amazon'
+    );
     
     return res.json({
       active: !!amazonSyncJob,
