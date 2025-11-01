@@ -132,6 +132,7 @@ This prevents downtime and catches issues before affecting live users.
 ### Lessons Learned
 - **October 2025**: Fixed production deployment issue where marketplace routes failed to load due to dynamic imports being incompatible with esbuild's bundling process. Solution: Converted all route module imports to static imports in `server/routes.ts`.
 - **Route Loading**: The `loadRouteModule()` helper function was removed because production builds don't support dynamic file-based module loading.
+- **November 2025**: Implemented 24/7 Purchasing AI automation with auto-start on server boot. The scheduler initializes in `server/index.ts` after supplier automation, loads config from `purchasing_settings.auto_analysis_enabled`, and automatically processes queued jobs. Critical: Database must have `auto_analysis_enabled=true` for automation to run.
 
 # External Dependencies
 
