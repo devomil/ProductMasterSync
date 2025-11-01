@@ -298,10 +298,8 @@ class PurchasingAIScheduler {
     const settings = await db.select().from(purchasingSettings).limit(1);
     const batchSize = settings[0]?.batchSize || 100;
     
-    // Build where conditions
-    const whereConditions = [
-      isNotNull(amazonMarketIntelligence.buyBoxPrice),
-    ];
+    // Build where conditions - DO NOT filter by buy box price (missing data = monopoly opportunity!)
+    const whereConditions: any[] = [];
     
     // Filter by staleness if job.onlyStale
     if (job.onlyStale) {
@@ -332,11 +330,11 @@ class PurchasingAIScheduler {
           eq(productAsinMapping.isActive, true)
         )
       )
-      .innerJoin(
+      .leftJoin(
         amazonMarketIntelligence,
         eq(productAsinMapping.asin, amazonMarketIntelligence.asin)
       )
-      .where(and(...whereConditions))
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .limit(batchSize);
 
     console.log(`[Scheduler] Found ${productsToAnalyze.length} products to analyze`);

@@ -538,8 +538,9 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10;
 
           // Determine fulfillment method (FBA vs FBM)
-          const isFBA = settings.fulfillmentMethod === 'fba' || settings.fulfillmentMethod === 'both';
-          const isFBM = settings.fulfillmentMethod === 'fbm' || settings.fulfillmentMethod === 'both';
+          const fulfillmentMethods = settings.fulfillmentMethods || ['fbm'];
+          const isFBA = fulfillmentMethods.includes('fba');
+          const isFBM = fulfillmentMethods.includes('fbm');
           
           // Fetch real Amazon fees with rate limiting
           let amazonFees;
@@ -643,10 +644,10 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
 
           // Progress logging every 10 products within batch
           if (opportunities.length % 10 === 0) {
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+            const elapsed = Math.max(1, (Date.now() - startTime) / 1000);
             const rate = opportunities.length / (elapsed / 60);
             const remaining = productResults.length - opportunities.length;
-            const estimatedMinutes = Math.ceil(remaining / rate);
+            const estimatedMinutes = rate > 0 ? Math.ceil(remaining / rate) : 0;
             
             console.log(`[Analyzer] Progress: ${opportunities.length}/${productResults.length} (${((opportunities.length / productResults.length) * 100).toFixed(1)}%) | API calls: ${apiCallCount} | Fallbacks: ${fallbackCount} | Est. ${estimatedMinutes}min remaining`);
           }
@@ -669,7 +670,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
       }
     }
 
-    const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+    const totalTime = Math.max(0.01, (Date.now() - startTime) / 1000 / 60);
     const avgRate = (opportunities.length / (totalTime * 60)).toFixed(2);
     
     console.log(`\n[Analyzer] ===== BULK ANALYSIS COMPLETE =====`);
