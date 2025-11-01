@@ -452,7 +452,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
 }
 
 // Bulk analyze products
-export async function analyzeBulkOpportunities(productIds: number[] | null, limit: number = 100) {
+export async function analyzeBulkOpportunities(productIds: number[] | null, limit: number = 1000) {
   try {
     // Get settings
     const settingsResults = await db.select().from(purchasingSettings).limit(1);

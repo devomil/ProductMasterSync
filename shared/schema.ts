@@ -147,11 +147,16 @@ export const products = pgTable("products", {
   // Amazon sync tracking fields
   lastAmazonSync: timestamp("last_amazon_sync"),
   amazonSyncStatus: text("amazon_sync_status").default("pending"), // pending, processing, success, error, ratelimited
+  // Purchasing AI analysis tracking
+  lastAnalysisAt: timestamp("last_analysis_at"),          // When last analyzed by Purchasing AI
+  lastAnalysisScore: integer("last_analysis_score"),      // Opportunity score from last analysis
+  analysisStaleAt: timestamp("analysis_stale_at"),        // When analysis becomes stale (needs re-analysis)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
     skuIdx: uniqueIndex("products_sku_idx").on(table.sku),
+    analysisStaleIdx: index("products_analysis_stale_idx").on(table.analysisStaleAt),
   };
 });
 
@@ -1637,6 +1642,14 @@ export const riskLevelEnum = pgEnum('risk_level', [
 export const FULFILLMENT_METHODS = ['fbm', 'fba', 'dropship', 'warehouse'] as const;
 export type FulfillmentMethod = typeof FULFILLMENT_METHODS[number];
 
+// Analysis Job enums
+export const analysisJobStatusEnum = pgEnum('analysis_job_status', [
+  'pending', 'running', 'paused', 'completed', 'failed', 'cancelled'
+]);
+export const analysisJobPriorityEnum = pgEnum('analysis_job_priority', [
+  'high', 'medium', 'low'
+]);
+
 // Purchasing Opportunities table - AI-generated purchasing recommendations
 export const purchasingOpportunities = pgTable("purchasing_opportunities", {
   id: serial("id").primaryKey(),
@@ -1687,8 +1700,89 @@ export const purchasingSettings = pgTable("purchasing_settings", {
   riskLevelFilter: text("risk_level_filter").default("all"),  // Filter by risk level
   maxSalesRank: integer("max_sales_rank"),  // Maximum acceptable sales rank (lower is better)
   requireCanList: boolean("require_can_list").default(true),  // Only recommend if we can list
+  // Scheduler settings
+  autoAnalysisEnabled: boolean("auto_analysis_enabled").default(false),  // Enable 24/7 automated analysis
+  analysisInterval: integer("analysis_interval").default(3600),  // Seconds between analysis runs (default 1 hour)
+  batchSize: integer("batch_size").default(100),  // Products per analysis batch
+  stalenessThreshold: integer("staleness_threshold").default(86400),  // Seconds before analysis is stale (default 24 hours)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Analysis Jobs table - Track scheduled/manual analysis jobs
+export const purchasingAnalysisJobs = pgTable("purchasing_analysis_jobs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),  // Job name/description
+  status: analysisJobStatusEnum("status").default('pending').notNull(),
+  priority: analysisJobPriorityEnum("priority").default('medium').notNull(),
+  
+  // Scheduling
+  scheduleType: text("schedule_type").notNull(),  // 'manual', 'auto', 'event_triggered'
+  nextRunAt: timestamp("next_run_at"),  // When to run next
+  lastRunAt: timestamp("last_run_at"),  // Last execution time
+  
+  // Scope (what to analyze)
+  productIds: integer("product_ids").array(),  // Specific products (null = all eligible)
+  supplierId: integer("supplier_id"),  // Filter by supplier
+  onlyStale: boolean("only_stale").default(true),  // Only analyze stale data
+  
+  // Progress tracking
+  totalProducts: integer("total_products").default(0),  // Total products in scope
+  processedProducts: integer("processed_products").default(0),  // Products analyzed so far
+  failedProducts: integer("failed_products").default(0),  // Products that failed
+  
+  // Error handling
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  lastError: text("last_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => {
+  return {
+    statusPriorityIdx: index("job_status_priority_idx").on(table.status, table.priority, table.nextRunAt),
+    nextRunIdx: index("job_next_run_idx").on(table.nextRunAt),
+  };
+});
+
+// Analysis Runs table - Track individual execution of jobs
+export const purchasingAnalysisRuns = pgTable("purchasing_analysis_runs", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => purchasingAnalysisJobs.id).notNull(),
+  
+  // Execution details
+  status: analysisJobStatusEnum("status").default('running').notNull(),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  duration: integer("duration"),  // Seconds
+  
+  // Progress tracking
+  batchCursor: integer("batch_cursor").default(0),  // Resume point for batches
+  lastProductId: integer("last_product_id"),  // Last analyzed product ID
+  processedCount: integer("processed_count").default(0),
+  successCount: integer("success_count").default(0),
+  failureCount: integer("failure_count").default(0),
+  
+  // Results
+  opportunitiesFound: integer("opportunities_found").default(0),
+  avgConfidence: real("avg_confidence"),
+  avgOpportunityScore: real("avg_opportunity_score"),
+  
+  // Errors
+  errorMessage: text("error_message"),
+  errorDetails: text("error_details"),  // JSON-formatted error details
+  
+  // Rate limiter stats
+  apiCallsMade: integer("api_calls_made").default(0),
+  rateLimitHits: integer("rate_limit_hits").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    jobIdIdx: index("run_job_id_idx").on(table.jobId),
+    statusIdx: index("run_status_idx").on(table.status),
+  };
 });
 
 // Purchasing opportunity relations
@@ -1696,6 +1790,18 @@ export const purchasingOpportunitiesRelations = relations(purchasingOpportunitie
   product: one(products, {
     fields: [purchasingOpportunities.productId],
     references: [products.id],
+  }),
+}));
+
+// Analysis job relations
+export const purchasingAnalysisJobsRelations = relations(purchasingAnalysisJobs, ({ many }) => ({
+  runs: many(purchasingAnalysisRuns),
+}));
+
+export const purchasingAnalysisRunsRelations = relations(purchasingAnalysisRuns, ({ one }) => ({
+  job: one(purchasingAnalysisJobs, {
+    fields: [purchasingAnalysisRuns.jobId],
+    references: [purchasingAnalysisJobs.id],
   }),
 }));
 
@@ -1710,6 +1816,36 @@ export const insertPurchasingSettingsSchema = createInsertSchema(purchasingSetti
   id: true, 
   createdAt: true, 
   updatedAt: true 
+});
+
+// Analysis job schemas
+export const insertPurchasingAnalysisJobSchema = createInsertSchema(purchasingAnalysisJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  lastRunAt: true,
+  processedProducts: true,
+  failedProducts: true,
+  retryCount: true,
+  lastError: true,
+});
+
+export const insertPurchasingAnalysisRunSchema = createInsertSchema(purchasingAnalysisRuns).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+  duration: true,
+  processedCount: true,
+  successCount: true,
+  failureCount: true,
+  opportunitiesFound: true,
+  avgConfidence: true,
+  avgOpportunityScore: true,
+  errorMessage: true,
+  errorDetails: true,
+  apiCallsMade: true,
+  rateLimitHits: true,
 });
 
 // Marketplace Credentials table - Store API credentials for marketplace integrations
@@ -1763,3 +1899,8 @@ export type PurchasingOpportunity = typeof purchasingOpportunities.$inferSelect;
 export type PurchasingSettings = typeof purchasingSettings.$inferSelect;
 export type InsertPurchasingOpportunity = z.infer<typeof insertPurchasingOpportunitySchema>;
 export type InsertPurchasingSettings = z.infer<typeof insertPurchasingSettingsSchema>;
+
+export type PurchasingAnalysisJob = typeof purchasingAnalysisJobs.$inferSelect;
+export type PurchasingAnalysisRun = typeof purchasingAnalysisRuns.$inferSelect;
+export type InsertPurchasingAnalysisJob = z.infer<typeof insertPurchasingAnalysisJobSchema>;
+export type InsertPurchasingAnalysisRun = z.infer<typeof insertPurchasingAnalysisRunSchema>;

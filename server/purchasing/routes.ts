@@ -8,8 +8,12 @@ import {
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { analyzePurchasingOpportunity, analyzeBulkOpportunities, getFeesRateLimiterStatus } from "./analyzer";
+import schedulerRoutes from "./scheduler/routes";
 
 const router = express.Router();
+
+// Mount scheduler routes
+router.use("/scheduler", schedulerRoutes);
 
 // Get all purchasing opportunities with filters
 router.get("/opportunities", async (req, res) => {
@@ -201,7 +205,7 @@ router.post("/analyze/:productId", async (req, res) => {
 // Bulk analyze products
 router.post("/analyze-bulk", async (req, res) => {
   try {
-    const { productIds, limit = 100 } = req.body;
+    const { productIds, limit = 1000 } = req.body;
 
     console.log(`[Purchasing AI] Starting bulk analysis for ${productIds?.length || 'all'} products...`);
     
