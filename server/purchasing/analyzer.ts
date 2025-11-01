@@ -6,6 +6,7 @@ import {
   products,
   productAsinMapping,
   amazonMarketIntelligence,
+  amazonAsins,
   shippingTemplates,
   productSuppliers
 } from "@shared/schema";
@@ -282,6 +283,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
         product: products,
         asinMapping: productAsinMapping,
         marketData: amazonMarketIntelligence,
+        asinData: amazonAsins,
         supplier: productSuppliers,
       })
       .from(products)
@@ -290,13 +292,14 @@ export async function analyzePurchasingOpportunity(productId: number) {
         eq(productAsinMapping.isActive, true)
       ))
       .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+      .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .leftJoin(productSuppliers, eq(products.id, productSuppliers.productId))
       .where(eq(products.id, productId))
       .limit(1);
 
     if (!productResults.length) return null;
 
-    const { product, asinMapping, marketData, supplier } = productResults[0];
+    const { product, asinMapping, marketData, asinData, supplier } = productResults[0];
 
     // Must have ASIN at minimum
     if (!asinMapping?.asin) {
@@ -328,7 +331,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
       buyBoxPrice,
       salesRank: marketData.salesRank,
       salesRankCategory: null, // amazonMarketIntelligence doesn't have this field
-      canList: null, // We'll need to join with listing restrictions or use separate query
+      canList: asinData?.canList ?? marketData?.canList ?? true, // Read from amazonAsins table
       supplierId: supplier?.supplierId || null,
     };
 
@@ -410,6 +413,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
           shippingCost,
           buyBoxPrice,
           salesRank: marketData.salesRank,
+          canList: productData.canList,
           reasoning: aiResult.reasoning,
           opportunityScore: aiResult.opportunityScore,
           automationReady: aiResult.automationReady,
@@ -440,7 +444,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
           buyBoxPrice,
           salesRank: marketData.salesRank,
           salesRankCategory: null,
-          canList: null,
+          canList: productData.canList,
           reasoning: aiResult.reasoning,
           opportunityScore: aiResult.opportunityScore,
           automationReady: aiResult.automationReady,
@@ -483,6 +487,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
         product: products,
         asinMapping: productAsinMapping,
         marketData: amazonMarketIntelligence,
+        asinData: amazonAsins,
         supplier: productSuppliers,
       })
       .from(products)
@@ -491,6 +496,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
         eq(productAsinMapping.isActive, true)
       ))
       .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+      .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .leftJoin(productSuppliers, eq(products.id, productSuppliers.productId))
       .limit(limit);
 
@@ -520,7 +526,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
       
       console.log(`\n[Analyzer] ----- BATCH ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(productResults.length / BATCH_SIZE)} (Products ${batchStart + 1}-${batchEnd}) -----`);
       
-      for (const { product, asinMapping, marketData, supplier } of currentBatch) {
+      for (const { product, asinMapping, marketData, asinData, supplier } of currentBatch) {
         // Skip if no ASIN - but allow products without buy box (monopoly opportunities!)
         if (!asinMapping?.asin) continue;
 
@@ -587,7 +593,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           buyBoxPrice,
           salesRank: marketData.salesRank,
           salesRankCategory: null,
-          canList: null,
+          canList: asinData?.canList ?? marketData?.canList ?? true,
           supplierId: supplier?.supplierId || null,
         };
 
@@ -619,7 +625,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
             buyBoxPrice,
             salesRank: marketData.salesRank,
             salesRankCategory: null,
-            canList: null,
+            canList: productData.canList,
             reasoning: aiResult.reasoning,
             opportunityScore: aiResult.opportunityScore,
             automationReady: aiResult.automationReady,
