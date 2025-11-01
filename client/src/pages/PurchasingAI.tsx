@@ -867,19 +867,52 @@ export default function PurchasingAI() {
                             
                             {/* Listing Status */}
                             <TableCell className="text-center">
-                              <Badge 
-                                variant="outline"
-                                className={
-                                  opp.canList === false
-                                    ? 'border-red-500 text-red-700 bg-red-50'
-                                    : opp.canList === true 
-                                    ? 'border-green-500 text-green-700 bg-green-50' 
-                                    : 'border-gray-500 text-gray-700 bg-gray-50'
+                              {(() => {
+                                // Get restriction status from amazonAsins table via opportunity
+                                const hasRestrictions = opp.hasListingRestrictions === true;
+                                
+                                if (opp.canList === false) {
+                                  return (
+                                    <Badge 
+                                      variant="outline"
+                                      className="border-red-500 text-red-700 bg-red-50"
+                                      title="Cannot list this product on Amazon"
+                                    >
+                                      ❌ Restricted
+                                    </Badge>
+                                  );
+                                } else if (opp.canList === true && hasRestrictions) {
+                                  return (
+                                    <Badge 
+                                      variant="outline"
+                                      className="border-yellow-500 text-yellow-700 bg-yellow-50"
+                                      title="Can list but requires approval or has listing restrictions"
+                                    >
+                                      ⚠️ Needs Approval
+                                    </Badge>
+                                  );
+                                } else if (opp.canList === true) {
+                                  return (
+                                    <Badge 
+                                      variant="outline"
+                                      className="border-green-500 text-green-700 bg-green-50"
+                                      title="Fully approved - no restrictions"
+                                    >
+                                      ✓ Approved
+                                    </Badge>
+                                  );
+                                } else {
+                                  return (
+                                    <Badge 
+                                      variant="outline"
+                                      className="border-gray-500 text-gray-700 bg-gray-50"
+                                      title="Listing restrictions have not been checked yet"
+                                    >
+                                      ⚪ Not Checked
+                                    </Badge>
+                                  );
                                 }
-                                title={opp.canList === null ? 'Listing restrictions have not been checked yet' : undefined}
-                              >
-                                {opp.canList === false ? '❌ Restricted' : opp.canList === true ? '✓ Approved' : '⚪ Not Checked'}
-                              </Badge>
+                              })()}
                             </TableCell>
                             
                             {/* Risk Level */}
