@@ -81,7 +81,8 @@ async function calculateShippingCost(supplierId: number | null, cost: number, we
 
     if (!templates.length) return null;
 
-    const config = templates[0].config as any;
+    const template = templates[0];
+    const config = JSON.parse(JSON.stringify(template)).config || {};
 
     if (config.method === 'flat_rate') {
       return config.flatRate;
@@ -143,14 +144,19 @@ Financial Data:
 - Actual Margin (after ALL costs): ${actualMarginPercent.toFixed(1)}%
 
 Market Data:
-- Sales Rank: ${productData.salesRank ? `#${productData.salesRank.toLocaleString()} in ${productData.salesRankCategory}` : 'Not available'}
+- Buy Box Price: ${buyBoxPrice > 0 ? `$${buyBoxPrice.toFixed(2)}` : '⚠️ NO BUY BOX - May indicate exclusive/monopoly opportunity!'}
+- Sales Rank: ${productData.salesRank ? `#${productData.salesRank.toLocaleString()} in ${productData.salesRankCategory}` : '⚠️ No sales rank - could mean low competition, new listing, or exclusive product'}
 - Can List: ${productData.canList === true ? 'Yes' : productData.canList === false ? 'No (Restricted)' : 'Unknown (no restriction data)'}
 
 Thresholds:
 - Dropship Min Margin: ${settings.dropshipMinMargin}%
 - Warehouse Min Margin: ${settings.warehouseMinMargin}%
 
-IMPORTANT: Use the "Actual Margin (after ALL costs)" of ${actualMarginPercent.toFixed(1)}% for your decision. This already includes our cost, shipping, and Amazon fees.
+IMPORTANT CONTEXT:
+1. Use the "Actual Margin (after ALL costs)" of ${actualMarginPercent.toFixed(1)}% for your decision. This already includes our cost, shipping, and Amazon fees.
+2. **Missing buy box price often indicates NO CURRENT COMPETITION** - this is a POSITIVE signal! User may be the only seller (monopoly/exclusive opportunity).
+3. **Missing sales rank** may mean low competition, new listing, or exclusive product access from vendor.
+4. Products without market data but with supplier access are HIGH-VALUE opportunities - user could be the ONLY seller!
 
 Analyze this product and provide a recommendation. Respond in JSON format:
 {
@@ -163,9 +169,11 @@ Analyze this product and provide a recommendation. Respond in JSON format:
 }
 
 Decision Criteria:
-- "dropship": Margin >= ${settings.dropshipMinMargin}%, good sales rank (< 50,000), can list, lower risk
-- "warehouse": Margin >= ${settings.warehouseMinMargin}%, excellent sales rank (< 10,000), can list, high opportunity
-- "no_opportunity": Below margin thresholds, can't list, or poor sales rank
+- "dropship": Margin >= ${settings.dropshipMinMargin}%, good sales rank (< 50,000) OR no buy box (exclusive), can list, lower risk
+- "warehouse": Margin >= ${settings.warehouseMinMargin}%, excellent sales rank (< 10,000) OR exclusive access, can list, high opportunity  
+- "no_opportunity": Below margin thresholds AND has competition (buy box exists), can't list, or poor sales rank
+
+**SPECIAL CASE**: No buy box + supplier access = recommend warehouse/dropship even without complete market data (potential monopoly!)
 
 Confidence: Based on data completeness and market indicators
 Risk Level: Based on sales rank, margin buffer, and listing restrictions
@@ -225,7 +233,7 @@ function ruleBasedRecommendation(
       riskLevel: hasGoodSalesRank ? 'low' : 'medium',
       reasoning: `High margin (${marginPercent.toFixed(1)}%) ${hasGoodSalesRank ? 'with excellent sales rank' : 'but limited sales data'}. Recommend purchasing for warehouse.`,
       opportunityScore: hasGoodSalesRank ? 90 : 75,
-      automationReady: hasGoodSalesRank,
+      automationReady: hasGoodSalesRank ? true : false,
     };
   }
 
@@ -238,7 +246,7 @@ function ruleBasedRecommendation(
       riskLevel: hasGoodSalesRank ? 'low' : 'medium',
       reasoning: `Acceptable margin (${marginPercent.toFixed(1)}%) ${hasGoodSalesRank ? 'with good sales rank' : 'but limited sales data'}. Recommend dropshipping.`,
       opportunityScore: hasGoodSalesRank ? 70 : 55,
-      automationReady: hasGoodSalesRank,
+      automationReady: hasGoodSalesRank ? true : false,
     };
   }
 
@@ -268,7 +276,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
       requireCanList: true,
     };
 
-    // Get product with Amazon data
+    // Get product with Amazon data (include products WITHOUT buy box - potential monopoly!)
     const productResults = await db
       .select({
         product: products,
@@ -281,10 +289,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
         eq(products.id, productAsinMapping.productId),
         eq(productAsinMapping.isActive, true)
       ))
-      .innerJoin(amazonMarketIntelligence, and(
-        eq(productAsinMapping.asin, amazonMarketIntelligence.asin),
-        isNotNull(amazonMarketIntelligence.buyBoxPrice)
-      ))
+      .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
       .leftJoin(productSuppliers, eq(products.id, productSuppliers.productId))
       .where(eq(products.id, productId))
       .limit(1);
@@ -293,10 +298,16 @@ export async function analyzePurchasingOpportunity(productId: number) {
 
     const { product, asinMapping, marketData, supplier } = productResults[0];
 
-    // Must have Amazon data with buy box price
-    if (!marketData?.buyBoxPrice || !asinMapping?.asin) {
-      console.log(`[Analyzer] Product ${productId} has no Amazon market data or ASIN`);
+    // Must have ASIN at minimum
+    if (!asinMapping?.asin) {
+      console.log(`[Analyzer] Product ${productId} has no ASIN mapping`);
       return null;
+    }
+    
+    // If no buy box, this could be a monopoly opportunity!
+    if (!marketData?.buyBoxPrice) {
+      console.log(`[Analyzer] Product ${productId} has no buy box - potential exclusive opportunity!`);
+      // Continue analysis with null pricing - AI will flag as high-potential exclusive
     }
 
     const ourCost = parseFloat(product.cost || '0');
@@ -466,7 +477,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
       requireCanList: true,
     };
 
-    // Get products with Amazon data
+    // Get products with Amazon data (include products WITHOUT buy box - could be monopoly opportunities!)
     let baseQuery = db
       .select({
         product: products,
@@ -481,7 +492,6 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
       ))
       .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
       .leftJoin(productSuppliers, eq(products.id, productSuppliers.productId))
-      .where(isNotNull(amazonMarketIntelligence.buyBoxPrice))
       .limit(limit);
 
     if (productIds && productIds.length > 0) {
@@ -511,7 +521,8 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
       console.log(`\n[Analyzer] ----- BATCH ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(productResults.length / BATCH_SIZE)} (Products ${batchStart + 1}-${batchEnd}) -----`);
       
       for (const { product, asinMapping, marketData, supplier } of currentBatch) {
-        if (!marketData?.buyBoxPrice || !asinMapping?.asin) continue;
+        // Skip if no ASIN - but allow products without buy box (monopoly opportunities!)
+        if (!asinMapping?.asin) continue;
 
         try {
           const ourCost = parseFloat(product.cost || '0');
