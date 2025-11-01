@@ -1,4 +1,8 @@
 import axios from 'axios';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
+import { db } from '../db';
+import { marketplaceCredentials } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 interface ListingRestriction {
   marketplaceId: string;
@@ -19,34 +23,82 @@ interface ListingsRestrictionsResponse {
   restrictions: ListingRestriction[];
 }
 
+interface SPAPIConfig {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  marketplaceId?: string;
+  endpoint?: string;
+  sellerId?: string;
+}
+
+// Token cache
+let tokenCache: { access_token: string; expires_at: number } | null = null;
+
 export class AmazonListingsRestrictionsService {
-  private accessToken: string;
-  private refreshToken: string;
-  private clientId: string;
-  private clientSecret: string;
+  private config: SPAPIConfig | null = null;
   private baseUrl = 'https://sellingpartnerapi-na.amazon.com';
 
   constructor() {
-    this.accessToken = process.env.AMAZON_SP_API_ACCESS_TOKEN || '';
-    this.refreshToken = process.env.AMAZON_SP_API_REFRESH_TOKEN || '';
-    this.clientId = process.env.AMAZON_SP_API_CLIENT_ID || '';
-    this.clientSecret = process.env.AMAZON_SP_API_CLIENT_SECRET || '';
+    // No longer using hardcoded env vars - will load config when needed
   }
 
-  private async refreshAccessToken(): Promise<void> {
+  /**
+   * Load Amazon config from database (database-first approach)
+   */
+  private async getConfig(): Promise<SPAPIConfig> {
+    if (this.config) {
+      return this.config;
+    }
+
+    // Load config from database
+    const baseConfig = await getAmazonConfigFromDb();
+    
+    // Also get sellerId from database
+    const dbCredentials = await db
+      .select()
+      .from(marketplaceCredentials)
+      .where(eq(marketplaceCredentials.marketplace, 'amazon'))
+      .limit(1);
+    
+    this.config = {
+      ...baseConfig,
+      sellerId: dbCredentials[0]?.sellerId || 'A10D4VTYI7RMZ2' // Fallback seller ID
+    };
+    
+    return this.config;
+  }
+
+  /**
+   * Get access token (with caching)
+   */
+  private async getAccessToken(): Promise<string> {
+    // Check if we have a valid cached token
+    if (tokenCache && tokenCache.expires_at > Date.now()) {
+      return tokenCache.access_token;
+    }
+
+    const config = await this.getConfig();
+
     try {
       const response = await axios.post('https://api.amazon.com/auth/o2/token', {
         grant_type: 'refresh_token',
-        refresh_token: this.refreshToken,
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
+        refresh_token: config.refreshToken,
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
       }, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
 
-      this.accessToken = response.data.access_token;
+      const expiresIn = response.data.expires_in || 3600;
+      tokenCache = {
+        access_token: response.data.access_token,
+        expires_at: Date.now() + (expiresIn * 1000) - 60000 // Expire 1 minute early for safety
+      };
+
+      return tokenCache.access_token;
     } catch (error) {
       console.error('Failed to refresh Amazon SP-API access token:', error);
       throw new Error('Amazon SP-API authentication failed');
@@ -55,16 +107,23 @@ export class AmazonListingsRestrictionsService {
 
   async getListingsRestrictions(
     asin: string,
-    sellerId: string,
-    marketplaceIds: string[],
+    sellerId?: string,
+    marketplaceIds?: string[],
     conditionType: string = 'new_new',
     reasonLocale: string = 'en_US'
   ): Promise<ListingsRestrictionsResponse> {
     try {
+      const config = await this.getConfig();
+      const accessToken = await this.getAccessToken();
+      
+      // Use config values if not provided
+      const finalSellerId = sellerId || config.sellerId || '';
+      const finalMarketplaceIds = marketplaceIds || [config.marketplaceId || 'ATVPDKIKX0DER'];
+      
       const params = new URLSearchParams({
         asin,
-        sellerId,
-        marketplaceIds: marketplaceIds.join(','),
+        sellerId: finalSellerId,
+        marketplaceIds: finalMarketplaceIds.join(','),
         conditionType,
         reasonLocale,
       });
@@ -73,8 +132,7 @@ export class AmazonListingsRestrictionsService {
         `${this.baseUrl}/listings/2021-08-01/restrictions?${params}`,
         {
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
-            'x-amz-access-token': this.accessToken,
+            'x-amz-access-token': accessToken,
             'Content-Type': 'application/json',
           },
         }
@@ -82,33 +140,6 @@ export class AmazonListingsRestrictionsService {
 
       return response.data;
     } catch (error: any) {
-      if (error.response?.status === 401) {
-        // Token expired, try to refresh
-        await this.refreshAccessToken();
-        
-        // Retry the request with new token
-        const params = new URLSearchParams({
-          asin,
-          sellerId,
-          marketplaceIds: marketplaceIds.join(','),
-          conditionType,
-          reasonLocale,
-        });
-
-        const retryResponse = await axios.get(
-          `${this.baseUrl}/listings/2021-08-01/restrictions?${params}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${this.accessToken}`,
-              'x-amz-access-token': this.accessToken,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        return retryResponse.data;
-      }
-
       console.error('Amazon SP-API getListingsRestrictions error:', error.response?.data || error.message);
       throw new Error(`Failed to fetch listing restrictions: ${error.response?.data?.errors?.[0]?.message || error.message}`);
     }
@@ -116,18 +147,19 @@ export class AmazonListingsRestrictionsService {
 
   // Batch process multiple ASINs with rate limiting (5 requests per second)
   async batchGetListingsRestrictions(
-    asinSellerId: { asin: string; sellerId: string }[],
-    marketplaceIds: string[],
+    asins: string[],
+    marketplaceIds?: string[],
     conditionType: string = 'new_new'
   ): Promise<{ asin: string; restrictions: ListingRestriction[]; error?: string }[]> {
     const results: { asin: string; restrictions: ListingRestriction[]; error?: string }[] = [];
     const delay = 200; // 200ms delay for 5 requests per second rate limit
+    const config = await this.getConfig();
 
-    for (const { asin, sellerId } of asinSellerId) {
+    for (const asin of asins) {
       try {
         const response = await this.getListingsRestrictions(
           asin,
-          sellerId,
+          config.sellerId,
           marketplaceIds,
           conditionType
         );
