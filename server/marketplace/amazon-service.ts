@@ -385,5 +385,25 @@ export async function batchSyncAmazonData(limit: number = 10) {
   
   console.log(`✅ Batch sync complete: ${results.successful} successful, ${results.failed} failed`);
   
+  // Event Hook: Trigger Purchasing AI analysis for successfully synced products
+  if (results.successful > 0 && results.productIds.length > 0) {
+    try {
+      const { purchasingAIScheduler } = await import('../purchasing/scheduler/job-scheduler');
+      
+      const jobId = await purchasingAIScheduler.createJob({
+        name: `Auto-Analysis: Amazon Sync Completion (${results.successful} products)`,
+        priority: 'medium',
+        scheduleType: 'event_triggered',
+        productIds: results.productIds,
+        onlyStale: false, // Analyze all newly synced products
+      });
+      
+      console.log(`🔗 Event Hook: Created purchasing analysis job ${jobId} for ${results.successful} products`);
+    } catch (error) {
+      console.error('⚠️ Failed to trigger purchasing analysis:', error);
+      // Don't fail the sync if analysis trigger fails
+    }
+  }
+  
   return results;
 }

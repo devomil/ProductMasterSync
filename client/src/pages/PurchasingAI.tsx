@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle, Play } from 'lucide-react';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle, Play, Pause, RefreshCw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Link } from 'wouter';
@@ -438,11 +438,12 @@ export default function PurchasingAI() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">System Overview</TabsTrigger>
             <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="insights">AI Insights</TabsTrigger>
+            <TabsTrigger value="automation">24/7 Automation</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -1042,6 +1043,162 @@ export default function PurchasingAI() {
                     <p className="text-sm text-blue-700 mt-1">
                       Confidence scores are calculated using UPC exact match (60%), product title similarity (20%), and brand verification (20%).
                     </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="automation" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>24/7 Automated Analysis Scheduler</CardTitle>
+                <CardDescription>
+                  Configure and monitor continuous product analysis with automatic job scheduling
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Scheduler Status Section */}
+                <div className="rounded-lg border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Scheduler Status</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Automated analysis runs every hour to discover new opportunities
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          fetch('/api/purchasing/scheduler/enable', { method: 'POST' })
+                            .then(() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/scheduler/status'] }));
+                        }}
+                        variant="default"
+                        size="sm"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Enable Auto-Analysis
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          fetch('/api/purchasing/scheduler/disable', { method: 'POST' })
+                            .then(() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/scheduler/status'] }));
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Pause className="h-4 w-4 mr-2" />
+                        Disable
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="rounded border p-3">
+                      <div className="text-sm text-muted-foreground">Status</div>
+                      <div className="text-lg font-semibold flex items-center gap-2 mt-1">
+                        <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                        Disabled
+                      </div>
+                    </div>
+                    <div className="rounded border p-3">
+                      <div className="text-sm text-muted-foreground">Check Interval</div>
+                      <div className="text-lg font-semibold mt-1">60s</div>
+                    </div>
+                    <div className="rounded border p-3">
+                      <div className="text-sm text-muted-foreground">Active Jobs</div>
+                      <div className="text-lg font-semibold mt-1">0</div>
+                    </div>
+                    <div className="rounded border p-3">
+                      <div className="text-sm text-muted-foreground">Max Concurrent</div>
+                      <div className="text-lg font-semibold mt-1">1</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="rounded-lg border p-4 space-y-4">
+                  <h3 className="text-lg font-semibold">Quick Actions</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        fetch('/api/purchasing/scheduler/jobs', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: 'Manual Analysis - All Products',
+                            priority: 'high',
+                            scheduleType: 'manual',
+                            onlyStale: false,
+                          }),
+                        })
+                          .then(() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/scheduler/jobs'] }))
+                          .then(() => toast({ title: 'Job Created', description: 'Analysis job started successfully' }));
+                      }}
+                      variant="default"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Analyze All Products Now
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        fetch('/api/purchasing/scheduler/jobs', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: 'Manual Analysis - Stale Only',
+                            priority: 'medium',
+                            scheduleType: 'manual',
+                            onlyStale: true,
+                          }),
+                        })
+                          .then(() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/scheduler/jobs'] }))
+                          .then(() => toast({ title: 'Job Created', description: 'Analyzing stale products only' }));
+                      }}
+                      variant="outline"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Analyze Stale Products
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Job Queue Stats */}
+                <div className="rounded-lg border p-4 space-y-4">
+                  <h3 className="text-lg font-semibold">Job Queue Statistics</h3>
+                  <div className="grid grid-cols-6 gap-4">
+                    <div className="rounded border p-3 text-center">
+                      <div className="text-2xl font-bold">0</div>
+                      <div className="text-xs text-muted-foreground mt-1">Total</div>
+                    </div>
+                    <div className="rounded border p-3 text-center">
+                      <div className="text-2xl font-bold text-yellow-600">0</div>
+                      <div className="text-xs text-muted-foreground mt-1">Pending</div>
+                    </div>
+                    <div className="rounded border p-3 text-center">
+                      <div className="text-2xl font-bold text-blue-600">0</div>
+                      <div className="text-xs text-muted-foreground mt-1">Running</div>
+                    </div>
+                    <div className="rounded border p-3 text-center">
+                      <div className="text-2xl font-bold text-green-600">0</div>
+                      <div className="text-xs text-muted-foreground mt-1">Completed</div>
+                    </div>
+                    <div className="rounded border p-3 text-center">
+                      <div className="text-2xl font-bold text-red-600">0</div>
+                      <div className="text-xs text-muted-foreground mt-1">Failed</div>
+                    </div>
+                    <div className="rounded border p-3 text-center">
+                      <div className="text-2xl font-bold text-gray-600">0</div>
+                      <div className="text-xs text-muted-foreground mt-1">Paused</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Runs */}
+                <div className="rounded-lg border p-4 space-y-4">
+                  <h3 className="text-lg font-semibold">Recent Analysis Runs</h3>
+                  <div className="text-sm text-muted-foreground text-center py-8">
+                    No analysis runs yet. Create a job to get started.
                   </div>
                 </div>
               </CardContent>
