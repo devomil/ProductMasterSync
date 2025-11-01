@@ -88,4 +88,13 @@ app.use((req, res, next) => {
   
   // Start the supplier automation scheduler
   await startSupplierAutomationScheduler();
+  
+  // Start the Purchasing AI job scheduler
+  try {
+    const { purchasingAIScheduler } = await import("./purchasing/scheduler/job-scheduler");
+    await purchasingAIScheduler.start();
+    log('✅ Purchasing AI scheduler started');
+  } catch (error) {
+    log(`⚠️ Failed to start Purchasing AI scheduler: ${error}`);
+  }
 })();

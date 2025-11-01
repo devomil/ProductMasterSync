@@ -51,6 +51,15 @@ Preferred communication style: Simple, everyday language.
     - **Purchasing AI UI**: User-friendly "Run Analysis" button to trigger bulk analysis with progress monitoring and toast notifications.
     - **Purchasing AI Rate Limiting**: Production-ready rate limiting for Amazon Product Fees API (0.5 req/sec) with batch processing, circuit breaker, retry logic, exponential backoff, and real-time monitoring.
     - **Purchasing AI Deduplication**: Database-level deduplication using unique constraints on `(productId, asin)` to prevent duplicate opportunity records.
+    - **24/7 Automated Analysis System**: Complete automation infrastructure for continuous purchasing opportunity analysis:
+      - **Job Scheduler**: In-process priority queue (high/medium/low) with max 1 concurrent job for rate limiting, resumable jobs with checkpoint tracking, graceful shutdown handling
+      - **Database Schema**: `purchasing_analysis_jobs` table stores scheduled jobs, `purchasing_analysis_runs` table tracks execution history
+      - **Business Logic**: Analyzes ALL products with ASINs regardless of buy box/sales rank availability (missing market data = monopoly/exclusive opportunity)
+      - **Null Safety**: LEFT JOIN for amazonMarketIntelligence ensures products without market data are still analyzed
+      - **Event Hooks**: Amazon batch sync automatically creates medium-priority analysis jobs for newly synced products, closing sync→analysis automation loop
+      - **Monitoring UI**: "24/7 Automation" tab with scheduler enable/disable controls, quick actions (analyze all/stale products), queue status, and recent runs display
+      - **API Endpoints**: Complete set of scheduler management endpoints (/status, /jobs CRUD, /runs, /analytics)
+      - **Production Ready**: Successfully tested end-to-end with automatic job creation, queue management, and cache invalidation
     - **Performance Optimization**: Intelligent caching and optimized queries for sub-second API responses.
 
 ## System Design
