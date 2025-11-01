@@ -194,6 +194,18 @@ export default function PurchasingAI() {
     queryKey: ['/api/purchasing/stats'],
   });
 
+  // Fetch scheduler status
+  const { data: schedulerStatus } = useQuery<any>({
+    queryKey: ['/api/purchasing/scheduler/status'],
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
+  // Fetch job queue stats
+  const { data: jobStats } = useQuery<any>({
+    queryKey: ['/api/purchasing/scheduler/jobs'],
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
   // Bulk analysis mutation
   const bulkAnalysisMutation = useMutation({
     mutationFn: async (limit: number) => {
@@ -1097,21 +1109,23 @@ export default function PurchasingAI() {
                     <div className="rounded border p-3">
                       <div className="text-sm text-muted-foreground">Status</div>
                       <div className="text-lg font-semibold flex items-center gap-2 mt-1">
-                        <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-                        Disabled
+                        <div className={`h-2 w-2 rounded-full ${schedulerStatus?.scheduler?.enabled ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        {schedulerStatus?.scheduler?.enabled ? 'Enabled' : 'Disabled'}
                       </div>
                     </div>
                     <div className="rounded border p-3">
                       <div className="text-sm text-muted-foreground">Check Interval</div>
-                      <div className="text-lg font-semibold mt-1">60s</div>
+                      <div className="text-lg font-semibold mt-1">
+                        {schedulerStatus?.scheduler?.checkInterval ? `${Math.floor(schedulerStatus.scheduler.checkInterval / 1000)}s` : '60s'}
+                      </div>
                     </div>
                     <div className="rounded border p-3">
                       <div className="text-sm text-muted-foreground">Active Jobs</div>
-                      <div className="text-lg font-semibold mt-1">0</div>
+                      <div className="text-lg font-semibold mt-1">{schedulerStatus?.scheduler?.activeJobs?.length || 0}</div>
                     </div>
                     <div className="rounded border p-3">
                       <div className="text-sm text-muted-foreground">Max Concurrent</div>
-                      <div className="text-lg font-semibold mt-1">1</div>
+                      <div className="text-lg font-semibold mt-1">{schedulerStatus?.scheduler?.maxConcurrentJobs || 1}</div>
                     </div>
                   </div>
                 </div>
@@ -1168,27 +1182,27 @@ export default function PurchasingAI() {
                   <h3 className="text-lg font-semibold">Job Queue Statistics</h3>
                   <div className="grid grid-cols-6 gap-4">
                     <div className="rounded border p-3 text-center">
-                      <div className="text-2xl font-bold">0</div>
+                      <div className="text-2xl font-bold">{schedulerStatus?.jobs?.total || 0}</div>
                       <div className="text-xs text-muted-foreground mt-1">Total</div>
                     </div>
                     <div className="rounded border p-3 text-center">
-                      <div className="text-2xl font-bold text-yellow-600">0</div>
+                      <div className="text-2xl font-bold text-yellow-600">{schedulerStatus?.jobs?.pending || 0}</div>
                       <div className="text-xs text-muted-foreground mt-1">Pending</div>
                     </div>
                     <div className="rounded border p-3 text-center">
-                      <div className="text-2xl font-bold text-blue-600">0</div>
+                      <div className="text-2xl font-bold text-blue-600">{schedulerStatus?.jobs?.running || 0}</div>
                       <div className="text-xs text-muted-foreground mt-1">Running</div>
                     </div>
                     <div className="rounded border p-3 text-center">
-                      <div className="text-2xl font-bold text-green-600">0</div>
+                      <div className="text-2xl font-bold text-green-600">{schedulerStatus?.jobs?.completed || 0}</div>
                       <div className="text-xs text-muted-foreground mt-1">Completed</div>
                     </div>
                     <div className="rounded border p-3 text-center">
-                      <div className="text-2xl font-bold text-red-600">0</div>
+                      <div className="text-2xl font-bold text-red-600">{schedulerStatus?.jobs?.failed || 0}</div>
                       <div className="text-xs text-muted-foreground mt-1">Failed</div>
                     </div>
                     <div className="rounded border p-3 text-center">
-                      <div className="text-2xl font-bold text-gray-600">0</div>
+                      <div className="text-2xl font-bold text-gray-600">{schedulerStatus?.jobs?.paused || 0}</div>
                       <div className="text-xs text-muted-foreground mt-1">Paused</div>
                     </div>
                   </div>
