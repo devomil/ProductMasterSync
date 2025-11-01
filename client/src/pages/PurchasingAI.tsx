@@ -870,12 +870,15 @@ export default function PurchasingAI() {
                               <Badge 
                                 variant="outline"
                                 className={
-                                  opp.canList === true 
+                                  opp.canList === false
+                                    ? 'border-red-500 text-red-700 bg-red-50'
+                                    : opp.canList === true 
                                     ? 'border-green-500 text-green-700 bg-green-50' 
-                                    : 'border-yellow-500 text-yellow-700 bg-yellow-50'
+                                    : 'border-gray-500 text-gray-700 bg-gray-50'
                                 }
+                                title={opp.canList === null ? 'Listing restrictions have not been checked yet' : undefined}
                               >
-                                {opp.canList === true ? '✓ Approved' : '⚠ Needs Approval'}
+                                {opp.canList === false ? '❌ Restricted' : opp.canList === true ? '✓ Approved' : '⚪ Not Checked'}
                               </Badge>
                             </TableCell>
                             

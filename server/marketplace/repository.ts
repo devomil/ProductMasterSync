@@ -42,6 +42,27 @@ export async function createAsinRecord(asinData: any): Promise<void> {
 }
 
 /**
+ * Update ASIN listing restrictions
+ * @param asin 
+ * @param canList 
+ * @param hasListingRestrictions 
+ */
+export async function updateAsinRestrictions(
+  asin: string,
+  canList: boolean,
+  hasListingRestrictions: boolean
+): Promise<void> {
+  await db
+    .update(amazonAsins)
+    .set({
+      canList,
+      hasListingRestrictions,
+      lastRestrictionsCheck: new Date()
+    })
+    .where(eq(amazonAsins.asin, asin));
+}
+
+/**
  * Get Amazon marketplace data for a product
  * @param productId 
  */

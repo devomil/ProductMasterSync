@@ -315,7 +315,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
 
     const ourCost = parseFloat(product.cost || '0');
     const weight = parseFloat(product.weight || '5'); // Default 5 lbs if not specified
-    const buyBoxPrice = (marketData.buyBoxPrice || 0) / 100; // Convert cents to dollars
+    const buyBoxPrice = (marketData?.buyBoxPrice || 0) / 100; // Convert cents to dollars
 
     // Calculate shipping
     const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10; // Default $10 shipping
@@ -329,7 +329,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
       weight: product.weight,
       asin: asinMapping.asin,
       buyBoxPrice,
-      salesRank: marketData.salesRank,
+      salesRank: marketData?.salesRank || null,
       salesRankCategory: null, // amazonMarketIntelligence doesn't have this field
       canList: asinData?.canList ?? marketData?.canList ?? true, // Read from amazonAsins table
       supplierId: supplier?.supplierId || null,
@@ -412,7 +412,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
           ourCost,
           shippingCost,
           buyBoxPrice,
-          salesRank: marketData.salesRank,
+          salesRank: marketData?.salesRank || null,
           canList: productData.canList,
           reasoning: aiResult.reasoning,
           opportunityScore: aiResult.opportunityScore,
@@ -442,7 +442,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
           ourCost,
           shippingCost,
           buyBoxPrice,
-          salesRank: marketData.salesRank,
+          salesRank: marketData?.salesRank || null,
           salesRankCategory: null,
           canList: productData.canList,
           reasoning: aiResult.reasoning,
@@ -495,7 +495,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
         eq(products.id, productAsinMapping.productId),
         eq(productAsinMapping.isActive, true)
       ))
-      .innerJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
+      .leftJoin(amazonMarketIntelligence, eq(productAsinMapping.asin, amazonMarketIntelligence.asin))
       .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .leftJoin(productSuppliers, eq(products.id, productSuppliers.productId))
       .limit(limit);
@@ -533,7 +533,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
         try {
           const ourCost = parseFloat(product.cost || '0');
           const weight = parseFloat(product.weight || '5');
-          const buyBoxPrice = (marketData.buyBoxPrice || 0) / 100; // Convert cents to dollars
+          const buyBoxPrice = (marketData?.buyBoxPrice || 0) / 100; // Convert cents to dollars
 
           const shippingCost = await calculateShippingCost(supplier?.supplierId || null, ourCost, weight) || 10;
 
@@ -591,7 +591,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           weight: product.weight,
           asin: asinMapping.asin,
           buyBoxPrice,
-          salesRank: marketData.salesRank,
+          salesRank: marketData?.salesRank || null,
           salesRankCategory: null,
           canList: asinData?.canList ?? marketData?.canList ?? true,
           supplierId: supplier?.supplierId || null,
@@ -623,7 +623,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
             ourCost,
             shippingCost,
             buyBoxPrice,
-            salesRank: marketData.salesRank,
+            salesRank: marketData?.salesRank || null,
             salesRankCategory: null,
             canList: productData.canList,
             reasoning: aiResult.reasoning,

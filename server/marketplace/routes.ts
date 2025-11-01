@@ -997,22 +997,15 @@ router.get('/restrictions/:asin', async (req, res) => {
 // Batch endpoint for checking multiple ASINs
 router.post('/restrictions/batch', async (req, res) => {
   try {
-    const { asins, sellerId, marketplaceIds = ['ATVPDKIKX0DER'], conditionType = 'new_new' } = req.body;
+    const { asins, marketplaceIds = ['ATVPDKIKX0DER'], conditionType = 'new_new' } = req.body;
 
     if (!asins || !Array.isArray(asins)) {
       return res.status(400).json({ error: 'ASINs array is required' });
     }
 
-    if (!sellerId) {
-      return res.status(400).json({ 
-        error: 'Seller ID is required in request body or set AMAZON_SELLER_ID environment variable.' 
-      });
-    }
-
-    const asinSellerPairs = asins.map((asin: string) => ({ asin, sellerId }));
-    
+    // Service now loads sellerId from database automatically
     const results = await amazonListingsRestrictionsService.batchGetListingsRestrictions(
-      asinSellerPairs,
+      asins,
       marketplaceIds,
       conditionType
     );
@@ -1028,6 +1021,14 @@ router.post('/restrictions/batch', async (req, res) => {
         error: result.error
       };
     });
+
+    // Update database with restriction data
+    const { updateAsinRestrictions } = await import('./repository');
+    await Promise.all(
+      processedResults
+        .filter(r => !r.error)
+        .map(r => updateAsinRestrictions(r.asin, r.canList, r.restrictions.length > 0))
+    );
 
     res.json({
       results: processedResults,
