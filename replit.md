@@ -133,6 +133,10 @@ This prevents downtime and catches issues before affecting live users.
 - **October 2025**: Fixed production deployment issue where marketplace routes failed to load due to dynamic imports being incompatible with esbuild's bundling process. Solution: Converted all route module imports to static imports in `server/routes.ts`.
 - **Route Loading**: The `loadRouteModule()` helper function was removed because production builds don't support dynamic file-based module loading.
 - **November 2025**: Implemented 24/7 Purchasing AI automation with auto-start on server boot. The scheduler initializes in `server/index.ts` after supplier automation, loads config from `purchasing_settings.auto_analysis_enabled`, and automatically processes queued jobs. Critical: Database must have `auto_analysis_enabled=true` for automation to run.
+- **November 4, 2025 - Critical Listing Restrictions Bugs Fixed**:
+  - **Bug #1 (APPROVAL_REQUIRED)**: System incorrectly treated Amazon's `APPROVAL_REQUIRED` status as "allowed to list" instead of "blocked until approval". Fixed by updating `isListingAllowed()` to block NOT_ELIGIBLE, APPROVAL_REQUIRED, and ASIN_NOT_FOUND.
+  - **Bug #2 (conditionType filtering)**: System checked ALL restrictions (new, used, refurbished, etc.) instead of only NEW item restrictions. This caused false positives where products approved for NEW items showed as restricted because USED/REFURBISHED conditions required approval. Fixed by filtering restrictions to only evaluate `conditionType='new_new'` before checking approval status. Updated 5 call sites across 4 files.
+  - **Impact**: Both bugs caused widespread false positives showing products as restricted when they were actually approved for NEW condition sales. All listing restriction checks now properly filter by condition type.
 
 # External Dependencies
 

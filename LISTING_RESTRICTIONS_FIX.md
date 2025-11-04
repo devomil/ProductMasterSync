@@ -1,10 +1,12 @@
 # Listing Restrictions Data Accuracy Fix
 
-## 🔍 **Root Cause Found**
+## 🔍 **Root Cause Found - TWO CRITICAL BUGS**
 
-The system was showing incorrect listing restriction statuses (e.g., "Approved" when Seller Central shows "Needs Approval") due to **faulty logic in the Amazon Listings Restrictions API handler**.
+The system was showing incorrect listing restriction statuses (e.g., "Approved" when Seller Central shows "Needs Approval") due to **TWO separate bugs in the Amazon Listings Restrictions API handler**.
 
-### The Bug
+---
+
+### ❌ **Bug #1: APPROVAL_REQUIRED Treated as Allowed (FIXED - Nov 4, 2025)**
 
 **File:** `server/marketplace/amazon-listings-restrictions.ts`
 
@@ -32,6 +34,73 @@ return {
   messages
 };
 ```
+
+---
+
+### ❌ **Bug #2: conditionType Not Being Filtered (FIXED - Nov 4, 2025)**
+
+**File:** `server/marketplace/amazon-listings-restrictions.ts`
+
+**THE PROBLEM:**
+Amazon's API returns restrictions for **ALL conditions** (new, used, refurbished, etc.), and each restriction includes a `conditionType` field showing which condition it applies to. Our code was checking **ALL restrictions** regardless of which condition we actually care about!
+
+**IMPACT:**
+- Product restricted for `used_good` but approved for `new_new` → Showed as "RESTRICTED" ❌
+- Should have shown as "APPROVED" for new items ✅
+
+**Example Real Case:**
+```json
+{
+  "restrictions": [
+    {"conditionType": "used_good", "reasonCode": "APPROVAL_REQUIRED"},  
+    {"conditionType": "new_new", "reasons": []}  // No restrictions for NEW!
+  ]
+}
+```
+
+**OLD LOGIC (INCORRECT):**
+```typescript
+isListingAllowed(restrictions) {
+  // ❌ Checked ALL restrictions regardless of conditionType
+  for (const restriction of restrictions) {
+    for (const reason of restriction.reasons) {
+      reasonCodes.push(reason.reasonCode);  // Includes USED restrictions!
+    }
+  }
+  return { allowed: !reasonCodes.includes('APPROVAL_REQUIRED') };
+}
+```
+
+**NEW LOGIC (FIXED):**
+```typescript
+isListingAllowed(restrictions, targetConditionType = 'new_new') {
+  // ✅ Filter to only check restrictions for our target condition
+  const relevantRestrictions = restrictions.filter(
+    r => !r.conditionType || r.conditionType === targetConditionType
+  );
+  
+  // If no relevant restrictions for this condition, it's allowed!
+  if (relevantRestrictions.length === 0) {
+    return { allowed: true, needsApproval: false, reasonCodes: [], messages: [] };
+  }
+  
+  // Only check NEW item restrictions
+  for (const restriction of relevantRestrictions) {
+    for (const reason of restriction.reasons) {
+      reasonCodes.push(reason.reasonCode);
+    }
+  }
+  // ... rest of logic
+}
+```
+
+**FILES UPDATED:**
+1. `server/marketplace/amazon-listings-restrictions.ts` - Added targetConditionType parameter
+2. `server/marketplace/routes.ts` - Updated 3 call sites to pass conditionType
+3. `server/marketplace/amazon-service.ts` - Updated 1 call site
+4. `server/scripts/recheck-listing-restrictions.ts` - Updated 1 call site
+
+**TOTAL IMPACT:** This bug was causing **FALSE POSITIVES** across the board!
 
 ### Impact
 
