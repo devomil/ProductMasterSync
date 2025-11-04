@@ -976,7 +976,7 @@ router.get('/restrictions/:asin', async (req, res) => {
       conditionType
     );
 
-    const listingStatus = amazonListingsRestrictionsService.isListingAllowed(restrictionsData.restrictions);
+    const listingStatus = amazonListingsRestrictionsService.isListingAllowed(restrictionsData.restrictions, conditionType);
 
     res.json({
       asin,
@@ -1012,7 +1012,7 @@ router.post('/restrictions/batch', async (req, res) => {
     );
 
     const processedResults = results.map(result => {
-      const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions);
+      const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions, conditionType);
       return {
         asin: result.asin,
         restrictions: result.restrictions,
@@ -1077,7 +1077,7 @@ router.post('/restrictions/recheck-all', async (req, res) => {
         );
         
         const processedResults = results.map(result => {
-          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions);
+          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions, 'new_new');
           return {
             asin: result.asin,
             canList: listingStatus.allowed,

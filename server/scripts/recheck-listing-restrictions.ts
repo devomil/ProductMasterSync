@@ -50,7 +50,7 @@ async function recheckAllListingRestrictions() {
             continue;
           }
           
-          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions);
+          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions, 'new_new');
           
           // Update amazon_asins table
           await db

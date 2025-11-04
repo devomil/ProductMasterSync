@@ -183,8 +183,11 @@ export class AmazonListingsRestrictionsService {
     return results;
   }
 
-  // Helper method to determine if listing is allowed
-  isListingAllowed(restrictions: ListingRestriction[]): {
+  // Helper method to determine if listing is allowed for a specific condition
+  isListingAllowed(
+    restrictions: ListingRestriction[],
+    targetConditionType: string = 'new_new'
+  ): {
     allowed: boolean;
     needsApproval: boolean;
     reasonCodes: string[];
@@ -197,7 +200,19 @@ export class AmazonListingsRestrictionsService {
     const reasonCodes: string[] = [];
     const messages: string[] = [];
 
-    for (const restriction of restrictions) {
+    // CRITICAL FIX: Filter restrictions by conditionType
+    // Only check restrictions that match the target condition (e.g., "new_new")
+    // If a restriction has no conditionType, it applies to all conditions
+    const relevantRestrictions = restrictions.filter(
+      r => !r.conditionType || r.conditionType === targetConditionType
+    );
+
+    // If no relevant restrictions for this condition, it's allowed
+    if (relevantRestrictions.length === 0) {
+      return { allowed: true, needsApproval: false, reasonCodes: [], messages: [] };
+    }
+
+    for (const restriction of relevantRestrictions) {
       for (const reason of restriction.reasons) {
         reasonCodes.push(reason.reasonCode);
         messages.push(reason.message);

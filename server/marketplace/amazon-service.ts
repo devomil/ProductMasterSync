@@ -198,7 +198,7 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
         );
         
         if (restrictionsData) {
-          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(restrictionsData.restrictions);
+          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(restrictionsData.restrictions, 'new_new');
           marketData.canList = listingStatus.allowed;
           marketData.listingRestrictions = restrictionsData.restrictions;
         }
