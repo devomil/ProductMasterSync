@@ -186,11 +186,12 @@ export class AmazonListingsRestrictionsService {
   // Helper method to determine if listing is allowed
   isListingAllowed(restrictions: ListingRestriction[]): {
     allowed: boolean;
+    needsApproval: boolean;
     reasonCodes: string[];
     messages: string[];
   } {
     if (!restrictions || restrictions.length === 0) {
-      return { allowed: true, reasonCodes: [], messages: [] };
+      return { allowed: true, needsApproval: false, reasonCodes: [], messages: [] };
     }
 
     const reasonCodes: string[] = [];
@@ -203,12 +204,20 @@ export class AmazonListingsRestrictionsService {
       }
     }
 
-    // If any restriction has NOT_ELIGIBLE, listing is not allowed
+    // Check restriction types
     const notEligible = reasonCodes.includes('NOT_ELIGIBLE');
     const approvalRequired = reasonCodes.includes('APPROVAL_REQUIRED');
+    const asinNotFound = reasonCodes.includes('ASIN_NOT_FOUND');
+
+    // CRITICAL FIX: Both NOT_ELIGIBLE and APPROVAL_REQUIRED mean you cannot list
+    // - NOT_ELIGIBLE: Permanently blocked
+    // - APPROVAL_REQUIRED: Blocked until approval granted
+    // - ASIN_NOT_FOUND: Invalid ASIN
+    const canList = !notEligible && !approvalRequired && !asinNotFound;
 
     return {
-      allowed: !notEligible,
+      allowed: canList,
+      needsApproval: approvalRequired,
       reasonCodes,
       messages,
     };

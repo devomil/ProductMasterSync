@@ -982,6 +982,7 @@ router.get('/restrictions/:asin', async (req, res) => {
       asin,
       restrictions: restrictionsData.restrictions,
       canList: listingStatus.allowed,
+      needsApproval: listingStatus.needsApproval,
       reasonCodes: listingStatus.reasonCodes,
       messages: listingStatus.messages
     });
@@ -1016,6 +1017,7 @@ router.post('/restrictions/batch', async (req, res) => {
         asin: result.asin,
         restrictions: result.restrictions,
         canList: listingStatus.allowed,
+        needsApproval: listingStatus.needsApproval,
         reasonCodes: listingStatus.reasonCodes,
         messages: listingStatus.messages,
         error: result.error

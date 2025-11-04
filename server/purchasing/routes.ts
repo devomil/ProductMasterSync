@@ -86,14 +86,16 @@ router.get("/stats", async (req, res) => {
       .from(purchasingOpportunities)
       .where(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
 
-    res.json(stats[0] || {
-      totalAnalyzed: 0,
-      totalOpportunities: 0,
-      avgConfidence: 0,
-      avgOpportunityScore: 0,
-      automationReady: 0,
-      dropshipCount: 0,
-      warehouseCount: 0,
+    // Convert PostgreSQL aggregate results to numbers
+    const result = stats[0] || {};
+    res.json({
+      totalAnalyzed: Number(result.totalAnalyzed) || 0,
+      totalOpportunities: Number(result.totalOpportunities) || 0,
+      avgConfidence: Number(result.avgConfidence) || 0,
+      avgOpportunityScore: Number(result.avgOpportunityScore) || 0,
+      automationReady: Number(result.automationReady) || 0,
+      dropshipCount: Number(result.dropshipCount) || 0,
+      warehouseCount: Number(result.warehouseCount) || 0,
     });
   } catch (error) {
     console.error('[Purchasing AI] Error fetching stats:', error);
