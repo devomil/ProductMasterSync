@@ -1047,6 +1047,81 @@ router.post('/restrictions/batch', async (req, res) => {
   }
 });
 
+// Re-check ALL listing restrictions (admin tool to fix incorrect data)
+router.post('/restrictions/recheck-all', async (req, res) => {
+  try {
+    console.log('[Restrictions] Starting batch re-check of all ASINs...');
+    
+    // Get all unique ASINs
+    const asinsResult = await db
+      .selectDistinct({ asin: amazonAsins.asin })
+      .from(amazonAsins)
+      .where(isNotNull(amazonAsins.asin));
+    
+    const allAsins = asinsResult.map(r => r.asin);
+    console.log(`[Restrictions] Found ${allAsins.length} ASINs to re-check`);
+    
+    // Process in batches of 50 to avoid timeout
+    const BATCH_SIZE = 50;
+    let totalSuccess = 0;
+    let totalFailed = 0;
+    
+    for (let i = 0; i < allAsins.length; i += BATCH_SIZE) {
+      const batch = allAsins.slice(i, Math.min(i + BATCH_SIZE, allAsins.length));
+      
+      try {
+        const results = await amazonListingsRestrictionsService.batchGetListingsRestrictions(
+          batch,
+          ['ATVPDKIKX0DER'],
+          'new_new'
+        );
+        
+        const processedResults = results.map(result => {
+          const listingStatus = amazonListingsRestrictionsService.isListingAllowed(result.restrictions);
+          return {
+            asin: result.asin,
+            canList: listingStatus.allowed,
+            needsApproval: listingStatus.needsApproval,
+            restrictions: result.restrictions,
+            error: result.error
+          };
+        });
+        
+        // Update database
+        const { updateAsinRestrictions } = await import('./repository');
+        await Promise.all(
+          processedResults
+            .filter(r => !r.error)
+            .map(r => updateAsinRestrictions(r.asin, r.canList, r.restrictions.length > 0))
+        );
+        
+        totalSuccess += results.filter(r => !r.error).length;
+        totalFailed += results.filter(r => r.error).length;
+        
+        console.log(`[Restrictions] Progress: ${Math.min(i + BATCH_SIZE, allAsins.length)}/${allAsins.length} (Success: ${totalSuccess}, Failed: ${totalFailed})`);
+      } catch (batchError) {
+        console.error(`[Restrictions] Batch ${i}-${i + BATCH_SIZE} failed:`, batchError);
+        totalFailed += batch.length;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Re-check complete',
+      totalAsins: allAsins.length,
+      successful: totalSuccess,
+      failed: totalFailed,
+      nextStep: 'Re-run Purchasing AI analysis to update opportunities with correct listing restrictions'
+    });
+  } catch (error: any) {
+    console.error('[Restrictions] Re-check all failed:', error);
+    res.status(500).json({ 
+      error: 'Failed to re-check all listing restrictions',
+      details: error.message 
+    });
+  }
+});
+
 /**
  * POST /marketplace/amazon/refresh-pricing
  * Refresh pricing data using cost-based calculations
