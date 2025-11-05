@@ -2490,11 +2490,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sftp = new SftpClient();
           console.log('Connecting to SFTP for sample pull:', { host: sftpConfig.host, port: sftpConfig.port || 22 });
           
+          // Use environment variable for password if available (production environment)
+          let password = sftpConfig.password;
+          if (process.env.SFTP_PASSWORD && 
+              sftpConfig.host === 'edi.cwrdistribution.com' && 
+              sftpConfig.username === 'eco8') {
+            console.log('Using SFTP_PASSWORD from environment variables for sample pull');
+            password = process.env.SFTP_PASSWORD;
+          }
+          
           await sftp.connect({
             host: sftpConfig.host,
             port: sftpConfig.port || 22,
             username: sftpConfig.username,
-            password: sftpConfig.password
+            password: password
           });
           
           const fileList = await sftp.list('./');

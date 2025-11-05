@@ -1,0 +1,192 @@
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"price": "List Price",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"rebate": "Rebate",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"weight": "Shipping Weight",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"boxWidth": "Box Width",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"closeout": "Closeout",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"imageUrl": "Image (300x300) Url",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"mapPrice": "M.A.P. Price",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"mrpPrice": "M.R.P. Price",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"yourCost": "Your Cost",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"boxHeight": "Box Height",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"boxLength": "Box Length",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"listPrice": "List Price",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"oversized": "Oversized",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"quickSpecs": "Quick Specs",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"brochureUrl": "Brochure Literature (pdf) Url",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"description": "Full Description",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"saleEndDate": "Sale End Date",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"categoryName": "Category Name",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"truckFreight": "Truck Freight",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"imageUrlLarge": "Image (1000x1000) Url",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"rebateEndDate": "Rebate End Date",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"saleStartDate": "Sale Start Date",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"firstClassMail": "First Class Mail",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"shippingWeight": "Shipping Weight",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"countryOfOrigin": "Country Of Origin",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"ownersManualUrl": "Owners Manual (pdf) Url",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"rebateStartDate": "Rebate Start Date",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"accessoriesByMfg": "List of Accessories by MFG#",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"accessoriesBySku": "List of Accessories by SKU",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"additionalImages": "Image Additional (1000x1000) Urls",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"manufacturerName": "Manufacturer Name",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"harmonizationCode": "Harmonization Code",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"originalPriceSale": "Original Price (If on Sale/Closeout)",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"rebateDescription": "Rebate Description With Link",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"quantityAvailableFl": "Quantity Available to Ship (FL)",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"quantityAvailableNj": "Quantity Available to Ship (NJ)",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"installationGuideUrl": "Installation Guide (pdf) Url",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"googleMerchantCategory": "Google Merchant Category",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"manufacturerPartNumber": "Manufacturer Part Number",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"thirdPartyMarketplaces": "3rd Party Marketplaces",
+2025-11-05 08:52:02.48
+903f4dfb
+User
+"nextShipmentDateCombined": "Next Shipment Date (Combined)"
+2025-11-05 08:52:02.48
+903f4dfb
+User
+}
+2025-11-05 08:52:02.48
+903f4dfb
+User
+Mappings is null?: false
+2025-11-05 08:52:02.49
+903f4dfb
+User
+Connecting to SFTP for sample pull: { host: 'edi.cwrdistribution.com', port: 22 }
+2025-11-05 08:52:46.08
+903f4dfb
+User
+[2025-11-05T14:52:46.081Z] [automation] Checking automations at 14:52:46 (14:52) - found 1 automation(s)
+2025-11-05 08:52:49.07
+b13cb632
+User
+[2025-11-05T14:52:49.070Z] [automation] Checking automations at 14:52:49 (14:52) - found 1 automation(s)
+2025-11-05 08:52:53.36
+b13cb632
+System
+system: received signal terminated
+2025-11-05 08:53:46.08
+903f4dfb
+User
+[2025-11-05T14:53:46.081Z] [automation] Checking automations at 14:53:46 (14:53) - found 1 automation(s)
