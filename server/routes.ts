@@ -2537,8 +2537,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('No file paths found in data source config');
           }
           
-          // If not in config, check automation table
+          // If not in config, check automation file paths table
           if (!remotePath) {
+            console.log('Checking automation_file_paths table...');
             const automationResults = await db
               .select()
               .from(supplierAutomation)
@@ -2547,19 +2548,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (automationResults.length > 0) {
               const automation = automationResults[0];
-              const filePaths = automation.filePaths as any;
+              console.log(`Found automation ID: ${automation.id}`);
               
-              if (filePaths && Array.isArray(filePaths) && filePaths.length > 0) {
-                const catalogPath = filePaths.find((fp: any) => 
-                  fp.filePath && 
-                  fp.filePath.toLowerCase().includes('catalog')
-                );
-                
-                if (catalogPath && catalogPath.filePath) {
-                  remotePath = catalogPath.filePath;
-                  console.log(`Using configured catalog path from automation: ${remotePath}`);
+              // Query the automation_file_paths table for catalog file
+              const filePathResults = await db
+                .select()
+                .from(sql`automation_file_paths`)
+                .where(sql`automation_id = ${automation.id} AND file_type = 'catalog'`)
+                .limit(1);
+              
+              console.log('File path results:', filePathResults);
+              
+              if (filePathResults.length > 0) {
+                const catalogFilePath = filePathResults[0] as any;
+                if (catalogFilePath.file_path) {
+                  remotePath = catalogFilePath.file_path;
+                  console.log(`✓ Using catalog path from automation_file_paths: ${remotePath}`);
                 }
+              } else {
+                console.log('No catalog file path found in automation_file_paths');
               }
+            } else {
+              console.log('No automation found for this data source');
             }
           }
           
