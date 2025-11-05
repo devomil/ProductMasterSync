@@ -38,7 +38,8 @@ import {
   productRestrictions,
   productSuppliers,
   purchasingOpportunities,
-  supplierAutomation
+  supplierAutomation,
+  automationFilePaths
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -2550,19 +2551,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const automation = automationResults[0];
               console.log(`Found automation ID: ${automation.id}`);
               
-              // Query the automation_file_paths table for catalog file
+              // Query the automation_file_paths table for catalog file using proper schema
               const filePathResults = await db
                 .select()
-                .from(sql`automation_file_paths`)
-                .where(sql`automation_id = ${automation.id} AND file_type = 'catalog'`)
+                .from(automationFilePaths)
+                .where(
+                  and(
+                    eq(automationFilePaths.automationId, automation.id),
+                    eq(automationFilePaths.fileType, 'catalog')
+                  )
+                )
                 .limit(1);
               
               console.log('File path results:', filePathResults);
               
               if (filePathResults.length > 0) {
-                const catalogFilePath = filePathResults[0] as any;
-                if (catalogFilePath.file_path) {
-                  remotePath = catalogFilePath.file_path;
+                const catalogFilePath = filePathResults[0];
+                if (catalogFilePath.filePath) {
+                  remotePath = catalogFilePath.filePath;
                   console.log(`✓ Using catalog path from automation_file_paths: ${remotePath}`);
                 }
               } else {
