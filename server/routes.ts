@@ -2509,9 +2509,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let remotePath: string | null = null;
           
           // First, check if file paths are in the data source config
+          console.log('Checking for file paths in config...');
+          console.log('sftpConfig.filePaths:', sftpConfig.filePaths);
+          console.log('Is array?', Array.isArray(sftpConfig.filePaths));
+          
           const configFilePaths = sftpConfig.filePaths;
           if (configFilePaths && Array.isArray(configFilePaths) && configFilePaths.length > 0) {
-            console.log('Found file paths in data source config:', configFilePaths);
+            console.log('Found file paths in data source config:', JSON.stringify(configFilePaths, null, 2));
             
             // Find the catalog file path
             const catalogPath = configFilePaths.find((fp: any) => 
@@ -2520,10 +2524,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               fp.label.toLowerCase().includes('catalog')
             );
             
+            console.log('Catalog path found:', catalogPath);
+            
             if (catalogPath && catalogPath.path) {
               remotePath = catalogPath.path;
-              console.log(`Using configured catalog path from data source config: ${remotePath}`);
+              console.log(`✓ Using configured catalog path from data source config: ${remotePath}`);
+            } else {
+              console.log('No valid catalog path in config filePaths');
             }
+          } else {
+            console.log('No file paths found in data source config');
           }
           
           // If not in config, check automation table
