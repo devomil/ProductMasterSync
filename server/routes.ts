@@ -2476,9 +2476,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Mappings is null?:', mappingTemplate.mappings === null);
       console.log('Mappings is undefined?:', mappingTemplate.mappings === undefined);
       
-      // Pull sample data from the data source with specified limit
-      const sampleDataResponse = await fetch(`http://localhost:5000/api/datasources/${dataSourceId}/sample-data?limit=${limit}`);
-      const sampleResult = await sampleDataResponse.json();
+      // Pull sample data from the data source - inline SFTP logic instead of HTTP request
+      let sampleResult: any = { success: false, data: [] };
+      
+      const sftpConfig = dataSource.config as any;
+      if (dataSource.type === 'sftp' && sftpConfig?.host && sftpConfig?.username) {
+        try {
+          const SftpClient = (await import('ssh2-sftp-client')).default;
+          const fs = await import('fs');
+          const path = await import('path');
+          const csvParse = await import('csv-parse/sync');
+          
+          const sftp = new SftpClient();
+          console.log('Connecting to SFTP for sample pull:', { host: sftpConfig.host, port: sftpConfig.port || 22 });
+          
+          await sftp.connect({
+            host: sftpConfig.host,
+            port: sftpConfig.port || 22,
+            username: sftpConfig.username,
+            password: sftpConfig.password
+          });
+          
+          const fileList = await sftp.list('./');
+          const catalogFile = fileList.find(f => 
+            f.name.toLowerCase().includes('catalog') || 
+            f.name.toLowerCase().includes('product') ||
+            f.name.toLowerCase().endsWith('.csv')
+          );
+          
+          if (catalogFile) {
+            const tempDir = './temp';
+            if (!fs.existsSync(tempDir)) {
+              fs.mkdirSync(tempDir, { recursive: true });
+            }
+            
+            const localPath = path.join(tempDir, catalogFile.name);
+            await sftp.get(`/${catalogFile.name}`, localPath);
+            await sftp.end();
+            
+            const csvContent = fs.readFileSync(localPath, 'utf-8');
+            const records = csvParse.parse(csvContent, {
+              columns: true,
+              skip_empty_lines: true,
+              relax_column_count: true,
+              relax_quotes: true
+            });
+            
+            sampleResult = {
+              success: true,
+              data: records.slice(0, limit),
+              totalRecords: records.length
+            };
+          }
+        } catch (sftpError) {
+          console.error('SFTP sample pull failed:', sftpError);
+        }
+      }
       
       if (!sampleResult.success || !sampleResult.data) {
         return res.status(400).json({ 

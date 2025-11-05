@@ -1,0 +1,144 @@
+2025-11-05 08:27:50.64
+b13cb632
+User
+"yourCost": 1177.27,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"boxHeight": "10",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"boxLength": "16",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"listPrice": 1295,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"oversized": "0",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"quickSpecs": "Power - Output = 25kW",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"brochureUrl": null,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"description": "Power SupplyFuruno's power supply is used specifically for Furuno's 1964C.Features:25kWWARNING: This product can expose you to chemicals which are known to the State of California to cause cancer, birth defects or other reproductive harm. For more information go to P65Warnings.ca.gov.",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"saleEndDate": null,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"categoryName": "Marine Navigation & Instruments | Radars",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"rebateEndDate": null,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"firstClassMail": "0",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"shippingWeight": 16,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"countryOfOrigin": "JAPAN",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"manufacturerName": "Furuno",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"originalPriceSale": null,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"rebateDescription": null,
+2025-11-05 08:27:50.64
+b13cb632
+User
+"quantityAvailableFl": "0",
+2025-11-05 08:27:50.64
+b13cb632
+User
+"quantityAvailableNj": "0",
+2025-11-05 08:27:56.10
+b13cb632
+User
+Database connected successfully
+2025-11-05 08:27:56.13
+b13cb632
+User
+Raw dataSources from database: [
+2025-11-05 08:27:56.13
+b13cb632
+User
+{
+2025-11-05 08:27:56.13
+b13cb632
+User
+"id": 10,
+2025-11-05 08:27:56.13
+b13cb632
+User
+"name": "CWR Distribution",
+2025-11-05 08:27:56.13
+b13cb632
+User
+"type": "sftp",
+2025-11-05 08:27:56.13
+b13cb632
+User
+"supplierId": 2,
+2025-11-05 08:27:56.13
+b13cb632
+User
+"config": {
+2025-11-05 08:27:56.13
+b13cb632
+User
+"host": "edi.cwrdistribution.com",
+2025-11-05 08:27:56.13
+b13cb632
+User
+"port": 22,
+2025-11-05 08:27:56.13
+b13cb632
+User
+"is_sftp": true,
+2025-11-05 08:27:56.13
+b13cb632
+User
+"password": "jwS3~eIy",
+2025-11-05 08:27:56.13
+b13cb632
+User
+"username": "eco8"
+2025-11-05 08:27:56.13
+b13cb632
+User
+},
+2025-11-05 08:27:56.13
+b13cb632
+User
+"active": true,
+2025-11-05 08:27:56.13
+b13cb632
+User
+"createdAt": "2025-07-02T19:26:57.988Z",
+2025-11-05 08:27:56.13
+b13cb632
+User
+"updatedAt": "2025-07-02T19:26:57.988Z"

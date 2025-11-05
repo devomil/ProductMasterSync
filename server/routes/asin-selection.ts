@@ -242,6 +242,16 @@ router.post('/batch-select-best-asins', async (req: Request, res: Response) => {
       
       for (const product of multiASINResult.rows) {
         try {
+          // NOTE: This batch endpoint is deprecated/unused - ASIN selection is handled in the UI
+          // Keeping this code for backward compatibility but it should be refactored to use storage layer directly
+          results.push({
+            sku: product.sku,
+            success: false,
+            error: 'Batch ASIN selection is deprecated - please use the UI'
+          });
+          continue;
+          
+          /* DEPRECATED CODE - DO NOT USE
           // Select best ASIN for this product
           const selectionResponse = await fetch(`http://localhost:5000/api/asin-selection/select-best-asin`, {
             method: 'POST',
