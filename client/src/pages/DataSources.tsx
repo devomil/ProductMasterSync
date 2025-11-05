@@ -1109,7 +1109,7 @@ export default function DataSources() {
 
       {/* Edit Data Source Dialog */}
       <Dialog open={!!editingDataSource} onOpenChange={() => setEditingDataSource(null)}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Data Source</DialogTitle>
             <DialogDescription>
