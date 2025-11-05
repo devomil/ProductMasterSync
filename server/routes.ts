@@ -2506,30 +2506,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
             password: password
           });
           
-          // Check if automation file paths are configured for this data source
-          const automationResults = await db
-            .select()
-            .from(supplierAutomations)
-            .where(eq(supplierAutomations.dataSourceId, dataSourceId))
-            .limit(1);
-          
           let remotePath: string | null = null;
           
-          // If automation exists with file paths, use the catalog file path
-          if (automationResults.length > 0) {
-            const automation = automationResults[0];
-            const filePaths = automation.filePaths as any;
+          // First, check if file paths are in the data source config
+          const configFilePaths = sftpConfig.filePaths;
+          if (configFilePaths && Array.isArray(configFilePaths) && configFilePaths.length > 0) {
+            console.log('Found file paths in data source config:', configFilePaths);
             
-            if (filePaths && Array.isArray(filePaths) && filePaths.length > 0) {
-              // Find the catalog file path (not inventory)
-              const catalogPath = filePaths.find((fp: any) => 
-                fp.filePath && 
-                fp.filePath.toLowerCase().includes('catalog')
-              );
+            // Find the catalog file path
+            const catalogPath = configFilePaths.find((fp: any) => 
+              fp.path && 
+              fp.label && 
+              fp.label.toLowerCase().includes('catalog')
+            );
+            
+            if (catalogPath && catalogPath.path) {
+              remotePath = catalogPath.path;
+              console.log(`Using configured catalog path from data source config: ${remotePath}`);
+            }
+          }
+          
+          // If not in config, check automation table
+          if (!remotePath) {
+            const automationResults = await db
+              .select()
+              .from(supplierAutomations)
+              .where(eq(supplierAutomations.dataSourceId, dataSourceId))
+              .limit(1);
+            
+            if (automationResults.length > 0) {
+              const automation = automationResults[0];
+              const filePaths = automation.filePaths as any;
               
-              if (catalogPath && catalogPath.filePath) {
-                remotePath = catalogPath.filePath;
-                console.log(`Using configured catalog path from automation: ${remotePath}`);
+              if (filePaths && Array.isArray(filePaths) && filePaths.length > 0) {
+                const catalogPath = filePaths.find((fp: any) => 
+                  fp.filePath && 
+                  fp.filePath.toLowerCase().includes('catalog')
+                );
+                
+                if (catalogPath && catalogPath.filePath) {
+                  remotePath = catalogPath.filePath;
+                  console.log(`Using configured catalog path from automation: ${remotePath}`);
+                }
               }
             }
           }
