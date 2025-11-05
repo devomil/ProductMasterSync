@@ -37,7 +37,8 @@ import {
   salesRankings,
   productRestrictions,
   productSuppliers,
-  purchasingOpportunities
+  purchasingOpportunities,
+  supplierAutomation
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -2540,8 +2541,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!remotePath) {
             const automationResults = await db
               .select()
-              .from(supplierAutomations)
-              .where(eq(supplierAutomations.dataSourceId, dataSourceId))
+              .from(supplierAutomation)
+              .where(eq(supplierAutomation.dataSourceId, dataSourceId))
               .limit(1);
             
             if (automationResults.length > 0) {
