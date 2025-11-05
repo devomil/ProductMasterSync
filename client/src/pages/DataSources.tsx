@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -411,6 +411,11 @@ export default function DataSources() {
   const [selectedDataSourceForSample, setSelectedDataSourceForSample] = useState<DataSource | null>(null);
   const [sampleSize, setSampleSize] = useState(50);
   const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
+  const [showFullImportDialog, setShowFullImportDialog] = useState(false);
+  const [selectedDataSourceForImport, setSelectedDataSourceForImport] = useState<DataSource | null>(null);
+  const [fullImportSize, setFullImportSize] = useState(5000);
+  const [showAutomationDialog, setShowAutomationDialog] = useState(false);
+  const [selectedDataSourceForAutomation, setSelectedDataSourceForAutomation] = useState<DataSource | null>(null);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -532,6 +537,32 @@ export default function DataSources() {
       toast({
         title: "Sample Pull Failed",
         description: "Failed to pull sample data. Please check your connection settings.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation for full catalog import
+  const fullImportMutation = useMutation({
+    mutationFn: async ({ dataSourceId, limit }: { dataSourceId: number; limit: number }) => {
+      const response = await apiRequest("POST", `/api/datasources/${dataSourceId}/sample-pull-with-mapping`, { 
+        limit 
+      });
+      return response as any;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      setShowFullImportDialog(false);
+      setSelectedDataSourceForImport(null);
+      toast({
+        title: "Full Catalog Import Complete",
+        description: `Successfully imported ${data.productsImported || fullImportSize} products from supplier catalog`
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Full Import Failed",
+        description: "Failed to import full catalog. Please check your connection settings.",
         variant: "destructive"
       });
     }
@@ -1085,6 +1116,36 @@ export default function DataSources() {
                         <MapPin className="w-4 h-4" />
                         Field Mapping Walkthrough
                       </Button>
+                      
+                      {/* Full Import & Automation (after mapping is complete) */}
+                      <div className="flex gap-2 mt-2 pt-2 border-t">
+                        <Button 
+                          size="sm" 
+                          variant="default" 
+                          className="flex-1 gap-1"
+                          onClick={() => {
+                            setSelectedDataSourceForImport(dataSource);
+                            setShowFullImportDialog(true);
+                          }}
+                          data-testid={`button-full-import-${dataSource.id}`}
+                        >
+                          <Package className="w-4 h-4" />
+                          Run Full Import
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1 gap-1"
+                          onClick={() => {
+                            setSelectedDataSourceForAutomation(dataSource);
+                            setShowAutomationDialog(true);
+                          }}
+                          data-testid={`button-automation-${dataSource.id}`}
+                        >
+                          <Play className="w-4 h-4" />
+                          Set Up Automation
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -1205,6 +1266,109 @@ export default function DataSources() {
             >
               {samplePullMutation.isPending ? "Pulling Sample..." : `Pull ${sampleSize} Products`}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Import Dialog */}
+      <Dialog open={showFullImportDialog} onOpenChange={setShowFullImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Run Full Catalog Import</DialogTitle>
+            <DialogDescription>
+              Import the complete product catalog from "{selectedDataSourceForImport?.name}". 
+              This will pull all products from the supplier's catalog file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[1000, 5000, 10000, 30000, 50000].map((size) => (
+                <Button
+                  key={size}
+                  variant={fullImportSize === size ? "default" : "outline"}
+                  className="h-12"
+                  onClick={() => setFullImportSize(size)}
+                >
+                  <div className="text-center">
+                    <div className="font-semibold">{size.toLocaleString()} Products</div>
+                    <div className="text-xs text-muted-foreground">
+                      {size <= 5000 ? "Small catalog" : size <= 10000 ? "Medium catalog" : "Large catalog"}
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+            <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+              <div className="flex items-start gap-2">
+                <Package className="w-4 h-4 text-green-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-900">Ready for Production</p>
+                  <p className="text-green-700">
+                    This will import your complete supplier catalog. Make sure field mappings are correct and sample data looks good before proceeding.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFullImportDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedDataSourceForImport) {
+                  fullImportMutation.mutate({
+                    dataSourceId: selectedDataSourceForImport.id,
+                    limit: fullImportSize
+                  });
+                }
+              }}
+              disabled={fullImportMutation.isPending}
+            >
+              {fullImportMutation.isPending ? "Importing..." : `Import ${fullImportSize.toLocaleString()} Products`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Automation Setup Dialog */}
+      <Dialog open={showAutomationDialog} onOpenChange={setShowAutomationDialog}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Set Up Automated Syncing</DialogTitle>
+            <DialogDescription>
+              Configure automatic catalog and inventory updates for "{selectedDataSourceForAutomation?.name}". 
+              The system will keep your products in sync with the supplier's latest data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-900 mb-2">File Paths Required</h4>
+              <p className="text-sm text-blue-700 mb-3">
+                You'll configure automation in the Inventory Management page where you can:
+              </p>
+              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                <li>Set catalog file path (e.g., /eco8/out/catalog.csv)</li>
+                <li>Set inventory file path (e.g., /eco8/out/inventory.csv)</li>
+                <li>Configure sync schedules (e.g., every 2 hours for inventory)</li>
+                <li>Set up error notifications</li>
+              </ul>
+            </div>
+            <div className="border-l-4 border-yellow-400 bg-yellow-50 p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Next Step:</strong> Click "Continue to Automation" below to navigate to the Inventory Management page where you can complete the automation setup with specific file paths and schedules.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAutomationDialog(false)}>
+              Cancel
+            </Button>
+            <Link href="/inventory-management">
+              <Button onClick={() => setShowAutomationDialog(false)}>
+                Continue to Automation →
+              </Button>
+            </Link>
           </DialogFooter>
         </DialogContent>
       </Dialog>
