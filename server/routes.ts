@@ -2506,21 +2506,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
             password: password
           });
           
-          const fileList = await sftp.list('./');
-          const catalogFile = fileList.find(f => 
-            f.name.toLowerCase().includes('catalog') || 
-            f.name.toLowerCase().includes('product') ||
-            f.name.toLowerCase().endsWith('.csv')
-          );
+          // Check if automation file paths are configured for this data source
+          const automationResults = await db
+            .select()
+            .from(supplierAutomations)
+            .where(eq(supplierAutomations.dataSourceId, dataSourceId))
+            .limit(1);
           
-          if (catalogFile) {
+          let remotePath: string | null = null;
+          
+          // If automation exists with file paths, use the catalog file path
+          if (automationResults.length > 0) {
+            const automation = automationResults[0];
+            const filePaths = automation.filePaths as any;
+            
+            if (filePaths && Array.isArray(filePaths) && filePaths.length > 0) {
+              // Find the catalog file path (not inventory)
+              const catalogPath = filePaths.find((fp: any) => 
+                fp.filePath && 
+                fp.filePath.toLowerCase().includes('catalog')
+              );
+              
+              if (catalogPath && catalogPath.filePath) {
+                remotePath = catalogPath.filePath;
+                console.log(`Using configured catalog path from automation: ${remotePath}`);
+              }
+            }
+          }
+          
+          // Fall back to auto-detection if no automation path is configured
+          if (!remotePath) {
+            console.log('No automation file path found, attempting auto-detection...');
+            const fileList = await sftp.list('./');
+            const catalogFile = fileList.find(f => 
+              f.name.toLowerCase().includes('catalog') || 
+              f.name.toLowerCase().includes('product') ||
+              f.name.toLowerCase().endsWith('.csv')
+            );
+            
+            if (catalogFile) {
+              remotePath = `/${catalogFile.name}`;
+              console.log(`Auto-detected catalog file: ${remotePath}`);
+            }
+          }
+          
+          if (remotePath) {
             const tempDir = './temp';
             if (!fs.existsSync(tempDir)) {
               fs.mkdirSync(tempDir, { recursive: true });
             }
             
-            const localPath = path.join(tempDir, catalogFile.name);
-            await sftp.get(`/${catalogFile.name}`, localPath);
+            const fileName = path.basename(remotePath);
+            const localPath = path.join(tempDir, fileName);
+            console.log(`Downloading from ${remotePath} to ${localPath}`);
+            await sftp.get(remotePath, localPath);
             await sftp.end();
             
             const csvContent = fs.readFileSync(localPath, 'utf-8');
@@ -2531,11 +2570,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               relax_quotes: true
             });
             
+            console.log(`Successfully parsed ${records.length} records from catalog file`);
+            
             sampleResult = {
               success: true,
               data: records.slice(0, limit),
               totalRecords: records.length
             };
+          } else {
+            console.log('No catalog file found via automation or auto-detection');
           }
         } catch (sftpError) {
           console.error('SFTP sample pull failed:', sftpError);

@@ -1,0 +1,104 @@
+025-11-05 10:24:02.72
+8e3297f6
+User
+Connecting to SFTP for sample pull: { host: 'edi.cwrdistribution.com', port: 22 }
+2025-11-05 10:24:07.67
+8e3297f6
+User
+[2025-11-05T16:24:07.672Z] [automation] Checking automations at 16:24:07 (16:24) - found 1 automation(s)
+2025-11-05 10:25:07.67
+8e3297f6
+User
+[2025-11-05T16:25:07.672Z] [automation] Checking automations at 16:25:07 (16:25) - found 1 automation(s)
+2025-11-05 10:26:07.67
+8e3297f6
+User
+[2025-11-05T16:26:07.672Z] [automation] Checking automations at 16:26:07 (16:26) - found 1 automation(s)
+2025-11-05 10:27:07.67
+8e3297f6
+User
+[2025-11-05T16:27:07.672Z] [automation] Checking automations at 16:27:07 (16:27) - found 1 automation(s)
+2025-11-05 10:28:00.32
+52c679d5
+System
+starting up user application
+2025-11-05 10:28:00.32
+52c679d5
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2025-11-05 10:28:00.32
+52c679d5
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2025-11-05 10:28:02.47
+52c679d5
+User
+> rest-express@1.0.0 start
+2025-11-05 10:28:02.47
+52c679d5
+User
+> NODE_ENV=production node dist/index.js
+2025-11-05 10:28:05.90
+52c679d5
+User
+line: '3722',
+2025-11-05 10:28:05.90
+52c679d5
+User
+routine: 'errorMissingColumn'
+2025-11-05 10:28:05.90
+52c679d5
+User
+}
+2025-11-05 10:28:07.67
+8e3297f6
+User
+[2025-11-05T16:28:07.673Z] [automation] Checking automations at 16:28:07 (16:28) - found 1 automation(s)
+2025-11-05 10:29:07.67
+8e3297f6
+User
+[2025-11-05T16:29:07.674Z] [automation] Checking automations at 16:29:07 (16:29) - found 1 automation(s)
+2025-11-05 10:29:35.68
+8e3297f6
+System
+system: received signal terminated
+2025-11-05 10:29:38.23
+52c679d5
+User
+Found mapping templates: 1
+2025-11-05 10:29:38.23
+52c679d5
+User
+=== MAPPING TEMPLATE DEBUG ===
+2025-11-05 10:29:38.23
+52c679d5
+User
+Found mapping template ID: 13
+2025-11-05 10:29:38.23
+52c679d5
+User
+Template name: CWR Distribution Mapping
+2025-11-05 10:29:38.23
+52c679d5
+User
+Template sourceType: sftp
+2025-11-05 10:29:38.23
+52c679d5
+User
+Raw mappings object: {
+2025-11-05 10:29:38.23
+52c679d5
+User
+"upc": "UPC Code",
+2025-11-05 10:29:38.23
+52c679d5
+User
+"cost": "Your Cost",
+2025-11-05 10:29:38.23
+52c679d5
+User
+"name": "Title",
+2025-11-05 10:29:38.23
+52c679d5
+User
+"sale": "Sale",
