@@ -137,6 +137,11 @@ This prevents downtime and catches issues before affecting live users.
   - **Bug #1 (APPROVAL_REQUIRED)**: System incorrectly treated Amazon's `APPROVAL_REQUIRED` status as "allowed to list" instead of "blocked until approval". Fixed by updating `isListingAllowed()` to block NOT_ELIGIBLE, APPROVAL_REQUIRED, and ASIN_NOT_FOUND.
   - **Bug #2 (conditionType filtering)**: System checked ALL restrictions (new, used, refurbished, etc.) instead of only NEW item restrictions. This caused false positives where products approved for NEW items showed as restricted because USED/REFURBISHED conditions required approval. Fixed by filtering restrictions to only evaluate `conditionType='new_new'` before checking approval status. Updated 5 call sites across 4 files.
   - **Impact**: Both bugs caused widespread false positives showing products as restricted when they were actually approved for NEW condition sales. All listing restriction checks now properly filter by condition type.
+- **November 5, 2025 - Sample Pull File Path Detection Fixed**:
+  - **Issue**: Sample pull endpoint failed to find catalog file paths because file paths are stored in separate `automation_file_paths` table, not in data source config.
+  - **Fix**: Updated sample pull endpoint to query `automation_file_paths` table using proper Drizzle schema. Added `automationFilePaths` import and used structured query with `and()` conditions instead of raw SQL.
+  - **Database Structure**: File paths stored in `automation_file_paths` table with columns: `automation_id`, `file_path`, `file_type` (catalog/inventory), `label`. CWR catalog at `/eco8/out/catalog.csv`.
+  - **Result**: Sample pull now successfully detects configured file paths from automation setup and downloads/imports products with field mapping applied.
 
 # External Dependencies
 
