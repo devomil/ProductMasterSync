@@ -1,0 +1,113 @@
+2025-11-05 11:27:35.97
+54860548
+User
+Database connected successfully
+2025-11-05 11:27:36.00
+54860548
+User
+Error inserting product 976: error: column "last_analysis_at" of relation "products" does not exist
+2025-11-05 11:27:36.00
+54860548
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-11-05 11:27:36.00
+54860548
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-11-05 11:27:36.00
+54860548
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-11-05 11:27:36.00
+54860548
+User
+at async file:///home/runner/workspace/dist/index.js:14549:37 {
+2025-11-05 11:27:36.00
+54860548
+User
+length: 138,
+2025-11-05 11:27:36.00
+54860548
+User
+severity: 'ERROR',
+2025-11-05 11:27:36.00
+54860548
+User
+code: '42703',
+2025-11-05 11:27:36.00
+54860548
+User
+detail: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+hint: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+position: '810',
+2025-11-05 11:27:36.00
+54860548
+User
+internalPosition: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+internalQuery: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+where: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+schema: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+table: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+column: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+dataType: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+constraint: undefined,
+2025-11-05 11:27:36.00
+54860548
+User
+file: 'parse_target.c',
+2025-11-05 11:27:36.00
+54860548
+User
+line: '1066',
+2025-11-05 11:27:36.00
+54860548
+User
+routine: 'checkInsertTargets'
+2025-11-05 11:27:36.00
+54860548
+User
+}
+2025-11-05 11:27:36.00
+54860548
+User
+Product data that failed: {
+2025-11-05 11:27:36.00
+54860548
+User
+"status": "active",
+2025-11-05 11:27:36.00
+54860548
+User
+"createdAt": "2025-11-05T17:24:20.214Z",
+
+2025-11-05 11:27:36.00
+54860548
+User
+"updatedAt": "2025-11-05T17:24:20.214Z",
