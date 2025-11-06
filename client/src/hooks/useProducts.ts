@@ -50,7 +50,7 @@ export function useProducts(page?: number, limit?: number) {
     isError,
     error,
   } = useQuery<Product[] | ProductSearchResponse>({
-    queryKey: ['/api/products', page, limit],
+    queryKey: [url],
   });
 
   // Handle both legacy array response and new paginated response
