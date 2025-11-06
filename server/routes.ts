@@ -973,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Legacy format - return just array for backward compatibility
           const result = await PerformanceOptimizedQueries.getProductsOptimized({
             page: 1,
-            limit: 100, // Return more products for legacy usage but limit for performance
+            limit: 10000, // Support large catalogs (1000+ products)
             search,
             categoryId,
             status
@@ -1004,8 +1004,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         } else {
-          // Legacy format - return just array (limited for performance)
-          res.json(products.slice(0, 100));
+          // Legacy format - return just array (support large catalogs)
+          res.json(products.slice(0, 10000));
         }
       }
     } catch (error) {
