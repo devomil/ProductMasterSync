@@ -331,7 +331,7 @@ export async function analyzePurchasingOpportunity(productId: number) {
       buyBoxPrice,
       salesRank: marketData?.salesRank || null,
       salesRankCategory: null, // amazonMarketIntelligence doesn't have this field
-      canList: asinData?.canList ?? marketData?.canList ?? true, // Read from amazonAsins table
+      canList: marketData?.canList ?? asinData?.canList ?? null, // Prioritize market intelligence data (has correct restrictions from batch sync)
       supplierId: supplier?.supplierId || null,
     };
 
@@ -594,7 +594,7 @@ export async function analyzeBulkOpportunities(productIds: number[] | null, limi
           buyBoxPrice,
           salesRank: marketData?.salesRank || null,
           salesRankCategory: null,
-          canList: asinData?.canList ?? marketData?.canList ?? true,
+          canList: marketData?.canList ?? asinData?.canList ?? null, // Prioritize market intelligence data (has correct restrictions from batch sync)
           supplierId: supplier?.supplierId || null,
         };
 
