@@ -253,7 +253,7 @@ const Products = () => {
   });
 
   // Get products data from API
-  const { products, isLoading } = useProducts();
+  const { products, pagination, isLoading } = useProducts(currentPage, itemsPerPage);
   
   // Get categories data
   const { categories, isLoading: categoriesLoading } = useCategories();
@@ -462,12 +462,6 @@ const Products = () => {
 
     return true;
   });
-
-  // Paginate filtered products
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   const onSubmitSearch = (data: any) => {
     dispatchFilters({
@@ -950,7 +944,7 @@ const Products = () => {
                     </TableRow>
                   ))
                 ) : (
-                  paginatedProducts.map((product, index) => (
+                  filteredProducts.map((product, index) => (
                     <TableRow key={`${product.id}-${index}`} className={`
                       ${viewMode === 'compact' ? 'h-10' : 
                         viewMode === 'spacious' ? 'h-16' : 
@@ -1117,7 +1111,7 @@ const Products = () => {
           {/* Pagination */}
           <div className="mt-5 flex items-center justify-between">
             <div className="text-sm text-neutral-500">
-              Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of <span className="font-medium">{filteredProducts.length}</span> products
+              Showing <span className="font-medium">{pagination ? Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalItems) : 0}</span> to <span className="font-medium">{pagination ? Math.min(pagination.page * pagination.limit, pagination.totalItems) : 0}</span> of <span className="font-medium">{pagination?.totalItems || 0}</span> products
             </div>
             <Pagination>
               <PaginationContent>
@@ -1127,7 +1121,7 @@ const Products = () => {
                     className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                   />
                 </PaginationItem>
-                {Array.from({ length: Math.ceil(filteredProducts.length / itemsPerPage) }, (_, i) => i + 1).slice(0, 5).map((page) => (
+                {pagination && Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => i + 1).map((page) => (
                   <PaginationItem key={page}>
                     <PaginationLink 
                       onClick={() => setCurrentPage(page)}
@@ -1138,15 +1132,15 @@ const Products = () => {
                     </PaginationLink>
                   </PaginationItem>
                 ))}
-                {Math.ceil(filteredProducts.length / itemsPerPage) > 5 && (
+                {pagination && pagination.totalPages > 5 && (
                   <PaginationItem>
                     <PaginationEllipsis />
                   </PaginationItem>
                 )}
                 <PaginationItem>
                   <PaginationNext 
-                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / itemsPerPage), prev + 1))}
-                    className={currentPage >= Math.ceil(filteredProducts.length / itemsPerPage) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    onClick={() => setCurrentPage(prev => Math.min(pagination?.totalPages || 1, prev + 1))}
+                    className={!pagination || currentPage >= pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                   />
                 </PaginationItem>
               </PaginationContent>

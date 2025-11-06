@@ -36,18 +36,29 @@ export interface ProductSearchResponse {
   pagination: PaginationData;
 }
 
-export function useProducts() {
+export function useProducts(page?: number, limit?: number) {
+  // Build query parameters for pagination
+  const queryParams = new URLSearchParams();
+  if (page) queryParams.append('page', page.toString());
+  if (limit) queryParams.append('limit', limit.toString());
+  const queryString = queryParams.toString();
+  const url = `/api/products${queryString ? `?${queryString}` : ''}`;
+
   const {
-    data: products = [],
+    data,
     isLoading,
     isError,
     error,
-  } = useQuery<Product[]>({
-    queryKey: ['/api/products'],
+  } = useQuery<Product[] | ProductSearchResponse>({
+    queryKey: ['/api/products', page, limit],
   });
 
+  // Handle both legacy array response and new paginated response
+  const isPaginated = data && typeof data === 'object' && 'products' in data;
+  
   return {
-    products,
+    products: isPaginated ? (data as ProductSearchResponse).products : (data as Product[] || []),
+    pagination: isPaginated ? (data as ProductSearchResponse).pagination : undefined,
     isLoading,
     isError,
     error,
