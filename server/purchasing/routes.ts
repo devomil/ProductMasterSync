@@ -26,6 +26,10 @@ router.get("/opportunities", async (req, res) => {
       offset = 0 
     } = req.query;
 
+    // Fetch user settings to check if we should filter by listing permission
+    const [settings] = await db.select().from(purchasingSettings).limit(1);
+    const shouldFilterByListing = settings?.requireCanList ?? true; // Default to true if no settings
+
     let query = db
       .select({
         opportunity: purchasingOpportunities,
@@ -40,9 +44,11 @@ router.get("/opportunities", async (req, res) => {
     // Apply filters
     const conditions = [];
     
-    // Always filter out restricted products (canList = false means we can't list on Amazon)
-    // Only show: canList = true OR canList is null (needs approval/ungated)
-    conditions.push(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
+    // Only filter out restricted products if user enabled "Require Listing Permission"
+    if (shouldFilterByListing) {
+      // Only show: canList = true OR canList is null (needs approval/ungated)
+      conditions.push(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
+    }
     
     if (riskLevel && riskLevel !== 'all') {
       conditions.push(eq(purchasingOpportunities.riskLevel, riskLevel as any));
@@ -72,8 +78,12 @@ router.get("/opportunities", async (req, res) => {
 // Get purchasing statistics
 router.get("/stats", async (req, res) => {
   try {
-    // Only count non-restricted products (same filter as opportunities)
-    const stats = await db
+    // Fetch user settings to check if we should filter by listing permission
+    const [settings] = await db.select().from(purchasingSettings).limit(1);
+    const shouldFilterByListing = settings?.requireCanList ?? true; // Default to true if no settings
+
+    // Build stats query with optional listing filter
+    let statsQuery = db
       .select({
         totalAnalyzed: sql<number>`COUNT(*)`,
         totalOpportunities: sql<number>`SUM(CASE WHEN recommendation IN ('dropship', 'warehouse') THEN 1 ELSE 0 END)`,
@@ -83,8 +93,14 @@ router.get("/stats", async (req, res) => {
         dropshipCount: sql<number>`SUM(CASE WHEN recommendation = 'dropship' THEN 1 ELSE 0 END)`,
         warehouseCount: sql<number>`SUM(CASE WHEN recommendation = 'warehouse' THEN 1 ELSE 0 END)`,
       })
-      .from(purchasingOpportunities)
-      .where(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`);
+      .from(purchasingOpportunities);
+
+    // Only filter by listing permission if enabled
+    if (shouldFilterByListing) {
+      statsQuery = statsQuery.where(sql`(${purchasingOpportunities.canList} = true OR ${purchasingOpportunities.canList} IS NULL)`) as any;
+    }
+
+    const stats = await statsQuery;
 
     // Convert PostgreSQL aggregate results to numbers
     const result = stats[0] || {};
