@@ -463,6 +463,12 @@ const Products = () => {
     return true;
   });
 
+  // Paginate filtered products
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const onSubmitSearch = (data: any) => {
     dispatchFilters({
       type: 'APPLY_FILTERS',
@@ -944,7 +950,7 @@ const Products = () => {
                     </TableRow>
                   ))
                 ) : (
-                  filteredProducts.map((product, index) => (
+                  paginatedProducts.map((product, index) => (
                     <TableRow key={`${product.id}-${index}`} className={`
                       ${viewMode === 'compact' ? 'h-10' : 
                         viewMode === 'spacious' ? 'h-16' : 
@@ -1111,27 +1117,37 @@ const Products = () => {
           {/* Pagination */}
           <div className="mt-5 flex items-center justify-between">
             <div className="text-sm text-neutral-500">
-              Showing <span className="font-medium">{filteredProducts.length > 0 ? 1 : 0}</span> to <span className="font-medium">{filteredProducts.length}</span> of <span className="font-medium">{filteredProducts.length}</span> products
+              Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of <span className="font-medium">{filteredProducts.length}</span> products
             </div>
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious href="#" />
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
                 </PaginationItem>
+                {Array.from({ length: Math.ceil(filteredProducts.length / itemsPerPage) }, (_, i) => i + 1).slice(0, 5).map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink 
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                {Math.ceil(filteredProducts.length / itemsPerPage) > 5 && (
+                  <PaginationItem>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                )}
                 <PaginationItem>
-                  <PaginationLink href="#" isActive>1</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">2</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">3</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext href="#" />
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / itemsPerPage), prev + 1))}
+                    className={currentPage >= Math.ceil(filteredProducts.length / itemsPerPage) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
