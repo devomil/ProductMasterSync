@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { db, pool } from "./db";
 import { AIMappingService } from "./services/ai-mapping";
 import { PerformanceOptimizedQueries } from "./performance-optimizations";
+import { queryCache } from "./query-cache";
 import { 
   analyzeProfitability, 
   checkProductRestrictions, 
@@ -4135,6 +4136,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           connected: false,
           error: (error as Error).message
         }
+      });
+    }
+  });
+
+  // Cache management endpoint for debugging
+  app.post("/api/cache/clear", async (req, res) => {
+    try {
+      queryCache.clear();
+      res.json({ 
+        success: true,
+        message: "Cache cleared successfully",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message
       });
     }
   });
