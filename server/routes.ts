@@ -4100,13 +4100,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Basic health check endpoint
-  app.get("/api/health", (req, res) => {
-    res.json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
+  // Basic health check endpoint with database info for debugging
+  app.get("/api/health", async (req, res) => {
+    try {
+      // Test database connection
+      const dbTest = await pool.query('SELECT COUNT(*) as count FROM products LIMIT 1');
+      const productCount = parseInt(dbTest.rows[0].count);
+      
+      // Check ASIN mappings
+      const asinTest = await pool.query('SELECT COUNT(*) as count FROM product_asin_mapping');
+      const asinCount = parseInt(asinTest.rows[0].count);
+      
+      // Get database connection info (mask password for security)
+      const dbUrl = process.env.DATABASE_URL || '';
+      const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@'); // Mask password
+      
+      res.json({ 
+        status: "healthy", 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: {
+          connected: true,
+          url: maskedUrl,
+          productCount,
+          asinMappings: asinCount
+        }
+      });
+    } catch (error) {
+      res.json({
+        status: "degraded",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: {
+          connected: false,
+          error: (error as Error).message
+        }
+      });
+    }
   });
 
   // Initialize scheduler for always-on Amazon sync
