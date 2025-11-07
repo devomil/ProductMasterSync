@@ -289,20 +289,21 @@ export async function getRecentSyncLogs(limit: number = 50) {
 }
 
 /**
- * Get sync statistics
+ * Get sync statistics (only for products that currently exist)
  */
 export async function getSyncStats() {
   try {
     const result = await db.execute(sql`
       SELECT
         COALESCE(COUNT(*), 0) as total,
-        COALESCE(SUM(CASE WHEN sync_status = 'success' THEN 1 ELSE 0 END), 0) as successful,
-        COALESCE(SUM(CASE WHEN sync_status = 'error' THEN 1 ELSE 0 END), 0) as failed,
-        COALESCE(SUM(CASE WHEN result = 'not_found' THEN 1 ELSE 0 END), 0) as notFound,
-        COALESCE(SUM(CASE WHEN result = 'rate_limited' THEN 1 ELSE 0 END), 0) as rateLimited,
-        COALESCE(AVG(sync_duration_ms), 0) as avgResponseTime
-      FROM amazon_sync_logs
-      WHERE created_at > NOW() - INTERVAL '24 hours'
+        COALESCE(SUM(CASE WHEN asl.sync_status = 'success' THEN 1 ELSE 0 END), 0) as successful,
+        COALESCE(SUM(CASE WHEN asl.sync_status = 'error' THEN 1 ELSE 0 END), 0) as failed,
+        COALESCE(SUM(CASE WHEN asl.result = 'not_found' THEN 1 ELSE 0 END), 0) as notFound,
+        COALESCE(SUM(CASE WHEN asl.result = 'rate_limited' THEN 1 ELSE 0 END), 0) as rateLimited,
+        COALESCE(AVG(asl.sync_duration_ms), 0) as avgResponseTime
+      FROM amazon_sync_logs asl
+      INNER JOIN products p ON asl.product_id = p.id
+      WHERE asl.created_at > NOW() - INTERVAL '24 hours'
     `);
 
     // Extract the first row from the result
