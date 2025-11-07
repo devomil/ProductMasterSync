@@ -2,6 +2,8 @@ import React from 'react';
 import { AmazonBatchSync } from '@/components/marketplace/AmazonBatchSync';
 import { AmazonScheduler } from '@/components/marketplace/AmazonScheduler';
 import { AmazonSyncStats } from '@/components/marketplace/AmazonSyncStats';
+import { AmazonSyncProgress } from '@/components/marketplace/AmazonSyncProgress';
+import { AmazonSyncJobHistory } from '@/components/marketplace/AmazonSyncJobHistory';
 import { useRecentAmazonSyncLogs } from '@/hooks/useAmazonMarketData';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -326,6 +328,8 @@ export default function AmazonIntegration() {
         </TabsContent>
         
         <TabsContent value="sync" className="space-y-4">
+          <AmazonSyncProgress />
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AmazonBatchSync />
             <AmazonScheduler />
@@ -404,6 +408,8 @@ export default function AmazonIntegration() {
         
         <TabsContent value="monitoring" className="space-y-4">
           <AmazonSyncStats />
+          
+          <AmazonSyncJobHistory />
           
           <Card>
             <CardHeader>

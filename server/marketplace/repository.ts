@@ -13,6 +13,7 @@ import {
   productAsinMapping,
   amazonPriceHistory,
   amazonSyncLogs,
+  amazonSyncJobs,
   type Product
 } from '@shared/schema';
 
@@ -340,4 +341,91 @@ export async function getSyncStats() {
       avgResponseTime: 0
     };
   }
+}
+
+/**
+ * Create a new Amazon sync job
+ */
+export async function createSyncJob(batchId: string, totalQueued: number) {
+  const [job] = await db.insert(amazonSyncJobs).values({
+    batchId,
+    totalQueued,
+    status: 'in_progress',
+    startedAt: new Date(),
+  }).returning();
+  return job;
+}
+
+/**
+ * Update sync job progress
+ */
+export async function updateSyncJobProgress(
+  batchId: string,
+  updates: {
+    processedCount?: number;
+    successCount?: number;
+    failedCount?: number;
+    notFoundCount?: number;
+    asinMatchesFound?: number;
+  }
+) {
+  await db.update(amazonSyncJobs)
+    .set({
+      ...updates,
+      updatedAt: new Date(),
+    })
+    .where(eq(amazonSyncJobs.batchId, batchId));
+}
+
+/**
+ * Mark sync job as complete
+ */
+export async function markSyncJobComplete(
+  batchId: string,
+  status: 'completed' | 'failed',
+  failureReason?: string
+) {
+  const startedJob = await db.select()
+    .from(amazonSyncJobs)
+    .where(eq(amazonSyncJobs.batchId, batchId))
+    .limit(1);
+
+  if (startedJob.length === 0) return;
+
+  const completedAt = new Date();
+  const durationMs = startedJob[0].startedAt 
+    ? completedAt.getTime() - new Date(startedJob[0].startedAt).getTime()
+    : 0;
+
+  await db.update(amazonSyncJobs)
+    .set({
+      status,
+      completedAt,
+      durationMs,
+      failureReason,
+      updatedAt: completedAt,
+    })
+    .where(eq(amazonSyncJobs.batchId, batchId));
+}
+
+/**
+ * Get current or most recent sync job
+ */
+export async function getCurrentSyncJob() {
+  const jobs = await db.select()
+    .from(amazonSyncJobs)
+    .orderBy(desc(amazonSyncJobs.startedAt))
+    .limit(1);
+
+  return jobs.length > 0 ? jobs[0] : null;
+}
+
+/**
+ * Get sync job history
+ */
+export async function getSyncJobHistory(limit: number = 10) {
+  return await db.select()
+    .from(amazonSyncJobs)
+    .orderBy(desc(amazonSyncJobs.startedAt))
+    .limit(limit);
 }

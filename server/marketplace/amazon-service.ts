@@ -10,7 +10,10 @@ import {
   updateProductAmazonSyncStatus,
   createSyncLog,
   generateBatchId,
-  createAsinRecord
+  createAsinRecord,
+  createSyncJob,
+  updateSyncJobProgress,
+  markSyncJobComplete
 } from './repository';
 import { amazonRateLimiter } from '../utils/rate-limiter';
 import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
@@ -335,55 +338,103 @@ export async function getAmazonDataForProduct(productId: number) {
 /**
  * Run a batch sync job to fetch Amazon data for multiple products
  * @param limit 
+ * @param force Force re-sync even if products were recently synced
  */
-export async function batchSyncAmazonData(limit: number = 10) {
+export async function batchSyncAmazonData(limit: number = 10, force: boolean = false) {
   // Generate batch ID for grouping these sync operations
   const batchId = generateBatchId();
   
   // Get products that need syncing
-  const products = await getProductsForAmazonSync(limit);
+  const products = await getProductsForAmazonSync(limit, force);
+  
+  // Create sync job record
+  await createSyncJob(batchId, products.length);
   
   const results = {
     batchId,
     processed: 0,
     successful: 0,
     failed: 0,
+    notFound: 0,
+    asinMatchesFound: 0,
     productIds: [] as number[],
   };
   
-  console.log(`🚀 Starting batch sync for ${products.length} products (2 req/sec rate limit)`);
-  
-  // Process each product sequentially (to respect rate limits)
-  for (let i = 0; i < products.length; i++) {
-    const product = products[i];
-    results.processed++;
-    results.productIds.push(product.id);
-    
-    console.log(`[${i + 1}/${products.length}] Syncing product ${product.id} (UPC: ${product.upc})...`);
-    
-    try {
-      if (!product.upc) {
-        console.log(`  ⚠️ Skipped - No UPC`);
-        continue;
-      }
-      
-      // Perform the sync (rate limiter automatically waits)
-      await fetchAmazonDataByUpc(product.id, product.upc);
-      results.successful++;
-      console.log(`  ✅ Success`);
-    } catch (error) {
-      console.error(`  ❌ Failed: ${(error as Error).message}`);
-      results.failed++;
-      
-      // If we hit rate limits despite the limiter, stop processing
-      if ((error as Error).message.includes('429') || (error as Error).message.includes('QuotaExceeded')) {
-        console.log('⚠️ Rate limit error despite rate limiter - stopping batch');
-        break;
-      }
-    }
+  // Handle case where no products need syncing
+  if (products.length === 0) {
+    console.log('ℹ️ No products need syncing');
+    await markSyncJobComplete(batchId, 'completed');
+    return results;
   }
   
-  console.log(`✅ Batch sync complete: ${results.successful} successful, ${results.failed} failed`);
+  console.log(`🚀 Starting batch sync for ${products.length} products (2 req/sec rate limit)`);
+  
+  let rateLimitAborted = false;
+  
+  try {
+    // Process each product sequentially (to respect rate limits)
+    for (let i = 0; i < products.length; i++) {
+      const product = products[i];
+      results.processed++;
+      results.productIds.push(product.id);
+      
+      console.log(`[${i + 1}/${products.length}] Syncing product ${product.id} (UPC: ${product.upc})...`);
+      
+      try {
+        if (!product.upc) {
+          console.log(`  ⚠️ Skipped - No UPC`);
+          continue;
+        }
+        
+        // Perform the sync (rate limiter automatically waits)
+        const asinData = await fetchAmazonDataByUpc(product.id, product.upc);
+        
+        if (asinData && asinData.length > 0) {
+          results.successful++;
+          results.asinMatchesFound += asinData.length;
+          console.log(`  ✅ Success - Found ${asinData.length} ASIN(s)`);
+        } else {
+          results.notFound++;
+          console.log(`  ℹ️ No ASINs found`);
+        }
+      } catch (error) {
+        console.error(`  ❌ Failed: ${(error as Error).message}`);
+        results.failed++;
+        
+        // If we hit rate limits despite the limiter, stop processing
+        if ((error as Error).message.includes('429') || (error as Error).message.includes('QuotaExceeded')) {
+          console.log('⚠️ Rate limit error despite rate limiter - stopping batch');
+          rateLimitAborted = true;
+          break;
+        }
+      }
+      
+      // Update job progress every 10 products or on last product
+      if (i % 10 === 0 || i === products.length - 1) {
+        await updateSyncJobProgress(batchId, {
+          processedCount: results.processed,
+          successCount: results.successful,
+          failedCount: results.failed,
+          notFoundCount: results.notFound,
+          asinMatchesFound: results.asinMatchesFound,
+        });
+      }
+    }
+    
+    console.log(`✅ Batch sync complete: ${results.successful} successful, ${results.failed} failed, ${results.notFound} not found`);
+    
+    // Mark job based on outcome
+    if (rateLimitAborted) {
+      console.log('⚠️ Batch aborted due to rate limiting');
+      await markSyncJobComplete(batchId, 'failed', 'Rate limit exceeded - batch aborted');
+    } else {
+      await markSyncJobComplete(batchId, 'completed');
+    }
+  } catch (error) {
+    console.error(`❌ Batch sync failed: ${(error as Error).message}`);
+    await markSyncJobComplete(batchId, 'failed', (error as Error).message);
+    throw error;
+  }
   
   // Event Hook: Trigger Purchasing AI analysis for successfully synced products
   if (results.successful > 0 && results.productIds.length > 0) {

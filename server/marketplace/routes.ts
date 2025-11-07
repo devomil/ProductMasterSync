@@ -11,7 +11,7 @@ import { syncProductWithAmazon } from './amazon-spapi-service';
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
 import { getAmazonConfigFromDb, validateAmazonConfig as validateDbConfig } from '../utils/get-amazon-config-from-db';
 import { scheduler } from '../utils/scheduler';
-import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct, getRecentSyncLogs } from './repository';
+import { getSyncStats, getSyncLogsByBatch, getSyncLogsForProduct, getRecentSyncLogs, getCurrentSyncJob, getSyncJobHistory } from './repository';
 import { amazonListingsRestrictionsService } from './amazon-listings-restrictions';
 import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping, marketplaceCredentials, insertMarketplaceCredentialSchema } from '../../shared/schema';
@@ -405,9 +405,10 @@ router.post('/amazon/batch-sync', async (req, res) => {
       });
     }
 
-    // Validate limit - allow large values for full catalog sync
+    // Validate limit and force parameters - allow large values for full catalog sync
     const limitSchema = z.object({
-      limit: z.number().int().positive().max(999999).optional().default(10)
+      limit: z.number().int().positive().max(999999).optional().default(10),
+      force: z.boolean().optional().default(false)
     });
     
     const validationResult = limitSchema.safeParse(req.body);
@@ -419,9 +420,9 @@ router.post('/amazon/batch-sync', async (req, res) => {
     }
 
     // Run batch sync
-    const { limit } = validationResult.data;
-    console.log(`🚀 Starting Amazon batch sync with limit: ${limit}${limit > 10000 ? ' (FULL CATALOG SYNC)' : ''}`);
-    const result = await batchSyncAmazonData(limit);
+    const { limit, force } = validationResult.data;
+    console.log(`🚀 Starting Amazon batch sync with limit: ${limit}${limit > 10000 ? ' (FULL CATALOG SYNC)' : ''}${force ? ' (FORCE)' : ''}`);
+    const result = await batchSyncAmazonData(limit, force);
     
     return res.json({
       success: true,
@@ -508,6 +509,42 @@ router.get('/amazon/batch-logs/:batchId', async (req, res) => {
     return res.json(logs);
   } catch (error) {
     console.error('Error in GET /marketplace/amazon/batch-logs/:batchId:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/sync-jobs/current
+ * Get current or most recent sync job
+ */
+router.get('/amazon/sync-jobs/current', async (req, res) => {
+  try {
+    const currentJob = await getCurrentSyncJob();
+    return res.json(currentJob);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/sync-jobs/current:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/sync-jobs/history
+ * Get sync job history
+ */
+router.get('/amazon/sync-jobs/history', async (req, res) => {
+  try {
+    let limit = 10;
+    if (req.query.limit) {
+      const parsedLimit = parseInt(req.query.limit as string, 10);
+      if (!isNaN(parsedLimit) && parsedLimit > 0) {
+        limit = Math.min(parsedLimit, 50);
+      }
+    }
+    
+    const history = await getSyncJobHistory(limit);
+    return res.json(history);
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/sync-jobs/history:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
