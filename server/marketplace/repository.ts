@@ -185,11 +185,27 @@ export async function createProductAsinMapping(mappingData: any): Promise<any> {
  * - Either never synced (lastAmazonSync is null) or hasn't been synced in the last 24 hours
  * - Excludes products with amazonSyncStatus = 'processing'
  * @param limit Maximum number of products to return
+ * @param force If true, ignore the 24-hour cooldown and sync all products with UPCs
  */
-export async function getProductsForAmazonSync(limit: number = 10): Promise<Product[]> {
+export async function getProductsForAmazonSync(limit: number = 10, force: boolean = false): Promise<Product[]> {
   const oneDayAgo = new Date();
   oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
+  if (force) {
+    // Force mode: sync all products with UPCs, ignore cooldown
+    return await db
+      .select()
+      .from(products)
+      .where(
+        and(
+          sql`${products.upc} IS NOT NULL AND ${products.upc} != ''`,
+          sql`(${products.amazonSyncStatus} != 'processing' OR ${products.amazonSyncStatus} IS NULL)`
+        )
+      )
+      .limit(limit);
+  }
+
+  // Normal mode: respect 24-hour cooldown
   return await db
     .select()
     .from(products)
