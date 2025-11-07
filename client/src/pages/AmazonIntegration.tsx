@@ -36,7 +36,7 @@ const removeEdcPrefix = (sku: string): string => {
 };
 
 export default function AmazonIntegration() {
-  const { data: products, isLoading } = useQuery<{ products: any[] }>({
+  const { data: products, isLoading } = useQuery<{ products: any[]; pagination: { totalItems: number } }>({
     queryKey: ['/api/products?limit=1000'], // Get enough products to calculate metrics
   });
 
@@ -49,7 +49,7 @@ export default function AmazonIntegration() {
   const [activeTab, setActiveTab] = React.useState('overview');
 
   // Calculate metrics from products data
-  const totalProducts = products?.products?.length || 0;
+  const totalProducts = products?.pagination?.totalItems || 0;
   const productsWithAsins = products?.products?.filter((p: any) => 
     p.asinMappings && p.asinMappings.length > 0
   ).length || 0;
