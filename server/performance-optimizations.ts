@@ -59,8 +59,16 @@ export class PerformanceOptimizedQueries {
       ${whereClause}
     `;
 
-    // Optimized SQL query with pagination and ASIN mappings
+    // Optimized SQL query with CTE for pagination BEFORE joining ASINs
+    // This ensures ASINs appear on all pages, not just page 1
     const productsQuery = `
+      WITH paged_products AS (
+        SELECT p.id
+        FROM products p
+        ${whereClause}
+        ORDER BY p.id DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      )
       SELECT p.id, p.sku, p.usin, p.name, p.description,
              p.category_id as "categoryId",
              c.name as "categoryName",
@@ -80,18 +88,19 @@ export class PerformanceOptimizedQueries {
              p.created_at as "createdAt",
              p.updated_at as "updatedAt",
              COALESCE(
-               json_agg(
-                 json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'isActive', pam.is_active)
-               ) FILTER (WHERE pam.asin IS NOT NULL),
+               (
+                 SELECT json_agg(
+                   json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'isActive', pam.is_active)
+                 )
+                 FROM product_asin_mapping pam
+                 WHERE pam.product_id = p.id
+               ),
                '[]'::json
              ) as "asinMappings"
-      FROM products p
+      FROM paged_products pp
+      INNER JOIN products p ON p.id = pp.id
       LEFT JOIN categories c ON c.id = p.category_id
-      LEFT JOIN product_asin_mapping pam ON pam.product_id = p.id
-      ${whereClause}
-      GROUP BY p.id, c.name
       ORDER BY p.id DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
     queryParams.push(limit, offset);

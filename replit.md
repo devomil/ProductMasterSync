@@ -11,150 +11,52 @@ Preferred communication style: Simple, everyday language.
 ## UI/UX
 - **Frontend Framework**: React with TypeScript.
 - **UI Library**: Shadcn/ui components built on Radix UI.
-- **Styling**: Tailwind CSS with custom design tokens.
+- **Styling**: Tailwind CSS.
 - **State Management**: TanStack Query for server state.
-- **Navigation Structure**: Marketplace-organized navigation with nested dropdown submenus for scalability. Each marketplace (Amazon, Walmart, eBay, Newegg) has a consistent submenu structure:
-  - **Amazon Submenu**:
-    - Overview (`/marketplaces/amazon`) - Main marketplace dashboard
-    - Integration (`/marketplaces/amazon/integration`) - API credentials and ASIN sync with monitoring
-    - Multi-ASIN Search (`/marketplaces/amazon/multi-asin`) - Bulk ASIN lookup tool
-  - **Other Marketplaces**: Overview, Integration, Product Sync, Analytics (placeholders ready for implementation)
-  - **Purchasing AI**: Single navigation button with analysis progress at `/purchasing-ai/analysis-progress`
-- **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation. Features include:
-  - **Purchasing AI Catalog**: Professional table layout optimized for 100k+ products with client-side sorting, color-coded margin badges, and comprehensive filtering. Automatically filters restricted products and separates FBM/FBA costs.
-  - **AI Setup Page**: Multi-select fulfillment preferences (FBM, FBA, Dropship, Warehouse) with margin thresholds and analysis filters.
-  - **Table Views**: Optimization modes (compact, comfortable, spacious) with quick filter chips.
-  - **Documentation**: Interactive field mapping reference with categorized fields.
-  - **Data Modals**: Tabbed interfaces with real-time calculations.
+- **Navigation Structure**: Marketplace-organized navigation with nested dropdown submenus for Amazon, Walmart, eBay, Newegg, and Purchasing AI.
+- **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation with features like optimized table layouts, multi-select fulfillment preferences, and interactive documentation.
 
 ## Technical Implementations
 - **Backend API**: Node.js with Express and TypeScript (primary); FastAPI (Python) for supplier management and data connectors (secondary).
 - **Database ORM**: Drizzle ORM.
-- **Database**: PostgreSQL 16 (Neon serverless with connection pooling).
+- **Database**: PostgreSQL 16 (Neon serverless).
 - **Key Features**:
-    - **Supplier Management**: Onboarding, data source configuration, connection testing, and status tracking.
+    - **Supplier Management**: Onboarding, data source configuration, and status tracking.
     - **Data Ingestion Engine**: Handles various formats (CSV, Excel, JSON, XML, EDI) via SFTP, FTP, API, direct DB.
-    - **Product Catalog Management**: Comprehensive product schema, hierarchical categories, inventory tracking, image management.
-    - **Amazon Marketplace Integration**: ASIN discovery via SP-API, pricing intelligence, market opportunity analysis, UPC to ASIN mapping. Includes bulk processing with dynamic rate limiting and database-first credential management.
-      - **Credentials Management**: Stored in `marketplace_credentials` table with UI configuration, async loader checks database first, all 20+ API entry points updated
-      - **Catalog API Rate Limiting**: Fixed 429 errors by configuring 2 req/sec limit (Amazon's strict Catalog Items API limit), achieving 100% success rate with automatic throttling
-      - **Full Catalog Sync**: Enhanced batch sync with checkbox option to process entire catalog (30,000+ products) or custom batch sizes up to 5,000 products. Batch size slider with step increments for better UX.
-      - **Automated Scheduler**: Always-on Amazon sync job runs every 2 hours, processing 10 products per run. Status detection based on API job type rather than hardcoded job ID.
-      - **Market Intelligence Enhancement**: Batch sync now fetches complete market data: buy box pricing (Competitive Pricing API), Amazon fees (Product Fees API), and listing restrictions (Listings Restrictions API). Each API call is rate-limited with dedicated token buckets and retry logic with exponential backoff (1s, 2s, 4s delays). Repository uses upsert to update existing ASIN data on subsequent syncs.
-    - **Inventory Management**: Automated data pull jobs, scheduling, dependency management, error handling, and real-time monitoring.
+    - **Product Catalog Management**: Comprehensive product schema, hierarchical categories, inventory tracking.
+    - **Amazon Marketplace Integration**: ASIN discovery via SP-API, pricing intelligence, market opportunity analysis, UPC to ASIN mapping, including bulk processing with dynamic rate limiting and automated scheduling for sync jobs. Features credential management and rate-limited market data fetching (buy box, fees, restrictions) with retry logic.
+    - **Inventory Management**: Automated data pull jobs, scheduling, and monitoring.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations.
-    - **EDC SKU Generation**: Unique sequential SKU system.
-    - **Field Mapping System**: Two-tier mapping (Master Catalog and Product Details) with interactive walkthrough, auto-mapping, and dual editor interfaces. Tracks unmapped supplier columns.
-    - **AI-Powered Category Mapping**: Automated category mapping using Claude AI for product overlap detection, category normalization, and Google Merchant taxonomy suggestions, with an approval workflow. Product category updates are scoped to specific suppliers.
-    - **Product-Supplier Linking**: Automatically creates `product_suppliers` relationships during imports for proper supplier scoping.
-    - **Purchasing AI Configuration**: Multi-select fulfillment preferences (FBM, FBA, Dropship, Warehouse) with separate margin thresholds.
-    - **Purchasing AI UI**: User-friendly "Run Analysis" button to trigger bulk analysis with progress monitoring and toast notifications.
-    - **Purchasing AI Rate Limiting**: Production-ready rate limiting for Amazon Product Fees API (0.5 req/sec) with batch processing, circuit breaker, retry logic, exponential backoff, and real-time monitoring.
-    - **Purchasing AI Deduplication**: Database-level deduplication using unique constraints on `(productId, asin)` to prevent duplicate opportunity records.
-    - **24/7 Automated Analysis System**: Complete automation infrastructure for continuous purchasing opportunity analysis:
-      - **Job Scheduler**: In-process priority queue (high/medium/low) with max 1 concurrent job for rate limiting, resumable jobs with checkpoint tracking, graceful shutdown handling
-      - **Database Schema**: `purchasing_analysis_jobs` table stores scheduled jobs, `purchasing_analysis_runs` table tracks execution history
-      - **Business Logic**: Analyzes ALL products with ASINs regardless of buy box/sales rank availability (missing market data = monopoly/exclusive opportunity)
-      - **Null Safety**: LEFT JOIN for amazonMarketIntelligence ensures products without market data are still analyzed
-      - **Event Hooks**: Amazon batch sync automatically creates medium-priority analysis jobs for newly synced products, closing sync→analysis automation loop
-      - **Monitoring UI**: "24/7 Automation" tab with scheduler enable/disable controls, quick actions (analyze all/stale products), queue status, and recent runs display
-      - **API Endpoints**: Complete set of scheduler management endpoints (/status, /jobs CRUD, /runs, /analytics)
-      - **Production Ready**: Successfully tested end-to-end with automatic job creation, queue management, and cache invalidation
-    - **Performance Optimization**: Intelligent caching and optimized queries for sub-second API responses.
+    - **Field Mapping System**: Two-tier mapping with interactive walkthroughs and auto-mapping.
+    - **AI-Powered Category Mapping**: Automated category mapping using Claude AI with an approval workflow.
+    - **Purchasing AI**: Multi-select fulfillment preferences, bulk analysis triggering with progress monitoring, and production-ready rate limiting with deduplication.
+    - **24/7 Automated Analysis System**: Infrastructure for continuous purchasing opportunity analysis with a job scheduler, database schema for tracking jobs and runs, business logic for comprehensive product analysis, and a monitoring UI.
+    - **Performance Optimization**: Intelligent caching and optimized queries.
 
 ## System Design
-- **Module-based Architecture**: Clear separation of concerns (supplier management, data ingestion, product catalog, marketplace integration).
-- **Scalability**: Designed for large product catalogs (2,800+ products) and numerous suppliers, with Amazon bulk processing handling thousands of products.
-- **Data Integrity**: Comprehensive validation rules, data enrichment, and conflict resolution.
+- **Module-based Architecture**: Clear separation of concerns.
+- **Scalability**: Designed for large product catalogs and numerous suppliers.
+- **Data Integrity**: Comprehensive validation, enrichment, and conflict resolution.
 - **Deployment**: Replit for development, Replit Autoscale for production.
 
 ## Production Deployment Configuration
-- **Environment**: Replit Autoscale with Node.js 20 runtime.
+- **Environment**: Replit Autoscale with Node.js 20.
 - **Build Process**: Vite for frontend, esbuild for backend.
 - **Database**: Neon PostgreSQL with optimized connection pooling.
-- **Performance**: Optimized for 1 million+ products with intelligent caching and database indexes.
-
-## Deployment Best Practices
-
-### Route Module Imports
-**CRITICAL: Always use static imports for route modules.** Dynamic imports work in development (TypeScript/tsx) but fail in production because esbuild bundles everything into a single `dist/index.js` file.
-
-✅ **CORRECT - Static Imports:**
-```typescript
-import marketplaceRoutes from "./marketplace/routes";
-import purchasingRoutes from "./purchasing/routes";
-
-app.use("/api/marketplace", marketplaceRoutes);
-app.use("/api/purchasing", purchasingRoutes);
-```
-
-❌ **AVOID - Dynamic Imports:**
-```typescript
-const module = await import("./marketplace/routes");
-app.use("/api/marketplace", module.default);
-```
-
-**Why:** In production, the build process bundles all TypeScript files into one JavaScript file. Dynamic imports try to load separate files that don't exist in the bundled output, causing 404 errors and returning HTML instead of JSON.
-
-### Testing Production Builds
-Before deploying to production, test the production build locally:
-
-```bash
-npm run build        # Build production bundle (creates dist/ directory)
-npm run start        # Test production build locally
-```
-
-If it works with `npm run start`, it should work in production deployment.
-
-### Database Migration Workflow
-
-**Development to Production:**
-1. **Development**: Make schema changes in `shared/schema.ts`
-2. **Development**: Run `npm run db:push` (or `npm run db:push --force` if data-loss warnings)
-3. **Development**: Test thoroughly with development database
-4. **Production**: Deploy code to production (includes schema changes)
-5. **Production**: Use Replit Database pane → Switch to "Production" → Push schema changes
-   - Alternative: Let Drizzle auto-create tables on first use (safe for new tables)
-
-**Important:** Development and production use separate databases:
-- **Development DB**: `ep-round-bread-a6qf8xb1.us-west-2.aws.neon.tech` (US West)
-- **Production DB**: `ep-dawn-bread-ady0zk97.c-2.us-east-1.aws.neon.tech` (US East)
-
-### Preview Deployments
-Always test major changes with preview deployments first:
-1. Click **"Create preview deploy"** instead of "Approve and publish"
-2. Test all functionality in preview environment
-3. Verify API endpoints, database connections, and route loading
-4. Once confirmed → Click "Approve and publish" for production
-
-This prevents downtime and catches issues before affecting live users.
-
-### Lessons Learned
-- **October 2025**: Fixed production deployment issue where marketplace routes failed to load due to dynamic imports being incompatible with esbuild's bundling process. Solution: Converted all route module imports to static imports in `server/routes.ts`.
-- **Route Loading**: The `loadRouteModule()` helper function was removed because production builds don't support dynamic file-based module loading.
-- **November 2025**: Implemented 24/7 Purchasing AI automation with auto-start on server boot. The scheduler initializes in `server/index.ts` after supplier automation, loads config from `purchasing_settings.auto_analysis_enabled`, and automatically processes queued jobs. Critical: Database must have `auto_analysis_enabled=true` for automation to run.
-- **November 4, 2025 - Critical Listing Restrictions Bugs Fixed**:
-  - **Bug #1 (APPROVAL_REQUIRED)**: System incorrectly treated Amazon's `APPROVAL_REQUIRED` status as "allowed to list" instead of "blocked until approval". Fixed by updating `isListingAllowed()` to block NOT_ELIGIBLE, APPROVAL_REQUIRED, and ASIN_NOT_FOUND.
-  - **Bug #2 (conditionType filtering)**: System checked ALL restrictions (new, used, refurbished, etc.) instead of only NEW item restrictions. This caused false positives where products approved for NEW items showed as restricted because USED/REFURBISHED conditions required approval. Fixed by filtering restrictions to only evaluate `conditionType='new_new'` before checking approval status. Updated 5 call sites across 4 files.
-  - **Impact**: Both bugs caused widespread false positives showing products as restricted when they were actually approved for NEW condition sales. All listing restriction checks now properly filter by condition type.
-- **November 5, 2025 - Sample Pull File Path Detection Fixed**:
-  - **Issue**: Sample pull endpoint failed to find catalog file paths because file paths are stored in separate `automation_file_paths` table, not in data source config.
-  - **Fix**: Updated sample pull endpoint to query `automation_file_paths` table using proper Drizzle schema. Added `automationFilePaths` import and used structured query with `and()` conditions instead of raw SQL.
-  - **Database Structure**: File paths stored in `automation_file_paths` table with columns: `automation_id`, `file_path`, `file_type` (catalog/inventory), `label`. CWR catalog at `/eco8/out/catalog.csv`.
-  - **Result**: Sample pull now successfully detects configured file paths from automation setup and downloads/imports products with field mapping applied.
+- **Performance**: Optimized for 1 million+ products.
 
 # External Dependencies
 
 ## APIs and Services
-- **Amazon SP-API**: For product catalog search and marketplace intelligence (OAuth2 authentication, Product Pricing API v0, Catalog Items API, Listings Restrictions API).
-- **Anthropic AI**: For AI-powered data processing and enhancement.
-- **SFTP/FTP Servers**: For supplier data source connections.
+- **Amazon SP-API**: Product catalog search and marketplace intelligence (OAuth2, Product Pricing API v0, Catalog Items API, Listings Restrictions API).
+- **Anthropic AI**: AI-powered data processing.
+- **SFTP/FTP Servers**: Supplier data connections.
 - **Neon**: Serverless PostgreSQL hosting.
 
 ## Key Libraries
-- **Database**: `drizzle-orm`, `@neondatabase/serverless`, `pg`, `psycopg2`.
+- **Database**: `drizzle-orm`, `@neondatabase/serverless`, `pg`.
 - **File Processing**: `csv-parse`, `xlsx`, `ssh2-sftp-client`.
-- **HTTP Clients**: `axios`, `requests` (Python).
-- **UI Components**: Radix UI suite, Shadcn/ui.
-- **Validation**: `zod` (TypeScript), `pydantic` (Python).
+- **HTTP Clients**: `axios`.
+- **UI Components**: Radix UI, Shadcn/ui.
+- **Validation**: `zod`.
 - **Amazon SDK**: `@sp-api-sdk/auth`, `@sp-api-sdk/catalog-items-api-2022-04-01`.
