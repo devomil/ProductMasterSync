@@ -582,6 +582,39 @@ export const shippingTemplates = pgTable("shipping_templates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Amazon Sync Job status tracking
+export const amazonSyncJobStatusEnum = pgEnum('amazon_sync_job_status', [
+  'pending', 'in_progress', 'completed', 'failed', 'cancelled'
+]);
+
+export const amazonSyncJobs = pgTable("amazon_sync_jobs", {
+  id: serial("id").primaryKey(),
+  batchId: text("batch_id").notNull().unique(),
+  
+  // Job scope and progress
+  totalQueued: integer("total_queued").notNull().default(0),
+  processedCount: integer("processed_count").notNull().default(0),
+  successCount: integer("success_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  notFoundCount: integer("not_found_count").notNull().default(0),
+  asinMatchesFound: integer("asin_matches_found").notNull().default(0),
+  
+  // Job status
+  status: amazonSyncJobStatusEnum("status").notNull().default('pending'),
+  failureReason: text("failure_reason"),
+  
+  // Timing
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  
+  // Performance metrics
+  avgResponseTimeMs: integer("avg_response_time_ms"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const amazonSyncLogs = pgTable("amazon_sync_logs", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id),
