@@ -235,18 +235,18 @@ export default function PurchasingAI() {
     if (bulkAnalysisMutation.isPending) return;
     
     const confirmed = window.confirm(
-      "This will analyze all products in your catalog for purchasing opportunities.\n\n" +
-      "⏱️ Time: ~3-5 minutes for 100 products\n" +
+      "This will analyze ALL products with ASIN mappings in your catalog for purchasing opportunities.\n\n" +
+      "⏱️ Time: ~15-25 minutes for 500 products\n" +
       "📊 Rate: 0.5 requests/second for 100% API success\n\n" +
       "Continue?"
     );
     
     if (confirmed) {
       toast({
-        title: "Analysis Starting...",
-        description: "This may take a few minutes. You can continue using the app.",
+        title: "Full Catalog Analysis Starting...",
+        description: "Analyzing all products with ASIN mappings. This may take 15-25 minutes. You can continue using the app.",
       });
-      bulkAnalysisMutation.mutate(100);
+      bulkAnalysisMutation.mutate(999999);
     }
   };
 
