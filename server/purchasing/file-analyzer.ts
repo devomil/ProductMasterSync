@@ -2,8 +2,10 @@ import { parse } from 'csv-parse/sync';
 import { db } from '../db';
 import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC, getCompetitivePricing, getListingRestrictions } from '../utils/amazon-spapi';
 import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
+import { getProductFees } from '../services/amazon-product-fees';
+import { saveAmazonMarketData } from '../marketplace/repository';
 
 interface CSVRow {
   ASIN?: string;
@@ -41,7 +43,95 @@ interface MarketData {
   restrictionReasons: string[];
 }
 
+async function fetchAndPersistMarketData(asin: string): Promise<void> {
+  try {
+    console.log(`[File Analyzer] Fetching Amazon market data for ASIN ${asin}...`);
+    
+    // Fetch competitive pricing
+    const pricingData = await getCompetitivePricing([asin]);
+    const pricing = pricingData[0];
+    
+    let buyBoxPrice: number | null = null;
+    let currentPrice: number | null = null;
+    
+    if (pricing) {
+      // Extract buy box price (in cents)
+      if (pricing.BuyBoxPrice) {
+        buyBoxPrice = Math.round(parseFloat(pricing.BuyBoxPrice) * 100);
+      } else if (pricing.buyBoxPrice) {
+        buyBoxPrice = Math.round(parseFloat(pricing.buyBoxPrice) * 100);
+      }
+      
+      // Extract Amazon's current price (in cents)
+      if (pricing.AmazonPrice) {
+        currentPrice = Math.round(parseFloat(pricing.AmazonPrice) * 100);
+      } else if (pricing.currentPrice) {
+        currentPrice = Math.round(parseFloat(pricing.currentPrice) * 100);
+      }
+      
+      // Fallback: use buy box price if Amazon price not available
+      if (!currentPrice && buyBoxPrice) {
+        currentPrice = buyBoxPrice;
+      }
+    }
+    
+    // Fetch fees if we have a price
+    let totalFees: number | null = null;
+    let referralFee: number | null = null;
+    let fbaFee: number | null = null;
+    
+    if (buyBoxPrice && buyBoxPrice > 0) {
+      try {
+        const feesData = await getProductFees({
+          asin,
+          price: buyBoxPrice / 100, // Convert cents to dollars
+          isAmazonFulfilled: true, // Assume FBA for fees calculation
+        });
+        
+        if (feesData) {
+          totalFees = feesData.totalFees ? Math.round(feesData.totalFees * 100) : null;
+          referralFee = feesData.referralFee ? Math.round(feesData.referralFee * 100) : null;
+          fbaFee = feesData.fbaFee ? Math.round(feesData.fbaFee * 100) : null;
+        }
+      } catch (error) {
+        console.log(`[File Analyzer] Could not fetch fees for ASIN ${asin}:`, error);
+      }
+    }
+    
+    // Fetch listing restrictions
+    let canList: boolean | null = null;
+    let listingRestrictions: string[] = [];
+    
+    try {
+      const restrictions = await getListingRestrictions(asin);
+      canList = restrictions.canList;
+      listingRestrictions = restrictions.messages || [];
+    } catch (error) {
+      console.log(`[File Analyzer] Could not fetch restrictions for ASIN ${asin}:`, error);
+    }
+    
+    // Save to database
+    await saveAmazonMarketData({
+      asin,
+      buyBoxPrice,
+      currentPrice,
+      totalFees,
+      referralFee,
+      fbaFee,
+      canList,
+      listingRestrictions: listingRestrictions.length > 0 ? listingRestrictions : null,
+      lastFeeCheck: new Date(),
+    });
+    
+    console.log(`[File Analyzer] Saved market data for ASIN ${asin}`);
+  } catch (error) {
+    console.error(`[File Analyzer] Error fetching market data for ASIN ${asin}:`, error);
+    throw error;
+  }
+}
+
 async function getMarketDataForAsin(asin: string): Promise<MarketData> {
+  // Check cache first
   const [cached] = await db
     .select()
     .from(amazonMarketIntelligence)
@@ -64,6 +154,37 @@ async function getMarketDataForAsin(asin: string): Promise<MarketData> {
     };
   }
 
+  // NOT cached - fetch from Amazon APIs
+  try {
+    await fetchAndPersistMarketData(asin);
+    
+    // Now fetch from cache
+    const [freshData] = await db
+      .select()
+      .from(amazonMarketIntelligence)
+      .where(eq(amazonMarketIntelligence.asin, asin))
+      .limit(1);
+    
+    if (freshData) {
+      const buyBoxPrice = freshData.buyBoxPrice ? freshData.buyBoxPrice / 100 : null;
+      const amazonPrice = freshData.currentPrice ? freshData.currentPrice / 100 : null;
+      const estimatedFees = freshData.totalFees ? freshData.totalFees / 100 : null;
+
+      return {
+        buyBoxPrice,
+        amazonPrice,
+        lowestFbaPrice: null,
+        lowestFbmPrice: null,
+        estimatedFees,
+        isRestricted: freshData.canList === false,
+        restrictionReasons: Array.isArray(freshData.listingRestrictions) ? freshData.listingRestrictions : [],
+      };
+    }
+  } catch (error) {
+    console.error(`[File Analyzer] Failed to fetch market data for ASIN ${asin}:`, error);
+  }
+
+  // Fallback to nulls if fetch failed
   return {
     buyBoxPrice: null,
     amazonPrice: null,
