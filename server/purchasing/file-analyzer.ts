@@ -365,16 +365,23 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
         let isOpportunity = false;
         let opportunityType: string | null = null;
 
-        if (result.supplierPrice && marketData.buyBoxPrice) {
+        if (result.supplierPrice) {
           const supplierCost = result.supplierPrice;
           const buyBoxPrice = marketData.buyBoxPrice ?? marketData.amazonPrice ?? marketData.lowestFbaPrice;
 
           if (buyBoxPrice && buyBoxPrice > 0) {
             const fees = marketData.estimatedFees ?? buyBoxPrice * 0.15;
 
-            dropshipMargin = ((buyBoxPrice - supplierCost - fees) / buyBoxPrice) * 100;
-            warehouseMargin = ((buyBoxPrice - supplierCost - fees) / buyBoxPrice) * 100;
+            // DROPSHIP: ZERO shipping cost (supplier ships directly to customer)
+            const dropshipShipping = 0;
+            dropshipMargin = ((buyBoxPrice - supplierCost - fees - dropshipShipping) / buyBoxPrice) * 100;
 
+            // WAREHOUSE: Shipping cost to get product to our warehouse
+            // Default to $10 for now (can be customized per supplier later)
+            const warehouseShipping = 10;
+            warehouseMargin = ((buyBoxPrice - supplierCost - fees - warehouseShipping) / buyBoxPrice) * 100;
+
+            // Determine opportunity type based on thresholds
             if (dropshipMargin >= dropshipThreshold && warehouseMargin >= warehouseThreshold) {
               opportunityType = 'both';
               isOpportunity = true;
