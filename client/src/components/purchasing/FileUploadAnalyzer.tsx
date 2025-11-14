@@ -258,6 +258,7 @@ export function FileUploadAnalyzer() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>ASIN</TableHead>
+                    <TableHead>UPC</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Supplier Cost</TableHead>
                     <TableHead className="text-right">Buy Box</TableHead>
@@ -270,6 +271,9 @@ export function FileUploadAnalyzer() {
                   {opportunities.map((result) => (
                     <TableRow key={result.id} data-testid={`result-row-${result.asin}`}>
                       <TableCell className="font-mono text-sm">{result.asin}</TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {result.upc || '-'}
+                      </TableCell>
                       <TableCell className="max-w-md truncate">
                         {result.description || result.brand || '-'}
                       </TableCell>

@@ -2,16 +2,22 @@ import { parse } from 'csv-parse/sync';
 import { db } from '../db';
 import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 
 interface CSVRow {
-  ASIN: string;
+  ASIN?: string;
   UPC?: string;
   Description?: string;
+  DESCRIPTION?: string;
   Brand?: string;
+  'BRAND NAME'?: string;
   Model?: string;
   Color?: string;
   Qty?: string;
+  AVAILABLE?: string;
   'Retail Price'?: string;
+  PRICE?: string;
 }
 
 interface ParsedProduct {
@@ -81,35 +87,47 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
     const products: ParsedProduct[] = [];
 
     for (const row of records) {
-      if (!row.ASIN || row.ASIN.trim() === '') {
+      // Extract ASIN or UPC - at least one must be present
+      const asin = row.ASIN?.trim();
+      const upc = row.UPC?.trim();
+      
+      if ((!asin || asin === '') && (!upc || upc === '')) {
         continue;
       }
 
-      // Parse retail price - handle both $XX.XX and XX.XX formats
+      // Extract description - support multiple column name formats
+      const description = row.Description?.trim() || row.DESCRIPTION?.trim();
+      
+      // Extract brand - support multiple column name formats
+      const brand = row.Brand?.trim() || row['BRAND NAME']?.trim();
+
+      // Parse retail price - handle multiple column names and formats
       let supplierPrice: number | undefined;
-      if (row['Retail Price']) {
-        const priceStr = row['Retail Price'].replace(/[$,\s]/g, '');
-        const parsed = parseFloat(priceStr);
+      const priceStr = row['Retail Price'] || row.PRICE;
+      if (priceStr) {
+        const cleanPrice = priceStr.replace(/[$,\s]/g, '');
+        const parsed = parseFloat(cleanPrice);
         if (!isNaN(parsed) && parsed > 0) {
           supplierPrice = parsed;
         }
       }
 
-      // Parse quantity
+      // Parse quantity - support multiple column names
       let quantity: number | undefined;
-      if (row.Qty) {
-        const qtyStr = row.Qty.replace(/[,\s]/g, '');
-        const parsed = parseInt(qtyStr, 10);
+      const qtyStr = row.Qty || row.AVAILABLE;
+      if (qtyStr) {
+        const cleanQty = qtyStr.replace(/[,\s]/g, '');
+        const parsed = parseInt(cleanQty, 10);
         if (!isNaN(parsed) && parsed > 0) {
           quantity = parsed;
         }
       }
 
       products.push({
-        asin: row.ASIN.trim(),
-        upc: row.UPC?.trim(),
-        description: row.Description?.trim(),
-        brand: row.Brand?.trim(),
+        asin: asin || '',  // Will be populated from UPC lookup if empty
+        upc,
+        description,
+        brand,
         model: row.Model?.trim(),
         color: row.Color?.trim(),
         quantity,
@@ -121,6 +139,26 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
   } catch (error) {
     console.error('[File Analyzer] CSV parsing error:', error);
     throw new Error(`Failed to parse CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+async function convertUpcToAsin(upc: string): Promise<string | null> {
+  try {
+    console.log(`[File Analyzer] Converting UPC ${upc} to ASIN...`);
+    const config = await getAmazonConfigFromDb();
+    const items = await searchCatalogItemsByUPC(upc, config);
+    
+    if (items && items.length > 0) {
+      const asin = items[0].asin;
+      console.log(`[File Analyzer] UPC ${upc} → ASIN ${asin}`);
+      return asin;
+    }
+    
+    console.log(`[File Analyzer] No ASIN found for UPC ${upc}`);
+    return null;
+  } catch (error) {
+    console.error(`[File Analyzer] Error converting UPC ${upc}:`, error);
+    return null;
   }
 }
 
@@ -148,7 +186,26 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
 
     for (const result of results) {
       try {
-        const marketData = await getMarketDataForAsin(result.asin);
+        // Convert UPC to ASIN if ASIN is not provided
+        let asin = result.asin;
+        if ((!asin || asin === '') && result.upc) {
+          asin = await convertUpcToAsin(result.upc);
+          if (!asin) {
+            throw new Error(`Could not find ASIN for UPC ${result.upc}`);
+          }
+          
+          // Update the result with the found ASIN
+          await db
+            .update(fileAnalysisResults)
+            .set({ asin })
+            .where(eq(fileAnalysisResults.id, result.id));
+        }
+
+        if (!asin) {
+          throw new Error('No ASIN or UPC provided');
+        }
+
+        const marketData = await getMarketDataForAsin(asin);
 
         let dropshipMargin: number | null = null;
         let warehouseMargin: number | null = null;
