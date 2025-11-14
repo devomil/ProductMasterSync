@@ -1,6 +1,6 @@
 import { parse } from 'csv-parse/sync';
 import { db } from '../db';
-import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence } from '@shared/schema';
+import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence, amazonAsins } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { searchCatalogItemsByUPC, getCompetitivePricing, getListingRestrictions } from '../utils/amazon-spapi';
 import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
@@ -43,9 +43,27 @@ interface MarketData {
   restrictionReasons: string[];
 }
 
+async function ensureAsinExists(asin: string): Promise<void> {
+  // Check if ASIN already exists
+  const [existing] = await db.select().from(amazonAsins).where(eq(amazonAsins.asin, asin)).limit(1);
+  
+  if (!existing) {
+    // Create minimal ASIN record
+    await db.insert(amazonAsins).values({
+      asin,
+      marketplace: 'amazon.com',
+      isActive: true,
+    }).onConflictDoNothing();
+    console.log(`[File Analyzer] Created ASIN record for ${asin}`);
+  }
+}
+
 async function fetchAndPersistMarketData(asin: string): Promise<void> {
   try {
     console.log(`[File Analyzer] Fetching Amazon market data for ASIN ${asin}...`);
+    
+    // Ensure ASIN exists in database first (required for foreign key constraint)
+    await ensureAsinExists(asin);
     
     // Fetch competitive pricing
     const pricingData = await getCompetitivePricing([asin]);
