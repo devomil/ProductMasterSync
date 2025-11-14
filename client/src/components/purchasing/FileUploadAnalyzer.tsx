@@ -48,6 +48,11 @@ export function FileUploadAnalyzer() {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
+  const { data: allUploads = [] } = useQuery<FileUpload[]>({
+    queryKey: ['/api/purchasing/uploads'],
+    refetchInterval: 5000,
+  });
+
   const { data: upload, isLoading: uploadLoading } = useQuery<FileUpload>({
     queryKey: ['/api/purchasing/uploads', uploadId],
     enabled: !!uploadId,
@@ -61,6 +66,16 @@ export function FileUploadAnalyzer() {
     queryKey: ['/api/purchasing/uploads', uploadId, 'results'],
     enabled: !!uploadId && upload?.status === 'completed',
   });
+
+  // Auto-select the most recent running upload on mount
+  if (!uploadId && allUploads.length > 0) {
+    const runningUpload = allUploads.find(u => u.status === 'running');
+    if (runningUpload) {
+      setUploadId(runningUpload.id);
+    } else {
+      setUploadId(allUploads[0].id);
+    }
+  }
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -303,6 +318,73 @@ export function FileUploadAnalyzer() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {allUploads.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upload History</CardTitle>
+            <CardDescription>View all your previous file uploads and analyses</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {allUploads.map((u) => (
+                <div
+                  key={u.id}
+                  onClick={() => setUploadId(u.id)}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all hover:border-primary ${
+                    uploadId === u.id ? 'border-primary bg-primary/5' : 'border-muted'
+                  }`}
+                  data-testid={`upload-history-${u.id}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{u.fileName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(u.createdAt).toLocaleString()} · {u.totalRows} products
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {u.status === 'completed' && (
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">{u.opportunitiesFound}</p>
+                          <p className="text-xs text-muted-foreground">opportunities</p>
+                        </div>
+                      )}
+                      {u.status === 'running' && (
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{Math.round((u.processedRows / u.totalRows) * 100)}%</p>
+                          <p className="text-xs text-muted-foreground">processing</p>
+                        </div>
+                      )}
+                      {u.status === 'completed' && (
+                        <Badge variant="default" className="bg-green-500">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Complete
+                        </Badge>
+                      )}
+                      {u.status === 'running' && (
+                        <Badge variant="secondary">
+                          <Clock className="w-3 h-3 mr-1 animate-pulse" />
+                          Running
+                        </Badge>
+                      )}
+                      {u.status === 'failed' && (
+                        <Badge variant="destructive">
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          Failed
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
