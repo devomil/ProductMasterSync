@@ -30,6 +30,7 @@ interface FileUpload {
 interface FileAnalysisResult {
   id: number;
   asin: string;
+  upc: string | null;
   description: string | null;
   brand: string | null;
   quantity: number | null;

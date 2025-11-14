@@ -89,7 +89,28 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
     for (const row of records) {
       // Extract ASIN or UPC - at least one must be present
       const asin = row.ASIN?.trim();
-      const upc = row.UPC?.trim();
+      
+      // Normalize UPC - handle scientific notation (e.g., 6.97068E+12) and ensure 12-digit format
+      let upc: string | undefined;
+      if (row.UPC) {
+        const upcValue = row.UPC.trim();
+        
+        // Check if it's in scientific notation
+        if (upcValue.includes('E') || upcValue.includes('e')) {
+          // Parse scientific notation to number, then convert to string
+          const numericUpc = Number(upcValue);
+          if (!isNaN(numericUpc)) {
+            // Convert to string and pad to 12 digits (UPC-A standard)
+            upc = Math.floor(numericUpc).toString().padStart(12, '0');
+          }
+        } else {
+          // Regular UPC - remove any non-digits and pad to 12 digits
+          const cleanUpc = upcValue.replace(/[^0-9]/g, '');
+          if (cleanUpc.length > 0) {
+            upc = cleanUpc.padStart(12, '0');
+          }
+        }
+      }
       
       if ((!asin || asin === '') && (!upc || upc === '')) {
         continue;
@@ -146,7 +167,18 @@ async function convertUpcToAsin(upc: string): Promise<string | null> {
   try {
     console.log(`[File Analyzer] Converting UPC ${upc} to ASIN...`);
     const config = await getAmazonConfigFromDb();
-    const items = await searchCatalogItemsByUPC(upc, config);
+    
+    // Ensure config has required fields
+    if (!config.marketplaceId) {
+      console.error('[File Analyzer] Amazon marketplace ID not configured');
+      return null;
+    }
+    
+    const items = await searchCatalogItemsByUPC(upc, {
+      ...config,
+      marketplaceId: config.marketplaceId,
+      endpoint: config.endpoint || 'https://sellingpartnerapi-na.amazon.com'
+    });
     
     if (items && items.length > 0) {
       const asin = items[0].asin;
