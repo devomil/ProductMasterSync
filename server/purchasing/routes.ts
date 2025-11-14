@@ -394,4 +394,33 @@ router.get("/uploads", async (req, res) => {
   }
 });
 
+router.post("/uploads/:uploadId/restart", async (req, res) => {
+  try {
+    const uploadId = parseInt(req.params.uploadId);
+    const [upload] = await db.select().from(fileUploads).where(eq(fileUploads.id, uploadId));
+
+    if (!upload) {
+      return res.status(404).json({ error: 'Upload not found' });
+    }
+
+    if (upload.status === 'completed') {
+      return res.status(400).json({ error: 'Upload already completed' });
+    }
+
+    await db.update(fileUploads)
+      .set({ status: 'running' })
+      .where(eq(fileUploads.id, uploadId));
+
+    console.log(`[File Upload] Restarting analysis for upload ${uploadId}`);
+    analyzeUploadedFile(uploadId).catch(err => {
+      console.error(`[File Upload] Background analysis failed for upload ${uploadId}:`, err);
+    });
+
+    res.json({ success: true, message: 'Analysis restarted' });
+  } catch (error) {
+    console.error('[File Upload] Error restarting upload:', error);
+    res.status(500).json({ error: 'Failed to restart upload' });
+  }
+});
+
 export default router;
