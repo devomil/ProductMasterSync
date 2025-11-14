@@ -41,6 +41,8 @@ interface FileAnalysisResult {
   isOpportunity: boolean;
   opportunityType: string | null;
   isRestricted: boolean;
+  restrictionReasons: string[] | null;
+  estimatedFees: number | null;
 }
 
 export function FileUploadAnalyzer() {
@@ -276,8 +278,10 @@ export function FileUploadAnalyzer() {
                     <TableHead>ASIN</TableHead>
                     <TableHead>UPC</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Approval Status</TableHead>
                     <TableHead className="text-right">Supplier Cost</TableHead>
                     <TableHead className="text-right">Buy Box</TableHead>
+                    <TableHead className="text-right">Fees</TableHead>
                     <TableHead className="text-right">Dropship Margin</TableHead>
                     <TableHead className="text-right">Warehouse Margin</TableHead>
                     <TableHead>Type</TableHead>
@@ -293,11 +297,25 @@ export function FileUploadAnalyzer() {
                       <TableCell className="max-w-md truncate">
                         {result.description || result.brand || '-'}
                       </TableCell>
+                      <TableCell>
+                        {result.isRestricted ? (
+                          <Badge variant="destructive" className="cursor-help" title={result.restrictionReasons?.join(', ') || 'Restricted'}>
+                            Restricted
+                          </Badge>
+                        ) : (
+                          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                            Approved
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         ${result.supplierPrice?.toFixed(2) || '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         ${result.buyBoxPrice?.toFixed(2) || '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${result.estimatedFees?.toFixed(2) || '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <span className={result.dropshipMargin && result.dropshipMargin >= 12 ? 'text-green-600 font-medium' : ''}>
