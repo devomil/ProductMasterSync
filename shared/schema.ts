@@ -1838,6 +1838,96 @@ export const purchasingAnalysisRunsRelations = relations(purchasingAnalysisRuns,
   }),
 }));
 
+// File Uploads table - Track CSV files uploaded for ad-hoc analysis
+export const fileUploads = pgTable("file_uploads", {
+  id: serial("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size"),  // bytes
+  uploadedBy: integer("uploaded_by"),  // user ID
+  
+  // Analysis settings
+  dropshipThreshold: real("dropship_threshold").default(12.0),
+  warehouseThreshold: real("warehouse_threshold").default(25.0),
+  
+  // Status tracking
+  status: analysisJobStatusEnum("status").default('pending').notNull(),
+  totalRows: integer("total_rows").default(0),
+  processedRows: integer("processed_rows").default(0),
+  successRows: integer("success_rows").default(0),
+  failedRows: integer("failed_rows").default(0),
+  opportunitiesFound: integer("opportunities_found").default(0),
+  
+  // Results
+  analysisResults: json("analysis_results"),  // Summary stats
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => {
+  return {
+    statusIdx: index("file_upload_status_idx").on(table.status),
+    createdAtIdx: index("file_upload_created_idx").on(table.createdAt),
+  };
+});
+
+// File Analysis Results table - Individual row results from uploaded files
+export const fileAnalysisResults = pgTable("file_analysis_results", {
+  id: serial("id").primaryKey(),
+  uploadId: integer("upload_id").references(() => fileUploads.id).notNull(),
+  
+  // Source data from CSV
+  asin: text("asin").notNull(),
+  upc: text("upc"),
+  description: text("description"),
+  brand: text("brand"),
+  model: text("model"),
+  color: text("color"),
+  quantity: integer("quantity"),
+  supplierPrice: real("supplier_price"),  // From CSV "Retail Price"
+  
+  // Amazon market data
+  buyBoxPrice: real("buy_box_price"),
+  amazonPrice: real("amazon_price"),
+  lowestFbaPrice: real("lowest_fba_price"),
+  lowestFbmPrice: real("lowest_fbm_price"),
+  estimatedFees: real("estimated_fees"),
+  isRestricted: boolean("is_restricted").default(false),
+  restrictionReasons: text("restriction_reasons").array(),
+  
+  // Calculated margins
+  dropshipMargin: real("dropship_margin"),  // Supplier direct to customer
+  warehouseMargin: real("warehouse_margin"),  // Buy inventory, ship ourselves
+  
+  // Opportunity assessment
+  isOpportunity: boolean("is_opportunity").default(false),
+  opportunityType: text("opportunity_type"),  // "dropship", "warehouse", "both", null
+  confidenceScore: real("confidence_score"),
+  
+  // Analysis metadata
+  analysisDate: timestamp("analysis_date").defaultNow(),
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    uploadIdIdx: index("file_result_upload_idx").on(table.uploadId),
+    opportunityIdx: index("file_result_opportunity_idx").on(table.isOpportunity),
+    asinIdx: index("file_result_asin_idx").on(table.asin),
+  };
+});
+
+// File upload relations
+export const fileUploadsRelations = relations(fileUploads, ({ many }) => ({
+  results: many(fileAnalysisResults),
+}));
+
+export const fileAnalysisResultsRelations = relations(fileAnalysisResults, ({ one }) => ({
+  upload: one(fileUploads, {
+    fields: [fileAnalysisResults.uploadId],
+    references: [fileUploads.id],
+  }),
+}));
+
 // Purchasing opportunity schemas
 export const insertPurchasingOpportunitySchema = createInsertSchema(purchasingOpportunities).omit({ 
   id: true, 
@@ -1937,3 +2027,27 @@ export type PurchasingAnalysisJob = typeof purchasingAnalysisJobs.$inferSelect;
 export type PurchasingAnalysisRun = typeof purchasingAnalysisRuns.$inferSelect;
 export type InsertPurchasingAnalysisJob = z.infer<typeof insertPurchasingAnalysisJobSchema>;
 export type InsertPurchasingAnalysisRun = z.infer<typeof insertPurchasingAnalysisRunSchema>;
+
+// File upload schemas
+export const insertFileUploadSchema = createInsertSchema(fileUploads).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+  processedRows: true,
+  successRows: true,
+  failedRows: true,
+  opportunitiesFound: true,
+  analysisResults: true,
+  errorMessage: true,
+});
+
+export const insertFileAnalysisResultSchema = createInsertSchema(fileAnalysisResults).omit({
+  id: true,
+  createdAt: true,
+  analysisDate: true,
+});
+
+export type FileUpload = typeof fileUploads.$inferSelect;
+export type FileAnalysisResult = typeof fileAnalysisResults.$inferSelect;
+export type InsertFileUpload = z.infer<typeof insertFileUploadSchema>;
+export type InsertFileAnalysisResult = z.infer<typeof insertFileAnalysisResultSchema>;

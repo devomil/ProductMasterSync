@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle, Play, Pause, RefreshCw } from 'lucide-react';
+import { AlertCircle, TrendingUp, Database, Target, ShoppingCart, Brain, Activity, ExternalLink, Package, ArrowUpDown, ArrowUp, ArrowDown, Settings, HelpCircle, Play, Pause, RefreshCw, Upload } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Link } from 'wouter';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { FileUploadAnalyzer } from '@/components/purchasing/FileUploadAnalyzer';
 
 // Sortable Table Header Component
 function SortableHeader({ column, currentColumn, direction, onClick, children, className = '' }: { 
@@ -450,12 +451,16 @@ export default function PurchasingAI() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">System Overview</TabsTrigger>
             <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="insights">AI Insights</TabsTrigger>
             <TabsTrigger value="automation">24/7 Automation</TabsTrigger>
+            <TabsTrigger value="upload" data-testid="tab-upload">
+              <Upload className="w-4 h-4 mr-2" />
+              Upload & Analyze
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -1217,6 +1222,10 @@ export default function PurchasingAI() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="upload" className="space-y-6">
+            <FileUploadAnalyzer />
           </TabsContent>
         </Tabs>
       </div>

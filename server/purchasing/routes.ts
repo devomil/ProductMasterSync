@@ -1,16 +1,21 @@
 import express from "express";
+import multer from "multer";
 import { db } from "../db";
 import { 
   purchasingOpportunities, 
   purchasingSettings,
   products,
-  productAmazonLookup 
+  productAmazonLookup,
+  fileUploads,
+  fileAnalysisResults
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { analyzePurchasingOpportunity, analyzeBulkOpportunities, getFeesRateLimiterStatus } from "./analyzer";
+import { parseCSVFile, analyzeUploadedFile } from "./file-analyzer";
 import schedulerRoutes from "./scheduler/routes";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Mount scheduler routes
 router.use("/scheduler", schedulerRoutes);
@@ -284,6 +289,108 @@ router.get("/rate-limit-status", async (req, res) => {
   } catch (error) {
     console.error('[Purchasing AI] Error fetching rate limiter status:', error);
     res.status(500).json({ error: 'Failed to fetch rate limiter status' });
+  }
+});
+
+router.post("/upload-analyze", upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const fileContent = req.file.buffer.toString('utf-8');
+    const products = await parseCSVFile(fileContent);
+
+    if (products.length === 0) {
+      return res.status(400).json({ error: 'No valid products found in CSV' });
+    }
+
+    const [uploadRecord] = await db.insert(fileUploads).values({
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      status: 'pending',
+      totalRows: products.length,
+      dropshipThreshold: req.body.dropshipThreshold ? parseFloat(req.body.dropshipThreshold) : 12.0,
+      warehouseThreshold: req.body.warehouseThreshold ? parseFloat(req.body.warehouseThreshold) : 25.0,
+    }).returning();
+
+    const resultRecords = products.map(p => ({
+      uploadId: uploadRecord.id,
+      asin: p.asin,
+      upc: p.upc || null,
+      description: p.description || null,
+      brand: p.brand || null,
+      model: p.model || null,
+      color: p.color || null,
+      quantity: p.quantity || null,
+      supplierPrice: p.supplierPrice || null,
+    }));
+
+    await db.insert(fileAnalysisResults).values(resultRecords);
+
+    await db.update(fileUploads)
+      .set({ status: 'running' })
+      .where(eq(fileUploads.id, uploadRecord.id));
+
+    analyzeUploadedFile(uploadRecord.id).catch(err => {
+      console.error(`[File Upload] Background analysis failed for upload ${uploadRecord.id}:`, err);
+    });
+
+    res.json({
+      success: true,
+      uploadId: uploadRecord.id,
+      fileName: req.file.originalname,
+      totalRows: products.length,
+      message: `Started analysis of ${products.length} products`,
+    });
+  } catch (error) {
+    console.error('[File Upload] Error processing upload:', error);
+    res.status(500).json({ error: 'Failed to process file upload' });
+  }
+});
+
+router.get("/uploads/:uploadId", async (req, res) => {
+  try {
+    const uploadId = parseInt(req.params.uploadId);
+    const [upload] = await db.select().from(fileUploads).where(eq(fileUploads.id, uploadId));
+
+    if (!upload) {
+      return res.status(404).json({ error: 'Upload not found' });
+    }
+
+    res.json(upload);
+  } catch (error) {
+    console.error('[File Upload] Error fetching upload:', error);
+    res.status(500).json({ error: 'Failed to fetch upload' });
+  }
+});
+
+router.get("/uploads/:uploadId/results", async (req, res) => {
+  try {
+    const uploadId = parseInt(req.params.uploadId);
+    const { opportunitiesOnly } = req.query;
+
+    const conditions = [eq(fileAnalysisResults.uploadId, uploadId)];
+    
+    if (opportunitiesOnly === 'true') {
+      conditions.push(eq(fileAnalysisResults.isOpportunity, true));
+    }
+
+    const results = await db.select().from(fileAnalysisResults).where(and(...conditions));
+    res.json(results);
+  } catch (error) {
+    console.error('[File Upload] Error fetching results:', error);
+    res.status(500).json({ error: 'Failed to fetch results' });
+  }
+});
+
+router.get("/uploads", async (req, res) => {
+  try {
+    const uploads = await db.select().from(fileUploads).orderBy(desc(fileUploads.createdAt)).limit(20);
+    res.json(uploads);
+  } catch (error) {
+    console.error('[File Upload] Error fetching uploads:', error);
+    res.status(500).json({ error: 'Failed to fetch uploads' });
   }
 });
 
