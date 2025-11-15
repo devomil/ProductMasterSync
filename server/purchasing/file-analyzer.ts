@@ -7,6 +7,9 @@ import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { getProductFees } from '../services/amazon-product-fees';
 import { saveAmazonMarketData } from '../marketplace/repository';
 
+// Rate limiting helper - adds delay between API calls
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 interface CSVRow {
   ASIN?: string;
   UPC?: string;
@@ -93,6 +96,9 @@ async function fetchAndPersistMarketData(asin: string): Promise<void> {
       }
     }
     
+    // Rate limiting: wait 2 seconds between pricing and fees API calls
+    await sleep(2000);
+    
     // Fetch fees if we have a price
     let totalFees: number | null = null;
     let referralFee: number | null = null;
@@ -115,6 +121,9 @@ async function fetchAndPersistMarketData(asin: string): Promise<void> {
         console.log(`[File Analyzer] Could not fetch fees for ASIN ${asin}:`, error);
       }
     }
+    
+    // Rate limiting: wait 2 seconds between fees and restrictions API calls
+    await sleep(2000);
     
     // Fetch listing restrictions
     let canList: boolean | null = null;
