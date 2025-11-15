@@ -75,25 +75,29 @@ async function fetchAndPersistMarketData(asin: string): Promise<void> {
     let buyBoxPrice: number | null = null;
     let currentPrice: number | null = null;
     
-    if (pricing) {
-      // Extract buy box price (in cents)
-      if (pricing.BuyBoxPrice) {
-        buyBoxPrice = Math.round(parseFloat(pricing.BuyBoxPrice) * 100);
-      } else if (pricing.buyBoxPrice) {
-        buyBoxPrice = Math.round(parseFloat(pricing.buyBoxPrice) * 100);
+    if (pricing?.Product?.CompetitivePricing?.CompetitivePrices) {
+      const competitivePrices = pricing.Product.CompetitivePricing.CompetitivePrices;
+      
+      // Find the buy box price (CompetitivePriceId "1" is usually buy box)
+      const buyBoxOffer = competitivePrices.find((cp: any) => cp.CompetitivePriceId === "1");
+      if (buyBoxOffer?.Price?.ListingPrice?.Amount) {
+        buyBoxPrice = Math.round(parseFloat(buyBoxOffer.Price.ListingPrice.Amount) * 100);
+        currentPrice = buyBoxPrice; // Use buy box as current price
+        console.log(`[File Analyzer] Found buy box price for ${asin}: $${buyBoxOffer.Price.ListingPrice.Amount}`);
       }
       
-      // Extract Amazon's current price (in cents)
-      if (pricing.AmazonPrice) {
-        currentPrice = Math.round(parseFloat(pricing.AmazonPrice) * 100);
-      } else if (pricing.currentPrice) {
-        currentPrice = Math.round(parseFloat(pricing.currentPrice) * 100);
+      // If no buy box, try to find any competitive price
+      if (!buyBoxPrice && competitivePrices.length > 0) {
+        const firstPrice = competitivePrices[0]?.Price?.ListingPrice?.Amount;
+        if (firstPrice) {
+          currentPrice = Math.round(parseFloat(firstPrice) * 100);
+          console.log(`[File Analyzer] Found competitive price for ${asin}: $${firstPrice}`);
+        }
       }
-      
-      // Fallback: use buy box price if Amazon price not available
-      if (!currentPrice && buyBoxPrice) {
-        currentPrice = buyBoxPrice;
-      }
+    }
+    
+    if (!buyBoxPrice && !currentPrice) {
+      console.log(`[File Analyzer] No pricing data available for ASIN ${asin}`);
     }
     
     // Rate limiting: wait 2 seconds between pricing and fees API calls
