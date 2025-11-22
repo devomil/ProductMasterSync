@@ -2031,4 +2031,93 @@ router.post('/walmart/search-upc', async (req, res) => {
   }
 });
 
+/**
+ * GET /marketplace/cross-marketplace-comparison
+ * Get cross-marketplace product comparison (Amazon + Walmart)
+ */
+router.get('/cross-marketplace-comparison', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    // Get products with their marketplace presence and data
+    const results = await db.execute(sql`
+      SELECT 
+        p.id as product_id,
+        p.name as product_name,
+        p.upc,
+        p.sku,
+        p.supplier_id,
+        
+        -- Amazon data
+        (SELECT COUNT(*) FROM product_asin_mapping pam WHERE pam.product_id = p.id AND pam.is_active = true) as amazon_mapping_count,
+        (SELECT json_agg(
+          json_build_object(
+            'asin', aa.asin,
+            'title', aa.title,
+            'brand', aa.brand,
+            'price', ami.current_price,
+            'listPrice', ami.list_price,
+            'inStock', ami.in_stock,
+            'salesRank', ami.sales_rank,
+            'opportunityScore', ami.opportunity_score,
+            'estimatedSalesPerMonth', ami.estimated_sales_per_month
+          )
+        ) FROM product_asin_mapping pam
+        JOIN amazon_asins aa ON pam.asin = aa.asin
+        LEFT JOIN amazon_market_intelligence ami ON aa.asin = ami.asin
+        WHERE pam.product_id = p.id AND pam.is_active = true
+        LIMIT 5) as amazon_data,
+        
+        -- Walmart data
+        (SELECT COUNT(*) FROM product_walmart_mapping pwm WHERE pwm.product_id = p.id AND pwm.is_active = true) as walmart_mapping_count,
+        (SELECT json_agg(
+          json_build_object(
+            'itemId', wp.walmart_item_id,
+            'title', wp.title,
+            'brand', wp.brand,
+            'price', wmi.current_price,
+            'listPrice', wmi.list_price,
+            'shippingCost', wmi.shipping_cost,
+            'inStock', wmi.in_stock,
+            'bestSellerRank', wmi.best_seller_rank,
+            'avgRating', wmi.avg_rating,
+            'numReviews', wmi.num_reviews
+          )
+        ) FROM product_walmart_mapping pwm
+        JOIN walmart_products wp ON pwm.walmart_item_id = wp.walmart_item_id
+        LEFT JOIN walmart_market_intelligence wmi ON wp.walmart_item_id = wmi.walmart_item_id
+        WHERE pwm.product_id = p.id AND pwm.is_active = true
+        LIMIT 5) as walmart_data,
+        
+        -- Marketplace presence tracking
+        (SELECT availability_status FROM marketplace_presence WHERE product_id = p.id AND marketplace = 'amazon' LIMIT 1) as amazon_status,
+        (SELECT next_check_after FROM marketplace_presence WHERE product_id = p.id AND marketplace = 'amazon' LIMIT 1) as amazon_next_check,
+        (SELECT availability_status FROM marketplace_presence WHERE product_id = p.id AND marketplace = 'walmart' LIMIT 1) as walmart_status,
+        (SELECT next_check_after FROM marketplace_presence WHERE product_id = p.id AND marketplace = 'walmart' LIMIT 1) as walmart_next_check
+        
+      FROM products p
+      WHERE p.upc IS NOT NULL
+      ORDER BY p.id
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `);
+    
+    // Count total products with UPC
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total FROM products WHERE upc IS NOT NULL
+    `);
+    
+    return res.json({
+      products: results.rows,
+      total: parseInt(countResult.rows[0].total as string),
+      limit,
+      offset
+    });
+  } catch (error) {
+    console.error('[Marketplace Routes] Error fetching cross-marketplace comparison:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

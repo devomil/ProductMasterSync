@@ -43,6 +43,7 @@ import AISetup from "@/pages/AISetup";
 import MarketplaceOverview from "@/pages/MarketplaceOverview";
 import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
+import MarketplaceComparison from "@/pages/MarketplaceComparison";
 import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
 import FieldMappingDocs from "@/pages/FieldMappingDocs";
@@ -123,6 +124,9 @@ function Router() {
       
       {/* Walmart Marketplace Routes */}
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />
+      
+      {/* Cross-Marketplace Comparison */}
+      <Route path="/marketplaces/comparison" component={MarketplaceComparison} />
       <Route path="/marketplaces/walmart/integration" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">

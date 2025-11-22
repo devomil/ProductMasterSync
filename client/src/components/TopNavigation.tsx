@@ -229,6 +229,12 @@ const TopNavigation = () => {
                     Marketplace Hub
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/comparison" className="flex items-center gap-2 w-full">
+                    <BarChart3 className="h-4 w-4" />
+                    Cross-Marketplace Data
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>

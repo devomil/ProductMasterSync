@@ -64,4 +64,12 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  .bg-amazon {
+    background-color: #FF9900;
+  }
+  
+  .bg-walmart {
+    background-color: #0071CE;
+  }
 }
