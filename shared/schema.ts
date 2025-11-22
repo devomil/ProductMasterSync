@@ -1096,30 +1096,16 @@ export const productWalmartMapping = pgTable("product_walmart_mapping", {
   
   // Mapping metadata
   mappingSource: text("mapping_source"), // "upc", "gtin", "manual", "ai_suggested"
-  matchMethod: text("match_method"),
   matchConfidence: real("match_confidence"), // 0.0 to 1.0
   isActive: boolean("is_active").default(true),
   isVerified: boolean("is_verified").default(false),
-  verifiedBy: text("verified_by"),
-  verifiedAt: timestamp("verified_at"),
-  
-  // AI Intelligence Tracking
-  opportunityScore: real("opportunity_score"),
-  recommendedStrategy: text("recommended_strategy"),
-  profitPotential: json("profit_potential"),
-  marketIntelligence: json("market_intelligence"),
-  lastAnalyzed: timestamp("last_analyzed"),
-  
-  notes: text("notes"),
   
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
     productIdx: index("product_walmart_mapping_product_idx").on(table.productId),
     walmartIdx: index("product_walmart_mapping_walmart_idx").on(table.walmartItemId),
     productWalmartIdx: uniqueIndex("product_walmart_mapping_product_walmart_idx").on(table.productId, table.walmartItemId),
-    opportunityIdx: index("product_walmart_mapping_opportunity_idx").on(table.opportunityScore),
   };
 });
 
