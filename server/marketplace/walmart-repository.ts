@@ -4,14 +4,14 @@
  * Handles all database operations for Walmart marketplace data
  */
 
-import { db } from '@db';
+import { db } from '../db';
 import { 
   walmartProducts, 
   walmartMarketIntelligence, 
   walmartTaxonomy,
   productWalmartMapping,
   products
-} from '@shared/schema';
+} from '../../shared/schema';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 
 /**
@@ -174,13 +174,12 @@ export async function getProductsForWalmartSync(limit: number = 100) {
         id: products.id,
         name: products.name,
         upc: products.upc,
-        gtin: products.gtin,
         sku: products.sku
       })
       .from(products)
       .where(
         and(
-          sql`${products.upc} IS NOT NULL OR ${products.gtin} IS NOT NULL`,
+          sql`${products.upc} IS NOT NULL`,
           sql`${products.id} NOT IN (
             SELECT product_id FROM ${productWalmartMapping}
             WHERE is_active = true

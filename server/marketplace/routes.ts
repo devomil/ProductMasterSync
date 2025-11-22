@@ -1897,12 +1897,12 @@ router.get('/amazon/:productId', async (req, res) => {
  */
 router.post('/walmart/sync', async (req, res) => {
   try {
-    const { syncWalmartService } = await import('./walmart-service');
+    const { syncProductsWithWalmart } = await import('./walmart-service');
     const { limit } = req.body;
     
     console.log('[Walmart Routes] Starting Walmart sync...');
     
-    const result = await syncWalmartService.syncProductsWithWalmart(limit || 100);
+    const result = await syncProductsWithWalmart(limit || 100);
     
     return res.json({
       success: true,
