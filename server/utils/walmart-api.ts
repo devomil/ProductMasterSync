@@ -163,7 +163,8 @@ function generateCorrelationId(): string {
 }
 
 /**
- * Search Walmart catalog by UPC/GTIN
+ * Search Walmart Global Catalog by UPC/GTIN
+ * Uses the /items/walmart/search endpoint to search Walmart.com's entire catalog
  */
 export async function searchWalmartCatalogByUPC(
   upc: string
@@ -172,9 +173,11 @@ export async function searchWalmartCatalogByUPC(
     const config = await getWalmartConfig();
     const accessToken = await getAccessToken(config);
     
-    console.log(`[Walmart API] Searching catalog for UPC: ${upc}`);
+    console.log(`[Walmart API] Searching Walmart global catalog for UPC: ${upc}`);
     
-    const response = await axios.get(`${config.apiUrl}/items`, {
+    // Use the correct endpoint for searching Walmart's global catalog
+    // Reference: https://developer.walmart.com/documentation/search-for-items-in-walmart-catalog/
+    const response = await axios.get(`${config.apiUrl}/items/walmart/search`, {
       headers: {
         'WM_SEC.ACCESS_TOKEN': accessToken,
         'WM_SVC.NAME': config.serviceName,
@@ -186,19 +189,31 @@ export async function searchWalmartCatalogByUPC(
       }
     });
 
-    if (response.data && response.data.items) {
-      console.log(`[Walmart API] Found ${response.data.items.length} items for UPC ${upc}`);
+    // Response format from Walmart global catalog search
+    if (response.data && response.data.items && response.data.items.length > 0) {
+      console.log(`[Walmart API] ✅ Found ${response.data.items.length} items for UPC ${upc}`);
       return response.data.items;
     }
 
-    console.log(`[Walmart API] No items found for UPC ${upc}`);
+    console.log(`[Walmart API] No items found for UPC ${upc} in Walmart global catalog`);
     return [];
   } catch (error: any) {
-    console.error(`[Walmart API] Error searching by UPC:`, error.response?.data || error.message);
+    console.error(`[Walmart API] Error searching Walmart catalog by UPC:`, {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    });
     
     // Handle rate limiting
     if (error.response?.status === 429) {
       throw new Error('Walmart API rate limit exceeded. Please try again later.');
+    }
+    
+    // If no items found, return empty array instead of throwing
+    if (error.response?.status === 404) {
+      console.log(`[Walmart API] UPC ${upc} not found in Walmart catalog (404)`);
+      return [];
     }
     
     throw new Error(`Failed to search Walmart catalog: ${error.message}`);
