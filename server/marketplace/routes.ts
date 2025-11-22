@@ -1887,4 +1887,148 @@ router.get('/amazon/:productId', async (req, res) => {
   }
 });
 
+// ============================================================================
+// WALMART MARKETPLACE ROUTES
+// ============================================================================
+
+/**
+ * POST /marketplace/walmart/sync
+ * Sync products with Walmart marketplace
+ */
+router.post('/walmart/sync', async (req, res) => {
+  try {
+    const { syncWalmartService } = await import('./walmart-service');
+    const { limit } = req.body;
+    
+    console.log('[Walmart Routes] Starting Walmart sync...');
+    
+    const result = await syncWalmartService.syncProductsWithWalmart(limit || 100);
+    
+    return res.json({
+      success: true,
+      ...result,
+      message: `Synced ${result.synced} products with Walmart`
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error in sync:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/sync-taxonomy
+ * Fetch and save Walmart taxonomy
+ */
+router.post('/walmart/sync-taxonomy', async (req, res) => {
+  try {
+    const { syncWalmartTaxonomy } = await import('./walmart-service');
+    
+    console.log('[Walmart Routes] Syncing Walmart taxonomy...');
+    
+    const result = await syncWalmartTaxonomy();
+    
+    return res.json({
+      success: true,
+      ...result,
+      message: `Synced ${result.categories} taxonomy categories`
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error syncing taxonomy:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/taxonomy
+ * Get Walmart taxonomy
+ */
+router.get('/walmart/taxonomy', async (req, res) => {
+  try {
+    const { getAllWalmartTaxonomy } = await import('./walmart-repository');
+    
+    const taxonomy = await getAllWalmartTaxonomy();
+    
+    return res.json({
+      categories: taxonomy,
+      total: taxonomy.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching taxonomy:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/opportunities
+ * Get Walmart purchasing opportunities
+ */
+router.get('/walmart/opportunities', async (req, res) => {
+  try {
+    const { getWalmartOpportunities } = await import('./walmart-repository');
+    const minScore = parseInt(req.query.minScore as string) || 50;
+    
+    const opportunities = await getWalmartOpportunities(minScore);
+    
+    return res.json({
+      opportunities,
+      total: opportunities.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching opportunities:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/product/:productId
+ * Get Walmart mappings for a product
+ */
+router.get('/walmart/product/:productId', async (req, res) => {
+  try {
+    const { getProductWalmartMappings } = await import('./walmart-repository');
+    const productId = parseInt(req.params.productId);
+    
+    if (isNaN(productId)) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+    
+    const mappings = await getProductWalmartMappings(productId);
+    
+    return res.json({
+      productId,
+      mappings,
+      total: mappings.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching product mappings:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/search-upc
+ * Search Walmart by UPC
+ */
+router.post('/walmart/search-upc', async (req, res) => {
+  try {
+    const { searchWalmartCatalogByUPC } = await import('../utils/walmart-api');
+    const { upc } = req.body;
+    
+    if (!upc) {
+      return res.status(400).json({ error: 'UPC is required' });
+    }
+    
+    const items = await searchWalmartCatalogByUPC(upc);
+    
+    return res.json({
+      upc,
+      items,
+      total: items.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error searching by UPC:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

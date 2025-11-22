@@ -882,6 +882,251 @@ export const amazonPriceHistory = pgTable("amazon_price_history", {
   };
 });
 
+// ============================================================================
+// WALMART MARKETPLACE SCHEMA
+// ============================================================================
+
+// Walmart products catalog - core product information
+export const walmartProducts = pgTable("walmart_products", {
+  id: serial("id").primaryKey(),
+  
+  // Walmart identifiers
+  walmartItemId: text("walmart_item_id").notNull().unique(),
+  sku: text("sku"),
+  upc: text("upc"),
+  gtin: text("gtin"),
+  
+  // Product information
+  brand: text("brand"),
+  title: text("title").notNull(),
+  description: text("description"),
+  shortDescription: text("short_description"),
+  keyFeatures: json("key_features").default([]), // Array of strings
+  
+  // Images
+  imageUrls: json("image_urls").default([]), // Array of image URLs
+  primaryImageUrl: text("primary_image_url"),
+  
+  // Category and classification
+  categoryPath: json("category_path").default([]), // ["Parent", "Child", "Type"]
+  categoryId: text("category_id"),
+  categoryName: text("category_name"),
+  taxonomyId: text("taxonomy_id"),
+  
+  // Variants
+  variants: json("variants").default([]), // Array of variant objects
+  isParent: boolean("is_parent").default(false),
+  parentSku: text("parent_sku"),
+  
+  // Pricing
+  currentPrice: integer("current_price"), // In cents
+  listPrice: integer("list_price"), // MSRP in cents
+  currencyCode: text("currency_code").default("USD"),
+  
+  // Status and availability
+  availabilityStatus: text("availability_status"), // IN_STOCK, OUT_OF_STOCK, DISCONTINUED
+  lifecycleStatus: text("lifecycle_status"), // ACTIVE, ARCHIVED, RETIRED
+  publishedStatus: text("published_status"), // PUBLISHED, UNPUBLISHED
+  inStock: boolean("in_stock").default(true),
+  
+  // Seller information
+  sellerName: text("seller_name"),
+  sellerMarketplace: boolean("seller_marketplace").default(false),
+  
+  // Ratings and reviews
+  averageRating: real("average_rating"),
+  totalReviews: integer("total_reviews"),
+  
+  // Product attributes
+  attributes: json("attributes").default({}), // Weight, dimensions, color, etc.
+  weight: text("weight"),
+  dimensions: text("dimensions"),
+  color: text("color"),
+  size: text("size"),
+  
+  // Walmart-specific data
+  wfsEligible: boolean("wfs_eligible").default(false), // Walmart Fulfillment Services
+  isPrime: boolean("is_prime").default(false), // Walmart+
+  
+  // Timestamps
+  createdDate: timestamp("created_date"),
+  lastUpdatedDate: timestamp("last_updated_date"),
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    itemIdIdx: uniqueIndex("walmart_products_item_id_idx").on(table.walmartItemId),
+    skuIdx: index("walmart_products_sku_idx").on(table.sku),
+    upcIdx: index("walmart_products_upc_idx").on(table.upc),
+    brandIdx: index("walmart_products_brand_idx").on(table.brand),
+    categoryIdx: index("walmart_products_category_idx").on(table.categoryId),
+  };
+});
+
+// Walmart marketplace intelligence - pricing, competition, performance data
+export const walmartMarketIntelligence = pgTable("walmart_market_intelligence", {
+  id: serial("id").primaryKey(),
+  walmartItemId: text("walmart_item_id").notNull().references(() => walmartProducts.walmartItemId),
+  
+  // Current pricing data
+  currentPrice: integer("current_price"), // In cents
+  listPrice: integer("list_price"), // MSRP in cents
+  mapPrice: integer("map_price"), // Minimum advertised price
+  salePrice: integer("sale_price"), // Promotional price
+  currencyCode: text("currency_code").default("USD"),
+  
+  // Price tracking
+  lowestPrice30Day: integer("lowest_price_30_day"),
+  highestPrice30Day: integer("highest_price_30_day"),
+  averagePrice30Day: integer("average_price_30_day"),
+  priceChangePercent: real("price_change_percent"),
+  
+  // Sales and performance metrics
+  salesRank: integer("sales_rank"),
+  categoryRank: integer("category_rank"),
+  trendingRank: integer("trending_rank"), // Walmart trending products
+  
+  // Estimated sales data
+  estimatedSalesPerDay: integer("estimated_sales_per_day"),
+  estimatedSalesPerMonth: integer("estimated_sales_per_month"),
+  estimatedRevenue: integer("estimated_revenue"), // Monthly revenue in cents
+  
+  // Competition metrics
+  totalSellers: integer("total_sellers"),
+  walmartSeller: boolean("walmart_seller").default(false),
+  lowestCompetitorPrice: integer("lowest_competitor_price"),
+  
+  // Availability and fulfillment
+  inStock: boolean("in_stock").default(true),
+  stockLevel: text("stock_level"), // "high", "medium", "low", "out"
+  fulfillmentMethod: text("fulfillment_method"), // WFS, Seller
+  isWalmartPlus: boolean("is_walmart_plus").default(false),
+  shippingTime: text("shipping_time"),
+  
+  // Review and rating metrics
+  rating: real("rating"), // 1.0 to 5.0
+  reviewCount: integer("review_count"),
+  reviewVelocity: integer("review_velocity"), // Reviews per month
+  
+  // Walmart features and badges
+  isBestseller: boolean("is_bestseller").default(false),
+  hasFreeShipping: boolean("has_free_shipping").default(false),
+  hasFreeReturns: boolean("has_free_returns").default(false),
+  
+  // Restrictions and compliance
+  isRestrictedCategory: boolean("is_restricted_category").default(false),
+  requiresApproval: boolean("requires_approval").default(false),
+  canList: boolean("can_list"),
+  listingRestrictions: json("listing_restrictions"),
+  
+  // Walmart Fees
+  referralFee: integer("referral_fee"), // In cents
+  wfsFee: integer("wfs_fee"), // Walmart Fulfillment fee in cents
+  totalFees: integer("total_fees"), // Total fees in cents
+  lastFeeCheck: timestamp("last_fee_check"),
+  
+  // Profitability metrics
+  profitMarginPercent: real("profit_margin_percent"),
+  roiPercent: real("roi_percent"),
+  competitionLevel: text("competition_level"), // "low", "medium", "high"
+  opportunityScore: integer("opportunity_score"), // 1-100 scoring system
+  
+  // Data sync metadata
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  lastPriceCheck: timestamp("last_price_check"),
+  lastRankCheck: timestamp("last_rank_check"),
+  syncFrequency: text("sync_frequency").default("daily"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    itemIdIdx: uniqueIndex("walmart_market_intelligence_item_id_idx").on(table.walmartItemId),
+    priceIdx: index("walmart_market_intelligence_price_idx").on(table.currentPrice),
+    opportunityIdx: index("walmart_market_intelligence_opportunity_idx").on(table.opportunityScore),
+    profitIdx: index("walmart_market_intelligence_profit_idx").on(table.profitMarginPercent),
+  };
+});
+
+// Walmart taxonomy - category hierarchy
+export const walmartTaxonomy = pgTable("walmart_taxonomy", {
+  id: serial("id").primaryKey(),
+  
+  // Taxonomy identifiers
+  categoryId: text("category_id").notNull().unique(),
+  categoryName: text("category_name").notNull(),
+  
+  // Hierarchy
+  parentCategoryId: text("parent_category_id"),
+  categoryPath: json("category_path").default([]), // Full path from root
+  level: integer("level").default(1), // Tree depth
+  
+  // Product type information
+  productTypeGroupName: text("product_type_group_name"),
+  productTypeName: text("product_type_name"),
+  
+  // Department information
+  departmentName: text("department_name"),
+  departmentNumber: text("department_number"),
+  
+  // Metadata
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  
+  // Data sync
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    categoryIdIdx: uniqueIndex("walmart_taxonomy_category_id_idx").on(table.categoryId),
+    parentIdx: index("walmart_taxonomy_parent_idx").on(table.parentCategoryId),
+    nameIdx: index("walmart_taxonomy_name_idx").on(table.categoryName),
+  };
+});
+
+// Link products to Walmart items
+export const productWalmartMapping = pgTable("product_walmart_mapping", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  walmartItemId: text("walmart_item_id").notNull().references(() => walmartProducts.walmartItemId),
+  
+  // Mapping metadata
+  mappingSource: text("mapping_source"), // "upc", "gtin", "manual", "ai_suggested"
+  matchMethod: text("match_method"),
+  matchConfidence: real("match_confidence"), // 0.0 to 1.0
+  isActive: boolean("is_active").default(true),
+  isVerified: boolean("is_verified").default(false),
+  verifiedBy: text("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // AI Intelligence Tracking
+  opportunityScore: real("opportunity_score"),
+  recommendedStrategy: text("recommended_strategy"),
+  profitPotential: json("profit_potential"),
+  marketIntelligence: json("market_intelligence"),
+  lastAnalyzed: timestamp("last_analyzed"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    productIdx: index("product_walmart_mapping_product_idx").on(table.productId),
+    walmartIdx: index("product_walmart_mapping_walmart_idx").on(table.walmartItemId),
+    productWalmartIdx: uniqueIndex("product_walmart_mapping_product_walmart_idx").on(table.productId, table.walmartItemId),
+    opportunityIdx: index("product_walmart_mapping_opportunity_idx").on(table.opportunityScore),
+  };
+});
+
+// ============================================================================
+// END WALMART MARKETPLACE SCHEMA
+// ============================================================================
+
 // Link products to their Amazon ASINs with AI intelligence tracking
 export const productAsinMapping = pgTable("product_asin_mapping", {
   id: serial("id").primaryKey(),
@@ -1552,6 +1797,21 @@ export const salesRankingsRelations = relations(salesRankings, ({ one }) => ({
   asin: one(amazonAsins, { fields: [salesRankings.asin], references: [amazonAsins.asin] }),
 }));
 
+// Walmart relations
+export const walmartProductsRelations = relations(walmartProducts, ({ many }) => ({
+  marketIntelligence: many(walmartMarketIntelligence),
+  productMappings: many(productWalmartMapping),
+}));
+
+export const walmartMarketIntelligenceRelations = relations(walmartMarketIntelligence, ({ one }) => ({
+  walmartProduct: one(walmartProducts, { fields: [walmartMarketIntelligence.walmartItemId], references: [walmartProducts.walmartItemId] }),
+}));
+
+export const productWalmartMappingRelations = relations(productWalmartMapping, ({ one }) => ({
+  product: one(products, { fields: [productWalmartMapping.productId], references: [products.id] }),
+  walmartProduct: one(walmartProducts, { fields: [productWalmartMapping.walmartItemId], references: [walmartProducts.walmartItemId] }),
+}));
+
 // Schemas for insertions
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true });
@@ -1582,6 +1842,12 @@ export const insertAmazonPriceHistorySchema = createInsertSchema(amazonPriceHist
 export const insertAmazonCompetitiveAnalysisSchema = createInsertSchema(amazonCompetitiveAnalysis).omit({ id: true, createdAt: true, updatedAt: true, analysisDate: true });
 export const insertMultiAsinOpportunitySchema = createInsertSchema(multiAsinOpportunities).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSupplierAsinPerformanceSchema = createInsertSchema(supplierAsinPerformance).omit({ id: true, lastUpdated: true });
+
+// Walmart marketplace schemas
+export const insertWalmartProductSchema = createInsertSchema(walmartProducts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWalmartMarketIntelligenceSchema = createInsertSchema(walmartMarketIntelligence).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWalmartTaxonomySchema = createInsertSchema(walmartTaxonomy).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProductWalmartMappingSchema = createInsertSchema(productWalmartMapping).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -1614,6 +1880,12 @@ export type InsertAmazonCompetitiveAnalysis = z.infer<typeof insertAmazonCompeti
 export type InsertMultiAsinOpportunity = z.infer<typeof insertMultiAsinOpportunitySchema>;
 export type InsertSupplierAsinPerformance = z.infer<typeof insertSupplierAsinPerformanceSchema>;
 
+// Walmart marketplace insert types
+export type InsertWalmartProduct = z.infer<typeof insertWalmartProductSchema>;
+export type InsertWalmartMarketIntelligence = z.infer<typeof insertWalmartMarketIntelligenceSchema>;
+export type InsertWalmartTaxonomy = z.infer<typeof insertWalmartTaxonomySchema>;
+export type InsertProductWalmartMapping = z.infer<typeof insertProductWalmartMappingSchema>;
+
 // Types for selects
 export type User = typeof users.$inferSelect;
 export type Supplier = typeof suppliers.$inferSelect;
@@ -1644,6 +1916,12 @@ export type AmazonPriceHistory = typeof amazonPriceHistory.$inferSelect;
 export type AmazonCompetitiveAnalysis = typeof amazonCompetitiveAnalysis.$inferSelect;
 export type MultiAsinOpportunity = typeof multiAsinOpportunities.$inferSelect;
 export type SupplierAsinPerformance = typeof supplierAsinPerformance.$inferSelect;
+
+// Walmart marketplace select types
+export type WalmartProduct = typeof walmartProducts.$inferSelect;
+export type WalmartMarketIntelligence = typeof walmartMarketIntelligence.$inferSelect;
+export type WalmartTaxonomy = typeof walmartTaxonomy.$inferSelect;
+export type ProductWalmartMapping = typeof productWalmartMapping.$inferSelect;
 
 // Shipping template types
 export type ShippingTemplate = typeof shippingTemplates.$inferSelect;
