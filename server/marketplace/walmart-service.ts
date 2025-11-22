@@ -10,6 +10,8 @@ import {
   saveWalmartTaxonomy,
   createProductWalmartMapping,
   getProductsForWalmartSync,
+  getProductsForWalmartSyncWithPresence,
+  recordMarketplacePresence,
   bulkInsertWalmartTaxonomy
 } from './walmart-repository';
 import {
@@ -116,36 +118,38 @@ export async function fetchWalmartDataByUpc(productId: number, upc: string) {
 }
 
 /**
- * Sync products with Walmart marketplace
+ * Sync products with Walmart marketplace (with presence tracking)
  */
 export async function syncProductsWithWalmart(limit: number = 100) {
   try {
     console.log(`[Walmart Service] Starting Walmart sync for up to ${limit} products`);
     
-    // Get products that need Walmart sync
-    const productsToSync = await getProductsForWalmartSync(limit);
+    // Get products that need Walmart sync (excluding recently checked ones)
+    const productsToSync = await getProductsForWalmartSyncWithPresence(limit);
     
     if (productsToSync.length === 0) {
       console.log('[Walmart Service] No products need Walmart sync');
       return {
         totalProducts: 0,
         synced: 0,
-        failed: 0
+        notFound: 0,
+        errors: 0
       };
     }
     
     console.log(`[Walmart Service] Found ${productsToSync.length} products to sync`);
     
     let synced = 0;
-    let failed = 0;
+    let notFound = 0;
+    let errors = 0;
     
     for (const product of productsToSync) {
       try {
-        const upc = product.upc || product.gtin;
+        const upc = product.upc;
         
         if (!upc) {
-          console.log(`[Walmart Service] Product ${product.id} has no UPC/GTIN, skipping`);
-          failed++;
+          console.log(`[Walmart Service] Product ${product.id} has no UPC, skipping`);
+          errors++;
           continue;
         }
         
@@ -153,26 +157,30 @@ export async function syncProductsWithWalmart(limit: number = 100) {
         
         if (results.length > 0) {
           synced++;
+          await recordMarketplacePresence(product.id, 'walmart', 'available', `Found ${results.length} Walmart item(s)`);
           console.log(`[Walmart Service] ✅ Synced product ${product.id} (${results.length} Walmart items)`);
         } else {
-          failed++;
-          console.log(`[Walmart Service] ❌ No Walmart items found for product ${product.id}`);
+          notFound++;
+          await recordMarketplacePresence(product.id, 'walmart', 'not_found', 'UPC not in Walmart catalog');
+          console.log(`[Walmart Service] ⚠️ Product ${product.id} not available on Walmart (UPC: ${upc})`);
         }
         
         // Rate limiting: wait 500ms between products
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`[Walmart Service] Error syncing product ${product.id}:`, error);
-        failed++;
+        await recordMarketplacePresence(product.id, 'walmart', 'error', (error as Error).message);
+        errors++;
       }
     }
     
-    console.log(`[Walmart Service] ✅ Sync complete: ${synced} synced, ${failed} failed`);
+    console.log(`[Walmart Service] ✅ Sync complete: ${synced} synced, ${notFound} not found, ${errors} errors`);
     
     return {
       totalProducts: productsToSync.length,
       synced,
-      failed
+      notFound,
+      errors
     };
   } catch (error) {
     console.error('[Walmart Service] Error in syncProductsWithWalmart:', error);

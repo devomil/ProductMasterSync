@@ -12,7 +12,18 @@ import {
   productWalmartMapping,
   products
 } from '../../shared/schema';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql, lt } from 'drizzle-orm';
+
+// Marketplace presence tracking (created manually in DB)
+const marketplacePresence = {
+  id: sql`id`,
+  productId: sql`product_id`,
+  marketplace: sql`marketplace`,
+  availabilityStatus: sql`availability_status`,
+  lastCheckedAt: sql`last_checked_at`,
+  nextCheckAfter: sql`next_check_after`,
+  notes: sql`notes`
+};
 
 /**
  * Create or update Walmart product record
@@ -368,6 +379,77 @@ export async function bulkInsertWalmartTaxonomy(taxonomyArray: any[]) {
     return inserted;
   } catch (error) {
     console.error('[Walmart Repo] Error bulk inserting taxonomy:', error);
+    throw error;
+  }
+}
+
+/**
+ * Record marketplace presence (available, not_found, error)
+ */
+export async function recordMarketplacePresence(
+  productId: number,
+  marketplace: string,
+  status: 'available' | 'not_found' | 'error',
+  notes?: string
+) {
+  try {
+    // Calculate next check time based on status
+    const now = new Date();
+    let nextCheckAfter: Date | null = null;
+    
+    if (status === 'not_found') {
+      // Don't check again for 30 days if not found
+      nextCheckAfter = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    } else if (status === 'error') {
+      // Retry errors after 1 day
+      nextCheckAfter = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else if (status === 'available') {
+      // Recheck available items every 7 days
+      nextCheckAfter = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+    
+    await db.execute(sql`
+      INSERT INTO marketplace_presence (product_id, marketplace, availability_status, last_checked_at, next_check_after, notes)
+      VALUES (${productId}, ${marketplace}, ${status}, ${now}, ${nextCheckAfter}, ${notes || null})
+      ON CONFLICT (product_id, marketplace)
+      DO UPDATE SET
+        availability_status = ${status},
+        last_checked_at = ${now},
+        next_check_after = ${nextCheckAfter},
+        notes = ${notes || null}
+    `);
+    
+    console.log(`[Walmart Repo] Recorded ${marketplace} presence for product ${productId}: ${status}`);
+  } catch (error) {
+    console.error('[Walmart Repo] Error recording marketplace presence:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get products for Walmart sync (excluding recently checked ones)
+ */
+export async function getProductsForWalmartSyncWithPresence(limit: number = 100) {
+  try {
+    const productsToSync = await db.execute(sql`
+      SELECT p.id, p.name, p.upc, p.sku
+      FROM products p
+      LEFT JOIN marketplace_presence mp ON p.id = mp.product_id AND mp.marketplace = 'walmart'
+      WHERE p.upc IS NOT NULL
+        AND p.id NOT IN (
+          SELECT product_id FROM product_walmart_mapping WHERE is_active = true
+        )
+        AND (
+          mp.id IS NULL
+          OR mp.next_check_after IS NULL
+          OR mp.next_check_after < NOW()
+        )
+      LIMIT ${limit}
+    `);
+    
+    return productsToSync.rows;
+  } catch (error) {
+    console.error('[Walmart Repo] Error getting products for sync with presence:', error);
     throw error;
   }
 }
