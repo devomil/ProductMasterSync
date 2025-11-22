@@ -13,6 +13,7 @@ interface WalmartAPIConfig {
   clientSecret: string;
   apiUrl: string; // Base URL for Walmart API
   serviceName: string; // WM_SVC.NAME header value
+  sellerId?: string; // Optional Seller ID
 }
 
 // Authentication interfaces
@@ -63,16 +64,27 @@ let tokenCache: WalmartToken | null = null;
 export async function getWalmartConfig(): Promise<WalmartAPIConfig> {
   const clientId = process.env.WALMART_CLIENT_ID;
   const clientSecret = process.env.WALMART_CLIENT_SECRET;
+  const sellerId = process.env.WALMART_SELLER_ID;
   
   if (!clientId || !clientSecret) {
     throw new Error('Walmart API credentials not configured. Please set WALMART_CLIENT_ID and WALMART_CLIENT_SECRET environment variables.');
   }
   
+  console.log('[Walmart Config] Using credentials:', {
+    hasClientId: !!clientId,
+    clientIdLength: clientId?.length,
+    hasClientSecret: !!clientSecret,
+    clientSecretLength: clientSecret?.length,
+    hasSellerId: !!sellerId,
+    apiUrl: 'https://marketplace.walmartapis.com/v3'
+  });
+  
   return {
     clientId,
     clientSecret,
     apiUrl: 'https://marketplace.walmartapis.com/v3',
-    serviceName: 'Walmart Marketplace'
+    serviceName: 'Walmart Marketplace',
+    sellerId
   };
 }
 
@@ -91,16 +103,29 @@ async function getAccessToken(config: WalmartAPIConfig): Promise<string> {
     // Encode credentials for Basic Authentication
     const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
     
+    const headers: any = {
+      'Authorization': `Basic ${credentials}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'WM_SVC.NAME': config.serviceName,
+      'WM_QOS.CORRELATION_ID': generateCorrelationId()
+    };
+    
+    // Add Consumer Channel Type if Seller ID is provided
+    if (config.sellerId) {
+      headers['WM_CONSUMER.ID'] = config.sellerId;
+    }
+    
+    console.log('[Walmart API] Token request headers (masked):', {
+      hasAuth: !!headers.Authorization,
+      serviceName: headers['WM_SVC.NAME'],
+      hasConsumerId: !!headers['WM_CONSUMER.ID']
+    });
+    
     const response = await axios.post(
       `${config.apiUrl}/token`,
       'grant_type=client_credentials',
       {
-        headers: {
-          'Authorization': `Basic ${credentials}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'WM_SVC.NAME': config.serviceName,
-          'WM_QOS.CORRELATION_ID': generateCorrelationId()
-        }
+        headers
       }
     );
 
@@ -114,7 +139,18 @@ async function getAccessToken(config: WalmartAPIConfig): Promise<string> {
     console.log('[Walmart API] ✅ Access token obtained successfully');
     return tokenCache.access_token;
   } catch (error: any) {
-    console.error('[Walmart API] Error getting access token:', error.response?.data || error.message);
+    console.error('[Walmart API] Error getting access token:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      url: `${config.apiUrl}/token`
+    });
+    
+    if (error.response?.data) {
+      const errorMsg = error.response.data.error_description || error.response.data.error || 'Authentication failed';
+      throw new Error(`Walmart API: ${errorMsg}`);
+    }
     throw new Error('Failed to authenticate with Walmart API');
   }
 }
