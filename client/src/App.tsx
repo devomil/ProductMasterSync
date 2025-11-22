@@ -127,6 +127,7 @@ function Router() {
       
       {/* Cross-Marketplace Comparison */}
       <Route path="/marketplaces/comparison" component={MarketplaceComparison} />
+      <Route path="/marketplace-comparison" component={MarketplaceComparison} />
       <Route path="/marketplaces/walmart/integration" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">
