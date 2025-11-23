@@ -9,7 +9,7 @@ import { SiAmazon, SiWalmart } from 'react-icons/si';
 
 export default function MarketplaceComparison() {
   const { data, isLoading } = useQuery({
-    queryKey: ['/api/marketplace/cross-marketplace-comparison'],
+    queryKey: ['/api/marketplace/cross-marketplace-comparison?limit=500'],
   });
 
   if (isLoading) {
@@ -61,7 +61,7 @@ export default function MarketplaceComparison() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {products.filter((p: any) => p.amazon_mapping_count > 0).length}
+              {products.filter((p: any) => parseInt(p.amazon_mapping_count) > 0).length}
             </div>
           </CardContent>
         </Card>
@@ -75,7 +75,7 @@ export default function MarketplaceComparison() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {products.filter((p: any) => p.walmart_mapping_count > 0).length}
+              {products.filter((p: any) => parseInt(p.walmart_mapping_count) > 0).length}
             </div>
           </CardContent>
         </Card>
@@ -86,7 +86,7 @@ export default function MarketplaceComparison() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {products.filter((p: any) => p.amazon_mapping_count > 0 && p.walmart_mapping_count > 0).length}
+              {products.filter((p: any) => parseInt(p.amazon_mapping_count) > 0 && parseInt(p.walmart_mapping_count) > 0).length}
             </div>
           </CardContent>
         </Card>
@@ -105,7 +105,9 @@ export default function MarketplaceComparison() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[80px]">ID</TableHead>
                   <TableHead className="w-[250px]">Product</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>UPC</TableHead>
                   <TableHead className="text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -123,12 +125,24 @@ export default function MarketplaceComparison() {
               </TableHeader>
               <TableBody>
                 {products.map((product: any) => (
-                  <TableRow key={product.product_id}>
+                  <TableRow key={product.product_id} data-testid={`row-product-${product.product_id}`}>
+                    <TableCell className="font-mono text-sm font-medium" data-testid={`text-product-id-${product.product_id}`}>
+                      {product.product_id}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div>
                         <div className="font-semibold">{product.product_name}</div>
                         <div className="text-xs text-muted-foreground">SKU: {product.sku}</div>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {product.category_name ? (
+                        <Badge variant="outline" className="text-xs">
+                          {product.category_name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">No category</span>
+                      )}
                     </TableCell>
                     <TableCell className="font-mono text-xs">{product.upc}</TableCell>
                     <TableCell>
@@ -258,9 +272,15 @@ function WalmartData({ product }: { product: any }) {
           {walmartData.length} Item{walmartData.length > 1 ? 's' : ''}
         </Badge>
       </div>
-      <div className="text-xs font-mono text-muted-foreground">
+      <div className="text-xs font-mono text-muted-foreground" data-testid={`text-walmart-item-id-${item.itemId}`}>
         ID: {item.itemId}
       </div>
+      {item.categoryPath && item.categoryPath.length > 0 && (
+        <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded" data-testid={`text-walmart-taxonomy-${item.itemId}`}>
+          <div className="font-medium mb-0.5">Walmart Category:</div>
+          <div className="font-mono">{item.categoryPath.join(' → ')}</div>
+        </div>
+      )}
       {item.title && <div className="text-sm font-medium line-clamp-1">{item.title}</div>}
       {item.brand && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

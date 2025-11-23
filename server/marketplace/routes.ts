@@ -2048,6 +2048,9 @@ router.get('/cross-marketplace-comparison', async (req, res) => {
         p.upc,
         p.sku,
         p.supplier_id,
+        p.category_id,
+        c.name as category_name,
+        p.cost,
         
         -- Amazon data
         (SELECT COUNT(*) FROM product_asin_mapping pam WHERE pam.product_id = p.id AND pam.is_active = true) as amazon_mapping_count,
@@ -2069,13 +2072,16 @@ router.get('/cross-marketplace-comparison', async (req, res) => {
         WHERE pam.product_id = p.id AND pam.is_active = true
         LIMIT 5) as amazon_data,
         
-        -- Walmart data
+        -- Walmart data with taxonomy
         (SELECT COUNT(*) FROM product_walmart_mapping pwm WHERE pwm.product_id = p.id AND pwm.is_active = true) as walmart_mapping_count,
         (SELECT json_agg(
           json_build_object(
             'itemId', wp.walmart_item_id,
             'title', wp.title,
             'brand', wp.brand,
+            'categoryPath', wp.category_path,
+            'itemType', wp.item_type,
+            'taxonomyId', wp.taxonomy_id,
             'price', wmi.current_price,
             'listPrice', wmi.list_price,
             'shippingCost', wmi.shipping_cost,
@@ -2097,6 +2103,7 @@ router.get('/cross-marketplace-comparison', async (req, res) => {
         (SELECT next_check_after FROM marketplace_presence WHERE product_id = p.id AND marketplace = 'walmart' LIMIT 1) as walmart_next_check
         
       FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
       WHERE p.upc IS NOT NULL
       ORDER BY p.id
       LIMIT ${limit}
