@@ -21,7 +21,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle } from "lucide-react";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { SiAmazon, SiWalmart } from "react-icons/si";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
 // import AmazonMarketData from "@/components/products/AmazonMarketData";
 
@@ -275,6 +277,10 @@ export default function ProductDetails() {
   const [testLoading, setTestLoading] = useState(false);
   const queryClient = useQueryClient();
 
+  // State for marketplace collapsible sections
+  const [amazonOpen, setAmazonOpen] = useState(true);
+  const [walmartOpen, setWalmartOpen] = useState(true);
+
   // Fetch existing Amazon data for this product
   const { data: marketData, isLoading: marketDataLoading, refetch: refetchMarketData } = useQuery({
     queryKey: [`/api/marketplace/amazon/product/${id}`],
@@ -287,6 +293,13 @@ export default function ProductDetails() {
     parseInt(id || '0'),
     activeTab === 'markets' // Only fetch when Markets tab is active
   );
+
+  // Fetch Walmart data for this product
+  const { data: walmartData, isLoading: walmartLoading, isFetching: walmartFetching, refetch: refetchWalmart } = useQuery({
+    queryKey: [`/api/marketplace/walmart/product/${id}`],
+    enabled: !!id && activeTab === 'markets', // Only fetch when Markets tab is active
+    retry: 1
+  });
 
   // Note: mappingTemplates already declared above via useMappingTemplates hook
 
@@ -1012,54 +1025,81 @@ export default function ProductDetails() {
             <TabsContent value="markets" className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold">Amazon Marketplace Intelligence</h3>
+                  <h3 className="text-lg font-semibold">Marketplace Intelligence</h3>
                   <p className="text-sm text-muted-foreground">
                     {product?.upc ? `UPC: ${product.upc}` : 'No UPC available'}
                   </p>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={async () => {
-                    console.log('Refresh Data button clicked - forcing fresh data');
-                    await refetchIntelligence();
-                  }}
-                  disabled={intelligenceFetching}
-                  data-testid="button-refresh-intelligence"
-                >
-                  {intelligenceFetching ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  Refresh Data
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      console.log('Refresh Amazon Data');
+                      await refetchIntelligence();
+                    }}
+                    disabled={intelligenceFetching}
+                    data-testid="button-refresh-amazon"
+                  >
+                    {intelligenceFetching ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <SiAmazon className="h-4 w-4 mr-2" />
+                    )}
+                    Refresh Amazon
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      console.log('Refresh Walmart Data');
+                      await refetchWalmart();
+                    }}
+                    disabled={walmartFetching}
+                    data-testid="button-refresh-walmart"
+                  >
+                    {walmartFetching ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <SiWalmart className="h-4 w-4 mr-2" />
+                    )}
+                    Refresh Walmart
+                  </Button>
+                </div>
               </div>
 
-              {intelligenceLoading ? (
+              {/* Amazon Section */}
+              <Collapsible open={amazonOpen} onOpenChange={setAmazonOpen}>
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-12">
-                      <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-gray-400" />
-                      <div className="text-gray-500">Loading Amazon marketplace intelligence...</div>
-                      <div className="text-sm text-gray-400 mt-2">Fetching buy box pricing, sales rank, and restrictions</div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : !marketIntelligence?.asins?.length ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-12 text-gray-500">
-                      <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <div className="font-medium">No Amazon Data Available</div>
-                      <div className="text-sm mt-2">
-                        {marketIntelligence?.message || 'No ASINs found for this product. Sync product with Amazon first.'}
+                  <CardHeader className="bg-gray-50">
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <SiAmazon className="h-5 w-5" />
+                          <CardTitle>Amazon Marketplace Data</CardTitle>
+                        </div>
+                        {amazonOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-6">
+                    </CollapsibleTrigger>
+                  </CardHeader>
+                  <CollapsibleContent>
+                    <CardContent className="pt-6">
+                      {intelligenceLoading ? (
+                        <div className="text-center py-12">
+                          <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-gray-400" />
+                          <div className="text-gray-500">Loading Amazon marketplace intelligence...</div>
+                          <div className="text-sm text-gray-400 mt-2">Fetching buy box pricing, sales rank, and restrictions</div>
+                        </div>
+                      ) : !marketIntelligence?.asins?.length ? (
+                        <div className="text-center py-12 text-gray-500">
+                          <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                          <div className="font-medium">No Amazon Data Available</div>
+                          <div className="text-sm mt-2">
+                            {marketIntelligence?.message || 'No ASINs found for this product. Sync product with Amazon first.'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
                   {marketIntelligence.asins.map((asin, index) => (
                     <Card key={asin.asin} className="overflow-hidden" data-testid={`card-asin-${index}`}>
                       <CardHeader className="bg-gray-50 border-b">
@@ -1313,8 +1353,229 @@ export default function ProductDetails() {
                       </CardContent>
                     </Card>
                   ))}
-                </div>
-              )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
+              {/* Walmart Section */}
+              <Collapsible open={walmartOpen} onOpenChange={setWalmartOpen}>
+                <Card>
+                  <CardHeader className="bg-gray-50">
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <SiWalmart className="h-5 w-5" />
+                          <CardTitle>Walmart Marketplace Data</CardTitle>
+                        </div>
+                        {walmartOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                    </CollapsibleTrigger>
+                  </CardHeader>
+                  <CollapsibleContent>
+                    <CardContent className="pt-6">
+                      {walmartLoading ? (
+                        <div className="text-center py-12">
+                          <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-gray-400" />
+                          <div className="text-gray-500">Loading Walmart marketplace data...</div>
+                        </div>
+                      ) : !walmartData?.mappings?.length ? (
+                        <div className="text-center py-12 text-gray-500">
+                          <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                          <div className="font-medium">No Walmart Data Available</div>
+                          <div className="text-sm mt-2">
+                            No Walmart items found for this product. Sync product with Walmart first.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {walmartData.mappings.map((mapping: any, index: number) => {
+                            const item = mapping.product;
+                            const intel = mapping.marketIntelligence;
+                            
+                            return (
+                              <Card key={mapping.walmartItemId} className="overflow-hidden" data-testid={`card-walmart-${index}`}>
+                                <CardHeader className="bg-gray-50 border-b">
+                                  <div className="flex items-start gap-4">
+                                    {item?.imageUrls && item.imageUrls[0] && (
+                                      <div className="flex-shrink-0">
+                                        <img 
+                                          src={item.imageUrls[0]} 
+                                          alt={item.title || mapping.walmartItemId}
+                                          className="w-20 h-20 object-contain rounded border border-gray-200 bg-white"
+                                          data-testid={`img-walmart-${mapping.walmartItemId}`}
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="flex-1 space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <CardTitle className="text-lg">
+                                          {item?.title || mapping.walmartItemId}
+                                        </CardTitle>
+                                        <a 
+                                          href={`https://www.walmart.com/ip/${mapping.walmartItemId}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-800"
+                                          data-testid={`link-walmart-${mapping.walmartItemId}`}
+                                        >
+                                          <ExternalLink className="h-4 w-4" />
+                                        </a>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-sm flex-wrap">
+                                        <Badge variant="outline" data-testid={`badge-walmart-id-${mapping.walmartItemId}`}>
+                                          Walmart ID: {mapping.walmartItemId}
+                                        </Badge>
+                                        {item?.brand && (
+                                          <Badge variant="secondary">
+                                            {item.brand}
+                                          </Badge>
+                                        )}
+                                        {mapping.matchConfidence && (
+                                          <Badge variant="secondary">
+                                            {(mapping.matchConfidence * 100).toFixed(0)}% Match
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {/* Walmart Taxonomy */}
+                                      {item?.categoryPath && item.categoryPath.length > 0 && (
+                                        <div className="mt-2 p-2 bg-blue-50 rounded">
+                                          <div className="text-xs font-semibold text-blue-900 mb-1">Walmart Category:</div>
+                                          <div className="text-xs text-blue-700 font-mono">
+                                            {item.categoryPath.join(' → ')}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="pt-6">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* Pricing */}
+                                    <Card>
+                                      <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                          <DollarSign className="h-4 w-4 text-green-600" />
+                                          Pricing
+                                        </CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="space-y-2">
+                                        {item?.currentPrice ? (
+                                          <>
+                                            <div>
+                                              <div className="text-2xl font-bold text-green-600" data-testid={`text-walmart-price-${mapping.walmartItemId}`}>
+                                                ${(item.currentPrice / 100).toFixed(2)}
+                                              </div>
+                                              <div className="text-xs text-gray-500">Current Price</div>
+                                            </div>
+                                            {item.listPrice && (
+                                              <div className="pt-2 border-t">
+                                                <div className="text-lg font-semibold">${(item.listPrice / 100).toFixed(2)}</div>
+                                                <div className="text-xs text-gray-500">List Price</div>
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <div className="text-sm text-gray-500 py-4">
+                                            <Info className="h-4 w-4 mx-auto mb-2" />
+                                            <div className="text-center">No pricing data available</div>
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
+
+                                    {/* Reviews & Rating */}
+                                    <Card>
+                                      <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                          <BarChart3 className="h-4 w-4 text-blue-600" />
+                                          Customer Reviews
+                                        </CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="space-y-2">
+                                        {item?.averageRating || intel?.rating ? (
+                                          <>
+                                            <div>
+                                              <div className="text-2xl font-bold text-blue-600">
+                                                ⭐ {(item?.averageRating || intel?.rating)?.toFixed(1)}
+                                              </div>
+                                              <div className="text-xs text-gray-500">Average Rating</div>
+                                            </div>
+                                            {(item?.totalReviews || intel?.reviewCount) && (
+                                              <div className="pt-2 border-t">
+                                                <div className="text-lg font-semibold">
+                                                  {item?.totalReviews || intel?.reviewCount}
+                                                </div>
+                                                <div className="text-xs text-gray-500">Reviews</div>
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <div className="text-sm text-gray-500 py-4">
+                                            <Info className="h-4 w-4 mx-auto mb-2" />
+                                            <div className="text-center">No review data available</div>
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
+
+                                    {/* Stock Status */}
+                                    <Card>
+                                      <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                          <Package className="h-4 w-4 text-purple-600" />
+                                          Availability
+                                        </CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="space-y-2">
+                                        <div>
+                                          {item?.inStock || intel?.inStock ? (
+                                            <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                              <CheckCircle className="h-3 w-3 mr-1" />
+                                              In Stock
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="secondary" className="bg-red-100 text-red-700">
+                                              <AlertCircle className="h-3 w-3 mr-1" />
+                                              Out of Stock
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {item?.sellerName && (
+                                          <div className="pt-2 border-t text-xs space-y-1">
+                                            <div>
+                                              <span className="text-gray-600">Seller:</span> {item.sellerName}
+                                            </div>
+                                            {item.sellerMarketplace && (
+                                              <Badge variant="outline" className="text-xs">
+                                                Marketplace Seller
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
+                                  </div>
+
+                                  {/* Additional Product Details */}
+                                  {item?.description && (
+                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                      <h4 className="text-sm font-semibold mb-2">Product Description</h4>
+                                      <p className="text-sm text-gray-700 line-clamp-3">{item.description}</p>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             </TabsContent>
           </Tabs>
         </div>
