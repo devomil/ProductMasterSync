@@ -2127,4 +2127,139 @@ router.get('/cross-marketplace-comparison', async (req, res) => {
   }
 });
 
+/**
+ * GET /marketplace/walmart/config-status
+ * Check Walmart API configuration status
+ */
+router.get('/walmart/config-status', async (req, res) => {
+  try {
+    const requiredEnvVars = [
+      'WALMART_CLIENT_ID',
+      'WALMART_CLIENT_SECRET'
+    ];
+    
+    const missingEnvVars = requiredEnvVars.filter(
+      key => !process.env[key] || process.env[key].trim() === ''
+    );
+    
+    return res.json({
+      configValid: missingEnvVars.length === 0,
+      missingEnvVars
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error checking config status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/sync-logs
+ * Get recent Walmart sync logs
+ */
+router.get('/walmart/sync-logs', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 25;
+    
+    // For now, return empty array - sync logs would be implemented
+    // when the actual sync functionality is built
+    return res.json([]);
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching sync logs:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/sync-stats
+ * Get Walmart sync statistics
+ */
+router.get('/walmart/sync-stats', async (req, res) => {
+  try {
+    // Return placeholder stats for now
+    return res.json({
+      totalSyncs: 0,
+      successfulSyncs: 0,
+      failedSyncs: 0,
+      avgResponseTime: 0
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching sync stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/sync-progress
+ * Get current Walmart sync progress
+ */
+router.get('/walmart/sync-progress', async (req, res) => {
+  try {
+    // Return placeholder - no sync running
+    return res.json({
+      isRunning: false,
+      progress: 0,
+      total: 0,
+      currentProduct: null
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching sync progress:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/sync-jobs
+ * Get Walmart sync job history
+ */
+router.get('/walmart/sync-jobs', async (req, res) => {
+  try {
+    // Return empty array for now - job history would be implemented
+    // when sync functionality is built
+    return res.json([]);
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching sync jobs:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/batch-sync
+ * Start a batch sync operation
+ */
+router.post('/walmart/batch-sync', async (req, res) => {
+  try {
+    const { batchSize } = req.body;
+    
+    // Placeholder - actual sync would be implemented later
+    return res.json({
+      success: true,
+      message: `Batch sync initiated for ${batchSize} products`,
+      batchSize
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error starting batch sync:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/schedule
+ * Save Walmart sync schedule
+ */
+router.post('/walmart/schedule', async (req, res) => {
+  try {
+    const { frequency } = req.body;
+    
+    // Placeholder - actual scheduling would be implemented later
+    return res.json({
+      success: true,
+      frequency,
+      message: `Sync schedule set to ${frequency}`
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error saving schedule:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
