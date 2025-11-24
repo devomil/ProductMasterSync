@@ -38,7 +38,7 @@ const removeEdcPrefix = (sku: string): string => {
 };
 
 export default function WalmartIntegration() {
-  const { data: products, isLoading } = useQuery<{ products: any[]; pagination: { totalItems: number } }>({
+  const { data: products, isLoading: isProductsLoading } = useQuery<{ products: any[]; pagination: { totalItems: number } }>({
     queryKey: ['/api/products?limit=100'],
   });
 
@@ -361,7 +361,7 @@ export default function WalmartIntegration() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {!isLoading && products?.products ? (
+                    {!isProductsLoading && products?.products ? (
                       products.products.slice(0, 10).filter((p: any) => p.upc).map((product: any) => (
                         <TableRow key={product.id}>
                           <TableCell className="font-medium">{removeEdcPrefix(product.sku)}</TableCell>
@@ -402,7 +402,7 @@ export default function WalmartIntegration() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center">
-                          {isLoading ? 'Loading products...' : 'No products with UPC codes found.'}
+                          {isProductsLoading ? 'Loading products...' : 'No products with UPC codes found.'}
                         </TableCell>
                       </TableRow>
                     )}
