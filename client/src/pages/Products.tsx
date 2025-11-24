@@ -252,8 +252,8 @@ const Products = () => {
     },
   });
 
-  // Get products data from API
-  const { products, pagination, isLoading } = useProducts(currentPage, itemsPerPage);
+  // Get products data from API with server-side search
+  const { products, pagination, isLoading } = useProducts(currentPage, itemsPerPage, searchQuery);
   
   // Get categories data
   const { categories, isLoading: categoriesLoading } = useCategories();
@@ -353,34 +353,29 @@ const Products = () => {
            filters.hasRebate || filters.hasFreeShipping;
   };
 
-  // Filtering logic
+  // Filtering logic - only for advanced filters (search is now server-side)
   const filteredProducts = products.filter(product => {
-    // Simple search without filters
-    if (searchQuery && !hasActiveFilters()) {
-      return product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (product.manufacturerPartNumber && product.manufacturerPartNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (product.upc && product.upc.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (product.manufacturerName && product.manufacturerName.toLowerCase().includes(searchQuery.toLowerCase()));
-    }
-
-    // Advanced filtering
+    // Advanced filtering (client-side)
     if (hasActiveFilters()) {
       let matches = true;
 
       // Text search based on searchType
       if (filters.query) {
         const query = filters.query.toLowerCase();
+        const normalizedQuery = query.replace(/\s+/g, '');
+        const normalizedSku = product.sku.toLowerCase().replace(/\s+/g, '');
+        const normalizedUpc = (product.upc || '').toLowerCase().replace(/\s+/g, '');
+        const normalizedMfgPart = (product.manufacturerPartNumber || '').toLowerCase().replace(/\s+/g, '');
+        
         switch (filters.searchType) {
           case 'sku':
-            matches = matches && product.sku.toLowerCase().includes(query);
+            matches = matches && (normalizedSku.includes(normalizedQuery) || product.sku.toLowerCase().includes(query));
             break;
           case 'mfgPart':
-            matches = matches && (product.manufacturerPartNumber?.toLowerCase().includes(query) || false);
+            matches = matches && (normalizedMfgPart.includes(normalizedQuery) || (product.manufacturerPartNumber?.toLowerCase().includes(query) || false));
             break;
           case 'upc':
-            matches = matches && (product.upc?.toLowerCase().includes(query) || false);
+            matches = matches && (normalizedUpc.includes(normalizedQuery) || (product.upc?.toLowerCase().includes(query) || false));
             break;
           case 'title':
             matches = matches && product.name.toLowerCase().includes(query);
@@ -397,8 +392,11 @@ const Products = () => {
             break;
           case 'all':
             matches = matches && (
+              normalizedSku.includes(normalizedQuery) ||
               product.sku.toLowerCase().includes(query) ||
+              normalizedMfgPart.includes(normalizedQuery) ||
               (product.manufacturerPartNumber?.toLowerCase().includes(query) || false) ||
+              normalizedUpc.includes(normalizedQuery) ||
               (product.upc?.toLowerCase().includes(query) || false) ||
               product.name.toLowerCase().includes(query) ||
               (product.description?.toLowerCase().includes(query) || false) ||

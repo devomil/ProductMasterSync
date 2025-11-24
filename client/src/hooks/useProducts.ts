@@ -36,11 +36,12 @@ export interface ProductSearchResponse {
   pagination: PaginationData;
 }
 
-export function useProducts(page?: number, limit?: number) {
-  // Build query parameters for pagination
+export function useProducts(page?: number, limit?: number, search?: string) {
+  // Build query parameters for pagination and search
   const queryParams = new URLSearchParams();
   if (page) queryParams.append('page', page.toString());
   if (limit) queryParams.append('limit', limit.toString());
+  if (search && search.trim()) queryParams.append('search', search.trim());
   const queryString = queryParams.toString();
   const url = `/api/products${queryString ? `?${queryString}` : ''}`;
 
