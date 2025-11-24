@@ -28,6 +28,7 @@ import Approvals from "@/pages/Approvals";
 import ValidationRules from "@/pages/ValidationRules";
 import AuditLogs from "@/pages/AuditLogs";
 import AmazonIntegration from "@/pages/AmazonIntegration";
+import WalmartIntegration from "@/pages/WalmartIntegration";
 import AmazonAnalyticsFixed from "@/pages/AmazonAnalyticsFixed";
 import MultiASINSearch from "@/pages/MultiASINSearch";
 import AmazonAnalytics from "@/pages/AmazonAnalyticsEnhanced";
@@ -128,15 +129,7 @@ function Router() {
       {/* Cross-Marketplace Comparison */}
       <Route path="/marketplaces/comparison" component={MarketplaceComparison} />
       <Route path="/marketplace-comparison" component={MarketplaceComparison} />
-      <Route path="/marketplaces/walmart/integration" component={() => (
-        <div className="container mx-auto p-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-3xl font-bold">Walmart Integration</h1>
-            <p className="text-muted-foreground">Configure your Walmart Marketplace API credentials and settings.</p>
-            <p className="text-sm text-muted-foreground">This feature is coming soon...</p>
-          </div>
-        </div>
-      )} />
+      <Route path="/marketplaces/walmart/integration" component={WalmartIntegration} />
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">
