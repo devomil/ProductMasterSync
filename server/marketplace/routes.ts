@@ -2220,9 +2220,10 @@ router.get('/walmart/sync-stats', async (req, res) => {
   try {
     // Return placeholder stats for now
     return res.json({
-      totalSyncs: 0,
-      successfulSyncs: 0,
-      failedSyncs: 0,
+      total: 0,
+      successful: 0,
+      failed: 0,
+      notFound: 0,
       avgResponseTime: 0
     });
   } catch (error) {
@@ -2271,13 +2272,14 @@ router.get('/walmart/sync-jobs', async (req, res) => {
  */
 router.post('/walmart/batch-sync', async (req, res) => {
   try {
-    const { batchSize } = req.body;
+    const { limit } = req.body;
     
     // Placeholder - actual sync would be implemented later
     return res.json({
-      success: true,
-      message: `Batch sync initiated for ${batchSize} products`,
-      batchSize
+      processed: limit || 10,
+      successful: 0,
+      failed: 0,
+      notFound: 0
     });
   } catch (error) {
     console.error('[Walmart Routes] Error starting batch sync:', error);
@@ -2301,6 +2303,42 @@ router.post('/walmart/schedule', async (req, res) => {
     });
   } catch (error) {
     console.error('[Walmart Routes] Error saving schedule:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/scheduler/status
+ * Get Walmart scheduler status
+ */
+router.get('/walmart/scheduler/status', async (req, res) => {
+  try {
+    // Placeholder - return inactive scheduler status
+    return res.json({
+      active: false,
+      details: null,
+      allJobs: []
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching scheduler status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/scheduler/trigger
+ * Trigger Walmart sync job manually
+ */
+router.post('/walmart/scheduler/trigger', async (req, res) => {
+  try {
+    // Placeholder - actual trigger would be implemented later
+    return res.json({
+      success: true,
+      message: 'Walmart sync job triggered',
+      jobId: 'walmart-sync-' + Date.now()
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error triggering sync job:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
