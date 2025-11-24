@@ -2140,10 +2140,29 @@ router.get('/walmart/statistics', async (req, res) => {
       WHERE is_active = true
     `);
     
+    // Get count of products with UPCs
+    const productsWithUpcResult = await db.execute(sql`
+      SELECT COUNT(*) as count
+      FROM products
+      WHERE upc IS NOT NULL AND upc != ''
+    `);
+    
+    // Get total product count
+    const totalProductsResult = await db.execute(sql`
+      SELECT COUNT(*) as count
+      FROM products
+    `);
+    
     const walmartMatches = parseInt(walmartMappingsResult.rows[0].count as string) || 0;
+    const productsWithUpc = parseInt(productsWithUpcResult.rows[0].count as string) || 0;
+    const totalProducts = parseInt(totalProductsResult.rows[0].count as string) || 0;
+    const upcCoverage = totalProducts > 0 ? Math.round((productsWithUpc / totalProducts) * 100) : 0;
     
     return res.json({
-      walmartMatches
+      walmartMatches,
+      productsWithUpc,
+      totalProducts,
+      upcCoverage
     });
   } catch (error) {
     console.error('[Walmart Routes] Error fetching statistics:', error);

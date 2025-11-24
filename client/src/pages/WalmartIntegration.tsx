@@ -39,14 +39,19 @@ const removeEdcPrefix = (sku: string): string => {
 
 export default function WalmartIntegration() {
   const { data: products, isLoading } = useQuery<{ products: any[]; pagination: { totalItems: number } }>({
-    queryKey: ['/api/products?limit=1000'],
+    queryKey: ['/api/products?limit=100'],
   });
 
   const { data: configStatus } = useQuery<{ configValid: boolean; missingEnvVars: string[] }>({
     queryKey: ['/api/marketplace/walmart/config-status'],
   });
 
-  const { data: walmartStats, isLoading: isWalmartStatsLoading } = useQuery<{ walmartMatches: number }>({
+  const { data: walmartStats, isLoading: isWalmartStatsLoading } = useQuery<{ 
+    walmartMatches: number;
+    productsWithUpc: number;
+    totalProducts: number;
+    upcCoverage: number;
+  }>({
     queryKey: ['/api/marketplace/walmart/statistics'],
   });
 
@@ -54,11 +59,11 @@ export default function WalmartIntegration() {
 
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Calculate metrics from products data
-  const totalProducts = products?.pagination?.totalItems || 0;
+  // Get metrics from statistics endpoint
+  const totalProducts = walmartStats?.totalProducts || 0;
   const productsWithWalmartMappings = walmartStats?.walmartMatches || 0;
-  const productsWithUpc = products?.products?.filter((p: any) => p.upc).length || 0;
-  const upcCoverage = totalProducts > 0 ? Math.round((productsWithUpc / totalProducts) * 100) : 0;
+  const productsWithUpc = walmartStats?.productsWithUpc || 0;
+  const upcCoverage = walmartStats?.upcCoverage || 0;
 
   return (
     <div className="container mx-auto py-8 space-y-8">
@@ -113,7 +118,7 @@ export default function WalmartIntegration() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold" data-testid="text-total-products">
-                  {isLoading ? "Loading..." : totalProducts}
+                  {isWalmartStatsLoading ? "Loading..." : totalProducts}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Products in your catalog
@@ -172,7 +177,7 @@ export default function WalmartIntegration() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold" data-testid="text-upc-coverage">
-                  {isLoading ? "..." : `${upcCoverage}%`}
+                  {isWalmartStatsLoading ? "..." : `${upcCoverage}%`}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   UPC coverage in catalog
