@@ -96,7 +96,17 @@ export class PerformanceOptimizedQueries {
                  WHERE pam.product_id = p.id
                ),
                '[]'::json
-             ) as "asinMappings"
+             ) as "asinMappings",
+             COALESCE(
+               (
+                 SELECT json_agg(
+                   json_build_object('walmartItemId', pwm.walmart_item_id, 'mappingSource', pwm.mapping_source, 'isActive', pwm.is_active)
+                 )
+                 FROM product_walmart_mapping pwm
+                 WHERE pwm.product_id = p.id
+               ),
+               '[]'::json
+             ) as "walmartMappings"
       FROM paged_products pp
       INNER JOIN products p ON p.id = pp.id
       LEFT JOIN categories c ON c.id = p.category_id

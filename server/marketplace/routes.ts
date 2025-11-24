@@ -2128,6 +2128,30 @@ router.get('/cross-marketplace-comparison', async (req, res) => {
 });
 
 /**
+ * GET /marketplace/walmart/statistics
+ * Get Walmart integration statistics
+ */
+router.get('/walmart/statistics', async (req, res) => {
+  try {
+    // Get count of products with Walmart mappings
+    const walmartMappingsResult = await db.execute(sql`
+      SELECT COUNT(DISTINCT product_id) as count
+      FROM product_walmart_mapping
+      WHERE is_active = true
+    `);
+    
+    const walmartMatches = parseInt(walmartMappingsResult.rows[0].count as string) || 0;
+    
+    return res.json({
+      walmartMatches
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching statistics:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/walmart/config-status
  * Check Walmart API configuration status
  */

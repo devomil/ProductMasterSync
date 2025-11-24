@@ -46,15 +46,17 @@ export default function WalmartIntegration() {
     queryKey: ['/api/marketplace/walmart/config-status'],
   });
 
+  const { data: walmartStats, isLoading: isWalmartStatsLoading } = useQuery<{ walmartMatches: number }>({
+    queryKey: ['/api/marketplace/walmart/statistics'],
+  });
+
   const { data: syncLogs, isLoading: isSyncLogsLoading } = useRecentWalmartSyncLogs(25);
 
   const [activeTab, setActiveTab] = useState('overview');
 
   // Calculate metrics from products data
   const totalProducts = products?.pagination?.totalItems || 0;
-  const productsWithWalmartMappings = products?.products?.filter((p: any) => 
-    p.walmartMappings && p.walmartMappings.length > 0
-  ).length || 0;
+  const productsWithWalmartMappings = walmartStats?.walmartMatches || 0;
   const productsWithUpc = products?.products?.filter((p: any) => p.upc).length || 0;
   const upcCoverage = totalProducts > 0 ? Math.round((productsWithUpc / totalProducts) * 100) : 0;
 
@@ -142,7 +144,7 @@ export default function WalmartIntegration() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold" data-testid="text-walmart-matches">
-                  {isLoading ? "..." : productsWithWalmartMappings}
+                  {isWalmartStatsLoading ? "..." : productsWithWalmartMappings}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Products matched with Walmart
