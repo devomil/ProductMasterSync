@@ -125,11 +125,14 @@ function Router() {
       
       {/* Walmart Marketplace Routes */}
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />
+      <Route path="/marketplaces/walmart/integration" component={WalmartIntegration} />
+      
+      {/* Legacy route for Walmart integration */}
+      <Route path="/walmart-integration" component={WalmartIntegration} />
       
       {/* Cross-Marketplace Comparison */}
       <Route path="/marketplaces/comparison" component={MarketplaceComparison} />
       <Route path="/marketplace-comparison" component={MarketplaceComparison} />
-      <Route path="/marketplaces/walmart/integration" component={WalmartIntegration} />
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">
