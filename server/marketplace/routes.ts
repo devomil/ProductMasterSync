@@ -2273,13 +2273,21 @@ router.get('/walmart/sync-jobs', async (req, res) => {
 router.post('/walmart/batch-sync', async (req, res) => {
   try {
     const { limit } = req.body;
+    const batchSize = limit || 10;
     
-    // Placeholder - actual sync would be implemented later
+    console.log(`[Walmart Routes] Starting batch sync for ${batchSize} products`);
+    
+    // Import and call the sync function
+    const { syncProductsWithWalmart } = await import('./walmart-service');
+    const result = await syncProductsWithWalmart(batchSize);
+    
+    console.log(`[Walmart Routes] Batch sync completed:`, result);
+    
     return res.json({
-      processed: limit || 10,
-      successful: 0,
-      failed: 0,
-      notFound: 0
+      processed: result.totalProducts,
+      successful: result.synced,
+      failed: result.errors,
+      notFound: result.notFound
     });
   } catch (error) {
     console.error('[Walmart Routes] Error starting batch sync:', error);
