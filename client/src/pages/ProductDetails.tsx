@@ -301,6 +301,26 @@ export default function ProductDetails() {
     retry: 1
   });
 
+  // Fetch Walmart referral fee for this product
+  const { data: walmartReferralFee } = useQuery<{
+    productId: number;
+    walmartItemId: string;
+    salePrice: number;
+    salePriceFormatted: string;
+    categoryPath: string[];
+    contractCategoryKey: string;
+    contractCategoryName: string;
+    feeInCents: number;
+    feePercentageEffective: number;
+    feeDescription: string;
+    feeFormatted: string;
+    notes?: string;
+  }>({
+    queryKey: [`/api/marketplace/walmart/referral-fee/product/${id}`],
+    enabled: !!id && activeTab === 'markets' && !!walmartData?.mappings?.length,
+    retry: 1
+  });
+
   // Note: mappingTemplates already declared above via useMappingTemplates hook
 
   // Mutation for syncing Amazon data to database
@@ -1654,6 +1674,52 @@ export default function ProductDetails() {
                                           <span className="font-medium">Brand:</span> {item.brand}
                                         </div>
                                       )}
+                                    </div>
+                                  )}
+
+                                  {/* Walmart Referral Fee - Full Width */}
+                                  {walmartReferralFee && (
+                                    <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200" data-testid="walmart-referral-fee-section">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <h4 className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                                          <DollarSign className="h-4 w-4" />
+                                          Walmart Referral Fee
+                                        </h4>
+                                        <Badge variant="outline" className="text-xs bg-white text-amber-700 border-amber-300" data-testid="walmart-contract-category">
+                                          {walmartReferralFee.contractCategoryName}
+                                        </Badge>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-white rounded-lg p-3 border border-amber-100">
+                                          <div className="text-2xl font-bold text-amber-600" data-testid="walmart-referral-fee-amount">
+                                            {walmartReferralFee.feeFormatted}
+                                          </div>
+                                          <div className="text-xs text-gray-600">Referral Fee</div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-amber-100">
+                                          <div className="text-2xl font-bold text-amber-600" data-testid="walmart-referral-fee-percent">
+                                            {walmartReferralFee.feePercentageEffective}%
+                                          </div>
+                                          <div className="text-xs text-gray-600">Effective Rate</div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-amber-100">
+                                          <div className="text-lg font-semibold text-green-600" data-testid="walmart-net-after-fee">
+                                            ${((walmartReferralFee.salePrice - walmartReferralFee.feeInCents) / 100).toFixed(2)}
+                                          </div>
+                                          <div className="text-xs text-gray-600">Net After Fee</div>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3 pt-3 border-t border-amber-200">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="text-amber-700 font-medium">Fee Structure:</span>
+                                          <span className="text-gray-600" data-testid="walmart-fee-description">{walmartReferralFee.feeDescription}</span>
+                                        </div>
+                                        {walmartReferralFee.notes && (
+                                          <div className="mt-1 text-xs text-amber-600 italic">
+                                            Note: {walmartReferralFee.notes}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
 
