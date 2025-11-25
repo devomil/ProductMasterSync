@@ -45,6 +45,7 @@ import MarketplaceOverview from "@/pages/MarketplaceOverview";
 import MarketplaceAmazon from "@/pages/MarketplaceAmazon";
 import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
 import MarketplaceComparison from "@/pages/MarketplaceComparison";
+import MarketplaceCatalog from "@/pages/MarketplaceCatalog";
 import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
 import FieldMappingDocs from "@/pages/FieldMappingDocs";
@@ -133,6 +134,10 @@ function Router() {
       {/* Cross-Marketplace Comparison */}
       <Route path="/marketplaces/comparison" component={MarketplaceComparison} />
       <Route path="/marketplace-comparison" component={MarketplaceComparison} />
+      
+      {/* Marketplace Catalog - Unified view for listing preparation */}
+      <Route path="/marketplaces/catalog" component={MarketplaceCatalog} />
+      <Route path="/marketplace-catalog" component={MarketplaceCatalog} />
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">

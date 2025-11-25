@@ -2688,4 +2688,206 @@ router.get('/walmart/referral-fee/categories', async (req, res) => {
   }
 });
 
+/**
+ * GET /marketplace/catalog
+ * Get unified marketplace catalog with all product data, fees, and margins
+ */
+router.get('/catalog', async (req, res) => {
+  try {
+    const { marketplace = 'all' } = req.query;
+    
+    const { db } = await import('../db');
+    const { products, productAmazonMappings, productWalmartMapping, walmartProducts, amazonMarketIntelligence, purchasingOpportunities } = await import('@shared/schema');
+    const { sql, eq, and, isNotNull } = await import('drizzle-orm');
+    const { calculateReferralFee } = await import('./walmart-referral-fees');
+    
+    // Fetch all products with their marketplace mappings
+    const productsWithMappings = await db
+      .select({
+        id: products.id,
+        sku: products.sku,
+        name: products.name,
+        upc: products.upc,
+        cost: products.cost,
+        
+        // Amazon mapping
+        asin: productAmazonMappings.asin,
+        amazonCanList: productAmazonMappings.canList,
+        amazonRestricted: productAmazonMappings.isRestricted,
+        
+        // Walmart mapping
+        walmartItemId: productWalmartMapping.walmartItemId,
+      })
+      .from(products)
+      .leftJoin(productAmazonMappings, and(
+        eq(products.id, productAmazonMappings.productId),
+        eq(productAmazonMappings.isActive, true)
+      ))
+      .leftJoin(productWalmartMapping, and(
+        eq(products.id, productWalmartMapping.productId),
+        eq(productWalmartMapping.isActive, true)
+      ))
+      .limit(5000);
+    
+    // Fetch Amazon market intelligence for all ASINs
+    const asins = productsWithMappings.filter(p => p.asin).map(p => p.asin!);
+    let amazonIntelMap: Record<string, any> = {};
+    
+    if (asins.length > 0) {
+      const amazonIntel = await db
+        .select({
+          asin: amazonMarketIntelligence.asin,
+          buyBoxPrice: amazonMarketIntelligence.buyBoxPrice,
+          referralFee: amazonMarketIntelligence.referralFee,
+          fbaFee: amazonMarketIntelligence.fbaFee,
+          salesRank: amazonMarketIntelligence.salesRank,
+        })
+        .from(amazonMarketIntelligence)
+        .where(sql`${amazonMarketIntelligence.asin} = ANY(${asins})`);
+      
+      amazonIntelMap = amazonIntel.reduce((acc, intel) => {
+        if (intel.asin) acc[intel.asin] = intel;
+        return acc;
+      }, {} as Record<string, any>);
+    }
+    
+    // Fetch Walmart products for all Walmart IDs
+    const walmartIds = productsWithMappings.filter(p => p.walmartItemId).map(p => p.walmartItemId!);
+    let walmartProductMap: Record<string, any> = {};
+    
+    if (walmartIds.length > 0) {
+      const walmartProds = await db
+        .select({
+          walmartItemId: walmartProducts.walmartItemId,
+          currentPrice: walmartProducts.currentPrice,
+          inStock: walmartProducts.inStock,
+          categoryPath: walmartProducts.categoryPath,
+        })
+        .from(walmartProducts)
+        .where(sql`${walmartProducts.walmartItemId} = ANY(${walmartIds})`);
+      
+      walmartProductMap = walmartProds.reduce((acc, prod) => {
+        if (prod.walmartItemId) acc[prod.walmartItemId] = prod;
+        return acc;
+      }, {} as Record<string, any>);
+    }
+    
+    // Fetch purchasing opportunities for recommendations
+    const productIds = productsWithMappings.map(p => p.id);
+    let opportunityMap: Record<number, any> = {};
+    
+    if (productIds.length > 0) {
+      const opportunities = await db
+        .select({
+          productId: purchasingOpportunities.productId,
+          recommendation: purchasingOpportunities.recommendation,
+          marginPercent: purchasingOpportunities.marginPercent,
+          shippingCost: purchasingOpportunities.shippingCost,
+        })
+        .from(purchasingOpportunities)
+        .where(sql`${purchasingOpportunities.productId} = ANY(${productIds})`);
+      
+      opportunityMap = opportunities.reduce((acc, opp) => {
+        if (opp.productId) acc[opp.productId] = opp;
+        return acc;
+      }, {} as Record<number, any>);
+    }
+    
+    // Build catalog with calculated fields
+    const catalog = productsWithMappings.map(product => {
+      const amazonIntel = product.asin ? amazonIntelMap[product.asin] : null;
+      const walmartProd = product.walmartItemId ? walmartProductMap[product.walmartItemId] : null;
+      const opportunity = opportunityMap[product.id];
+      
+      // Calculate Walmart referral fee if we have Walmart data
+      let walmartReferralFee = null;
+      let walmartContractCategory = null;
+      
+      if (walmartProd?.currentPrice && walmartProd?.categoryPath) {
+        const feeResult = calculateReferralFee(walmartProd.currentPrice, walmartProd.categoryPath);
+        walmartReferralFee = feeResult.feeInCents;
+        walmartContractCategory = feeResult.contractCategoryName;
+      }
+      
+      // Calculate margins
+      const costWithShipping = (product.cost || 0) + (opportunity?.shippingCost || 0);
+      
+      let amazonMargin = null;
+      if (amazonIntel?.buyBoxPrice && costWithShipping > 0) {
+        const amazonNetProceeds = amazonIntel.buyBoxPrice - (amazonIntel.referralFee || 0) - (amazonIntel.fbaFee || 0);
+        amazonMargin = ((amazonNetProceeds - costWithShipping) / amazonNetProceeds) * 100;
+      }
+      
+      let walmartMargin = null;
+      if (walmartProd?.currentPrice && costWithShipping > 0 && walmartReferralFee !== null) {
+        const walmartNetProceeds = walmartProd.currentPrice - walmartReferralFee;
+        walmartMargin = ((walmartNetProceeds - costWithShipping) / walmartNetProceeds) * 100;
+      }
+      
+      // Determine listing status
+      let listingStatus: 'ready' | 'needs_approval' | 'restricted' | 'no_mapping' = 'no_mapping';
+      if (product.asin || product.walmartItemId) {
+        if (product.amazonRestricted) {
+          listingStatus = 'restricted';
+        } else if (product.amazonCanList === false) {
+          listingStatus = 'needs_approval';
+        } else if (product.amazonCanList === true) {
+          listingStatus = 'ready';
+        } else {
+          listingStatus = 'needs_approval';
+        }
+      }
+      
+      return {
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        upc: product.upc,
+        cost: product.cost,
+        shippingCost: opportunity?.shippingCost || null,
+        
+        // Amazon
+        asin: product.asin,
+        amazonPrice: amazonIntel?.buyBoxPrice || null,
+        amazonReferralFee: amazonIntel?.referralFee || null,
+        amazonFbaFee: amazonIntel?.fbaFee || null,
+        amazonSalesRank: amazonIntel?.salesRank || null,
+        amazonRestricted: product.amazonRestricted || false,
+        amazonCanList: product.amazonCanList,
+        amazonMargin,
+        
+        // Walmart
+        walmartItemId: product.walmartItemId,
+        walmartPrice: walmartProd?.currentPrice || null,
+        walmartReferralFee,
+        walmartContractCategory,
+        walmartInStock: walmartProd?.inStock || false,
+        walmartMargin,
+        
+        recommendation: opportunity?.recommendation || null,
+        listingStatus,
+      };
+    });
+    
+    // Calculate stats
+    const stats = {
+      totalProducts: catalog.length,
+      amazonMapped: catalog.filter(p => p.asin).length,
+      walmartMapped: catalog.filter(p => p.walmartItemId).length,
+      readyToList: catalog.filter(p => p.listingStatus === 'ready').length,
+      needsApproval: catalog.filter(p => p.listingStatus === 'needs_approval').length,
+      restricted: catalog.filter(p => p.listingStatus === 'restricted').length,
+    };
+    
+    return res.json({
+      products: catalog,
+      total: catalog.length,
+      stats,
+    });
+  } catch (error) {
+    console.error('[Marketplace Routes] Error fetching catalog:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
