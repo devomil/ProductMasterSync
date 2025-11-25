@@ -28,8 +28,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertCircle, Download, ExternalLink, HelpCircle, RefreshCw, Settings, Upload, Check as CheckIcon } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { AlertCircle, Download, ExternalLink, HelpCircle, RefreshCw, Settings, Upload, Check as CheckIcon, TrendingUp, DollarSign, BarChart3, Zap } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Progress } from '@/components/ui/progress';
+import { apiRequest } from '@/lib/queryClient';
 
 // Helper function to remove EDC prefix from SKU
 const removeEdcPrefix = (sku: string): string => {
@@ -56,6 +58,51 @@ export default function WalmartIntegration() {
   });
 
   const { data: syncLogs, isLoading: isSyncLogsLoading } = useRecentWalmartSyncLogs(25);
+
+  const queryClient = useQueryClient();
+
+  // Pricing Insights Query
+  const { data: pricingDashboard, isLoading: isPricingDashboardLoading, refetch: refetchPricingDashboard } = useQuery<{
+    stats: {
+      totalItems: number;
+      inDemandCount: number;
+      priceCompetitiveCount: number;
+      highTrafficCount: number;
+      mediumTrafficCount: number;
+      lowTrafficCount: number;
+      totalGmv30: number;
+      totalPotentialGmvLift: number;
+      avgPriceCompetitiveScore: number;
+      lastSyncAt: string | null;
+    };
+    topOpportunities: Array<{
+      sku: string;
+      itemName: string;
+      currentPrice: number;
+      buyBoxTotalPrice: number;
+      inDemand: boolean;
+      traffic: string;
+      gmv30: number;
+      potentialGmvLift: number;
+      priceCompetitiveScore: number;
+    }>;
+  }>({
+    queryKey: ['/api/marketplace/walmart/pricing-insights/dashboard'],
+  });
+
+  // Sync Pricing Insights Mutation
+  const syncPricingInsightsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('/api/marketplace/walmart/pricing-insights/sync', {
+        method: 'POST',
+        body: JSON.stringify({ maxPages: 50 }),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/walmart/pricing-insights/dashboard'] });
+    },
+  });
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -89,8 +136,9 @@ export default function WalmartIntegration() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pricing-insights">Pricing Insights</TabsTrigger>
           <TabsTrigger value="sync">Data Sync</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
         </TabsList>
@@ -332,6 +380,265 @@ export default function WalmartIntegration() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+        
+        {/* Pricing Insights Tab */}
+        <TabsContent value="pricing-insights" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold">Walmart Pricing Intelligence</h2>
+              <p className="text-sm text-muted-foreground">
+                Competitive pricing data, demand signals, and market opportunities from Walmart
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => refetchPricingDashboard()}
+                disabled={isPricingDashboardLoading}
+                data-testid="button-refresh-pricing"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isPricingDashboardLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                onClick={() => syncPricingInsightsMutation.mutate()}
+                disabled={syncPricingInsightsMutation.isPending}
+                data-testid="button-sync-pricing"
+              >
+                {syncPricingInsightsMutation.isPending ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    Sync Pricing Data
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-pricing-total">
+                  {isPricingDashboardLoading ? '...' : (pricingDashboard?.stats?.totalItems || 0).toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Items with pricing insights
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">In Demand</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600" data-testid="text-in-demand">
+                  {isPricingDashboardLoading ? '...' : (pricingDashboard?.stats?.inDemandCount || 0).toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  High demand products
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Price Competitive</CardTitle>
+                <DollarSign className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600" data-testid="text-price-competitive">
+                  {isPricingDashboardLoading ? '...' : (pricingDashboard?.stats?.priceCompetitiveCount || 0).toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Competitively priced items
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">30-Day GMV</CardTitle>
+                <DollarSign className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-600" data-testid="text-gmv30">
+                  ${isPricingDashboardLoading ? '...' : ((pricingDashboard?.stats?.totalGmv30 || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total gross merchandise value
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Traffic Distribution and Competitiveness */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Traffic Distribution</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-green-600 font-medium">High Traffic</span>
+                    <span>{pricingDashboard?.stats?.highTrafficCount || 0}</span>
+                  </div>
+                  <Progress 
+                    value={pricingDashboard?.stats?.totalItems ? 
+                      (pricingDashboard.stats.highTrafficCount / pricingDashboard.stats.totalItems) * 100 : 0} 
+                    className="h-2 bg-green-100"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-yellow-600 font-medium">Medium Traffic</span>
+                    <span>{pricingDashboard?.stats?.mediumTrafficCount || 0}</span>
+                  </div>
+                  <Progress 
+                    value={pricingDashboard?.stats?.totalItems ? 
+                      (pricingDashboard.stats.mediumTrafficCount / pricingDashboard.stats.totalItems) * 100 : 0} 
+                    className="h-2 bg-yellow-100"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600 font-medium">Low Traffic</span>
+                    <span>{pricingDashboard?.stats?.lowTrafficCount || 0}</span>
+                  </div>
+                  <Progress 
+                    value={pricingDashboard?.stats?.totalItems ? 
+                      (pricingDashboard.stats.lowTrafficCount / pricingDashboard.stats.totalItems) * 100 : 0} 
+                    className="h-2 bg-gray-100"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Price Competitiveness</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-center py-4">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-blue-600">
+                      {pricingDashboard?.stats?.avgPriceCompetitiveScore?.toFixed(1) || '0'}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Average Score (0-100)</p>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Potential GMV Lift: <span className="font-medium text-green-600">
+                      ${((pricingDashboard?.stats?.totalPotentialGmvLift || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </p>
+                </div>
+                {pricingDashboard?.stats?.lastSyncAt && (
+                  <div className="text-center text-xs text-muted-foreground">
+                    Last synced: {new Date(pricingDashboard.stats.lastSyncAt).toLocaleString()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Opportunities Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Demand Opportunities</CardTitle>
+              <CardDescription>
+                High-demand products with strong market potential
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead className="text-right">Current Price</TableHead>
+                    <TableHead className="text-right">Buy Box</TableHead>
+                    <TableHead>Demand</TableHead>
+                    <TableHead>Traffic</TableHead>
+                    <TableHead className="text-right">30-Day GMV</TableHead>
+                    <TableHead className="text-center">Score</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isPricingDashboardLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        Loading pricing insights...
+                      </TableCell>
+                    </TableRow>
+                  ) : pricingDashboard?.topOpportunities && pricingDashboard.topOpportunities.length > 0 ? (
+                    pricingDashboard.topOpportunities.map((item, index) => (
+                      <TableRow key={item.sku || index}>
+                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                        <TableCell className="max-w-xs truncate">{item.itemName || '-'}</TableCell>
+                        <TableCell className="text-right">
+                          ${((item.currentPrice || 0) / 100).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          ${((item.buyBoxTotalPrice || 0) / 100).toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          {item.inDemand ? (
+                            <Badge variant="default" className="bg-green-500">In Demand</Badge>
+                          ) : (
+                            <Badge variant="secondary">Normal</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={item.traffic === 'High' ? 'default' : item.traffic === 'Medium' ? 'secondary' : 'outline'}
+                            className={item.traffic === 'High' ? 'bg-green-500' : ''}
+                          >
+                            {item.traffic || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          ${((item.gmv30 || 0) / 100).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center">
+                            <div 
+                              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                (item.priceCompetitiveScore || 0) >= 70 ? 'bg-green-500' :
+                                (item.priceCompetitiveScore || 0) >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                            >
+                              {item.priceCompetitiveScore || 0}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground italic">
+                        No pricing insights available. Click "Sync Pricing Data" to fetch data from Walmart.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
         
         <TabsContent value="sync" className="space-y-4">
