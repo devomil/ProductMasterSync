@@ -10,9 +10,11 @@ import {
   walmartMarketIntelligence, 
   walmartTaxonomy,
   productWalmartMapping,
-  products
+  products,
+  walmartPricingInsights
 } from '../../shared/schema';
-import { eq, and, inArray, sql, lt } from 'drizzle-orm';
+import { eq, and, inArray, sql, lt, desc } from 'drizzle-orm';
+import type { WalmartPricingInsightItem } from '../utils/walmart-api';
 
 // Marketplace presence tracking (created manually in DB)
 const marketplacePresence = {
@@ -450,6 +452,238 @@ export async function getProductsForWalmartSyncWithPresence(limit: number = 100)
     return productsToSync.rows;
   } catch (error) {
     console.error('[Walmart Repo] Error getting products for sync with presence:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// PRICING INSIGHTS REPOSITORY FUNCTIONS
+// ============================================================================
+
+/**
+ * Helper to convert dollar amounts to cents
+ */
+function toCents(amount: number | null | undefined): number | null {
+  if (amount === null || amount === undefined) return null;
+  return Math.round(amount * 100);
+}
+
+/**
+ * Upsert a single pricing insight record
+ */
+export async function upsertPricingInsight(insight: WalmartPricingInsightItem) {
+  try {
+    const data = {
+      sku: insight.sku,
+      itemName: insight.itemName,
+      currentPrice: toCents(insight.currentPrice),
+      buyBoxBasePrice: toCents(insight.buyBoxBasePrice),
+      buyBoxTotalPrice: toCents(insight.buyBoxTotalPrice),
+      buyBoxWinRate: insight.buyBoxWinRate,
+      competitorPrice: toCents(insight.competitorPrice),
+      comparisonPrice: toCents(insight.comparisonPrice),
+      priceDifferential: insight.priceDifferential,
+      priceCompetitiveScore: insight.priceCompetitiveScore,
+      priceCompetitive: insight.priceCompetitive,
+      fulfillment: insight.fulfillment,
+      inventoryCount: insight.inventoryCount,
+      repricerStrategyType: insight.repricerStrategyType,
+      repricerStrategyName: insight.repricerStrategyName,
+      repricerStatus: insight.repricerStatus,
+      repricerMinPrice: toCents(insight.repricerMinPrice),
+      repricerMaxPrice: toCents(insight.repricerMaxPrice),
+      promoStatus: insight.promoStatus,
+      reducedReferralStatus: insight.reducedReferralStatus,
+      walmartFundedStatus: insight.walmartFundedStatus,
+      inDemand: insight.inDemand,
+      traffic: insight.traffic,
+      gmv30: toCents(insight.gmv30),
+      potentialGmvLift: toCents(insight.potentialGmvLift),
+      dataFetchedAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const existing = await db
+      .select()
+      .from(walmartPricingInsights)
+      .where(eq(walmartPricingInsights.sku, insight.sku))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(walmartPricingInsights)
+        .set(data)
+        .where(eq(walmartPricingInsights.sku, insight.sku))
+        .returning();
+      
+      return updated;
+    } else {
+      const [inserted] = await db
+        .insert(walmartPricingInsights)
+        .values(data)
+        .returning();
+      
+      return inserted;
+    }
+  } catch (error) {
+    console.error('[Walmart Repo] Error upserting pricing insight:', error);
+    throw error;
+  }
+}
+
+/**
+ * Bulk upsert pricing insights
+ */
+export async function bulkUpsertPricingInsights(insights: WalmartPricingInsightItem[]) {
+  let inserted = 0;
+  let updated = 0;
+  let errors = 0;
+
+  for (const insight of insights) {
+    try {
+      const existing = await db
+        .select({ id: walmartPricingInsights.id })
+        .from(walmartPricingInsights)
+        .where(eq(walmartPricingInsights.sku, insight.sku))
+        .limit(1);
+
+      await upsertPricingInsight(insight);
+      
+      if (existing.length > 0) {
+        updated++;
+      } else {
+        inserted++;
+      }
+    } catch (error) {
+      console.error(`[Walmart Repo] Error upserting insight for SKU ${insight.sku}:`, error);
+      errors++;
+    }
+  }
+
+  console.log(`[Walmart Repo] Bulk upsert complete: ${inserted} inserted, ${updated} updated, ${errors} errors`);
+  
+  return { inserted, updated, errors };
+}
+
+/**
+ * Get pricing insight by SKU
+ */
+export async function getPricingInsightBySku(sku: string) {
+  try {
+    const [insight] = await db
+      .select()
+      .from(walmartPricingInsights)
+      .where(eq(walmartPricingInsights.sku, sku))
+      .limit(1);
+    
+    return insight || null;
+  } catch (error) {
+    console.error('[Walmart Repo] Error getting pricing insight:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all pricing insights with pagination
+ */
+export async function getPricingInsights(page: number = 1, limit: number = 50) {
+  try {
+    const offset = (page - 1) * limit;
+    
+    const insights = await db
+      .select()
+      .from(walmartPricingInsights)
+      .orderBy(desc(walmartPricingInsights.gmv30))
+      .limit(limit)
+      .offset(offset);
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(walmartPricingInsights);
+
+    return {
+      insights,
+      total: countResult?.count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((countResult?.count || 0) / limit)
+    };
+  } catch (error) {
+    console.error('[Walmart Repo] Error getting pricing insights:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get high-demand pricing insights (in demand with good traffic)
+ */
+export async function getHighDemandInsights(limit: number = 100) {
+  try {
+    const insights = await db
+      .select()
+      .from(walmartPricingInsights)
+      .where(eq(walmartPricingInsights.inDemand, true))
+      .orderBy(desc(walmartPricingInsights.gmv30))
+      .limit(limit);
+    
+    return insights;
+  } catch (error) {
+    console.error('[Walmart Repo] Error getting high-demand insights:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get pricing insights statistics
+ */
+export async function getPricingInsightsStats() {
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        COUNT(*) as total_items,
+        COUNT(CASE WHEN in_demand = true THEN 1 END) as in_demand_count,
+        COUNT(CASE WHEN price_competitive = true THEN 1 END) as price_competitive_count,
+        COUNT(CASE WHEN traffic = 'High' THEN 1 END) as high_traffic_count,
+        COUNT(CASE WHEN traffic = 'Medium' THEN 1 END) as medium_traffic_count,
+        COUNT(CASE WHEN traffic = 'Low' THEN 1 END) as low_traffic_count,
+        COALESCE(SUM(gmv30), 0) as total_gmv30,
+        COALESCE(SUM(potential_gmv_lift), 0) as total_potential_gmv_lift,
+        AVG(price_competitive_score) as avg_price_competitive_score,
+        MAX(data_fetched_at) as last_sync_at
+      FROM walmart_pricing_insights
+    `);
+    
+    return result.rows[0] || {};
+  } catch (error) {
+    console.error('[Walmart Repo] Error getting pricing insights stats:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get pricing insights for products in our catalog (by matching SKU)
+ */
+export async function getPricingInsightsForCatalog() {
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        wpi.*,
+        wp.walmart_item_id,
+        wp.title as walmart_title,
+        p.id as product_id,
+        p.name as product_name,
+        p.sku as internal_sku,
+        p.cost as product_cost
+      FROM walmart_pricing_insights wpi
+      LEFT JOIN walmart_products wp ON wpi.sku = wp.sku
+      LEFT JOIN product_walmart_mapping pwm ON wp.walmart_item_id = pwm.walmart_item_id
+      LEFT JOIN products p ON pwm.product_id = p.id
+      ORDER BY wpi.gmv30 DESC NULLS LAST
+    `);
+    
+    return result.rows;
+  } catch (error) {
+    console.error('[Walmart Repo] Error getting pricing insights for catalog:', error);
     throw error;
   }
 }
