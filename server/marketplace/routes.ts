@@ -18,6 +18,7 @@ import { products, categories, amazonAsins, amazonMarketIntelligence, productAsi
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
 import * as listingsRepo from './listings-repository';
+import { startWalmartListingsSync } from './walmart-listings-sync';
 
 const router = Router();
 
@@ -3083,14 +3084,15 @@ router.post('/walmart/listings/sync', async (req, res) => {
       totalItems: 0,
     });
     
-    // Start the sync in the background (we'll implement this service next)
-    // For now, just return the job ID
-    // walmartListingsSync.startSync(job.id).catch(console.error);
+    // Start the sync in the background
+    startWalmartListingsSync(job.id).catch(err => {
+      console.error('[Listings API] Sync job failed:', err);
+    });
     
     return res.json({ 
-      message: 'Sync job created',
+      message: 'Sync job started',
       jobId: job.id,
-      status: job.status
+      status: 'running'
     });
   } catch (error) {
     console.error('[Listings API] Error creating sync job:', error);
