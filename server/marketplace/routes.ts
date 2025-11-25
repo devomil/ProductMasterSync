@@ -2171,6 +2171,79 @@ router.get('/walmart/statistics', async (req, res) => {
 });
 
 /**
+ * GET /marketplace/walmart/products-with-mappings
+ * Get products with their Walmart mappings for UPC Coverage display
+ */
+router.get('/walmart/products-with-mappings', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const showMappedOnly = req.query.mappedOnly === 'true';
+    
+    // Query products with their Walmart mappings
+    const query = showMappedOnly ? sql`
+      SELECT 
+        p.id,
+        p.sku,
+        p.name,
+        p.upc,
+        pwm.walmart_item_id as "walmartItemId",
+        pwm.mapping_source as "mappingSource",
+        pwm.created_at as "lastSync",
+        wp.title as "walmartItemName",
+        wp.current_price as "walmartPrice"
+      FROM products p
+      INNER JOIN product_walmart_mapping pwm ON p.id = pwm.product_id AND pwm.is_active = true
+      LEFT JOIN walmart_products wp ON pwm.walmart_item_id = wp.walmart_item_id
+      WHERE p.upc IS NOT NULL
+      ORDER BY pwm.created_at DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    ` : sql`
+      SELECT 
+        p.id,
+        p.sku,
+        p.name,
+        p.upc,
+        pwm.walmart_item_id as "walmartItemId",
+        pwm.mapping_source as "mappingSource",
+        pwm.created_at as "lastSync",
+        wp.title as "walmartItemName",
+        wp.current_price as "walmartPrice"
+      FROM products p
+      LEFT JOIN product_walmart_mapping pwm ON p.id = pwm.product_id AND pwm.is_active = true
+      LEFT JOIN walmart_products wp ON pwm.walmart_item_id = wp.walmart_item_id
+      WHERE p.upc IS NOT NULL
+      ORDER BY pwm.walmart_item_id DESC NULLS LAST, p.id DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+    
+    const results = await db.execute(query);
+    
+    // Get counts
+    const countQuery = sql`
+      SELECT 
+        COUNT(*) FILTER (WHERE upc IS NOT NULL) as "totalWithUpc",
+        COUNT(*) FILTER (WHERE id IN (SELECT product_id FROM product_walmart_mapping WHERE is_active = true)) as "totalMapped"
+      FROM products
+    `;
+    const countResult = await db.execute(countQuery);
+    
+    return res.json({
+      products: results.rows,
+      totalWithUpc: parseInt(countResult.rows[0].totalWithUpc as string) || 0,
+      totalMapped: parseInt(countResult.rows[0].totalMapped as string) || 0,
+      limit,
+      offset
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching products with mappings:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/walmart/config-status
  * Check Walmart API configuration status
  */

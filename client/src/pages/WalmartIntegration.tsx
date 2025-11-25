@@ -44,6 +44,25 @@ export default function WalmartIntegration() {
     queryKey: ['/api/products?limit=100'],
   });
 
+  // Products with Walmart mappings for UPC Coverage display
+  const { data: productsWithMappings, isLoading: isProductsWithMappingsLoading, refetch: refetchProductsWithMappings } = useQuery<{
+    products: Array<{
+      id: number;
+      sku: string;
+      name: string;
+      upc: string;
+      walmartItemId: string | null;
+      mappingSource: string | null;
+      lastSync: string | null;
+      walmartItemName: string | null;
+      walmartPrice: number | null;
+    }>;
+    totalWithUpc: number;
+    totalMapped: number;
+  }>({
+    queryKey: ['/api/marketplace/walmart/products-with-mappings?limit=20'],
+  });
+
   const { data: configStatus } = useQuery<{ configValid: boolean; missingEnvVars: string[] }>({
     queryKey: ['/api/marketplace/walmart/config-status'],
   });
@@ -650,11 +669,27 @@ export default function WalmartIntegration() {
             <WalmartScheduler />
             
             <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>UPC Coverage</CardTitle>
-                <CardDescription>
-                  Products that have UPC codes and can be matched with Walmart
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>UPC Coverage</CardTitle>
+                  <CardDescription>
+                    Products with UPC codes and their Walmart mappings
+                    {productsWithMappings && (
+                      <span className="ml-2 text-sm">
+                        ({productsWithMappings.totalMapped} of {productsWithMappings.totalWithUpc} mapped)
+                      </span>
+                    )}
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => refetchProductsWithMappings()}
+                  data-testid="button-refresh-upc-coverage"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -669,35 +704,25 @@ export default function WalmartIntegration() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {!isProductsLoading && products?.products ? (
-                      products.products.slice(0, 10).filter((p: any) => p.upc).map((product: any) => (
+                    {!isProductsWithMappingsLoading && productsWithMappings?.products ? (
+                      productsWithMappings.products.map((product) => (
                         <TableRow key={product.id}>
                           <TableCell className="font-medium">{removeEdcPrefix(product.sku)}</TableCell>
                           <TableCell className="max-w-xs truncate">{product.name}</TableCell>
                           <TableCell className="font-mono text-xs">{product.upc || '-'}</TableCell>
                           <TableCell>
-                            {product.walmartMappings && product.walmartMappings.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {product.walmartMappings.slice(0, 3).map((mapping: any, idx: number) => (
-                                  <span 
-                                    key={idx} 
-                                    className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10"
-                                  >
-                                    {mapping.walmartItemId}
-                                  </span>
-                                ))}
-                                {product.walmartMappings.length > 3 && (
-                                  <span className="text-xs text-muted-foreground">
-                                    +{product.walmartMappings.length - 3}
-                                  </span>
-                                )}
-                              </div>
+                            {product.walmartItemId ? (
+                              <span 
+                                className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10"
+                              >
+                                {product.walmartItemId}
+                              </span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell className="text-sm">
-                            {product.lastWalmartSync ? new Date(product.lastWalmartSync).toLocaleDateString() : '-'}
+                            {product.lastSync ? new Date(product.lastSync).toLocaleDateString() : '-'}
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="sm" disabled={!product.upc} data-testid={`button-sync-${product.id}`}>
@@ -710,7 +735,7 @@ export default function WalmartIntegration() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center">
-                          {isProductsLoading ? 'Loading products...' : 'No products with UPC codes found.'}
+                          {isProductsWithMappingsLoading ? 'Loading products...' : 'No products with UPC codes found.'}
                         </TableCell>
                       </TableRow>
                     )}
