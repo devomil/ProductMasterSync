@@ -17,6 +17,7 @@ import { db } from '../db';
 import { products, categories, amazonAsins, amazonMarketIntelligence, productAsinMapping, marketplaceCredentials, insertMarketplaceCredentialSchema } from '../../shared/schema';
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
+import * as listingsRepo from './listings-repository';
 
 const router = Router();
 
@@ -2902,6 +2903,221 @@ router.get('/catalog', async (req, res) => {
     });
   } catch (error) {
     console.error('[Marketplace Routes] Error fetching catalog:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// ============================================================================
+// ACTIVE LISTINGS ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /marketplace/listings
+ * Get all active marketplace listings with pagination and filters
+ */
+router.get('/listings', async (req, res) => {
+  try {
+    const filters: listingsRepo.ListingsFilters = {
+      marketplace: req.query.marketplace as any,
+      status: req.query.status as string,
+      quantity: req.query.quantity as 'zero' | 'in_stock',
+      search: req.query.search as string,
+      productType: req.query.productType as string,
+      hasProductMatch: req.query.hasProductMatch === 'true' ? true : 
+                       req.query.hasProductMatch === 'false' ? false : undefined,
+      page: parseInt(req.query.page as string) || 1,
+      pageSize: Math.min(parseInt(req.query.pageSize as string) || 50, 200),
+      sortBy: req.query.sortBy as string || 'lastSeenAt',
+      sortOrder: req.query.sortOrder as 'asc' | 'desc' || 'desc',
+    };
+
+    const result = await listingsRepo.getMarketplaceListings(filters);
+    
+    return res.json(result);
+  } catch (error) {
+    console.error('[Listings API] Error fetching listings:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/listings/stats
+ * Get listing statistics for a marketplace
+ */
+router.get('/listings/stats', async (req, res) => {
+  try {
+    const marketplace = req.query.marketplace as string;
+    
+    const result = await listingsRepo.getMarketplaceListings({
+      marketplace: marketplace as any,
+      page: 1,
+      pageSize: 1
+    });
+    
+    return res.json(result.stats);
+  } catch (error) {
+    console.error('[Listings API] Error fetching stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/listings/product-types
+ * Get distinct product types for a marketplace
+ */
+router.get('/listings/product-types', async (req, res) => {
+  try {
+    const marketplace = req.query.marketplace as string;
+    
+    if (!marketplace) {
+      return res.status(400).json({ error: 'Marketplace is required' });
+    }
+    
+    const productTypes = await listingsRepo.getDistinctProductTypes(marketplace);
+    
+    return res.json({ productTypes });
+  } catch (error) {
+    console.error('[Listings API] Error fetching product types:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/listings/:id
+ * Get a single listing by ID
+ */
+router.get('/listings/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid listing ID' });
+    }
+    
+    const listing = await listingsRepo.getMarketplaceListing(id);
+    
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+    
+    // If Walmart listing, also get details
+    let walmartDetails = null;
+    if (listing.marketplace === 'walmart') {
+      walmartDetails = await listingsRepo.getWalmartListingDetails(id);
+    }
+    
+    return res.json({ listing, walmartDetails });
+  } catch (error) {
+    console.error('[Listings API] Error fetching listing:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/sync-jobs
+ * Get recent sync jobs for a marketplace
+ */
+router.get('/sync-jobs', async (req, res) => {
+  try {
+    const marketplace = req.query.marketplace as string;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    if (!marketplace) {
+      return res.status(400).json({ error: 'Marketplace is required' });
+    }
+    
+    const jobs = await listingsRepo.getRecentSyncJobs(marketplace, limit);
+    
+    return res.json({ jobs });
+  } catch (error) {
+    console.error('[Listings API] Error fetching sync jobs:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/sync-jobs/:id
+ * Get a sync job by ID
+ */
+router.get('/sync-jobs/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
+    
+    const job = await listingsRepo.getSyncJob(id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Sync job not found' });
+    }
+    
+    return res.json({ job });
+  } catch (error) {
+    console.error('[Listings API] Error fetching sync job:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/listings/sync
+ * Trigger a Walmart listings sync
+ */
+router.post('/walmart/listings/sync', async (req, res) => {
+  try {
+    // Check if a sync is already running
+    const runningJob = await listingsRepo.getRunningSync('walmart');
+    if (runningJob) {
+      return res.status(409).json({ 
+        error: 'A sync job is already running',
+        jobId: runningJob.id 
+      });
+    }
+    
+    // Create a new sync job
+    const job = await listingsRepo.createSyncJob({
+      marketplace: 'walmart',
+      jobType: 'full_sync',
+      triggeredBy: 'manual',
+      totalItems: 0,
+    });
+    
+    // Start the sync in the background (we'll implement this service next)
+    // For now, just return the job ID
+    // walmartListingsSync.startSync(job.id).catch(console.error);
+    
+    return res.json({ 
+      message: 'Sync job created',
+      jobId: job.id,
+      status: job.status
+    });
+  } catch (error) {
+    console.error('[Listings API] Error creating sync job:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/listings/link-products
+ * Link listings to products by UPC
+ */
+router.post('/listings/link-products', async (req, res) => {
+  try {
+    const marketplace = req.body.marketplace as string;
+    
+    if (!marketplace) {
+      return res.status(400).json({ error: 'Marketplace is required' });
+    }
+    
+    const result = await listingsRepo.linkListingsToProducts(marketplace);
+    
+    return res.json({ 
+      message: `Linked ${result.linked} listings to products`,
+      ...result
+    });
+  } catch (error) {
+    console.error('[Listings API] Error linking products:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
