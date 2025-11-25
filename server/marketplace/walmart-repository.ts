@@ -231,7 +231,7 @@ export async function getWalmartMarketIntelligence(walmartItemId: string) {
  */
 export async function getProductWalmartMappings(productId: number) {
   try {
-    const mappings = await db
+    const rawMappings = await db
       .select({
         id: productWalmartMapping.id,
         walmartItemId: productWalmartMapping.walmartItemId,
@@ -239,31 +239,71 @@ export async function getProductWalmartMappings(productId: number) {
         matchConfidence: productWalmartMapping.matchConfidence,
         isActive: productWalmartMapping.isActive,
         isVerified: productWalmartMapping.isVerified,
-        product: {
-          title: walmartProducts.title,
-          brand: walmartProducts.brand,
-          currentPrice: walmartProducts.currentPrice,
-          inStock: walmartProducts.inStock,
-          imageUrls: walmartProducts.imageUrls
-        },
-        marketIntelligence: {
-          currentPrice: walmartMarketIntelligence.currentPrice,
-          listPrice: walmartMarketIntelligence.listPrice,
-          rating: walmartMarketIntelligence.rating,
-          reviewCount: walmartMarketIntelligence.reviewCount,
-          profitMarginPercent: walmartMarketIntelligence.profitMarginPercent,
-          opportunityScore: walmartMarketIntelligence.opportunityScore
-        }
+        productTitle: walmartProducts.title,
+        productBrand: walmartProducts.brand,
+        productCurrentPrice: walmartProducts.currentPrice,
+        productListPrice: walmartProducts.listPrice,
+        productInStock: walmartProducts.inStock,
+        productAvailabilityStatus: walmartProducts.availabilityStatus,
+        productLifecycleStatus: walmartProducts.lifecycleStatus,
+        productImageUrls: walmartProducts.imageUrls,
+        productCategoryPath: walmartProducts.categoryPath,
+        productCategoryName: walmartProducts.categoryName,
+        productTaxonomyId: walmartProducts.taxonomyId,
+        productSellerName: walmartProducts.sellerName,
+        productSellerMarketplace: walmartProducts.sellerMarketplace,
+        productWfsEligible: walmartProducts.wfsEligible,
+        productAverageRating: walmartProducts.averageRating,
+        productTotalReviews: walmartProducts.totalReviews,
+        productDescription: walmartProducts.description,
+        productShortDescription: walmartProducts.shortDescription,
+        productUpc: walmartProducts.upc,
+        productGtin: walmartProducts.gtin,
+        productWeight: walmartProducts.weight,
+        productDimensions: walmartProducts.dimensions
       })
       .from(productWalmartMapping)
       .leftJoin(walmartProducts, eq(productWalmartMapping.walmartItemId, walmartProducts.walmartItemId))
-      .leftJoin(walmartMarketIntelligence, eq(productWalmartMapping.walmartItemId, walmartMarketIntelligence.walmartItemId))
       .where(
         and(
           eq(productWalmartMapping.productId, productId),
           eq(productWalmartMapping.isActive, true)
         )
       );
+    
+    const mappings = rawMappings.map(row => ({
+      id: row.id,
+      walmartItemId: row.walmartItemId,
+      mappingSource: row.mappingSource,
+      matchConfidence: row.matchConfidence,
+      isActive: row.isActive,
+      isVerified: row.isVerified,
+      product: row.productTitle ? {
+        title: row.productTitle,
+        brand: row.productBrand,
+        currentPrice: row.productCurrentPrice,
+        listPrice: row.productListPrice,
+        inStock: row.productInStock,
+        availabilityStatus: row.productAvailabilityStatus,
+        lifecycleStatus: row.productLifecycleStatus,
+        imageUrls: row.productImageUrls,
+        categoryPath: row.productCategoryPath,
+        categoryName: row.productCategoryName,
+        taxonomyId: row.productTaxonomyId,
+        sellerName: row.productSellerName,
+        sellerMarketplace: row.productSellerMarketplace,
+        wfsEligible: row.productWfsEligible,
+        averageRating: row.productAverageRating,
+        totalReviews: row.productTotalReviews,
+        description: row.productDescription,
+        shortDescription: row.productShortDescription,
+        upc: row.productUpc,
+        gtin: row.productGtin,
+        weight: row.productWeight,
+        dimensions: row.productDimensions
+      } : null,
+      marketIntelligence: null
+    }));
     
     return mappings;
   } catch (error) {

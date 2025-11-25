@@ -1452,7 +1452,7 @@ export default function ProductDetails() {
                                   </div>
                                 </CardHeader>
                                 <CardContent className="pt-6">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     {/* Pricing */}
                                     <Card>
                                       <CardHeader className="pb-3">
@@ -1470,10 +1470,23 @@ export default function ProductDetails() {
                                               </div>
                                               <div className="text-xs text-gray-500">Current Price</div>
                                             </div>
-                                            {item.listPrice && (
+                                            {item.listPrice && item.listPrice > item.currentPrice && (
                                               <div className="pt-2 border-t">
-                                                <div className="text-lg font-semibold">${(item.listPrice / 100).toFixed(2)}</div>
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-sm line-through text-gray-400">${(item.listPrice / 100).toFixed(2)}</span>
+                                                  <Badge variant="secondary" className="bg-red-100 text-red-700 text-xs">
+                                                    {Math.round((1 - item.currentPrice / item.listPrice) * 100)}% OFF
+                                                  </Badge>
+                                                </div>
                                                 <div className="text-xs text-gray-500">List Price</div>
+                                              </div>
+                                            )}
+                                            {intel?.lowestCompetitorPrice && (
+                                              <div className="pt-2 border-t">
+                                                <div className="text-sm font-medium text-orange-600">
+                                                  ${(intel.lowestCompetitorPrice / 100).toFixed(2)}
+                                                </div>
+                                                <div className="text-xs text-gray-500">Lowest Competitor</div>
                                               </div>
                                             )}
                                           </>
@@ -1506,7 +1519,7 @@ export default function ProductDetails() {
                                             {(item?.totalReviews || intel?.reviewCount) && (
                                               <div className="pt-2 border-t">
                                                 <div className="text-lg font-semibold">
-                                                  {item?.totalReviews || intel?.reviewCount}
+                                                  {(item?.totalReviews || intel?.reviewCount)?.toLocaleString()}
                                                 </div>
                                                 <div className="text-xs text-gray-500">Reviews</div>
                                               </div>
@@ -1543,27 +1556,145 @@ export default function ProductDetails() {
                                             </Badge>
                                           )}
                                         </div>
-                                        {item?.sellerName && (
-                                          <div className="pt-2 border-t text-xs space-y-1">
+                                        {intel?.stockLevel && (
+                                          <div className="pt-2 border-t">
+                                            <div className="text-sm font-medium capitalize">{intel.stockLevel}</div>
+                                            <div className="text-xs text-gray-500">Stock Level</div>
+                                          </div>
+                                        )}
+                                        {item?.lifecycleStatus && (
+                                          <div className="pt-2 border-t text-xs">
+                                            <Badge variant={item.lifecycleStatus === 'ACTIVE' ? 'secondary' : 'outline'} className={item.lifecycleStatus === 'ACTIVE' ? 'bg-green-50 text-green-700' : ''}>
+                                              {item.lifecycleStatus}
+                                            </Badge>
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
+
+                                    {/* Seller & Fulfillment */}
+                                    <Card>
+                                      <CardHeader className="pb-3">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                          <TruckIcon className="h-4 w-4 text-indigo-600" />
+                                          Seller & Fulfillment
+                                        </CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="space-y-2">
+                                        {item?.sellerName ? (
+                                          <>
                                             <div>
-                                              <span className="text-gray-600">Seller:</span> {item.sellerName}
+                                              <div className="text-sm font-medium truncate" title={item.sellerName}>
+                                                {item.sellerName.length > 20 ? item.sellerName.substring(0, 20) + '...' : item.sellerName}
+                                              </div>
+                                              <div className="text-xs text-gray-500">Seller</div>
                                             </div>
-                                            {item.sellerMarketplace && (
-                                              <Badge variant="outline" className="text-xs">
-                                                Marketplace Seller
-                                              </Badge>
+                                            <div className="flex flex-wrap gap-1 pt-2 border-t">
+                                              {item.sellerMarketplace && (
+                                                <Badge variant="outline" className="text-xs">
+                                                  3P Seller
+                                                </Badge>
+                                              )}
+                                              {item.wfsEligible && (
+                                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                                                  WFS Eligible
+                                                </Badge>
+                                              )}
+                                              {intel?.fulfillmentMethod && (
+                                                <Badge variant="outline" className="text-xs">
+                                                  {intel.fulfillmentMethod}
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            {intel?.totalSellers && intel.totalSellers > 0 && (
+                                              <div className="pt-2 border-t">
+                                                <div className="text-sm font-medium">{intel.totalSellers}</div>
+                                                <div className="text-xs text-gray-500">Total Sellers</div>
+                                              </div>
                                             )}
+                                          </>
+                                        ) : (
+                                          <div className="text-sm text-gray-500 py-4">
+                                            <Info className="h-4 w-4 mx-auto mb-2" />
+                                            <div className="text-center">No seller data</div>
                                           </div>
                                         )}
                                       </CardContent>
                                     </Card>
                                   </div>
 
+                                  {/* Category Taxonomy - Full Width */}
+                                  {item?.categoryPath && item.categoryPath.length > 0 && (
+                                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                                          <MapPin className="h-4 w-4" />
+                                          Walmart Category Taxonomy
+                                        </h4>
+                                        {item.taxonomyId && (
+                                          <Badge variant="outline" className="text-xs bg-white">
+                                            ID: {item.taxonomyId}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-1 text-sm">
+                                        {(item.categoryPath as string[]).map((cat: string, catIndex: number) => (
+                                          <span key={catIndex} className="flex items-center">
+                                            <Badge variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50">
+                                              {cat}
+                                            </Badge>
+                                            {catIndex < (item.categoryPath as string[]).length - 1 && (
+                                              <span className="mx-1 text-blue-400">→</span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      {item.brand && (
+                                        <div className="mt-2 text-xs text-blue-600">
+                                          <span className="font-medium">Brand:</span> {item.brand}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Product Identifiers */}
+                                  {(item?.upc || item?.gtin || item?.weight || item?.dimensions) && (
+                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                      <h4 className="text-sm font-semibold mb-2">Product Identifiers & Specs</h4>
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                        {item.upc && (
+                                          <div>
+                                            <span className="text-gray-500">UPC:</span>
+                                            <div className="font-mono font-medium">{item.upc}</div>
+                                          </div>
+                                        )}
+                                        {item.gtin && (
+                                          <div>
+                                            <span className="text-gray-500">GTIN:</span>
+                                            <div className="font-mono font-medium">{item.gtin}</div>
+                                          </div>
+                                        )}
+                                        {item.weight && (
+                                          <div>
+                                            <span className="text-gray-500">Weight:</span>
+                                            <div className="font-medium">{item.weight}</div>
+                                          </div>
+                                        )}
+                                        {item.dimensions && (
+                                          <div>
+                                            <span className="text-gray-500">Dimensions:</span>
+                                            <div className="font-medium">{item.dimensions}</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Additional Product Details */}
-                                  {item?.description && (
+                                  {(item?.description || item?.shortDescription) && (
                                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                                       <h4 className="text-sm font-semibold mb-2">Product Description</h4>
-                                      <p className="text-sm text-gray-700 line-clamp-3">{item.description}</p>
+                                      <p className="text-sm text-gray-700 line-clamp-3">{item.shortDescription || item.description}</p>
                                     </div>
                                   )}
                                 </CardContent>
