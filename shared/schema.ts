@@ -1177,6 +1177,217 @@ export const walmartPricingInsights = pgTable("walmart_pricing_insights", {
 // END WALMART MARKETPLACE SCHEMA
 // ============================================================================
 
+// ============================================================================
+// ACTIVE LISTINGS SCHEMA - Track seller's active marketplace listings
+// ============================================================================
+
+// Listing status enum
+export const listingStatusEnum = pgEnum('listing_status', [
+  'active', 'inactive', 'pending', 'retired', 'unpublished', 'suppressed'
+]);
+
+// Sync job status enum  
+export const syncJobStatusEnum = pgEnum('sync_job_status', [
+  'pending', 'running', 'completed', 'failed', 'cancelled'
+]);
+
+// Core marketplace listings table - normalized backbone for all marketplaces
+export const marketplaceListings = pgTable("marketplace_listings", {
+  id: serial("id").primaryKey(),
+  
+  // Marketplace and listing identifiers
+  marketplace: marketplaceEnum("marketplace").notNull(), // walmart, amazon, etc.
+  listingId: text("listing_id").notNull(), // Marketplace-specific ID (Walmart SKU, Amazon Listing ID)
+  marketplaceSku: text("marketplace_sku"), // Seller's SKU on the marketplace
+  
+  // Link to internal product (optional - some listings may not match)
+  productId: integer("product_id").references(() => products.id),
+  
+  // Product identifiers
+  upc: text("upc"),
+  gtin: text("gtin"),
+  
+  // Basic product info
+  title: text("title"),
+  brand: text("brand"),
+  
+  // Status and lifecycle
+  status: listingStatusEnum("status").default('active'),
+  lifecycleStatus: text("lifecycle_status"),
+  publishedStatus: text("published_status"),
+  
+  // Quantity and inventory
+  quantity: integer("quantity").default(0),
+  
+  // Pricing (in cents)
+  priceInCents: integer("price_in_cents"),
+  listPriceInCents: integer("list_price_in_cents"),
+  
+  // Fees (in cents)
+  referralFeeInCents: integer("referral_fee_in_cents"),
+  fulfillmentFeeInCents: integer("fulfillment_fee_in_cents"),
+  
+  // Category and product type
+  productType: text("product_type"),
+  category: text("category"),
+  categoryPath: json("category_path").default([]),
+  contractCategory: text("contract_category"), // For fee calculation
+  
+  // Fulfillment
+  fulfillmentMethod: text("fulfillment_method"), // WFS, FBA, Seller, etc.
+  
+  // Timestamps
+  firstSeenAt: timestamp("first_seen_at").defaultNow(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow(),
+  lastSyncJobId: integer("last_sync_job_id"),
+  
+  // Raw data snapshot (for debugging/auditing)
+  rawSnapshot: json("raw_snapshot").default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    marketplaceListingIdx: uniqueIndex("marketplace_listings_mkt_listing_idx").on(table.marketplace, table.listingId),
+    productIdx: index("marketplace_listings_product_idx").on(table.productId),
+    statusIdx: index("marketplace_listings_status_idx").on(table.status),
+    upcIdx: index("marketplace_listings_upc_idx").on(table.upc),
+    quantityIdx: index("marketplace_listings_quantity_idx").on(table.quantity),
+  };
+});
+
+// Walmart-specific listing details
+export const walmartListingDetails = pgTable("walmart_listing_details", {
+  id: serial("id").primaryKey(),
+  marketplaceListingId: integer("marketplace_listing_id").notNull().references(() => marketplaceListings.id, { onDelete: 'cascade' }),
+  
+  // Walmart-specific identifiers
+  walmartItemId: text("walmart_item_id"),
+  wpid: text("wpid"), // Walmart Product ID
+  
+  // Walmart-specific status
+  walmartLifecycleStatus: text("walmart_lifecycle_status"),
+  walmartPublishStatus: text("walmart_publish_status"),
+  
+  // Shipping and fulfillment
+  shippingWeight: real("shipping_weight"), // In pounds
+  shippingWeightUnit: text("shipping_weight_unit").default("LB"),
+  shippingTemplateId: text("shipping_template_id"),
+  fulfillmentLagTime: integer("fulfillment_lag_time"), // Days
+  
+  // Dimensions
+  shippingLength: real("shipping_length"),
+  shippingWidth: real("shipping_width"),
+  shippingHeight: real("shipping_height"),
+  dimensionUnit: text("dimension_unit").default("IN"),
+  
+  // Buy Box and competition
+  buyBoxPriceInCents: integer("buy_box_price_in_cents"),
+  buyBoxWinner: boolean("buy_box_winner").default(false),
+  competitorCount: integer("competitor_count"),
+  competitorPrices: json("competitor_prices").default([]),
+  
+  // Compliance and eligibility
+  wfsEligible: boolean("wfs_eligible").default(false),
+  twoDay: boolean("two_day").default(false),
+  
+  // Rich media
+  hasRichMedia: boolean("has_rich_media").default(false),
+  imageCount: integer("image_count").default(0),
+  
+  // Promotions
+  hasPromotion: boolean("has_promotion").default(false),
+  promotionDetails: json("promotion_details").default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    listingIdx: uniqueIndex("walmart_listing_details_listing_idx").on(table.marketplaceListingId),
+    walmartItemIdx: index("walmart_listing_details_item_idx").on(table.walmartItemId),
+  };
+});
+
+// Sync jobs tracking table
+export const marketplaceSyncJobs = pgTable("marketplace_sync_jobs", {
+  id: serial("id").primaryKey(),
+  
+  marketplace: marketplaceEnum("marketplace").notNull(),
+  jobType: text("job_type").notNull(), // 'full_sync', 'incremental', 'single_item'
+  
+  status: syncJobStatusEnum("status").default('pending'),
+  
+  // Progress tracking
+  totalItems: integer("total_items").default(0),
+  processedItems: integer("processed_items").default(0),
+  successItems: integer("success_items").default(0),
+  failedItems: integer("failed_items").default(0),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  duration: integer("duration"), // In seconds
+  
+  // Pagination state (for resumable syncs)
+  nextCursor: text("next_cursor"),
+  lastProcessedId: text("last_processed_id"),
+  
+  // Error tracking
+  errorMessage: text("error_message"),
+  errorDetails: json("error_details").default({}),
+  
+  // Metadata
+  triggeredBy: text("triggered_by"), // 'manual', 'scheduled', 'system'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    marketplaceStatusIdx: index("marketplace_sync_jobs_mkt_status_idx").on(table.marketplace, table.status),
+    createdAtIdx: index("marketplace_sync_jobs_created_idx").on(table.createdAt),
+  };
+});
+
+// Schemas and types for marketplace listings
+export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+});
+
+export const insertWalmartListingDetailsSchema = createInsertSchema(walmartListingDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMarketplaceSyncJobSchema = createInsertSchema(marketplaceSyncJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  startedAt: true,
+  completedAt: true,
+  duration: true,
+  processedItems: true,
+  successItems: true,
+  failedItems: true,
+  errorMessage: true,
+  errorDetails: true,
+});
+
+export type MarketplaceListing = typeof marketplaceListings.$inferSelect;
+export type WalmartListingDetails = typeof walmartListingDetails.$inferSelect;
+export type MarketplaceSyncJob = typeof marketplaceSyncJobs.$inferSelect;
+export type InsertMarketplaceListing = z.infer<typeof insertMarketplaceListingSchema>;
+export type InsertWalmartListingDetails = z.infer<typeof insertWalmartListingDetailsSchema>;
+export type InsertMarketplaceSyncJob = z.infer<typeof insertMarketplaceSyncJobSchema>;
+
+// ============================================================================
+// END ACTIVE LISTINGS SCHEMA
+// ============================================================================
+
 // Link products to their Amazon ASINs with AI intelligence tracking
 export const productAsinMapping = pgTable("product_asin_mapping", {
   id: serial("id").primaryKey(),
