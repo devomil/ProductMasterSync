@@ -2597,4 +2597,95 @@ router.get('/walmart/pricing-insights/catalog', async (req, res) => {
   }
 });
 
+/**
+ * POST /marketplace/walmart/referral-fee/calculate
+ * Calculate Walmart referral fee for a product based on price and category
+ */
+router.post('/walmart/referral-fee/calculate', async (req, res) => {
+  try {
+    const { priceInCents, categoryPath } = req.body;
+    
+    if (typeof priceInCents !== 'number' || priceInCents < 0) {
+      return res.status(400).json({ error: 'priceInCents must be a non-negative number' });
+    }
+    
+    const { calculateReferralFee } = await import('./walmart-referral-fees');
+    
+    const result = calculateReferralFee(priceInCents, categoryPath || null);
+    
+    return res.json(result);
+  } catch (error) {
+    console.error('[Walmart Routes] Error calculating referral fee:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/referral-fee/product/:productId
+ * Get referral fee for a specific product based on its Walmart mapping
+ */
+router.get('/walmart/referral-fee/product/:productId', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.productId);
+    
+    if (isNaN(productId)) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+    
+    const { getProductWalmartMappings } = await import('./walmart-repository');
+    const { calculateReferralFee } = await import('./walmart-referral-fees');
+    
+    const mappings = await getProductWalmartMappings(productId);
+    
+    if (!mappings || mappings.length === 0) {
+      return res.status(404).json({ error: 'No Walmart mapping found for this product' });
+    }
+    
+    const mapping = mappings[0];
+    const product = mapping.product;
+    
+    if (!product || !product.currentPrice) {
+      return res.status(404).json({ error: 'No Walmart product data available' });
+    }
+    
+    const result = calculateReferralFee(
+      product.currentPrice,
+      product.categoryPath || null
+    );
+    
+    return res.json({
+      productId,
+      walmartItemId: mapping.walmartItemId,
+      salePrice: product.currentPrice,
+      salePriceFormatted: `$${(product.currentPrice / 100).toFixed(2)}`,
+      categoryPath: product.categoryPath,
+      ...result,
+      feeFormatted: `$${(result.feeInCents / 100).toFixed(2)}`
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error getting referral fee for product:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/referral-fee/categories
+ * Get all contract categories and their fee structures
+ */
+router.get('/walmart/referral-fee/categories', async (req, res) => {
+  try {
+    const { getAllContractCategories } = await import('./walmart-referral-fees');
+    
+    const categories = getAllContractCategories();
+    
+    return res.json({
+      categories,
+      count: categories.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error getting fee categories:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
