@@ -1,0 +1,117 @@
+Get Pricing Insights
+Post: https://marketplace.walmartapis.com/v3/price/getPricingInsights
+Retrieve pricing insights with filters, sorting, and pagination.Use this API to get comprehensive pricing insights for your items on Walmart Marketplace. You can query your catalog for various pricing attributes, including current price, Buy Box pricing information, competitive pricing information, repricer details, and more.
+
+Recent Requests
+Log in to see full request history
+Time	Status	User Agent	
+Make a request to see history.
+Run In Postman
+Body Params
+filter
+array of objects
+ADD object
+searchCriteria
+object
+searchCriteria object
+sort
+object
+sort object
+pageNumber
+integer
+required
+≥ 0
+
+Headers
+WM_SEC.ACCESS_TOKEN
+string
+required
+Access token obtained from the Token API. This is required for authenticating requests to Walmart Marketplace APIs.
+
+WM_CONSUMER.CHANNEL.TYPE
+string
+A unique ID to identify the consumer request by channel. Use the Consumer Channel Type received during onboarding.
+
+WM_QOS.CORRELATION_ID
+string
+required
+A unique ID that identifies each API call and is used to track and debug issues. Use a randomly generated GUID for this ID.
+
+WM_SVC.NAME
+string
+required
+Specifies the name of the Walmart service being called.
+
+
+
+
+
+Response
+200
+Successful Operation
+
+Response body
+object
+pageContext
+object
+pageNo
+int32
+currentPageCount
+int32
+totalCount
+int32
+totalPages
+int32
+pricingInsightsResponseList
+array of objects
+object
+itemName
+string
+sku
+string
+currentPrice
+double | null
+buyBoxBasePrice
+double | null
+buyBoxTotalPrice
+double | null
+buyBoxWinRate
+string
+competitorPrice
+double | null
+comparisonPrice
+double | null
+fulfillment
+string | null
+inventoryCount
+integer | null
+repricerStrategyType
+string | null
+repricerStrategyName
+string | null
+repricerStatus
+string | null
+repricerMinPrice
+double | null
+repricerMaxPrice
+double | null
+priceCompetitiveScore
+double
+promoStatus
+string | null
+potentialGmvLift
+double | null
+gmv30
+double
+inDemand
+boolean
+priceDifferential
+string | null
+traffic
+string | null
+priceCompetitive
+boolean
+reducedReferralStatus
+string | null
+walmartFundedStatus
+string | null
