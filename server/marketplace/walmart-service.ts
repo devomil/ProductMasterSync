@@ -12,14 +12,23 @@ import {
   getProductsForWalmartSync,
   getProductsForWalmartSyncWithPresence,
   recordMarketplacePresence,
-  bulkInsertWalmartTaxonomy
+  bulkInsertWalmartTaxonomy,
+  bulkUpsertPricingInsights,
+  getPricingInsights,
+  getPricingInsightsStats,
+  getHighDemandInsights,
+  getPricingInsightsForCatalog,
+  getPricingInsightBySku
 } from './walmart-repository';
 import {
   searchWalmartCatalogByUPC,
   getWalmartItem,
   getWalmartTaxonomy,
   getBulkWalmartItemsByUPC,
-  searchWalmartBySKU
+  searchWalmartBySKU,
+  getWalmartPricingInsights,
+  getAllWalmartPricingInsights,
+  type WalmartPricingInsightItem
 } from '../utils/walmart-api';
 import { db } from '../db';
 import { productWalmartMapping } from '../../shared/schema';
@@ -375,3 +384,202 @@ export function calculateWalmartOpportunity(
     opportunityScore: Math.min(100, opportunityScore)
   };
 }
+
+// ============================================================================
+// PRICING INSIGHTS SERVICE FUNCTIONS
+// ============================================================================
+
+/**
+ * Sync all pricing insights from Walmart API
+ * Fetches all pages and saves to database
+ */
+export async function syncAllPricingInsights(maxPages: number = 50) {
+  try {
+    console.log('[Walmart Service] Starting full Pricing Insights sync...');
+    
+    const startTime = Date.now();
+    
+    // Fetch all pricing insights from API
+    const allInsights = await getAllWalmartPricingInsights(maxPages);
+    
+    if (allInsights.length === 0) {
+      console.log('[Walmart Service] No pricing insights returned from API');
+      return {
+        fetched: 0,
+        inserted: 0,
+        updated: 0,
+        errors: 0,
+        durationMs: Date.now() - startTime
+      };
+    }
+    
+    console.log(`[Walmart Service] Fetched ${allInsights.length} pricing insights, saving to database...`);
+    
+    // Save to database
+    const { inserted, updated, errors } = await bulkUpsertPricingInsights(allInsights);
+    
+    const durationMs = Date.now() - startTime;
+    
+    console.log(`[Walmart Service] ✅ Pricing Insights sync complete in ${(durationMs / 1000).toFixed(1)}s`);
+    console.log(`[Walmart Service] Results: ${inserted} inserted, ${updated} updated, ${errors} errors`);
+    
+    return {
+      fetched: allInsights.length,
+      inserted,
+      updated,
+      errors,
+      durationMs
+    };
+  } catch (error) {
+    console.error('[Walmart Service] Error syncing pricing insights:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync a single page of pricing insights
+ * Useful for testing or incremental updates
+ */
+export async function syncPricingInsightsPage(pageNumber: number = 0) {
+  try {
+    console.log(`[Walmart Service] Syncing Pricing Insights page ${pageNumber}...`);
+    
+    const response = await getWalmartPricingInsights(pageNumber);
+    
+    if (response.pricingInsightsResponseList.length === 0) {
+      return {
+        fetched: 0,
+        inserted: 0,
+        updated: 0,
+        errors: 0,
+        pageContext: response.pageContext
+      };
+    }
+    
+    const { inserted, updated, errors } = await bulkUpsertPricingInsights(response.pricingInsightsResponseList);
+    
+    console.log(`[Walmart Service] ✅ Page ${pageNumber} synced: ${inserted} inserted, ${updated} updated`);
+    
+    return {
+      fetched: response.pricingInsightsResponseList.length,
+      inserted,
+      updated,
+      errors,
+      pageContext: response.pageContext
+    };
+  } catch (error) {
+    console.error(`[Walmart Service] Error syncing pricing insights page ${pageNumber}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get pricing insights with enhanced analysis for Purchasing AI
+ */
+export async function getPricingInsightsWithAnalysis(page: number = 1, limit: number = 50) {
+  try {
+    const result = await getPricingInsights(page, limit);
+    
+    // Enhance with profit analysis where we have product cost data
+    const enhancedInsights = result.insights.map(insight => {
+      // Add calculated fields
+      const buyBoxPrice = insight.buyBoxTotalPrice || insight.buyBoxBasePrice || insight.currentPrice || 0;
+      const competitorPrice = insight.competitorPrice || 0;
+      
+      // Calculate price gap
+      let priceGap = 0;
+      let priceGapPercent = 0;
+      if (buyBoxPrice > 0 && competitorPrice > 0) {
+        priceGap = buyBoxPrice - competitorPrice;
+        priceGapPercent = (priceGap / buyBoxPrice) * 100;
+      }
+      
+      return {
+        ...insight,
+        buyBoxPrice,
+        priceGap,
+        priceGapPercent,
+        opportunityLevel: getOpportunityLevel(insight)
+      };
+    });
+    
+    return {
+      ...result,
+      insights: enhancedInsights
+    };
+  } catch (error) {
+    console.error('[Walmart Service] Error getting pricing insights with analysis:', error);
+    throw error;
+  }
+}
+
+/**
+ * Determine opportunity level based on pricing insights
+ */
+function getOpportunityLevel(insight: any): 'high' | 'medium' | 'low' | 'none' {
+  let score = 0;
+  
+  // High demand = good opportunity
+  if (insight.inDemand) score += 30;
+  
+  // High traffic = good visibility
+  if (insight.traffic === 'High') score += 25;
+  else if (insight.traffic === 'Medium') score += 15;
+  
+  // Price competitive = well-positioned
+  if (insight.priceCompetitive) score += 20;
+  
+  // High GMV = proven demand
+  const gmv30 = insight.gmv30 || 0;
+  if (gmv30 > 100000) score += 25; // >$1000/month
+  else if (gmv30 > 50000) score += 15; // >$500/month
+  else if (gmv30 > 10000) score += 5; // >$100/month
+  
+  // High potential GMV lift = upside potential
+  const potentialLift = insight.potentialGmvLift || 0;
+  if (potentialLift > 10000) score += 15;
+  else if (potentialLift > 5000) score += 10;
+  
+  if (score >= 60) return 'high';
+  if (score >= 35) return 'medium';
+  if (score >= 15) return 'low';
+  return 'none';
+}
+
+/**
+ * Get pricing insights statistics for dashboard
+ */
+export async function getPricingInsightsDashboard() {
+  try {
+    const stats = await getPricingInsightsStats();
+    const highDemand = await getHighDemandInsights(10);
+    
+    return {
+      stats: {
+        totalItems: Number(stats.total_items) || 0,
+        inDemandCount: Number(stats.in_demand_count) || 0,
+        priceCompetitiveCount: Number(stats.price_competitive_count) || 0,
+        highTrafficCount: Number(stats.high_traffic_count) || 0,
+        mediumTrafficCount: Number(stats.medium_traffic_count) || 0,
+        lowTrafficCount: Number(stats.low_traffic_count) || 0,
+        totalGmv30: Number(stats.total_gmv30) || 0,
+        totalPotentialGmvLift: Number(stats.total_potential_gmv_lift) || 0,
+        avgPriceCompetitiveScore: Number(stats.avg_price_competitive_score) || 0,
+        lastSyncAt: stats.last_sync_at
+      },
+      topOpportunities: highDemand
+    };
+  } catch (error) {
+    console.error('[Walmart Service] Error getting pricing insights dashboard:', error);
+    throw error;
+  }
+}
+
+// Re-export repository functions for direct access
+export {
+  getPricingInsights,
+  getPricingInsightsStats,
+  getHighDemandInsights,
+  getPricingInsightsForCatalog,
+  getPricingInsightBySku
+};
