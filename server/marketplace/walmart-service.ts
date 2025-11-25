@@ -56,6 +56,8 @@ export async function fetchWalmartDataByUpc(productId: number, upc: string) {
         // Walmart API returns: itemId, images[{url}], price{amount, currency}, customerRating, properties{num_reviews, categories}
         const imageUrls = item.images?.map((img: any) => img.url) || [];
         const categoryPath = item.properties?.categories || [];
+        // Extract product type - the final level in the category hierarchy (determines referral fee)
+        const productType = categoryPath.length > 0 ? categoryPath[categoryPath.length - 1] : null;
         
         // Save Walmart product
         const walmartProduct = await upsertWalmartProduct({
@@ -70,6 +72,7 @@ export async function fetchWalmartDataByUpc(productId: number, upc: string) {
           imageUrls: imageUrls,
           primaryImageUrl: imageUrls[0] || null,
           categoryPath: categoryPath,
+          productType: productType,
           variants: item.variants || [],
           currentPrice: item.price?.amount ? Math.round(parseFloat(item.price.amount) * 100) : null,
           listPrice: item.listPrice?.amount ? Math.round(parseFloat(item.listPrice.amount) * 100) : null,

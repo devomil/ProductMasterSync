@@ -56,6 +56,7 @@ interface CatalogProduct {
   walmartPrice: number | null;
   walmartReferralFee: number | null;
   walmartContractCategory: string | null;
+  walmartProductType: string | null;
   walmartInStock: boolean;
   
   // Calculated fields
@@ -251,6 +252,7 @@ export default function MarketplaceCatalog() {
         'Amazon Sales Rank',
         'Amazon Status',
         'Walmart Item ID',
+        'Walmart Product Type',
         'Walmart Price',
         'Walmart Referral Fee',
         'Walmart Contract Category',
@@ -274,6 +276,7 @@ export default function MarketplaceCatalog() {
         p.amazonSalesRank || '',
         p.amazonCanList === true ? 'Approved' : p.amazonRestricted ? 'Restricted' : 'Unknown',
         p.walmartItemId || '',
+        p.walmartProductType || '',
         p.walmartPrice ? (p.walmartPrice / 100).toFixed(2) : '',
         p.walmartReferralFee ? (p.walmartReferralFee / 100).toFixed(2) : '',
         p.walmartContractCategory || '',
@@ -574,6 +577,7 @@ export default function MarketplaceCatalog() {
                       {(selectedMarketplace === 'all' || selectedMarketplace === 'walmart') && (
                         <>
                           <TableHead className="bg-blue-50">Walmart ID</TableHead>
+                          <TableHead className="bg-blue-50">Product Type</TableHead>
                           <SortableHeader column="walmartPrice" currentColumn={sortColumn} direction={sortDirection} onClick={() => handleSort('walmartPrice')} className="text-right bg-blue-50">
                             Walmart Price
                           </SortableHeader>
@@ -673,6 +677,11 @@ export default function MarketplaceCatalog() {
                                     <ExternalLink className="h-3 w-3" />
                                   </a>
                                 ) : '—'}
+                              </TableCell>
+                              <TableCell className="bg-blue-50/50 text-xs max-w-[150px]">
+                                <span className="line-clamp-2" title={product.walmartProductType || ''}>
+                                  {product.walmartProductType || '—'}
+                                </span>
                               </TableCell>
                               <TableCell className="text-right bg-blue-50/50 font-medium">
                                 {product.walmartPrice ? `$${(product.walmartPrice / 100).toFixed(2)}` : '—'}

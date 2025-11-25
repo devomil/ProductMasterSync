@@ -2765,6 +2765,7 @@ router.get('/catalog', async (req, res) => {
           currentPrice: walmartProducts.currentPrice,
           inStock: walmartProducts.inStock,
           categoryPath: walmartProducts.categoryPath,
+          productType: walmartProducts.productType,
         })
         .from(walmartProducts)
         .where(inArray(walmartProducts.walmartItemId, walmartIds));
@@ -2875,6 +2876,7 @@ router.get('/catalog', async (req, res) => {
         walmartPrice: walmartProd?.currentPrice || null,
         walmartReferralFee,
         walmartContractCategory,
+        walmartProductType: walmartProd?.productType || null,
         walmartInStock: walmartProd?.inStock || false,
         walmartMargin,
         
