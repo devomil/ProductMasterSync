@@ -3,6 +3,10 @@
  * 
  * Syncs seller's active Walmart listings to the marketplace_listings table
  * Uses Walmart Marketplace API v3/items endpoint with cursor-based pagination
+ * 
+ * API Reference:
+ * - GET /v3/items - Get all items with nextCursor pagination
+ * - GET /v3/inventory?sku={sku} - Get inventory for a specific SKU
  */
 
 import axios from 'axios';
@@ -11,16 +15,12 @@ import * as listingsRepo from './listings-repository';
 import { calculateReferralFee, getContractCategory } from './walmart-referral-fees';
 import type { InsertMarketplaceListing, InsertWalmartListingDetails } from '../../shared/schema';
 
-// Token cache shared with walmart-api.ts
 let tokenCache: { access_token: string; expires_at: number } | null = null;
 
 function generateCorrelationId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 }
 
-/**
- * Get access token for Walmart API
- */
 async function getAccessToken(): Promise<string> {
   if (tokenCache && tokenCache.expires_at > Date.now()) {
     return tokenCache.access_token;
@@ -52,6 +52,7 @@ async function getAccessToken(): Promise<string> {
 
 /**
  * Walmart Item from the v3/items API
+ * Based on actual API response structure
  */
 interface WalmartListingItem {
   sku: string;
@@ -61,28 +62,24 @@ interface WalmartListingItem {
     currency?: string;
     amount?: number;
   };
-  inventory?: {
-    quantity?: number;
-  };
   upc?: string;
   gtin?: string;
   productType?: string;
+  shelf?: string;
   brand?: string;
-  category?: string[];
+  condition?: string;
+  availability?: string;
   lifecycleStatus?: string;
   publishedStatus?: string;
-  unpublishedReasons?: any;
-  shippingWeight?: number;
-  shippingWeightUnit?: string;
-  primaryImageUrl?: string;
-  fulfillmentLagTime?: number;
-  itemId?: string;
-  variants?: any[];
-  offerStartDate?: string;
-  offerEndDate?: string;
-  priceDisplayCodes?: string;
-  shippingProgramType?: string;
+  unpublishedReasons?: {
+    reason?: string[];
+  };
+  variantGroupId?: string;
+  variantGroupInfo?: any;
   additionalAttributes?: any;
+  isCustomerFavorite?: boolean;
+  isDuplicate?: boolean;
+  duplicateItemInfo?: any;
 }
 
 interface WalmartItemsResponse {
@@ -91,22 +88,31 @@ interface WalmartItemsResponse {
   totalItems?: number;
 }
 
+interface WalmartInventoryResponse {
+  sku: string;
+  quantity?: {
+    unit: string;
+    amount: number;
+  };
+  inventoryAvailableDate?: string;
+}
+
 /**
- * Fetch items from Walmart API with pagination
+ * Fetch items from Walmart API with cursor-based pagination
+ * Uses nextCursor=* for initial request, then the returned cursor for subsequent pages
  */
 async function fetchWalmartItems(
-  limit: number = 200,
   nextCursor?: string
 ): Promise<WalmartItemsResponse> {
   const config = await getWalmartConfig();
   const accessToken = await getAccessToken();
 
-  const params: any = { limit };
-  if (nextCursor) {
-    params.nextCursor = nextCursor;
-  }
+  const params: any = {
+    nextCursor: nextCursor || '*',
+    limit: 200
+  };
 
-  console.log(`[Walmart Sync] Fetching items with cursor: ${nextCursor || 'initial'}`);
+  console.log(`[Walmart Sync] Fetching items with cursor: ${nextCursor || '*'}`);
 
   const response = await axios.get(`${config.apiUrl}/items`, {
     headers: {
@@ -122,15 +128,48 @@ async function fetchWalmartItems(
 }
 
 /**
+ * Fetch inventory for a specific SKU
+ */
+async function fetchInventoryForSKU(sku: string): Promise<WalmartInventoryResponse | null> {
+  const config = await getWalmartConfig();
+  const accessToken = await getAccessToken();
+
+  try {
+    const response = await axios.get(`${config.apiUrl}/inventory`, {
+      headers: {
+        'WM_SEC.ACCESS_TOKEN': accessToken,
+        'WM_SVC.NAME': config.serviceName,
+        'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+        'Accept': 'application/json'
+      },
+      params: { sku: encodeURIComponent(sku) }
+    });
+
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return null;
+    }
+    console.error(`[Walmart Sync] Error fetching inventory for SKU ${sku}:`, error.message);
+    return null;
+  }
+}
+
+/**
  * Transform Walmart item to marketplace listing format
  */
-function transformToListing(item: WalmartListingItem): {
+function transformToListing(item: WalmartListingItem, inventoryQuantity?: number): {
   listing: InsertMarketplaceListing;
   details: Partial<InsertWalmartListingDetails>;
 } {
-  const categoryPath = item.category || [];
-  const productType = categoryPath.length > 0 ? categoryPath[categoryPath.length - 1] : null;
-  const contractCategoryKey = getContractCategory(categoryPath.length > 0 ? categoryPath : null);
+  const categoryPath: string[] = [];
+  
+  if (item.shelf) {
+    categoryPath.push(...item.shelf.split('/').map(s => s.trim()).filter(Boolean));
+  }
+  
+  const productType = item.productType || 
+    (categoryPath.length > 0 ? categoryPath[categoryPath.length - 1] : null);
   
   const priceInCents = item.price?.amount ? Math.round(item.price.amount * 100) : null;
   
@@ -142,6 +181,16 @@ function transformToListing(item: WalmartListingItem): {
     contractCategory = feeResult.contractCategoryName;
   }
 
+  type ListingStatus = 'pending' | 'active' | 'inactive' | 'retired' | 'unpublished' | 'suppressed';
+  
+  const mapStatus = (lifecycle?: string, published?: string, availability?: string): ListingStatus => {
+    if (lifecycle === 'ACTIVE' && published === 'PUBLISHED') return 'active';
+    if (lifecycle === 'ACTIVE' && published === 'UNPUBLISHED') return 'unpublished';
+    if (lifecycle === 'RETIRED') return 'retired';
+    if (lifecycle === 'ARCHIVED') return 'inactive';
+    return 'pending';
+  };
+
   const listing: InsertMarketplaceListing = {
     marketplace: 'walmart',
     listingId: item.sku,
@@ -150,30 +199,24 @@ function transformToListing(item: WalmartListingItem): {
     gtin: item.gtin || null,
     title: item.productName,
     brand: item.brand || null,
-    status: item.lifecycleStatus === 'ACTIVE' ? 'active' : 
-            item.lifecycleStatus === 'RETIRED' ? 'retired' :
-            item.lifecycleStatus === 'ARCHIVED' ? 'inactive' : 'pending',
+    status: mapStatus(item.lifecycleStatus, item.publishedStatus, item.availability),
     lifecycleStatus: item.lifecycleStatus || null,
     publishedStatus: item.publishedStatus || null,
-    quantity: item.inventory?.quantity ?? 0,
+    quantity: inventoryQuantity ?? 0,
     priceInCents,
     referralFeeInCents,
     productType,
     category: categoryPath.length > 0 ? categoryPath[0] : null,
     categoryPath: categoryPath as any,
     contractCategory,
-    fulfillmentMethod: item.shippingProgramType || 'SELLER',
+    fulfillmentMethod: item.condition === 'New' ? 'SELLER' : 'SELLER',
     rawSnapshot: item as any,
   };
 
   const details: Partial<InsertWalmartListingDetails> = {
-    walmartItemId: item.itemId || null,
     wpid: item.wpid || null,
     walmartLifecycleStatus: item.lifecycleStatus || null,
     walmartPublishStatus: item.publishedStatus || null,
-    shippingWeight: item.shippingWeight || null,
-    shippingWeightUnit: item.shippingWeightUnit || 'LB',
-    fulfillmentLagTime: item.fulfillmentLagTime || null,
   };
 
   return { listing, details };
@@ -181,6 +224,9 @@ function transformToListing(item: WalmartListingItem): {
 
 /**
  * Start a full sync of Walmart listings
+ * 
+ * Fetches all items using cursor-based pagination from GET /v3/items
+ * Then fetches inventory for each item from GET /v3/inventory
  */
 export async function startWalmartListingsSync(jobId: number): Promise<void> {
   console.log(`[Walmart Sync] Starting sync job ${jobId}...`);
@@ -194,22 +240,174 @@ export async function startWalmartListingsSync(jobId: number): Promise<void> {
     let errorCount = 0;
     let hasMore = true;
     let totalItems = 0;
+    let pageCount = 0;
+
+    const allItems: { item: WalmartListingItem; inventoryQuantity: number }[] = [];
+
+    console.log(`[Walmart Sync] Phase 1: Fetching all items from Walmart API...`);
 
     while (hasMore) {
       try {
-        const response = await fetchWalmartItems(200, nextCursor);
+        const response = await fetchWalmartItems(nextCursor);
         const items = response.ItemResponse || [];
+        pageCount++;
+        
+        if (response.totalItems && totalItems === 0) {
+          totalItems = response.totalItems;
+          await listingsRepo.updateSyncJob(jobId, { totalItems });
+          console.log(`[Walmart Sync] Total items to sync: ${totalItems}`);
+        }
+
+        console.log(`[Walmart Sync] Page ${pageCount}: Received ${items.length} items`);
+
+        for (const item of items) {
+          allItems.push({ item, inventoryQuantity: 0 });
+        }
+
+        nextCursor = response.nextCursor;
+        hasMore = !!nextCursor && items.length > 0;
+
+        await listingsRepo.updateSyncJob(jobId, {
+          processedItems: allItems.length,
+          nextCursor: nextCursor || undefined
+        });
+
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      } catch (err: any) {
+        console.error(`[Walmart Sync] Error fetching page ${pageCount}:`, err.message);
+        
+        if (allItems.length === 0) {
+          throw err;
+        }
+        
+        console.log(`[Walmart Sync] Continuing with ${allItems.length} items collected`);
+        break;
+      }
+    }
+
+    console.log(`[Walmart Sync] Phase 1 complete: ${allItems.length} items fetched`);
+    console.log(`[Walmart Sync] Phase 2: Fetching inventory for each item...`);
+
+    await listingsRepo.updateSyncJob(jobId, {
+      totalItems: allItems.length
+    });
+
+    let inventoryFetched = 0;
+    for (const entry of allItems) {
+      try {
+        const inventory = await fetchInventoryForSKU(entry.item.sku);
+        if (inventory?.quantity?.amount !== undefined) {
+          entry.inventoryQuantity = inventory.quantity.amount;
+        }
+        inventoryFetched++;
+        
+        if (inventoryFetched % 100 === 0) {
+          console.log(`[Walmart Sync] Inventory progress: ${inventoryFetched}/${allItems.length}`);
+          await listingsRepo.updateSyncJob(jobId, {
+            lastProcessedId: `inventory_${inventoryFetched}/${allItems.length}`
+          });
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (err) {
+        console.error(`[Walmart Sync] Error fetching inventory for ${entry.item.sku}:`, err);
+      }
+    }
+
+    console.log(`[Walmart Sync] Phase 2 complete: Inventory fetched for ${inventoryFetched} items`);
+    console.log(`[Walmart Sync] Phase 3: Saving listings to database...`);
+
+    await listingsRepo.updateSyncJob(jobId, {
+      lastProcessedId: 'phase_saving_listings'
+    });
+
+    const batchSize = 50;
+    for (let i = 0; i < allItems.length; i += batchSize) {
+      const batch = allItems.slice(i, i + batchSize);
+      
+      for (const { item, inventoryQuantity } of batch) {
+        try {
+          const { listing, details } = transformToListing(item, inventoryQuantity);
+          
+          const savedListing = await listingsRepo.upsertMarketplaceListing(listing);
+          
+          if (Object.keys(details).some(k => details[k as keyof typeof details] !== null)) {
+            await listingsRepo.upsertWalmartListingDetails({
+              marketplaceListingId: savedListing.id,
+              ...details
+            } as InsertWalmartListingDetails);
+          }
+          
+          successCount++;
+        } catch (err) {
+          console.error(`[Walmart Sync] Error saving item ${item.sku}:`, err);
+          errorCount++;
+        }
+        totalProcessed++;
+      }
+
+      await listingsRepo.updateSyncJob(jobId, {
+        processedItems: totalProcessed,
+        successItems: successCount,
+        failedItems: errorCount
+      });
+
+      if (totalProcessed % 500 === 0) {
+        console.log(`[Walmart Sync] Save progress: ${totalProcessed}/${allItems.length} (success: ${successCount}, errors: ${errorCount})`);
+      }
+    }
+
+    await listingsRepo.completeSyncJob(jobId, {
+      processedItems: totalProcessed,
+      successItems: successCount,
+      failedItems: errorCount
+    });
+
+    console.log(`[Walmart Sync] ✅ Job ${jobId} completed: ${successCount} success, ${errorCount} errors`);
+
+  } catch (error) {
+    console.error(`[Walmart Sync] Job ${jobId} failed:`, error);
+    await listingsRepo.failSyncJob(jobId, (error as Error).message, { stack: (error as Error).stack });
+    throw error;
+  }
+}
+
+/**
+ * Start sync without fetching inventory (faster for initial import)
+ * Useful when you just want to get item metadata without quantity
+ */
+export async function startWalmartListingsSyncItemsOnly(jobId: number): Promise<void> {
+  console.log(`[Walmart Sync] Starting items-only sync job ${jobId}...`);
+
+  try {
+    await listingsRepo.startSyncJob(jobId);
+
+    let nextCursor: string | undefined;
+    let totalProcessed = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let hasMore = true;
+    let totalItems = 0;
+    let pageCount = 0;
+
+    while (hasMore) {
+      try {
+        const response = await fetchWalmartItems(nextCursor);
+        const items = response.ItemResponse || [];
+        pageCount++;
         
         if (response.totalItems && totalItems === 0) {
           totalItems = response.totalItems;
           await listingsRepo.updateSyncJob(jobId, { totalItems });
         }
 
-        console.log(`[Walmart Sync] Processing ${items.length} items...`);
+        console.log(`[Walmart Sync] Page ${pageCount}: Processing ${items.length} items...`);
 
         for (const item of items) {
           try {
-            const { listing, details } = transformToListing(item);
+            const { listing, details } = transformToListing(item, 0);
             
             const savedListing = await listingsRepo.upsertMarketplaceListing(listing);
             
@@ -240,10 +438,10 @@ export async function startWalmartListingsSync(jobId: number): Promise<void> {
         console.log(`[Walmart Sync] Progress: ${totalProcessed}/${totalItems || 'unknown'} (success: ${successCount}, errors: ${errorCount})`);
 
         if (hasMore) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
-      } catch (err) {
-        console.error(`[Walmart Sync] Error fetching page:`, err);
+      } catch (err: any) {
+        console.error(`[Walmart Sync] Error fetching page:`, err.message);
         
         if (totalProcessed === 0) {
           throw err;
@@ -259,7 +457,7 @@ export async function startWalmartListingsSync(jobId: number): Promise<void> {
       failedItems: errorCount
     });
 
-    console.log(`[Walmart Sync] Job ${jobId} completed: ${successCount} success, ${errorCount} errors`);
+    console.log(`[Walmart Sync] ✅ Job ${jobId} completed: ${successCount} success, ${errorCount} errors`);
 
   } catch (error) {
     console.error(`[Walmart Sync] Job ${jobId} failed:`, error);
@@ -268,16 +466,10 @@ export async function startWalmartListingsSync(jobId: number): Promise<void> {
   }
 }
 
-/**
- * Get sync status for a job
- */
 export async function getSyncStatus(jobId: number) {
   return listingsRepo.getSyncJob(jobId);
 }
 
-/**
- * Check if a sync is currently running
- */
 export async function isSyncRunning(): Promise<boolean> {
   const runningJob = await listingsRepo.getRunningSync('walmart');
   return !!runningJob;

@@ -407,16 +407,24 @@ export async function getSyncJob(id: number): Promise<MarketplaceSyncJob | null>
 }
 
 /**
- * Get recent sync jobs for a marketplace
+ * Get recent sync jobs for a marketplace (or all marketplaces if not specified)
  */
 export async function getRecentSyncJobs(
-  marketplace: string,
+  marketplace?: string,
   limit: number = 10
 ): Promise<MarketplaceSyncJob[]> {
-  return await db
+  const query = db
     .select()
-    .from(marketplaceSyncJobs)
-    .where(eq(marketplaceSyncJobs.marketplace, marketplace as any))
+    .from(marketplaceSyncJobs);
+  
+  if (marketplace) {
+    return await query
+      .where(eq(marketplaceSyncJobs.marketplace, marketplace as any))
+      .orderBy(desc(marketplaceSyncJobs.createdAt))
+      .limit(limit);
+  }
+  
+  return await query
     .orderBy(desc(marketplaceSyncJobs.createdAt))
     .limit(limit);
 }

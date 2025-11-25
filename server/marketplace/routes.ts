@@ -18,7 +18,7 @@ import { products, categories, amazonAsins, amazonMarketIntelligence, productAsi
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
 import * as listingsRepo from './listings-repository';
-import { startWalmartListingsSync } from './walmart-listings-sync';
+import { startWalmartListingsSync, startWalmartListingsSyncItemsOnly } from './walmart-listings-sync';
 
 const router = Router();
 
@@ -3082,9 +3082,15 @@ router.get('/sync-jobs/:id', async (req, res) => {
 /**
  * POST /marketplace/walmart/listings/sync
  * Trigger a Walmart listings sync
+ * 
+ * Query params:
+ * - mode: 'fast' (items only, no inventory) or 'full' (with inventory)
+ *   Default is 'fast' since inventory can be fetched separately or is often 0
  */
 router.post('/walmart/listings/sync', async (req, res) => {
   try {
+    const mode = (req.query.mode as string) || 'fast';
+    
     // Check if a sync is already running
     const runningJob = await listingsRepo.getRunningSync('walmart');
     if (runningJob) {
@@ -3097,20 +3103,27 @@ router.post('/walmart/listings/sync', async (req, res) => {
     // Create a new sync job
     const job = await listingsRepo.createSyncJob({
       marketplace: 'walmart',
-      jobType: 'full_sync',
+      jobType: mode === 'full' ? 'full_sync' : 'items_sync',
       triggeredBy: 'manual',
       totalItems: 0,
     });
     
     // Start the sync in the background
-    startWalmartListingsSync(job.id).catch(err => {
-      console.error('[Listings API] Sync job failed:', err);
-    });
+    if (mode === 'full') {
+      startWalmartListingsSync(job.id).catch(err => {
+        console.error('[Listings API] Full sync job failed:', err);
+      });
+    } else {
+      startWalmartListingsSyncItemsOnly(job.id).catch(err => {
+        console.error('[Listings API] Items sync job failed:', err);
+      });
+    }
     
     return res.json({ 
-      message: 'Sync job started',
+      message: `Sync job started (${mode} mode)`,
       jobId: job.id,
-      status: 'running'
+      status: 'running',
+      mode
     });
   } catch (error) {
     console.error('[Listings API] Error creating sync job:', error);
