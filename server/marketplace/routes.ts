@@ -2697,7 +2697,7 @@ router.get('/catalog', async (req, res) => {
     const { marketplace = 'all' } = req.query;
     
     const { db } = await import('../db');
-    const { products, productAmazonMappings, productWalmartMapping, walmartProducts, amazonMarketIntelligence, purchasingOpportunities } = await import('@shared/schema');
+    const { products, productAsinMapping, productWalmartMapping, walmartProducts, amazonMarketIntelligence, amazonAsins, purchasingOpportunities } = await import('@shared/schema');
     const { sql, eq, and, isNotNull } = await import('drizzle-orm');
     const { calculateReferralFee } = await import('./walmart-referral-fees');
     
@@ -2711,18 +2711,19 @@ router.get('/catalog', async (req, res) => {
         cost: products.cost,
         
         // Amazon mapping
-        asin: productAmazonMappings.asin,
-        amazonCanList: productAmazonMappings.canList,
-        amazonRestricted: productAmazonMappings.isRestricted,
+        asin: productAsinMapping.asin,
+        amazonCanList: amazonAsins.canList,
+        amazonHasRestrictions: amazonAsins.hasListingRestrictions,
         
         // Walmart mapping
         walmartItemId: productWalmartMapping.walmartItemId,
       })
       .from(products)
-      .leftJoin(productAmazonMappings, and(
-        eq(products.id, productAmazonMappings.productId),
-        eq(productAmazonMappings.isActive, true)
+      .leftJoin(productAsinMapping, and(
+        eq(products.id, productAsinMapping.productId),
+        eq(productAsinMapping.isActive, true)
       ))
+      .leftJoin(amazonAsins, eq(productAsinMapping.asin, amazonAsins.asin))
       .leftJoin(productWalmartMapping, and(
         eq(products.id, productWalmartMapping.productId),
         eq(productWalmartMapping.isActive, true)
@@ -2734,6 +2735,7 @@ router.get('/catalog', async (req, res) => {
     let amazonIntelMap: Record<string, any> = {};
     
     if (asins.length > 0) {
+      const { inArray } = await import('drizzle-orm');
       const amazonIntel = await db
         .select({
           asin: amazonMarketIntelligence.asin,
@@ -2743,7 +2745,7 @@ router.get('/catalog', async (req, res) => {
           salesRank: amazonMarketIntelligence.salesRank,
         })
         .from(amazonMarketIntelligence)
-        .where(sql`${amazonMarketIntelligence.asin} = ANY(${asins})`);
+        .where(inArray(amazonMarketIntelligence.asin, asins));
       
       amazonIntelMap = amazonIntel.reduce((acc, intel) => {
         if (intel.asin) acc[intel.asin] = intel;
@@ -2756,6 +2758,7 @@ router.get('/catalog', async (req, res) => {
     let walmartProductMap: Record<string, any> = {};
     
     if (walmartIds.length > 0) {
+      const { inArray } = await import('drizzle-orm');
       const walmartProds = await db
         .select({
           walmartItemId: walmartProducts.walmartItemId,
@@ -2764,7 +2767,7 @@ router.get('/catalog', async (req, res) => {
           categoryPath: walmartProducts.categoryPath,
         })
         .from(walmartProducts)
-        .where(sql`${walmartProducts.walmartItemId} = ANY(${walmartIds})`);
+        .where(inArray(walmartProducts.walmartItemId, walmartIds));
       
       walmartProductMap = walmartProds.reduce((acc, prod) => {
         if (prod.walmartItemId) acc[prod.walmartItemId] = prod;
@@ -2777,6 +2780,7 @@ router.get('/catalog', async (req, res) => {
     let opportunityMap: Record<number, any> = {};
     
     if (productIds.length > 0) {
+      const { inArray } = await import('drizzle-orm');
       const opportunities = await db
         .select({
           productId: purchasingOpportunities.productId,
@@ -2785,7 +2789,7 @@ router.get('/catalog', async (req, res) => {
           shippingCost: purchasingOpportunities.shippingCost,
         })
         .from(purchasingOpportunities)
-        .where(sql`${purchasingOpportunities.productId} = ANY(${productIds})`);
+        .where(inArray(purchasingOpportunities.productId, productIds));
       
       opportunityMap = opportunities.reduce((acc, opp) => {
         if (opp.productId) acc[opp.productId] = opp;
@@ -2809,25 +2813,35 @@ router.get('/catalog', async (req, res) => {
         walmartContractCategory = feeResult.contractCategoryName;
       }
       
-      // Calculate margins
-      const costWithShipping = (product.cost || 0) + (opportunity?.shippingCost || 0);
+      // Parse cost - products.cost is a text field in DOLLARS, so we need to convert to number
+      const parsedCostDollars = product.cost ? parseFloat(String(product.cost)) : 0;
+      // Convert cost to cents for consistent calculations (prices and fees are in cents)
+      const parsedCostCents = parsedCostDollars * 100;
+      
+      // Calculate margins (all values in cents for accuracy)
+      const shippingCostCents = (opportunity?.shippingCost || 0) * 100; // Convert dollars to cents
+      const costWithShippingCents = parsedCostCents + shippingCostCents;
       
       let amazonMargin = null;
-      if (amazonIntel?.buyBoxPrice && costWithShipping > 0) {
+      if (amazonIntel?.buyBoxPrice && costWithShippingCents > 0) {
+        // Amazon prices and fees are in cents
         const amazonNetProceeds = amazonIntel.buyBoxPrice - (amazonIntel.referralFee || 0) - (amazonIntel.fbaFee || 0);
-        amazonMargin = ((amazonNetProceeds - costWithShipping) / amazonNetProceeds) * 100;
+        const amazonNetProfit = amazonNetProceeds - costWithShippingCents;
+        amazonMargin = (amazonNetProfit / amazonIntel.buyBoxPrice) * 100;
       }
       
       let walmartMargin = null;
-      if (walmartProd?.currentPrice && costWithShipping > 0 && walmartReferralFee !== null) {
+      if (walmartProd?.currentPrice && costWithShippingCents > 0 && walmartReferralFee !== null) {
+        // Walmart prices and fees are in cents
         const walmartNetProceeds = walmartProd.currentPrice - walmartReferralFee;
-        walmartMargin = ((walmartNetProceeds - costWithShipping) / walmartNetProceeds) * 100;
+        const walmartNetProfit = walmartNetProceeds - costWithShippingCents;
+        walmartMargin = (walmartNetProfit / walmartProd.currentPrice) * 100;
       }
       
       // Determine listing status
       let listingStatus: 'ready' | 'needs_approval' | 'restricted' | 'no_mapping' = 'no_mapping';
       if (product.asin || product.walmartItemId) {
-        if (product.amazonRestricted) {
+        if (product.amazonHasRestrictions) {
           listingStatus = 'restricted';
         } else if (product.amazonCanList === false) {
           listingStatus = 'needs_approval';
@@ -2843,7 +2857,7 @@ router.get('/catalog', async (req, res) => {
         sku: product.sku,
         name: product.name,
         upc: product.upc,
-        cost: product.cost,
+        cost: parsedCostDollars || null,
         shippingCost: opportunity?.shippingCost || null,
         
         // Amazon
@@ -2852,7 +2866,7 @@ router.get('/catalog', async (req, res) => {
         amazonReferralFee: amazonIntel?.referralFee || null,
         amazonFbaFee: amazonIntel?.fbaFee || null,
         amazonSalesRank: amazonIntel?.salesRank || null,
-        amazonRestricted: product.amazonRestricted || false,
+        amazonRestricted: product.amazonHasRestrictions || false,
         amazonCanList: product.amazonCanList,
         amazonMargin,
         
