@@ -377,20 +377,29 @@ export async function startWalmartListingsSync(jobId: number): Promise<void> {
 /**
  * Start sync without fetching inventory (faster for initial import)
  * Useful when you just want to get item metadata without quantity
+ * 
+ * @param jobId - The sync job ID
+ * @param resumeFromCursor - Optional cursor to resume from (for interrupted syncs)
+ * @param resumeProcessedCount - Number of items already processed (for accurate progress tracking)
  */
-export async function startWalmartListingsSyncItemsOnly(jobId: number): Promise<void> {
-  console.log(`[Walmart Sync] Starting items-only sync job ${jobId}...`);
+export async function startWalmartListingsSyncItemsOnly(
+  jobId: number,
+  resumeFromCursor?: string,
+  resumeProcessedCount: number = 0
+): Promise<void> {
+  const isResuming = !!resumeFromCursor;
+  console.log(`[Walmart Sync] Starting items-only sync job ${jobId}${isResuming ? ` (resuming from cursor, already processed: ${resumeProcessedCount})` : ''}...`);
 
   try {
     await listingsRepo.startSyncJob(jobId);
 
-    let nextCursor: string | undefined;
-    let totalProcessed = 0;
-    let successCount = 0;
+    let nextCursor: string | undefined = resumeFromCursor;
+    let totalProcessed = resumeProcessedCount;
+    let successCount = resumeProcessedCount; // Assume previous items were successful
     let errorCount = 0;
     let hasMore = true;
     let totalItems = 0;
-    let pageCount = 0;
+    let pageCount = isResuming ? Math.floor(resumeProcessedCount / 200) : 0;
 
     while (hasMore) {
       try {
@@ -426,14 +435,16 @@ export async function startWalmartListingsSyncItemsOnly(jobId: number): Promise<
           totalProcessed++;
         }
 
+        nextCursor = response.nextCursor;
+        hasMore = !!nextCursor && items.length > 0;
+
+        // Save progress AND cursor for resumability
         await listingsRepo.updateSyncJob(jobId, {
           processedItems: totalProcessed,
           successItems: successCount,
-          failedItems: errorCount
+          failedItems: errorCount,
+          nextCursor: nextCursor || undefined  // Save cursor for resume capability
         });
-
-        nextCursor = response.nextCursor;
-        hasMore = !!nextCursor && items.length > 0;
 
         console.log(`[Walmart Sync] Progress: ${totalProcessed}/${totalItems || 'unknown'} (success: ${successCount}, errors: ${errorCount})`);
 

@@ -531,6 +531,41 @@ export async function failSyncJob(
   });
 }
 
+/**
+ * Get the last cursor from the most recent interrupted (failed/cancelled) sync job
+ * Used for resuming syncs where they left off
+ */
+export async function getLastInterruptedSyncCursor(marketplace: string): Promise<{
+  cursor: string | null;
+  jobId: number | null;
+  processedItems: number;
+} | null> {
+  // Find the most recent failed/cancelled job that has a cursor saved
+  const [job] = await db
+    .select()
+    .from(marketplaceSyncJobs)
+    .where(and(
+      eq(marketplaceSyncJobs.marketplace, marketplace as any),
+      or(
+        eq(marketplaceSyncJobs.status, 'failed'),
+        eq(marketplaceSyncJobs.status, 'cancelled')
+      ),
+      sql`${marketplaceSyncJobs.nextCursor} IS NOT NULL AND ${marketplaceSyncJobs.nextCursor} != ''`
+    ))
+    .orderBy(desc(marketplaceSyncJobs.createdAt))
+    .limit(1);
+
+  if (!job || !job.nextCursor) {
+    return null;
+  }
+
+  return {
+    cursor: job.nextCursor,
+    jobId: job.id,
+    processedItems: job.processedItems || 0
+  };
+}
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================

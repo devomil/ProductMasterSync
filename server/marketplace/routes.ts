@@ -3086,10 +3086,12 @@ router.get('/sync-jobs/:id', async (req, res) => {
  * Query params:
  * - mode: 'fast' (items only, no inventory) or 'full' (with inventory)
  *   Default is 'fast' since inventory can be fetched separately or is often 0
+ * - resume: 'true' to attempt resuming from last interrupted sync
  */
 router.post('/walmart/listings/sync', async (req, res) => {
   try {
     const mode = (req.query.mode as string) || 'fast';
+    const shouldResume = req.query.resume === 'true';
     
     // Check if a sync is already running
     const runningJob = await listingsRepo.getRunningSync('walmart');
@@ -3098,6 +3100,12 @@ router.post('/walmart/listings/sync', async (req, res) => {
         error: 'A sync job is already running',
         jobId: runningJob.id 
       });
+    }
+    
+    // Check for resumable cursor if resume mode is requested
+    let resumeInfo: { cursor: string | null; jobId: number | null; processedItems: number } | null = null;
+    if (shouldResume) {
+      resumeInfo = await listingsRepo.getLastInterruptedSyncCursor('walmart');
     }
     
     // Create a new sync job
@@ -3114,16 +3122,24 @@ router.post('/walmart/listings/sync', async (req, res) => {
         console.error('[Listings API] Full sync job failed:', err);
       });
     } else {
-      startWalmartListingsSyncItemsOnly(job.id).catch(err => {
+      // Pass resume cursor and processed count if available
+      const resumeCursor = resumeInfo?.cursor || undefined;
+      const resumeProcessed = resumeInfo?.processedItems || 0;
+      
+      startWalmartListingsSyncItemsOnly(job.id, resumeCursor, resumeProcessed).catch(err => {
         console.error('[Listings API] Items sync job failed:', err);
       });
     }
     
+    const isResuming = !!(resumeInfo?.cursor);
     return res.json({ 
-      message: `Sync job started (${mode} mode)`,
+      message: `Sync job started (${mode} mode)${isResuming ? ' - resuming from previous sync' : ''}`,
       jobId: job.id,
       status: 'running',
-      mode
+      mode,
+      resuming: isResuming,
+      resumeFromJobId: isResuming ? resumeInfo?.jobId : undefined,
+      previouslyProcessed: isResuming ? resumeInfo?.processedItems : undefined
     });
   } catch (error) {
     console.error('[Listings API] Error creating sync job:', error);
