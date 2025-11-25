@@ -57,12 +57,11 @@ interface MarketplaceListing {
 
 interface ListingsResponse {
   listings: MarketplaceListing[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: ListingsStats;
 }
 
 interface SyncJob {
@@ -82,12 +81,10 @@ interface SyncJob {
 }
 
 interface ListingsStats {
-  total: number;
-  active: number;
-  inactive: number;
-  pending: number;
-  retired: number;
-  byMarketplace: Record<string, number>;
+  totalListings: number;
+  activeListings: number;
+  zeroQuantityListings: number;
+  withProductMatch: number;
 }
 
 function SortableHeader({ 
@@ -170,11 +167,10 @@ export default function ActiveListings() {
     }],
   });
 
-  const { data: statsData, isLoading: isLoadingStats } = useQuery<ListingsStats>({
-    queryKey: ['/api/marketplace/listings/stats'],
-  });
+  const statsData = listingsData?.stats;
+  const isLoadingStats = isLoadingListings;
 
-  const { data: syncJobs, isLoading: isLoadingSyncJobs } = useQuery<SyncJob[]>({
+  const { data: syncJobs } = useQuery<SyncJob[]>({
     queryKey: ['/api/marketplace/listings/sync-jobs', { marketplace: selectedMarketplace === 'all' ? undefined : selectedMarketplace }],
     refetchInterval: 5000,
   });
@@ -320,7 +316,7 @@ export default function ActiveListings() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="stat-total">
-              {isLoadingStats ? '-' : statsData?.total.toLocaleString() || 0}
+              {isLoadingStats ? '-' : (statsData?.totalListings ?? 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -332,31 +328,31 @@ export default function ActiveListings() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600" data-testid="stat-active">
-              {isLoadingStats ? '-' : statsData?.active.toLocaleString() || 0}
+              {isLoadingStats ? '-' : (statsData?.activeListings ?? 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <XCircle className="h-4 w-4 text-gray-500" /> Inactive
+              <XCircle className="h-4 w-4 text-gray-500" /> Zero Qty
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600" data-testid="stat-inactive">
-              {isLoadingStats ? '-' : statsData?.inactive.toLocaleString() || 0}
+            <div className="text-2xl font-bold text-gray-600" data-testid="stat-zero-qty">
+              {isLoadingStats ? '-' : (statsData?.zeroQuantityListings ?? 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <AlertCircle className="h-4 w-4 text-yellow-600" /> Pending/Retired
+              <Package className="h-4 w-4 text-blue-600" /> Matched
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600" data-testid="stat-other">
-              {isLoadingStats ? '-' : ((statsData?.pending || 0) + (statsData?.retired || 0)).toLocaleString()}
+            <div className="text-2xl font-bold text-blue-600" data-testid="stat-matched">
+              {isLoadingStats ? '-' : (statsData?.withProductMatch ?? 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -569,10 +565,10 @@ export default function ActiveListings() {
             </Table>
           </div>
 
-          {listingsData && listingsData.pagination.totalPages > 1 && (
+          {listingsData && listingsData.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * listingsPerPage) + 1} to {Math.min(currentPage * listingsPerPage, listingsData.pagination.total)} of {listingsData.pagination.total.toLocaleString()} listings
+                Showing {((currentPage - 1) * listingsPerPage) + 1} to {Math.min(currentPage * listingsPerPage, listingsData.total)} of {(listingsData.total ?? 0).toLocaleString()} listings
               </p>
               <div className="flex gap-2">
                 <Button
@@ -588,7 +584,7 @@ export default function ActiveListings() {
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(p => p + 1)}
-                  disabled={currentPage >= listingsData.pagination.totalPages}
+                  disabled={currentPage >= (listingsData.totalPages ?? 1)}
                   data-testid="button-next-page"
                 >
                   Next

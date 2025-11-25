@@ -2984,6 +2984,24 @@ router.get('/listings/product-types', async (req, res) => {
 });
 
 /**
+ * GET /marketplace/listings/sync-jobs
+ * Get recent sync jobs for the listings
+ */
+router.get('/listings/sync-jobs', async (req, res) => {
+  try {
+    const marketplace = req.query.marketplace as string;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const jobs = await listingsRepo.getRecentSyncJobs(marketplace, limit);
+    
+    return res.json(jobs);
+  } catch (error) {
+    console.error('[Listings API] Error fetching sync jobs:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/listings/:id
  * Get a single listing by ID
  */
