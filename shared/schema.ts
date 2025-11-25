@@ -2039,6 +2039,15 @@ export const purchasingOpportunities = pgTable("purchasing_opportunities", {
   amazonTotalFees: real("amazon_total_fees"),  // Total Amazon fees
   amazonFeePercentage: real("amazon_fee_percentage"),  // Fees as % of price
   amazonNetProceeds: real("amazon_net_proceeds"),  // Price minus all Amazon fees
+  // Walmart Data (from UPC mapping and referral fee calculations)
+  walmartItemId: text("walmart_item_id"),  // Walmart product item ID
+  walmartPrice: real("walmart_price"),  // Walmart current price
+  walmartReferralFee: real("walmart_referral_fee"),  // Walmart referral/commission fee
+  walmartContractCategory: text("walmart_contract_category"),  // Fee category (e.g., "Electronics")
+  walmartFeePercentage: real("walmart_fee_percentage"),  // Fees as % of price
+  walmartNetProceeds: real("walmart_net_proceeds"),  // Price minus referral fee
+  walmartMarginPercent: real("walmart_margin_percent"),  // Walmart-specific profit margin %
+  walmartInStock: boolean("walmart_in_stock"),  // Walmart inventory status
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
