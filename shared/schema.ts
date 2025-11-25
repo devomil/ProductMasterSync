@@ -1109,6 +1109,69 @@ export const productWalmartMapping = pgTable("product_walmart_mapping", {
   };
 });
 
+// Walmart Pricing Insights - competitive pricing intelligence from Walmart API
+export const walmartPricingInsights = pgTable("walmart_pricing_insights", {
+  id: serial("id").primaryKey(),
+  
+  // Product identifiers
+  sku: text("sku").notNull().unique(), // Walmart SKU
+  itemName: text("item_name"),
+  
+  // Current pricing
+  currentPrice: integer("current_price"), // In cents
+  
+  // Buy Box pricing
+  buyBoxBasePrice: integer("buy_box_base_price"), // In cents
+  buyBoxTotalPrice: integer("buy_box_total_price"), // In cents (includes shipping)
+  buyBoxWinRate: text("buy_box_win_rate"), // Percentage or status
+  
+  // Competitive pricing
+  competitorPrice: integer("competitor_price"), // In cents
+  comparisonPrice: integer("comparison_price"), // In cents
+  priceDifferential: text("price_differential"), // Price difference indicator
+  
+  // Price competitiveness
+  priceCompetitiveScore: real("price_competitive_score"), // 0-100 score
+  priceCompetitive: boolean("price_competitive").default(false),
+  
+  // Fulfillment
+  fulfillment: text("fulfillment"), // WFS, Seller, etc.
+  inventoryCount: integer("inventory_count"),
+  
+  // Repricer settings
+  repricerStrategyType: text("repricer_strategy_type"),
+  repricerStrategyName: text("repricer_strategy_name"),
+  repricerStatus: text("repricer_status"),
+  repricerMinPrice: integer("repricer_min_price"), // In cents
+  repricerMaxPrice: integer("repricer_max_price"), // In cents
+  
+  // Promotions
+  promoStatus: text("promo_status"),
+  reducedReferralStatus: text("reduced_referral_status"),
+  walmartFundedStatus: text("walmart_funded_status"),
+  
+  // Demand and traffic indicators
+  inDemand: boolean("in_demand").default(false),
+  traffic: text("traffic"), // High, Medium, Low
+  
+  // GMV and revenue potential
+  gmv30: integer("gmv30"), // Gross Merchandise Value last 30 days in cents
+  potentialGmvLift: integer("potential_gmv_lift"), // Potential revenue increase in cents
+  
+  // Timestamps
+  dataFetchedAt: timestamp("data_fetched_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    skuIdx: uniqueIndex("walmart_pricing_insights_sku_idx").on(table.sku),
+    priceScoreIdx: index("walmart_pricing_insights_score_idx").on(table.priceCompetitiveScore),
+    demandIdx: index("walmart_pricing_insights_demand_idx").on(table.inDemand),
+    gmvIdx: index("walmart_pricing_insights_gmv_idx").on(table.gmv30),
+    trafficIdx: index("walmart_pricing_insights_traffic_idx").on(table.traffic),
+  };
+});
+
 // ============================================================================
 // END WALMART MARKETPLACE SCHEMA
 // ============================================================================
@@ -1834,6 +1897,7 @@ export const insertWalmartProductSchema = createInsertSchema(walmartProducts).om
 export const insertWalmartMarketIntelligenceSchema = createInsertSchema(walmartMarketIntelligence).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWalmartTaxonomySchema = createInsertSchema(walmartTaxonomy).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProductWalmartMappingSchema = createInsertSchema(productWalmartMapping).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWalmartPricingInsightsSchema = createInsertSchema(walmartPricingInsights).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types for inserts
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -1871,6 +1935,7 @@ export type InsertWalmartProduct = z.infer<typeof insertWalmartProductSchema>;
 export type InsertWalmartMarketIntelligence = z.infer<typeof insertWalmartMarketIntelligenceSchema>;
 export type InsertWalmartTaxonomy = z.infer<typeof insertWalmartTaxonomySchema>;
 export type InsertProductWalmartMapping = z.infer<typeof insertProductWalmartMappingSchema>;
+export type InsertWalmartPricingInsights = z.infer<typeof insertWalmartPricingInsightsSchema>;
 
 // Types for selects
 export type User = typeof users.$inferSelect;
@@ -1908,6 +1973,7 @@ export type WalmartProduct = typeof walmartProducts.$inferSelect;
 export type WalmartMarketIntelligence = typeof walmartMarketIntelligence.$inferSelect;
 export type WalmartTaxonomy = typeof walmartTaxonomy.$inferSelect;
 export type ProductWalmartMapping = typeof productWalmartMapping.$inferSelect;
+export type WalmartPricingInsights = typeof walmartPricingInsights.$inferSelect;
 
 // Shipping template types
 export type ShippingTemplate = typeof shippingTemplates.$inferSelect;
