@@ -358,3 +358,254 @@ export async function searchWalmartBySKU(sku: string): Promise<WalmartItemRespon
     throw new Error(`Failed to search by SKU: ${error.message}`);
   }
 }
+
+// ============================================================================
+// PRICING INSIGHTS API
+// ============================================================================
+
+/**
+ * Pricing Insights response item from Walmart API
+ */
+export interface WalmartPricingInsightItem {
+  itemName: string;
+  sku: string;
+  currentPrice: number | null;
+  buyBoxBasePrice: number | null;
+  buyBoxTotalPrice: number | null;
+  buyBoxWinRate: string;
+  competitorPrice: number | null;
+  comparisonPrice: number | null;
+  fulfillment: string | null;
+  inventoryCount: number | null;
+  repricerStrategyType: string | null;
+  repricerStrategyName: string | null;
+  repricerStatus: string | null;
+  repricerMinPrice: number | null;
+  repricerMaxPrice: number | null;
+  priceCompetitiveScore: number;
+  promoStatus: string | null;
+  potentialGmvLift: number | null;
+  gmv30: number;
+  inDemand: boolean;
+  priceDifferential: string | null;
+  traffic: string | null;
+  priceCompetitive: boolean;
+  reducedReferralStatus: string | null;
+  walmartFundedStatus: string | null;
+}
+
+/**
+ * Pricing Insights API response
+ */
+export interface WalmartPricingInsightsResponse {
+  pageContext: {
+    pageNo: number;
+    currentPageCount: number;
+    totalCount: number;
+    totalPages: number;
+  };
+  pricingInsightsResponseList: WalmartPricingInsightItem[];
+}
+
+/**
+ * Filter options for Pricing Insights API
+ */
+export interface PricingInsightsFilter {
+  filterName: string;
+  filterValue: string;
+  filterOperator?: string;
+}
+
+/**
+ * Search criteria for Pricing Insights API
+ */
+export interface PricingInsightsSearchCriteria {
+  searchType?: string; // "SKU", "ITEM_NAME"
+  searchValue?: string;
+}
+
+/**
+ * Sort options for Pricing Insights API
+ */
+export interface PricingInsightsSort {
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+/**
+ * Get Pricing Insights from Walmart API
+ * POST https://marketplace.walmartapis.com/v3/price/getPricingInsights
+ * 
+ * Returns comprehensive pricing data including:
+ * - Current prices, Buy Box pricing, competitor pricing
+ * - Price competitiveness scores
+ * - Demand and traffic indicators
+ * - GMV (Gross Merchandise Value) data
+ * - Repricer settings
+ */
+export async function getWalmartPricingInsights(
+  pageNumber: number = 0,
+  filters?: PricingInsightsFilter[],
+  searchCriteria?: PricingInsightsSearchCriteria,
+  sort?: PricingInsightsSort
+): Promise<WalmartPricingInsightsResponse> {
+  try {
+    const config = await getWalmartConfig();
+    const accessToken = await getAccessToken(config);
+    
+    console.log(`[Walmart API] Fetching Pricing Insights (page ${pageNumber})...`);
+    
+    // Build request body
+    const requestBody: any = {
+      pageNumber
+    };
+    
+    if (filters && filters.length > 0) {
+      requestBody.filter = filters;
+    }
+    
+    if (searchCriteria) {
+      requestBody.searchCriteria = searchCriteria;
+    }
+    
+    if (sort) {
+      requestBody.sort = sort;
+    }
+    
+    const response = await axios.post(
+      `${config.apiUrl}/price/getPricingInsights`,
+      requestBody,
+      {
+        headers: {
+          'WM_SEC.ACCESS_TOKEN': accessToken,
+          'WM_SVC.NAME': config.serviceName,
+          'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (response.data) {
+      const pageContext = response.data.pageContext || {};
+      const items = response.data.pricingInsightsResponseList || [];
+      
+      console.log(`[Walmart API] ✅ Pricing Insights: ${items.length} items on page ${pageNumber} (total: ${pageContext.totalCount || 'unknown'})`);
+      
+      return {
+        pageContext: {
+          pageNo: pageContext.pageNo || pageNumber,
+          currentPageCount: pageContext.currentPageCount || items.length,
+          totalCount: pageContext.totalCount || items.length,
+          totalPages: pageContext.totalPages || 1
+        },
+        pricingInsightsResponseList: items
+      };
+    }
+    
+    return {
+      pageContext: { pageNo: 0, currentPageCount: 0, totalCount: 0, totalPages: 0 },
+      pricingInsightsResponseList: []
+    };
+  } catch (error: any) {
+    console.error(`[Walmart API] Error fetching Pricing Insights:`, {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // Handle rate limiting
+    if (error.response?.status === 429) {
+      throw new Error('Walmart API rate limit exceeded. Please try again later.');
+    }
+    
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      // Clear token cache and retry
+      tokenCache = null;
+      throw new Error('Walmart API authentication expired. Please retry.');
+    }
+    
+    throw new Error(`Failed to fetch Walmart Pricing Insights: ${error.message}`);
+  }
+}
+
+/**
+ * Get all Pricing Insights with pagination
+ * Automatically fetches all pages and returns combined results
+ */
+export async function getAllWalmartPricingInsights(
+  maxPages: number = 50,
+  delayMs: number = 500
+): Promise<WalmartPricingInsightItem[]> {
+  const allItems: WalmartPricingInsightItem[] = [];
+  let currentPage = 0;
+  let totalPages = 1;
+  
+  console.log(`[Walmart API] Starting full Pricing Insights fetch (max ${maxPages} pages)...`);
+  
+  while (currentPage < totalPages && currentPage < maxPages) {
+    try {
+      const response = await getWalmartPricingInsights(currentPage);
+      
+      allItems.push(...response.pricingInsightsResponseList);
+      
+      totalPages = response.pageContext.totalPages;
+      currentPage++;
+      
+      console.log(`[Walmart API] Progress: ${allItems.length}/${response.pageContext.totalCount} items (page ${currentPage}/${totalPages})`);
+      
+      // Rate limiting delay between pages
+      if (currentPage < totalPages && currentPage < maxPages) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    } catch (error) {
+      console.error(`[Walmart API] Error on page ${currentPage}:`, error);
+      // Continue with next page on error
+      currentPage++;
+      await new Promise(resolve => setTimeout(resolve, delayMs * 2));
+    }
+  }
+  
+  console.log(`[Walmart API] ✅ Fetched ${allItems.length} total Pricing Insights items`);
+  return allItems;
+}
+
+/**
+ * Get Pricing Insights for specific SKUs
+ */
+export async function getWalmartPricingInsightsBySKUs(
+  skus: string[],
+  batchSize: number = 50
+): Promise<WalmartPricingInsightItem[]> {
+  const allItems: WalmartPricingInsightItem[] = [];
+  
+  console.log(`[Walmart API] Fetching Pricing Insights for ${skus.length} SKUs...`);
+  
+  // Process SKUs in batches
+  for (let i = 0; i < skus.length; i += batchSize) {
+    const batch = skus.slice(i, i + batchSize);
+    
+    for (const sku of batch) {
+      try {
+        const response = await getWalmartPricingInsights(0, undefined, {
+          searchType: 'SKU',
+          searchValue: sku
+        });
+        
+        if (response.pricingInsightsResponseList.length > 0) {
+          allItems.push(...response.pricingInsightsResponseList);
+        }
+        
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error(`[Walmart API] Error fetching pricing for SKU ${sku}:`, error);
+      }
+    }
+  }
+  
+  console.log(`[Walmart API] ✅ Found pricing insights for ${allItems.length} items`);
+  return allItems;
+}
