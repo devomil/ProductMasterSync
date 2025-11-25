@@ -403,6 +403,7 @@ export interface WalmartPricingInsightsResponse {
     currentPageCount: number;
     totalCount: number;
     totalPages: number;
+    nextCursor?: string;
   };
   pricingInsightsResponseList: WalmartPricingInsightItem[];
 }
@@ -442,23 +443,31 @@ export interface PricingInsightsSort {
  * - Demand and traffic indicators
  * - GMV (Gross Merchandise Value) data
  * - Repricer settings
+ * 
+ * Uses cursor-based pagination - pass nextCursor from previous response
  */
 export async function getWalmartPricingInsights(
   pageNumber: number = 0,
   filters?: PricingInsightsFilter[],
   searchCriteria?: PricingInsightsSearchCriteria,
-  sort?: PricingInsightsSort
+  sort?: PricingInsightsSort,
+  nextCursor?: string
 ): Promise<WalmartPricingInsightsResponse> {
   try {
     const config = await getWalmartConfig();
     const accessToken = await getAccessToken(config);
     
-    console.log(`[Walmart API] Fetching Pricing Insights (page ${pageNumber})...`);
+    console.log(`[Walmart API] Fetching Pricing Insights (page ${pageNumber}${nextCursor ? ', cursor: ' + nextCursor.substring(0, 20) + '...' : ''})...`);
     
     // Build request body
     const requestBody: any = {
       pageNumber
     };
+    
+    // Include cursor for pagination if provided
+    if (nextCursor) {
+      requestBody.nextCursor = nextCursor;
+    }
     
     if (filters && filters.length > 0) {
       requestBody.filter = filters;
@@ -490,14 +499,20 @@ export async function getWalmartPricingInsights(
       const pageContext = response.data.pageContext || {};
       const items = response.data.pricingInsightsResponseList || [];
       
-      console.log(`[Walmart API] ✅ Pricing Insights: ${items.length} items on page ${pageNumber} (total: ${pageContext.totalCount || 'unknown'})`);
+      // Log cursor information for debugging
+      if (pageContext.nextCursor) {
+        console.log(`[Walmart API] ✅ Pricing Insights: ${items.length} items on page ${pageNumber} (total: ${pageContext.totalCount || 'unknown'}, has next cursor)`);
+      } else {
+        console.log(`[Walmart API] ✅ Pricing Insights: ${items.length} items on page ${pageNumber} (total: ${pageContext.totalCount || 'unknown'}, no more pages)`);
+      }
       
       return {
         pageContext: {
           pageNo: pageContext.pageNo || pageNumber,
           currentPageCount: pageContext.currentPageCount || items.length,
           totalCount: pageContext.totalCount || items.length,
-          totalPages: pageContext.totalPages || 1
+          totalPages: pageContext.totalPages || 1,
+          nextCursor: pageContext.nextCursor || undefined
         },
         pricingInsightsResponseList: items
       };
@@ -532,8 +547,8 @@ export async function getWalmartPricingInsights(
 }
 
 /**
- * Get all Pricing Insights with pagination
- * Automatically fetches all pages and returns combined results
+ * Get all Pricing Insights with cursor-based pagination
+ * Automatically fetches all pages using nextCursor and returns combined results
  */
 export async function getAllWalmartPricingInsights(
   maxPages: number = 50,
@@ -541,31 +556,48 @@ export async function getAllWalmartPricingInsights(
 ): Promise<WalmartPricingInsightItem[]> {
   const allItems: WalmartPricingInsightItem[] = [];
   let currentPage = 0;
-  let totalPages = 1;
+  let nextCursor: string | undefined = undefined;
+  let hasMorePages = true;
+  let totalCount = 0;
   
   console.log(`[Walmart API] Starting full Pricing Insights fetch (max ${maxPages} pages)...`);
   
-  while (currentPage < totalPages && currentPage < maxPages) {
+  while (hasMorePages && currentPage < maxPages) {
     try {
-      const response = await getWalmartPricingInsights(currentPage);
+      // Pass cursor from previous response for proper pagination
+      const response = await getWalmartPricingInsights(currentPage, undefined, undefined, undefined, nextCursor);
       
       allItems.push(...response.pricingInsightsResponseList);
+      totalCount = response.pageContext.totalCount;
       
-      totalPages = response.pageContext.totalPages;
+      // Check if there are more pages using the cursor
+      nextCursor = response.pageContext.nextCursor;
+      hasMorePages = !!nextCursor && response.pricingInsightsResponseList.length > 0;
+      
       currentPage++;
       
-      console.log(`[Walmart API] Progress: ${allItems.length}/${response.pageContext.totalCount} items (page ${currentPage}/${totalPages})`);
+      console.log(`[Walmart API] Progress: ${allItems.length}/${totalCount} items (page ${currentPage}, ${hasMorePages ? 'has more' : 'complete'})`);
       
       // Rate limiting delay between pages
-      if (currentPage < totalPages && currentPage < maxPages) {
+      if (hasMorePages && currentPage < maxPages) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     } catch (error) {
       console.error(`[Walmart API] Error on page ${currentPage}:`, error);
-      // Continue with next page on error
-      currentPage++;
-      await new Promise(resolve => setTimeout(resolve, delayMs * 2));
+      
+      // If we got some items, break out and return what we have
+      if (allItems.length > 0) {
+        console.warn(`[Walmart API] Stopping pagination due to error, returning ${allItems.length} items collected so far`);
+        break;
+      }
+      
+      // If this was the first page, throw the error
+      throw error;
     }
+  }
+  
+  if (currentPage >= maxPages && hasMorePages) {
+    console.log(`[Walmart API] ⚠️ Reached max page limit (${maxPages}), more items may be available`);
   }
   
   console.log(`[Walmart API] ✅ Fetched ${allItems.length} total Pricing Insights items`);

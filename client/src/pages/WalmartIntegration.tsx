@@ -99,9 +99,13 @@ export default function WalmartIntegration() {
       });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/walmart/pricing-insights/dashboard'] });
+      console.log('[Pricing Insights] Sync completed:', data);
     },
+    onError: (error: any) => {
+      console.error('[Pricing Insights] Sync failed:', error);
+    }
   });
 
   const [activeTab, setActiveTab] = useState('overview');
