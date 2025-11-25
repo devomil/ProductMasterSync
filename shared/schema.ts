@@ -912,6 +912,7 @@ export const walmartProducts = pgTable("walmart_products", {
   categoryId: text("category_id"),
   categoryName: text("category_name"),
   taxonomyId: text("taxonomy_id"),
+  productType: text("product_type"), // Final level in hierarchy - determines referral fee
   
   // Variants
   variants: json("variants").default([]), // Array of variant objects
