@@ -93,11 +93,8 @@ export default function WalmartIntegration() {
   // Sync Pricing Insights Mutation
   const syncPricingInsightsMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/marketplace/walmart/pricing-insights/sync', {
-        method: 'POST',
-        body: JSON.stringify({ maxPages: 50 }),
-      });
-      return response;
+      const response = await apiRequest('POST', '/api/marketplace/walmart/pricing-insights/sync', { maxPages: 50 });
+      return response.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/walmart/pricing-insights/dashboard'] });
