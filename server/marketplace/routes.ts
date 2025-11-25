@@ -2374,4 +2374,154 @@ router.post('/walmart/scheduler/trigger', async (req, res) => {
   }
 });
 
+// ============================================================================
+// WALMART PRICING INSIGHTS ROUTES
+// ============================================================================
+
+/**
+ * POST /marketplace/walmart/pricing-insights/sync
+ * Sync all pricing insights from Walmart API
+ */
+router.post('/walmart/pricing-insights/sync', async (req, res) => {
+  try {
+    const { maxPages } = req.body;
+    const { syncAllPricingInsights } = await import('./walmart-service');
+    
+    console.log('[Walmart Routes] Starting Pricing Insights sync...');
+    
+    const result = await syncAllPricingInsights(maxPages || 50);
+    
+    return res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error syncing pricing insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/pricing-insights/sync-page
+ * Sync a single page of pricing insights (for testing)
+ */
+router.post('/walmart/pricing-insights/sync-page', async (req, res) => {
+  try {
+    const { pageNumber } = req.body;
+    const { syncPricingInsightsPage } = await import('./walmart-service');
+    
+    const result = await syncPricingInsightsPage(pageNumber || 0);
+    
+    return res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error syncing pricing insights page:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights
+ * Get pricing insights with pagination
+ */
+router.get('/walmart/pricing-insights', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    
+    const { getPricingInsightsWithAnalysis } = await import('./walmart-service');
+    
+    const result = await getPricingInsightsWithAnalysis(page, limit);
+    
+    return res.json(result);
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching pricing insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights/dashboard
+ * Get pricing insights dashboard data (stats + top opportunities)
+ */
+router.get('/walmart/pricing-insights/dashboard', async (req, res) => {
+  try {
+    const { getPricingInsightsDashboard } = await import('./walmart-service');
+    
+    const result = await getPricingInsightsDashboard();
+    
+    return res.json(result);
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching pricing insights dashboard:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights/high-demand
+ * Get high-demand items (in-demand with good traffic)
+ */
+router.get('/walmart/pricing-insights/high-demand', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    
+    const { getHighDemandInsights } = await import('./walmart-service');
+    
+    const insights = await getHighDemandInsights(limit);
+    
+    return res.json({
+      insights,
+      count: insights.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching high-demand insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights/sku/:sku
+ * Get pricing insight for a specific SKU
+ */
+router.get('/walmart/pricing-insights/sku/:sku', async (req, res) => {
+  try {
+    const { sku } = req.params;
+    
+    const { getPricingInsightBySku } = await import('./walmart-service');
+    
+    const insight = await getPricingInsightBySku(sku);
+    
+    if (!insight) {
+      return res.status(404).json({ error: 'Pricing insight not found for this SKU' });
+    }
+    
+    return res.json(insight);
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching pricing insight by SKU:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights/catalog
+ * Get pricing insights matched to our product catalog
+ */
+router.get('/walmart/pricing-insights/catalog', async (req, res) => {
+  try {
+    const { getPricingInsightsForCatalog } = await import('./walmart-service');
+    
+    const insights = await getPricingInsightsForCatalog();
+    
+    return res.json({
+      insights,
+      count: insights.length
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error fetching pricing insights for catalog:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
