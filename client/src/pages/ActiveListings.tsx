@@ -260,6 +260,34 @@ export default function ActiveListings() {
     },
   });
 
+  const pricingInsightsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/walmart/pricing-insights/sync', { maxPages: 100 });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.fetched === 0) {
+        toast({
+          title: 'No Pricing Insights Available',
+          description: 'Walmart API returned 0 items. You may need to enable Pricing Insights in Walmart Seller Center.',
+        });
+      } else {
+        toast({
+          title: 'Pricing Insights Synced',
+          description: `Fetched ${data.fetched} items: ${data.updated} updated, ${data.inserted} new.`,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/listings'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Pricing Insights Sync Failed',
+        description: error.message || 'Failed to fetch pricing insights from Walmart',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSort = (column: string) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -329,6 +357,26 @@ export default function ActiveListings() {
           </p>
         </div>
         <div className="flex gap-2">
+          {selectedMarketplace === 'walmart' && (
+            <Button
+              variant="outline"
+              onClick={() => pricingInsightsMutation.mutate()}
+              disabled={pricingInsightsMutation.isPending}
+              data-testid="button-sync-pricing-insights"
+            >
+              {pricingInsightsMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Fetching...
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Sync Pricing Insights
+                </>
+              )}
+            </Button>
+          )}
           <Button
             onClick={handleStartSync}
             disabled={syncMutation.isPending || !!runningJob || selectedMarketplace === 'all'}
