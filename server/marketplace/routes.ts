@@ -3171,4 +3171,59 @@ router.post('/listings/link-products', async (req, res) => {
   }
 });
 
+/**
+ * POST /marketplace/walmart/listings/recalculate-fees
+ * Recalculate referral fees for all Walmart listings using product type
+ */
+router.post('/walmart/listings/recalculate-fees', async (req, res) => {
+  try {
+    const result = await listingsRepo.recalculateWalmartReferralFees();
+    
+    return res.json({ 
+      message: `Recalculated fees for ${result.updated} listings`,
+      ...result
+    });
+  } catch (error) {
+    console.error('[Listings API] Error recalculating fees:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/pricing-insights/sync
+ * Fetch pricing insights data from Walmart API
+ * This includes buyBoxBasePrice, competitorPrice, inDemand, traffic, priceCompetitive, etc.
+ */
+router.post('/walmart/pricing-insights/sync', async (req, res) => {
+  try {
+    const { startPricingInsightsSync } = await import('./walmart-pricing-insights');
+    const result = await startPricingInsightsSync();
+    
+    return res.json(result);
+  } catch (error) {
+    console.error('[Listings API] Error syncing pricing insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights/:sku
+ * Get pricing insights for a specific SKU
+ */
+router.get('/walmart/pricing-insights/:sku', async (req, res) => {
+  try {
+    const { sku } = req.params;
+    const insights = await listingsRepo.getPricingInsights(sku);
+    
+    if (!insights) {
+      return res.status(404).json({ error: 'Pricing insights not found for SKU' });
+    }
+    
+    return res.json(insights);
+  } catch (error) {
+    console.error('[Listings API] Error fetching pricing insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

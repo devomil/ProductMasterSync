@@ -250,6 +250,243 @@ export const WALMART_REFERRAL_FEES: Record<string, ContractCategory> = {
 };
 
 /**
+ * Mapping from Walmart product types to contract categories
+ * This maps the productType field from Walmart items API to referral fee categories
+ */
+export const PRODUCT_TYPE_TO_CONTRACT_MAPPING: Record<string, string> = {
+  // Electronics Accessories - 15% up to $100, 8% above $100
+  'Uninterruptible Power Supplies': 'electronics_accessories',
+  'Surge Protectors': 'electronics_accessories',
+  'Power Strips': 'electronics_accessories',
+  'Computer Cables': 'electronics_accessories',
+  'USB Cables': 'electronics_accessories',
+  'HDMI Cables': 'electronics_accessories',
+  'Network Cables': 'electronics_accessories',
+  'Computer Cable Adapters': 'electronics_accessories',
+  'Phone Cases': 'electronics_accessories',
+  'Phone Chargers': 'electronics_accessories',
+  'Phone Cables': 'electronics_accessories',
+  'Tablet Cases': 'electronics_accessories',
+  'Laptop Bags': 'electronics_accessories',
+  'Laptop Cases': 'electronics_accessories',
+  'Mouse Pads': 'electronics_accessories',
+  'Keyboard Covers': 'electronics_accessories',
+  'Screen Protectors': 'electronics_accessories',
+  'Memory Cards': 'electronics_accessories',
+  'USB Flash Drives': 'electronics_accessories',
+  'External Hard Drives': 'electronics_accessories',
+  'Webcams': 'electronics_accessories',
+  'Microphones': 'electronics_accessories',
+  'Headphones': 'electronics_accessories',
+  'Earbuds': 'electronics_accessories',
+  'Speakers': 'electronics_accessories',
+  'Bluetooth Speakers': 'electronics_accessories',
+  'Power Banks': 'electronics_accessories',
+  'Portable Chargers': 'electronics_accessories',
+  'Car Chargers': 'electronics_accessories',
+  'Wall Chargers': 'electronics_accessories',
+  'Wireless Chargers': 'electronics_accessories',
+  'Docking Stations': 'electronics_accessories',
+  'Monitor Stands': 'electronics_accessories',
+  'Laptop Stands': 'electronics_accessories',
+  'TV Mounts': 'electronics_accessories',
+  'Remote Controls': 'electronics_accessories',
+  'Batteries': 'electronics_accessories',
+  'Battery Chargers': 'electronics_accessories',
+  'Home Assistants': 'electronics_accessories',
+  'Smart Plugs': 'electronics_accessories',
+  'Smart Switches': 'electronics_accessories',
+  'Network Switch Modules': 'electronics_accessories',
+  'Network Switches': 'electronics_accessories',
+  'Network Testers': 'electronics_accessories',
+  'Cable Connectors': 'electronics_accessories',
+  'Audio/Video Cables': 'electronics_accessories',
+  'Flash Drives': 'electronics_accessories',
+  'Hard Drives': 'electronics_accessories',
+  'RAM Memory': 'electronics_accessories',
+  'Motherboards': 'electronics_accessories',
+  'TV & Monitor Mounts': 'electronics_accessories',
+  'Headsets': 'electronics_accessories',
+  'Computer Mice': 'electronics_accessories',
+  'Computer Keyboards': 'electronics_accessories',
+  'Cell Phone Cases': 'electronics_accessories',
+  'Tablet Holders, Carriers & Cases': 'electronics_accessories',
+  
+  // Consumer Electronics - 8% flat
+  'Televisions': 'consumer_electronics',
+  'TVs': 'consumer_electronics',
+  'Smart TVs': 'consumer_electronics',
+  'Streaming Devices': 'consumer_electronics',
+  'Blu-ray Players': 'consumer_electronics',
+  'DVD Players': 'consumer_electronics',
+  'Soundbars': 'consumer_electronics',
+  'Home Theater Systems': 'consumer_electronics',
+  'Receivers': 'consumer_electronics',
+  'Projectors': 'consumer_electronics',
+  'Cell Phones': 'consumer_electronics',
+  'Smartphones': 'consumer_electronics',
+  'GPS Devices': 'consumer_electronics',
+  
+  // Personal Computers - 6% flat
+  'Laptops': 'personal_computers',
+  'Laptop Computers': 'personal_computers',
+  'Desktop Computers': 'personal_computers',
+  'Chromebooks': 'personal_computers',
+  'Tablets': 'personal_computers',
+  'Monitors': 'personal_computers',
+  'Computer Monitors': 'personal_computers',
+  'All-in-One Computers': 'personal_computers',
+  
+  // Camera & Photo - 8% flat
+  'Cameras': 'camera_photo',
+  'Digital Cameras': 'camera_photo',
+  'DSLR Cameras': 'camera_photo',
+  'Mirrorless Cameras': 'camera_photo',
+  'Action Cameras': 'camera_photo',
+  'Camcorders': 'camera_photo',
+  'Camera Lenses': 'camera_photo',
+  'Camera Bags': 'camera_photo',
+  'Tripods': 'camera_photo',
+  'Camera Accessories': 'camera_photo',
+  
+  // Major Appliances - 8% flat
+  'Refrigerators': 'appliances_major',
+  'Freezers': 'appliances_major',
+  'Washers': 'appliances_major',
+  'Dryers': 'appliances_major',
+  'Dishwashers': 'appliances_major',
+  'Ranges': 'appliances_major',
+  'Ovens': 'appliances_major',
+  'Range Hoods': 'appliances_major',
+  'Cooktops': 'appliances_major',
+  'Wall Ovens': 'appliances_major',
+  
+  // Compact Appliances - 12% up to $300, 8% above
+  'Microwaves': 'appliances_compact',
+  'Coffee Makers': 'appliances_compact',
+  'Blenders': 'appliances_compact',
+  'Toasters': 'appliances_compact',
+  'Air Fryers': 'appliances_compact',
+  'Slow Cookers': 'appliances_compact',
+  'Food Processors': 'appliances_compact',
+  'Stand Mixers': 'appliances_compact',
+  'Vacuum Cleaners': 'appliances_compact',
+  'Robot Vacuums': 'appliances_compact',
+  'Air Purifiers': 'appliances_compact',
+  'Humidifiers': 'appliances_compact',
+  'Dehumidifiers': 'appliances_compact',
+  'Space Heaters': 'appliances_compact',
+  'Fans': 'appliances_compact',
+  
+  // Automotive - 12% flat
+  'Car Parts': 'automotive_powersports',
+  'Auto Parts': 'automotive_powersports',
+  'Motor Oil': 'automotive_powersports',
+  'Car Batteries': 'automotive_powersports',
+  'Windshield Wipers': 'automotive_powersports',
+  'Air Filters': 'automotive_powersports',
+  'Brake Pads': 'automotive_powersports',
+  'Car Covers': 'automotive_powersports',
+  'Automotive Specialty Parts': 'automotive_powersports',
+  'Exterior Automotive Accessories': 'automotive_powersports',
+  'Floor Mats': 'automotive_powersports',
+  'Seat Covers': 'automotive_powersports',
+  'Car Care': 'automotive_powersports',
+  
+  // Tires & Wheels - 10% flat
+  'Tires': 'tires_wheels',
+  'Car Tires': 'tires_wheels',
+  'Truck Tires': 'tires_wheels',
+  'Wheels': 'tires_wheels',
+  'Wheel Covers': 'tires_wheels',
+  'Hubcaps': 'tires_wheels',
+  
+  // Industrial & Scientific - 12% flat
+  'Industrial Supplies': 'industrial_scientific',
+  'Safety Equipment': 'industrial_scientific',
+  'Lab Supplies': 'industrial_scientific',
+  'Janitorial Supplies': 'industrial_scientific',
+  'Material Handling': 'industrial_scientific',
+  
+  // Baby Products - 8% up to $10, 15% above
+  'Baby Gear': 'baby_products',
+  'Car Seats': 'baby_products',
+  'Strollers': 'baby_products',
+  'Baby Monitors': 'baby_products',
+  'High Chairs': 'baby_products',
+  'Baby Cribs': 'baby_products',
+  'Baby Clothing': 'baby_products',
+  'Diapers': 'baby_products',
+  'Baby Formula': 'baby_products',
+  'Baby Toys': 'baby_products',
+  
+  // Office Products - 15% (12% for printer cartridges)
+  'Ink Cartridges': 'office_products',
+  'Toner Cartridges': 'office_products',
+  'Printers': 'office_products',
+  'Office Chairs': 'office_products',
+  'Desks': 'office_products',
+  'Office Supplies': 'office_products',
+  'Paper': 'office_products',
+  'Binders': 'office_products',
+  'Folders': 'office_products',
+  'File Folders': 'office_products',
+  'Pens': 'office_products',
+  'Notebooks': 'office_products',
+  'Staplers': 'office_products',
+  'Calculators': 'office_products',
+  'Label Makers': 'office_products',
+  'Labels': 'office_products',
+  'Index Dividers': 'office_products',
+  'Shredders': 'office_products',
+  
+  // Power Tools - 12% flat
+  'Drills': 'base_power_tools',
+  'Power Drills': 'base_power_tools',
+  'Impact Drivers': 'base_power_tools',
+  'Circular Saws': 'base_power_tools',
+  'Jigsaws': 'base_power_tools',
+  'Sanders': 'base_power_tools',
+  'Grinders': 'base_power_tools',
+  'Routers': 'base_power_tools',
+  'Nail Guns': 'base_power_tools',
+  'Power Tool Batteries': 'base_power_tools',
+  
+  // Outdoor Power Tools - 15% up to $500, 8% above
+  'Lawn Mowers': 'outdoor_power_tools',
+  'Riding Mowers': 'outdoor_power_tools',
+  'String Trimmers': 'outdoor_power_tools',
+  'Leaf Blowers': 'outdoor_power_tools',
+  'Chainsaws': 'outdoor_power_tools',
+  'Pressure Washers': 'outdoor_power_tools',
+  'Snow Blowers': 'outdoor_power_tools',
+  'Generators': 'outdoor_power_tools',
+  'Wood Chippers': 'outdoor_power_tools',
+  
+  // Furniture - 15% up to $200, 10% above
+  'Sofas': 'indoor_outdoor_furniture',
+  'Couches': 'indoor_outdoor_furniture',
+  'Recliners': 'indoor_outdoor_furniture',
+  'Beds': 'indoor_outdoor_furniture',
+  'Mattresses': 'indoor_outdoor_furniture',
+  'Dressers': 'indoor_outdoor_furniture',
+  'Nightstands': 'indoor_outdoor_furniture',
+  'Dining Tables': 'indoor_outdoor_furniture',
+  'Dining Chairs': 'indoor_outdoor_furniture',
+  'Bookcases': 'indoor_outdoor_furniture',
+  'TV Stands': 'indoor_outdoor_furniture',
+  'Patio Furniture': 'indoor_outdoor_furniture',
+  'Outdoor Chairs': 'indoor_outdoor_furniture',
+  'Outdoor Tables': 'indoor_outdoor_furniture',
+  
+  // Video Game Consoles - 8% flat
+  'Gaming Consoles': 'video_game_consoles',
+  'PlayStation': 'video_game_consoles',
+  'Xbox': 'video_game_consoles',
+  'Nintendo Switch': 'video_game_consoles',
+};
+
+/**
  * Mapping from Walmart taxonomy categories to contract categories
  * This maps the category path from Walmart catalog to referral fee categories
  */
@@ -260,9 +497,12 @@ export const TAXONOMY_TO_CONTRACT_MAPPING: Record<string, string> = {
   'Transducers & Accessories': 'electronics_accessories',
   'Cell Phones': 'consumer_electronics',
   'Computers': 'personal_computers',
+  'Computers, Laptops and Tablets': 'personal_computers',
   'Laptops': 'personal_computers',
   'Tablets': 'personal_computers',
   'Computer Accessories': 'electronics_accessories',
+  'Surge Protectors & UPS': 'electronics_accessories',
+  'Cables & Connectors': 'electronics_accessories',
   'TV & Video': 'consumer_electronics',
   'Audio': 'consumer_electronics',
   'Camera & Photo': 'camera_photo',
@@ -369,6 +609,8 @@ export const TAXONOMY_TO_CONTRACT_MAPPING: Record<string, string> = {
   'Toys': 'toys_games',
   'Toys & Games': 'toys_games',
   'Games': 'toys_games',
+  'Board Games': 'toys_games',
+  'Card Games': 'toys_games',
   'Puzzles': 'toys_games',
   'Arts & Crafts': 'toys_games',
   
@@ -482,20 +724,48 @@ export function calculateFee(priceInCents: number, feeStructure: FeeStructure): 
 }
 
 /**
- * Determine contract category from Walmart taxonomy path
+ * Determine contract category from product type or taxonomy path
+ * @param productType - Product type from Walmart (most specific)
  * @param categoryPath - Array of category names from Walmart taxonomy
  * @returns Contract category key or 'everything_else' if no match
  */
-export function getContractCategory(categoryPath: string[] | null): string {
-  if (!categoryPath || categoryPath.length === 0) {
-    return 'everything_else';
+export function getContractCategory(categoryPath: string[] | null, productType?: string | null): string {
+  // First priority: Check product type mapping (most specific)
+  if (productType) {
+    const normalizedProductType = productType.trim();
+    
+    // Direct match first
+    if (PRODUCT_TYPE_TO_CONTRACT_MAPPING[normalizedProductType]) {
+      return PRODUCT_TYPE_TO_CONTRACT_MAPPING[normalizedProductType];
+    }
+    
+    // Case-insensitive match as fallback
+    const lowerProductType = normalizedProductType.toLowerCase();
+    for (const [key, value] of Object.entries(PRODUCT_TYPE_TO_CONTRACT_MAPPING)) {
+      if (key.toLowerCase() === lowerProductType) {
+        return value;
+      }
+    }
   }
   
-  // Check each category in path, starting from most specific (last) to most general (first)
-  for (let i = categoryPath.length - 1; i >= 0; i--) {
-    const category = categoryPath[i];
-    if (TAXONOMY_TO_CONTRACT_MAPPING[category]) {
-      return TAXONOMY_TO_CONTRACT_MAPPING[category];
+  // Second priority: Check category path from most specific to most general
+  if (categoryPath && categoryPath.length > 0) {
+    for (let i = categoryPath.length - 1; i >= 0; i--) {
+      const category = categoryPath[i]?.trim();
+      if (!category) continue;
+      
+      // Direct match first
+      if (TAXONOMY_TO_CONTRACT_MAPPING[category]) {
+        return TAXONOMY_TO_CONTRACT_MAPPING[category];
+      }
+      
+      // Case-insensitive match as fallback
+      const lowerCategory = category.toLowerCase();
+      for (const [key, value] of Object.entries(TAXONOMY_TO_CONTRACT_MAPPING)) {
+        if (key.toLowerCase() === lowerCategory) {
+          return value;
+        }
+      }
     }
   }
   
@@ -551,13 +821,15 @@ export interface ReferralFeeResult {
  * Calculate complete referral fee information for a product
  * @param priceInCents - Sale price in cents
  * @param categoryPath - Walmart taxonomy category path
+ * @param productType - Product type from Walmart (optional, takes priority)
  * @returns Complete fee calculation result
  */
 export function calculateReferralFee(
   priceInCents: number,
-  categoryPath: string[] | null
+  categoryPath: string[] | null,
+  productType?: string | null
 ): ReferralFeeResult {
-  const contractCategoryKey = getContractCategory(categoryPath);
+  const contractCategoryKey = getContractCategory(categoryPath, productType);
   const category = WALMART_REFERRAL_FEES[contractCategoryKey] || WALMART_REFERRAL_FEES['everything_else'];
   
   const feeInCents = calculateFee(priceInCents, category.feeStructure);

@@ -26,7 +26,14 @@ Preferred communication style: Simple, everyday language.
     - **Product Catalog Management**: Comprehensive product schema, hierarchical categories, inventory tracking.
     - **Amazon Marketplace Integration**: ASIN discovery via SP-API, pricing intelligence, market opportunity analysis, UPC to ASIN mapping, including bulk processing with dynamic rate limiting and automated scheduling for sync jobs. Features credential management and rate-limited market data fetching (buy box, fees, restrictions) with retry logic.
     - **Walmart Marketplace Integration**: UPC-based product matching, taxonomy mapping, and Pricing Insights API integration. Features Buy Box pricing, competitor prices, price competitiveness scores (0-100), demand indicators, traffic levels, and GMV (30-day) data. Supports cursor-based pagination for full catalog sync with rate limiting.
-    - **Active Listings Management**: Sync and track existing marketplace listings (~26k Walmart listings). Features include bulk sync from Walmart API v3/items endpoint, paginated listing views with filters (marketplace, status), referral fee calculations with product type classification, sync job tracking with progress monitoring, and stats dashboard showing total/active/zero-quantity/matched listings. Database schema: `marketplace_listings` (core table) + `walmart_listing_details` + `walmart_listing_sync_jobs`.
+    - **Active Listings Management**: Sync and track existing marketplace listings (~182k Walmart listings). Features include bulk sync from Walmart API v3/items endpoint, paginated listing views with filters (marketplace, status), sync job tracking with progress monitoring, and stats dashboard showing total/active/zero-quantity/matched listings. Database schema: `marketplace_listings` (core table) + `walmart_listing_details` + `walmart_listing_sync_jobs`.
+    - **Referral Fee Calculation**: Advanced tiered and portion-based fee structures based on Walmart's official contract categories. Product type-first mapping with 100+ product types mapped to contract categories (Electronics Accessories, Personal Computers, Automotive & Powersports, etc.). Features include:
+      - Tiered rates: 15% up to $100, 8% above for Electronics Accessories
+      - Flat rates: 6% for Personal Computers, 12% for Automotive, 8% for Consumer Electronics
+      - Portion-based rates: Watches (15% up to $1,500, 3% above)
+      - Case-insensitive product type matching with normalization
+      - Batch recalculation endpoint: POST /api/marketplace/walmart/listings/recalculate-fees
+    - **Pricing Insights Integration**: Walmart /v3/price/getPricingInsights API integration for competitive analysis. Database fields: buyBoxBasePriceInCents, buyBoxTotalPriceInCents, competitorPriceInCents, priceCompetitive, priceCompetitiveScore, inDemand, trafficLevel, gmv30InCents, pricingInsightsFetchedAt.
     - **Inventory Management**: Automated data pull jobs, scheduling, and monitoring.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations.
     - **Field Mapping System**: Two-tier mapping with interactive walkthroughs and auto-mapping.

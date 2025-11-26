@@ -176,7 +176,8 @@ function transformToListing(item: WalmartListingItem, inventoryQuantity?: number
   let referralFeeInCents = null;
   let contractCategory = null;
   if (priceInCents) {
-    const feeResult = calculateReferralFee(priceInCents, categoryPath.length > 0 ? categoryPath : null);
+    // Pass productType for accurate fee calculation based on Walmart's fee schedule
+    const feeResult = calculateReferralFee(priceInCents, categoryPath.length > 0 ? categoryPath : null, productType);
     referralFeeInCents = feeResult.feeInCents;
     contractCategory = feeResult.contractCategoryName;
   }

@@ -623,3 +623,175 @@ export async function linkListingsToProducts(marketplace: string): Promise<{ lin
 
   return { linked };
 }
+
+/**
+ * Recalculate referral fees for all Walmart listings using product type
+ */
+export async function recalculateWalmartReferralFees(): Promise<{ updated: number; errors: number }> {
+  const { calculateReferralFee } = await import('./walmart-referral-fees');
+  
+  let updated = 0;
+  let errors = 0;
+  const batchSize = 100;
+  let offset = 0;
+  let hasMore = true;
+
+  console.log('[Listings] Starting referral fee recalculation for Walmart listings...');
+
+  while (hasMore) {
+    // Fetch a batch of Walmart listings with prices
+    const listings = await db
+      .select()
+      .from(marketplaceListings)
+      .where(and(
+        eq(marketplaceListings.marketplace, 'walmart'),
+        sql`${marketplaceListings.priceInCents} IS NOT NULL AND ${marketplaceListings.priceInCents} > 0`
+      ))
+      .limit(batchSize)
+      .offset(offset);
+
+    if (listings.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    for (const listing of listings) {
+      try {
+        // Parse category path from stored JSON
+        let categoryPath: string[] | null = null;
+        if (listing.categoryPath) {
+          try {
+            const parsed = typeof listing.categoryPath === 'string' 
+              ? JSON.parse(listing.categoryPath) 
+              : listing.categoryPath;
+            categoryPath = Array.isArray(parsed) ? parsed : null;
+          } catch {
+            categoryPath = null;
+          }
+        }
+
+        // Calculate new fee using product type (priority) and category path
+        const feeResult = calculateReferralFee(
+          listing.priceInCents!,
+          categoryPath,
+          listing.productType
+        );
+
+        // Update only if fee changed
+        if (feeResult.feeInCents !== listing.referralFeeInCents || 
+            feeResult.contractCategoryName !== listing.contractCategory) {
+          await db
+            .update(marketplaceListings)
+            .set({
+              referralFeeInCents: feeResult.feeInCents,
+              contractCategory: feeResult.contractCategoryName,
+              updatedAt: new Date()
+            })
+            .where(eq(marketplaceListings.id, listing.id));
+          updated++;
+        }
+      } catch (err) {
+        console.error(`[Listings] Error recalculating fee for listing ${listing.id}:`, err);
+        errors++;
+      }
+    }
+
+    offset += batchSize;
+    
+    if (updated % 1000 === 0 && updated > 0) {
+      console.log(`[Listings] Recalculated ${updated} listings so far...`);
+    }
+  }
+
+  console.log(`[Listings] Referral fee recalculation complete: ${updated} updated, ${errors} errors`);
+  return { updated, errors };
+}
+
+/**
+ * Get pricing insights for a specific SKU
+ */
+export async function getPricingInsights(sku: string): Promise<any | null> {
+  const [listing] = await db
+    .select({
+      id: marketplaceListings.id,
+      sku: marketplaceListings.marketplaceSku,
+      title: marketplaceListings.title,
+      priceInCents: marketplaceListings.priceInCents,
+      quantity: marketplaceListings.quantity,
+      status: marketplaceListings.status
+    })
+    .from(marketplaceListings)
+    .where(and(
+      eq(marketplaceListings.marketplace, 'walmart'),
+      eq(marketplaceListings.marketplaceSku, sku)
+    ))
+    .limit(1);
+
+  if (!listing) {
+    return null;
+  }
+
+  // Get Walmart-specific details including pricing insights
+  const [details] = await db
+    .select()
+    .from(walmartListingDetails)
+    .where(eq(walmartListingDetails.marketplaceListingId, listing.id))
+    .limit(1);
+
+  return {
+    ...listing,
+    pricingInsights: details ? {
+      buyBoxPriceInCents: details.buyBoxPriceInCents, // Legacy field
+      buyBoxBasePriceInCents: details.buyBoxBasePriceInCents,
+      buyBoxTotalPriceInCents: details.buyBoxTotalPriceInCents,
+      competitorPriceInCents: details.competitorPriceInCents,
+      currentPriceInCents: details.currentPriceInCents,
+      priceCompetitive: details.priceCompetitive,
+      priceCompetitiveScore: details.priceCompetitiveScore,
+      inDemand: details.inDemand,
+      trafficLevel: details.trafficLevel,
+      gmv30InCents: details.gmv30InCents,
+      pricingInsightsFetchedAt: details.pricingInsightsFetchedAt,
+      insightsRaw: details.insightsRaw
+    } : null
+  };
+}
+
+/**
+ * Update pricing insights for a listing
+ */
+export async function updatePricingInsights(
+  marketplaceListingId: number,
+  insights: {
+    buyBoxBasePriceInCents?: number | null;
+    buyBoxTotalPriceInCents?: number | null;
+    competitorPriceInCents?: number | null;
+    priceCompetitive?: boolean | null;
+    priceCompetitiveScore?: number | null;
+    inDemand?: boolean | null;
+    trafficLevel?: string | null;
+    gmv30InCents?: number | null;
+    insightsRaw?: any;
+  }
+): Promise<void> {
+  const existing = await getWalmartListingDetails(marketplaceListingId);
+
+  if (existing) {
+    await db
+      .update(walmartListingDetails)
+      .set({
+        ...insights,
+        pricingInsightsFetchedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(walmartListingDetails.id, existing.id));
+  } else {
+    await db
+      .insert(walmartListingDetails)
+      .values({
+        marketplaceListingId,
+        ...insights,
+        pricingInsightsFetchedAt: new Date()
+      });
+  }
+}

@@ -1287,6 +1287,19 @@ export const walmartListingDetails = pgTable("walmart_listing_details", {
   competitorCount: integer("competitor_count"),
   competitorPrices: json("competitor_prices").default([]),
   
+  // Pricing Insights from Walmart API
+  buyBoxBasePriceInCents: integer("buy_box_base_price_in_cents"),
+  buyBoxTotalPriceInCents: integer("buy_box_total_price_in_cents"),
+  competitorPriceInCents: integer("competitor_price_in_cents"),
+  currentPriceInCents: integer("current_price_in_cents"),
+  priceCompetitive: boolean("price_competitive"),
+  priceCompetitiveScore: real("price_competitive_score"), // 0-100 score
+  inDemand: boolean("in_demand"),
+  trafficLevel: text("traffic_level"), // 'high', 'medium', 'low', etc.
+  gmv30InCents: integer("gmv_30_in_cents"), // 30-day Gross Merchandise Value
+  pricingInsightsFetchedAt: timestamp("pricing_insights_fetched_at"),
+  insightsRaw: json("insights_raw").default({}), // Raw API response
+  
   // Compliance and eligibility
   wfsEligible: boolean("wfs_eligible").default(false),
   twoDay: boolean("two_day").default(false),
@@ -1305,6 +1318,7 @@ export const walmartListingDetails = pgTable("walmart_listing_details", {
   return {
     listingIdx: uniqueIndex("walmart_listing_details_listing_idx").on(table.marketplaceListingId),
     walmartItemIdx: index("walmart_listing_details_item_idx").on(table.walmartItemId),
+    pricingInsightsIdx: index("walmart_listing_details_pricing_idx").on(table.priceCompetitiveScore),
   };
 });
 
