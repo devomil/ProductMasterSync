@@ -125,10 +125,52 @@ export async function getMarketplaceListings(filters: ListingsFilters = {}): Pro
     : sortBy === 'productType' ? marketplaceListings.productType
     : marketplaceListings.lastSeenAt;
 
-  // Get listings with pagination
+  // Get listings with pagination, including pricing insights for Walmart listings
   const listings = await db
-    .select()
+    .select({
+      // All fields from marketplace_listings
+      id: marketplaceListings.id,
+      marketplace: marketplaceListings.marketplace,
+      listingId: marketplaceListings.listingId,
+      marketplaceSku: marketplaceListings.marketplaceSku,
+      productId: marketplaceListings.productId,
+      upc: marketplaceListings.upc,
+      gtin: marketplaceListings.gtin,
+      title: marketplaceListings.title,
+      brand: marketplaceListings.brand,
+      status: marketplaceListings.status,
+      lifecycleStatus: marketplaceListings.lifecycleStatus,
+      publishedStatus: marketplaceListings.publishedStatus,
+      quantity: marketplaceListings.quantity,
+      priceInCents: marketplaceListings.priceInCents,
+      listPriceInCents: marketplaceListings.listPriceInCents,
+      referralFeeInCents: marketplaceListings.referralFeeInCents,
+      fulfillmentFeeInCents: marketplaceListings.fulfillmentFeeInCents,
+      productType: marketplaceListings.productType,
+      category: marketplaceListings.category,
+      categoryPath: marketplaceListings.categoryPath,
+      contractCategory: marketplaceListings.contractCategory,
+      fulfillmentMethod: marketplaceListings.fulfillmentMethod,
+      firstSeenAt: marketplaceListings.firstSeenAt,
+      lastSeenAt: marketplaceListings.lastSeenAt,
+      lastSyncJobId: marketplaceListings.lastSyncJobId,
+      rawSnapshot: marketplaceListings.rawSnapshot,
+      createdAt: marketplaceListings.createdAt,
+      updatedAt: marketplaceListings.updatedAt,
+      // Pricing insights from walmartListingDetails
+      buyBoxPriceInCents: walmartListingDetails.buyBoxPriceInCents,
+      buyBoxBasePriceInCents: walmartListingDetails.buyBoxBasePriceInCents,
+      buyBoxTotalPriceInCents: walmartListingDetails.buyBoxTotalPriceInCents,
+      competitorPriceInCents: walmartListingDetails.competitorPriceInCents,
+      priceCompetitive: walmartListingDetails.priceCompetitive,
+      priceCompetitiveScore: walmartListingDetails.priceCompetitiveScore,
+      inDemand: walmartListingDetails.inDemand,
+      trafficLevel: walmartListingDetails.trafficLevel,
+      gmv30InCents: walmartListingDetails.gmv30InCents,
+      pricingInsightsFetchedAt: walmartListingDetails.pricingInsightsFetchedAt,
+    })
     .from(marketplaceListings)
+    .leftJoin(walmartListingDetails, eq(marketplaceListings.id, walmartListingDetails.marketplaceListingId))
     .where(whereClause)
     .orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn))
     .limit(pageSize)

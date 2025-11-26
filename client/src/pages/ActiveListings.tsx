@@ -53,6 +53,17 @@ interface MarketplaceListing {
   lastSyncedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Pricing insights fields
+  buyBoxPriceInCents: number | null;
+  buyBoxBasePriceInCents: number | null;
+  buyBoxTotalPriceInCents: number | null;
+  competitorPriceInCents: number | null;
+  priceCompetitive: boolean | null;
+  priceCompetitiveScore: number | null;
+  inDemand: boolean | null;
+  trafficLevel: string | null;
+  gmv30InCents: number | null;
+  pricingInsightsFetchedAt: string | null;
 }
 
 interface ListingsResponse {
@@ -144,6 +155,59 @@ function formatCurrency(cents: number | null): string {
 function formatPercent(referralCents: number | null, priceCents: number | null): string {
   if (referralCents === null || priceCents === null || priceCents === 0) return '-';
   return `${((referralCents / priceCents) * 100).toFixed(1)}%`;
+}
+
+function getTrafficBadge(trafficLevel: string | null) {
+  if (!trafficLevel) return <span className="text-muted-foreground text-xs">-</span>;
+  
+  const level = trafficLevel.toLowerCase();
+  if (level === 'high') {
+    return <Badge className="bg-green-100 text-green-800 text-xs">High</Badge>;
+  } else if (level === 'medium') {
+    return <Badge className="bg-yellow-100 text-yellow-800 text-xs">Medium</Badge>;
+  } else if (level === 'low') {
+    return <Badge className="bg-gray-100 text-gray-600 text-xs">Low</Badge>;
+  }
+  return <Badge variant="outline" className="text-xs">{trafficLevel}</Badge>;
+}
+
+function getPriceCompetitiveBadge(priceCompetitive: boolean | null, score: number | null) {
+  if (priceCompetitive === null) return <span className="text-muted-foreground text-xs">-</span>;
+  
+  if (priceCompetitive) {
+    return (
+      <div className="flex items-center gap-1">
+        <Badge className="bg-green-100 text-green-800 text-xs">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Competitive
+        </Badge>
+        {score !== null && <span className="text-xs text-muted-foreground">({score.toFixed(0)})</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <Badge className="bg-red-100 text-red-800 text-xs">
+        <XCircle className="h-3 w-3 mr-1" />
+        Not Competitive
+      </Badge>
+      {score !== null && <span className="text-xs text-muted-foreground">({score.toFixed(0)})</span>}
+    </div>
+  );
+}
+
+function getDemandBadge(inDemand: boolean | null) {
+  if (inDemand === null) return <span className="text-muted-foreground text-xs">-</span>;
+  
+  if (inDemand) {
+    return (
+      <Badge className="bg-green-100 text-green-800 text-xs">
+        <TrendingUp className="h-3 w-3 mr-1" />
+        In Demand
+      </Badge>
+    );
+  }
+  return <span className="text-muted-foreground text-xs">-</span>;
 }
 
 export default function ActiveListings() {
@@ -475,19 +539,24 @@ export default function ActiveListings() {
                     Product Type
                   </SortableHeader>
                   <TableHead className="w-32">Contract Category</TableHead>
+                  <TableHead className="w-24 text-right">Buy Box</TableHead>
+                  <TableHead className="w-24 text-right">Competitor</TableHead>
+                  <TableHead className="w-28">Price Status</TableHead>
+                  <TableHead className="w-24">Demand</TableHead>
+                  <TableHead className="w-20">Traffic</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingListings ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={14} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       <p className="text-sm text-muted-foreground mt-2">Loading listings...</p>
                     </TableCell>
                   </TableRow>
                 ) : filteredListings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={14} className="text-center py-8">
                       <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
                       <p className="text-muted-foreground">
                         {searchQuery || statusFilter !== 'all' 
@@ -557,6 +626,21 @@ export default function ActiveListings() {
                         ) : (
                           <span className="text-muted-foreground text-xs">-</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {formatCurrency(listing.buyBoxTotalPriceInCents || listing.buyBoxBasePriceInCents)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {formatCurrency(listing.competitorPriceInCents)}
+                      </TableCell>
+                      <TableCell>
+                        {getPriceCompetitiveBadge(listing.priceCompetitive, listing.priceCompetitiveScore)}
+                      </TableCell>
+                      <TableCell>
+                        {getDemandBadge(listing.inDemand)}
+                      </TableCell>
+                      <TableCell>
+                        {getTrafficBadge(listing.trafficLevel)}
                       </TableCell>
                     </TableRow>
                   ))
