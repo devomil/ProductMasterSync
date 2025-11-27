@@ -459,8 +459,14 @@ export async function startPricingInsightsSync(options?: SyncOptions): Promise<S
       }
 
       const pageContext = response.pageContext;
-      totalPages = pageContext?.totalPages || totalPages;
-      console.log(`[Pricing Insights] Page ${pageNumber}/${totalPages}: ${items.length} items`);
+      // Calculate totalPages from totalCount if not provided (25 items per page)
+      const itemsPerPage = 25;
+      if (pageContext?.totalCount && pageContext.totalCount > 0) {
+        totalPages = Math.ceil(pageContext.totalCount / itemsPerPage);
+      } else if (pageContext?.totalPages && pageContext.totalPages > 0) {
+        totalPages = pageContext.totalPages;
+      }
+      console.log(`[Pricing Insights] Page ${pageNumber}/${totalPages}: ${items.length} items (totalCount: ${pageContext?.totalCount || 'unknown'})`);
 
       for (const item of items) {
         try {
@@ -503,11 +509,12 @@ export async function startPricingInsightsSync(options?: SyncOptions): Promise<S
       // Save progress after each page
       await updateJobProgress(jobId, totalProcessed, updated, errors, pageNumber);
 
-      // Check for more pages
-      if (pageContext) {
-        hasMore = pageNumber < pageContext.totalPages - 1;
+      // Check for more pages - use calculated totalPages or item count
+      if (totalPages > 0) {
+        hasMore = pageNumber < totalPages - 1;
       } else {
-        hasMore = items.length > 0;
+        // Fallback: if we got a full page, there might be more
+        hasMore = items.length >= 25;
       }
 
       pageNumber++;
