@@ -2570,6 +2570,76 @@ export const marketplaceCredentials = pgTable("marketplace_credentials", {
   };
 });
 
+// Marketplace orders enum
+export const orderStatusEnum = pgEnum('order_status', ['pending', 'unshipped', 'shipped', 'delivered', 'cancelled', 'on_hold']);
+export const orderTypeEnum = pgEnum('order_type', ['standard', 'subscription', 'preorder']);
+
+// Marketplace Orders table
+export const marketplaceOrders = pgTable("marketplace_orders", {
+  id: serial("id").primaryKey(),
+  marketplace: marketplaceEnum("marketplace").notNull(),
+  marketplaceOrderId: text("marketplace_order_id").notNull(),
+  orderNumber: text("order_number").notNull(),
+  
+  // Order status
+  status: orderStatusEnum("status").notNull().default('pending'),
+  orderType: orderTypeEnum("order_type").default('standard'),
+  
+  // Customer info
+  customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  
+  // Shipping
+  shippingTrackingNumber: text("shipping_tracking_number"),
+  shippingCarrier: text("shipping_carrier"),
+  shippingDate: timestamp("shipping_date"),
+  
+  // Dates
+  orderDate: timestamp("order_date").notNull(),
+  lastModifiedDate: timestamp("last_modified_date"),
+  
+  // Pricing
+  totalInCents: integer("total_in_cents"),
+  currencyCode: text("currency_code").default('USD'),
+  
+  // Flags
+  needsAttention: boolean("needs_attention").default(false),
+  hasLateDocument: boolean("has_late_document").default(false),
+  isCancelled: boolean("is_cancelled").default(false),
+  
+  // Sync tracking
+  lastSyncedAt: timestamp("last_synced_at"),
+  rawData: json("raw_data"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    marketplaceOrderIdx: index("marketplace_orders_marketplace_idx").on(table.marketplace),
+    statusIdx: index("marketplace_orders_status_idx").on(table.status),
+    orderDateIdx: index("marketplace_orders_date_idx").on(table.orderDate),
+    trackingIdx: index("marketplace_orders_tracking_idx").on(table.shippingTrackingNumber),
+  };
+});
+
+// Marketplace Order Items table
+export const marketplaceOrderItems = pgTable("marketplace_order_items", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").references(() => marketplaceOrders.id).notNull(),
+  
+  marketplaceSku: text("marketplace_sku").notNull(),
+  title: text("title"),
+  quantity: integer("quantity").default(1),
+  unitPriceInCents: integer("unit_price_in_cents"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    orderIdIdx: index("order_items_order_idx").on(table.orderId),
+  };
+});
+
 // Marketplace credential schemas
 export const insertMarketplaceCredentialSchema = createInsertSchema(marketplaceCredentials).omit({ 
   id: true, 
@@ -2579,9 +2649,27 @@ export const insertMarketplaceCredentialSchema = createInsertSchema(marketplaceC
   validationError: true
 });
 
+// Order schemas
+export const insertMarketplaceOrderSchema = createInsertSchema(marketplaceOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastSyncedAt: true,
+});
+
+export const insertMarketplaceOrderItemSchema = createInsertSchema(marketplaceOrderItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type MarketplaceCredential = typeof marketplaceCredentials.$inferSelect;
 export type InsertMarketplaceCredential = z.infer<typeof insertMarketplaceCredentialSchema>;
+export type MarketplaceOrder = typeof marketplaceOrders.$inferSelect;
+export type InsertMarketplaceOrder = z.infer<typeof insertMarketplaceOrderSchema>;
+export type MarketplaceOrderItem = typeof marketplaceOrderItems.$inferSelect;
+export type InsertMarketplaceOrderItem = z.infer<typeof insertMarketplaceOrderItemSchema>;
 
 export type PurchasingOpportunity = typeof purchasingOpportunities.$inferSelect;
 export type PurchasingSettings = typeof purchasingSettings.$inferSelect;

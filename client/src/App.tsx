@@ -47,6 +47,7 @@ import MarketplaceWalmart from "@/pages/MarketplaceWalmart";
 import MarketplaceComparison from "@/pages/MarketplaceComparison";
 import MarketplaceCatalog from "@/pages/MarketplaceCatalog";
 import ActiveListings from "@/pages/ActiveListings";
+import ManageOrders from "@/pages/ManageOrders";
 import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
 import FieldMappingDocs from "@/pages/FieldMappingDocs";
@@ -143,6 +144,10 @@ function Router() {
       {/* Active Listings - Track existing marketplace listings */}
       <Route path="/marketplaces/listings" component={ActiveListings} />
       <Route path="/active-listings" component={ActiveListings} />
+      
+      {/* Manage Orders - Track marketplace orders */}
+      <Route path="/marketplaces/orders" component={ManageOrders} />
+      <Route path="/manage-orders" component={ManageOrders} />
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">

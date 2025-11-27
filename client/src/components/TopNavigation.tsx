@@ -19,7 +19,8 @@ import {
   Brain,
   FolderTree,
   Truck,
-  Activity
+  Activity,
+  Package2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -239,6 +240,12 @@ const TopNavigation = () => {
                   <Link to="/marketplaces/listings" className="flex items-center gap-2 w-full">
                     <Package className="h-4 w-4" />
                     Active Listings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/orders" className="flex items-center gap-2 w-full">
+                    <ShoppingCart className="h-4 w-4" />
+                    Manage Orders
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
