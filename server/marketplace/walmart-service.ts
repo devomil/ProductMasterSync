@@ -20,6 +20,11 @@ import {
   getPricingInsightsForCatalog,
   getPricingInsightBySku
 } from './walmart-repository';
+import { 
+  updatePricingInsights,
+  getListingBySku,
+  getWalmartListingsForPricingSync
+} from './listings-repository';
 import {
   searchWalmartCatalogByUPC,
   getWalmartItem,
@@ -31,7 +36,7 @@ import {
   type WalmartPricingInsightItem
 } from '../utils/walmart-api';
 import { db } from '../db';
-import { productWalmartMapping } from '../../shared/schema';
+import { productWalmartMapping, walmartPricingInsights } from '../../shared/schema';
 
 /**
  * Fetch Walmart data by UPC and save to database
@@ -574,6 +579,86 @@ export async function getPricingInsightsDashboard() {
     };
   } catch (error) {
     console.error('[Walmart Service] Error getting pricing insights dashboard:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync pricing insights from walmart_pricing_insights table to walmart_listing_details
+ * This links the pricing data to the Active Listings UI
+ * 
+ * Optimized to only sync listings that have pricing insights data
+ */
+export async function syncPricingInsightsToListings() {
+  try {
+    console.log('[Walmart Service] Starting pricing insights to listings sync...');
+    
+    // Get all pricing insights that have been fetched
+    const allInsights = await db
+      .select({
+        sku: walmartPricingInsights.sku,
+        buyBoxBasePrice: walmartPricingInsights.buyBoxBasePrice,
+        buyBoxTotalPrice: walmartPricingInsights.buyBoxTotalPrice,
+        competitorPrice: walmartPricingInsights.competitorPrice,
+        priceCompetitive: walmartPricingInsights.priceCompetitive,
+        priceCompetitiveScore: walmartPricingInsights.priceCompetitiveScore,
+        inDemand: walmartPricingInsights.inDemand,
+        traffic: walmartPricingInsights.traffic,
+        gmv30: walmartPricingInsights.gmv30
+      })
+      .from(walmartPricingInsights);
+    
+    console.log(`[Walmart Service] Found ${allInsights.length} pricing insights to sync`);
+    
+    if (allInsights.length === 0) {
+      return { total: 0, synced: 0, skipped: 0, errors: 0 };
+    }
+    
+    let synced = 0;
+    let skipped = 0;
+    let errors = 0;
+    
+    // Process each insight and find matching listing
+    for (const insight of allInsights) {
+      try {
+        // Find the listing by SKU
+        const listing = await getListingBySku(insight.sku, 'walmart');
+        
+        if (!listing) {
+          skipped++;
+          continue;
+        }
+        
+        // Update the listing details with pricing insights
+        await updatePricingInsights(listing.id, {
+          buyBoxBasePriceInCents: insight.buyBoxBasePrice,
+          buyBoxTotalPriceInCents: insight.buyBoxTotalPrice,
+          competitorPriceInCents: insight.competitorPrice,
+          priceCompetitive: insight.priceCompetitive,
+          priceCompetitiveScore: insight.priceCompetitiveScore,
+          inDemand: insight.inDemand,
+          trafficLevel: insight.traffic,
+          gmv30InCents: insight.gmv30
+        });
+        
+        synced++;
+      } catch (error) {
+        console.error(`[Walmart Service] Error syncing insight for SKU ${insight.sku}:`, error);
+        errors++;
+      }
+    }
+    
+    console.log(`[Walmart Service] ✅ Pricing insights sync to listings complete`);
+    console.log(`[Walmart Service] Results: ${synced} synced, ${skipped} skipped (no matching listing), ${errors} errors`);
+    
+    return {
+      total: allInsights.length,
+      synced,
+      skipped,
+      errors
+    };
+  } catch (error) {
+    console.error('[Walmart Service] Error syncing pricing insights to listings:', error);
     throw error;
   }
 }

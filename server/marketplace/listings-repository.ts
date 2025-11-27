@@ -837,3 +837,46 @@ export async function updatePricingInsights(
       });
   }
 }
+
+/**
+ * Get a marketplace listing by listing ID (SKU for Walmart) and marketplace
+ */
+export async function getListingBySku(sku: string, marketplace: 'walmart' | 'amazon' | 'ebay' | 'target' | 'home_depot' = 'walmart'): Promise<typeof marketplaceListings.$inferSelect | null> {
+  try {
+    const [listing] = await db
+      .select()
+      .from(marketplaceListings)
+      .where(
+        and(
+          eq(marketplaceListings.listingId, sku),
+          eq(marketplaceListings.marketplace, marketplace)
+        )
+      )
+      .limit(1);
+    
+    return listing || null;
+  } catch (error) {
+    console.error('[Listings Repo] Error getting listing by SKU:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all Walmart listings with their listing IDs (SKUs) for pricing insights sync
+ */
+export async function getWalmartListingsForPricingSync(): Promise<Array<{id: number, sku: string}>> {
+  try {
+    const listings = await db
+      .select({
+        id: marketplaceListings.id,
+        sku: marketplaceListings.listingId
+      })
+      .from(marketplaceListings)
+      .where(eq(marketplaceListings.marketplace, 'walmart'));
+    
+    return listings;
+  } catch (error) {
+    console.error('[Listings Repo] Error getting listings for pricing sync:', error);
+    return [];
+  }
+}

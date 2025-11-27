@@ -2459,19 +2459,49 @@ router.post('/walmart/scheduler/trigger', async (req, res) => {
  */
 router.post('/walmart/pricing-insights/sync', async (req, res) => {
   try {
-    const { maxPages } = req.body;
-    const { syncAllPricingInsights } = await import('./walmart-service');
+    const { maxPages, syncToListings = true } = req.body;
+    const { syncAllPricingInsights, syncPricingInsightsToListings } = await import('./walmart-service');
     
     console.log('[Walmart Routes] Starting Pricing Insights sync...');
     
     const result = await syncAllPricingInsights(maxPages || 50);
+    
+    // Also sync to listing details so data shows in UI
+    let listingsResult = null;
+    if (syncToListings && result.fetched > 0) {
+      console.log('[Walmart Routes] Syncing pricing insights to listings...');
+      listingsResult = await syncPricingInsightsToListings();
+    }
+    
+    return res.json({
+      success: true,
+      ...result,
+      listingsSync: listingsResult
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error syncing pricing insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/pricing-insights/sync-to-listings
+ * Sync pricing insights from database to listing details (for UI display)
+ */
+router.post('/walmart/pricing-insights/sync-to-listings', async (req, res) => {
+  try {
+    const { syncPricingInsightsToListings } = await import('./walmart-service');
+    
+    console.log('[Walmart Routes] Starting pricing insights to listings sync...');
+    
+    const result = await syncPricingInsightsToListings();
     
     return res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    console.error('[Walmart Routes] Error syncing pricing insights:', error);
+    console.error('[Walmart Routes] Error syncing pricing insights to listings:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

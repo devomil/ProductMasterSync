@@ -481,6 +481,8 @@ export async function getWalmartPricingInsights(
       requestBody.sort = sort;
     }
     
+    console.log(`[Walmart API] Pricing Insights request body:`, JSON.stringify(requestBody));
+    
     const response = await axios.post(
       `${config.apiUrl}/price/getPricingInsights`,
       requestBody,
@@ -495,9 +497,16 @@ export async function getWalmartPricingInsights(
       }
     );
     
+    console.log(`[Walmart API] Pricing Insights raw response status:`, response.status);
+    console.log(`[Walmart API] Pricing Insights raw response data:`, JSON.stringify(response.data, null, 2).substring(0, 2000));
+    
     if (response.data) {
-      const pageContext = response.data.pageContext || {};
-      const items = response.data.pricingInsightsResponseList || [];
+      // Handle nested 'data' property in response (Walmart API wraps response in 'data')
+      const responsePayload = response.data.data || response.data;
+      const pageContext = responsePayload.pageContext || {};
+      const items = responsePayload.pricingInsightsResponseList || [];
+      
+      console.log(`[Walmart API] Extracted ${items.length} items from response`);
       
       // Log cursor information for debugging
       if (pageContext.nextCursor) {
@@ -547,36 +556,49 @@ export async function getWalmartPricingInsights(
 }
 
 /**
- * Get all Pricing Insights with cursor-based pagination
- * Automatically fetches all pages using nextCursor and returns combined results
+ * Get all Pricing Insights with page number-based pagination
+ * Automatically fetches all pages by incrementing page numbers
+ * 
+ * Walmart Rate Limiting: Uses token bucket algorithm with strict limits.
+ * Pricing Insights API appears to have ~2 requests/minute limit.
+ * Using 35 second delay between requests to stay within limits.
  */
 export async function getAllWalmartPricingInsights(
   maxPages: number = 50,
-  delayMs: number = 500
+  delayMs: number = 35000
 ): Promise<WalmartPricingInsightItem[]> {
   const allItems: WalmartPricingInsightItem[] = [];
   let currentPage = 0;
-  let nextCursor: string | undefined = undefined;
   let hasMorePages = true;
   let totalCount = 0;
+  let totalPages = 0;
   
   console.log(`[Walmart API] Starting full Pricing Insights fetch (max ${maxPages} pages)...`);
   
   while (hasMorePages && currentPage < maxPages) {
     try {
-      // Pass cursor from previous response for proper pagination
-      const response = await getWalmartPricingInsights(currentPage, undefined, undefined, undefined, nextCursor);
+      // Use page number-based pagination (increment page number each iteration)
+      const response = await getWalmartPricingInsights(currentPage);
       
-      allItems.push(...response.pricingInsightsResponseList);
-      totalCount = response.pageContext.totalCount;
-      
-      // Check if there are more pages using the cursor
-      nextCursor = response.pageContext.nextCursor;
-      hasMorePages = !!nextCursor && response.pricingInsightsResponseList.length > 0;
+      const pageItems = response.pricingInsightsResponseList;
+      allItems.push(...pageItems);
+      totalCount = response.pageContext.totalCount || totalCount;
+      totalPages = response.pageContext.totalPages || Math.ceil(totalCount / 25);
       
       currentPage++;
       
-      console.log(`[Walmart API] Progress: ${allItems.length}/${totalCount} items (page ${currentPage}, ${hasMorePages ? 'has more' : 'complete'})`);
+      // Check if there are more pages:
+      // 1. If we got items, there might be more
+      // 2. If totalPages is available, use it
+      // 3. If nextCursor is available, use it
+      const nextCursor = response.pageContext.nextCursor;
+      hasMorePages = pageItems.length > 0 && (
+        currentPage < totalPages ||
+        !!nextCursor ||
+        allItems.length < totalCount
+      );
+      
+      console.log(`[Walmart API] Progress: ${allItems.length}/${totalCount} items (page ${currentPage}/${totalPages}, ${hasMorePages ? 'has more' : 'complete'})`);
       
       // Rate limiting delay between pages
       if (hasMorePages && currentPage < maxPages) {

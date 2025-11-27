@@ -222,10 +222,27 @@ export default function ActiveListings() {
   const [currentPage, setCurrentPage] = useState(1);
   const listingsPerPage = 50;
 
+  // Reset to page 1 when filters change
+  const handleMarketplaceChange = (value: 'all' | 'walmart' | 'amazon') => {
+    setSelectedMarketplace(value);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
   const { data: listingsData, isLoading: isLoadingListings } = useQuery<ListingsResponse>({
     queryKey: ['/api/marketplace/listings', { 
       marketplace: selectedMarketplace === 'all' ? undefined : selectedMarketplace,
       status: statusFilter === 'all' ? undefined : statusFilter,
+      search: searchQuery || undefined,
       page: currentPage,
       limit: listingsPerPage 
     }],
@@ -300,19 +317,8 @@ export default function ActiveListings() {
   const filteredListings = useMemo(() => {
     if (!listingsData?.listings) return [];
     
-    let filtered = listingsData.listings;
-    
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(l => 
-        l.title?.toLowerCase().includes(query) ||
-        l.marketplaceSku?.toLowerCase().includes(query) ||
-        l.upc?.toLowerCase().includes(query) ||
-        l.productType?.toLowerCase().includes(query)
-      );
-    }
-    
-    filtered = [...filtered].sort((a, b) => {
+    // Search is done server-side now, just handle client-side sorting
+    let filtered = [...listingsData.listings].sort((a, b) => {
       let aVal: any = a[sortColumn as keyof MarketplaceListing];
       let bVal: any = b[sortColumn as keyof MarketplaceListing];
       
@@ -330,7 +336,7 @@ export default function ActiveListings() {
     });
     
     return filtered;
-  }, [listingsData?.listings, searchQuery, sortColumn, sortDirection]);
+  }, [listingsData?.listings, sortColumn, sortDirection]);
 
   const runningJob = syncJobs?.find(j => j.status === 'running');
   const recentJobs = syncJobs?.slice(0, 5) || [];
@@ -485,7 +491,7 @@ export default function ActiveListings() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={selectedMarketplace} onValueChange={(v) => setSelectedMarketplace(v as any)} className="mb-6">
+          <Tabs value={selectedMarketplace} onValueChange={(v) => handleMarketplaceChange(v as any)} className="mb-6">
             <TabsList>
               <TabsTrigger value="all" data-testid="tab-all">
                 All Marketplaces
@@ -507,12 +513,12 @@ export default function ActiveListings() {
               <Input
                 placeholder="Search by title, SKU, UPC, or product type..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10"
                 data-testid="input-search"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
               <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by status" />
@@ -523,6 +529,7 @@ export default function ActiveListings() {
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="retired">Retired</SelectItem>
+                <SelectItem value="unpublished">Unpublished</SelectItem>
               </SelectContent>
             </Select>
           </div>
