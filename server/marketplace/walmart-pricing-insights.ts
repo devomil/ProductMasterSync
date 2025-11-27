@@ -114,7 +114,17 @@ async function fetchPricingInsights(pageNumber: number = 0, maxRetries: number =
         }
       );
 
-      return response.data;
+      // Handle nested 'data' property in response (Walmart API wraps response in 'data')
+      const responsePayload = response.data?.data || response.data;
+      const items = responsePayload?.pricingInsightsResponseList || [];
+      const pageContext = responsePayload?.pageContext;
+      
+      console.log(`[Pricing Insights] Page ${pageNumber}: ${items.length} items received`);
+      
+      return {
+        pageContext,
+        pricingInsightsResponseList: items
+      };
     } catch (error: any) {
       const isRateLimit = error.response?.status === 429;
       const isLastAttempt = attempt === maxRetries;
