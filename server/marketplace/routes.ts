@@ -2455,28 +2455,25 @@ router.post('/walmart/scheduler/trigger', async (req, res) => {
 
 /**
  * POST /marketplace/walmart/pricing-insights/sync
- * Sync all pricing insights from Walmart API
+ * Sync pricing insights from Walmart API - ACTIVE LISTINGS ONLY by default
+ * 
+ * Request body options:
+ * - activeOnly: boolean (default: true) - Only update active listings (skips inactive/unpublished)
+ * - maxPages: number (default: 2000) - Maximum pages to fetch from API
+ * - delayMs: number (default: 30000) - Delay between API pages in milliseconds
  */
 router.post('/walmart/pricing-insights/sync', async (req, res) => {
   try {
-    const { maxPages, syncToListings = true } = req.body;
-    const { syncAllPricingInsights, syncPricingInsightsToListings } = await import('./walmart-service');
+    const { activeOnly = true, maxPages = 2000, delayMs = 30000 } = req.body;
+    const { startPricingInsightsSync } = await import('./walmart-pricing-insights');
     
-    console.log('[Walmart Routes] Starting Pricing Insights sync...');
+    console.log(`[Walmart Routes] Starting Pricing Insights sync - activeOnly: ${activeOnly}, maxPages: ${maxPages}`);
     
-    const result = await syncAllPricingInsights(maxPages || 50);
-    
-    // Also sync to listing details so data shows in UI
-    let listingsResult = null;
-    if (syncToListings && result.fetched > 0) {
-      console.log('[Walmart Routes] Syncing pricing insights to listings...');
-      listingsResult = await syncPricingInsightsToListings();
-    }
+    const result = await startPricingInsightsSync({ activeOnly, maxPages, delayMs });
     
     return res.json({
       success: true,
-      ...result,
-      listingsSync: listingsResult
+      ...result
     });
   } catch (error) {
     console.error('[Walmart Routes] Error syncing pricing insights:', error);
@@ -3215,23 +3212,6 @@ router.post('/walmart/listings/recalculate-fees', async (req, res) => {
     });
   } catch (error) {
     console.error('[Listings API] Error recalculating fees:', error);
-    return res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-/**
- * POST /marketplace/walmart/pricing-insights/sync
- * Fetch pricing insights data from Walmart API
- * This includes buyBoxBasePrice, competitorPrice, inDemand, traffic, priceCompetitive, etc.
- */
-router.post('/walmart/pricing-insights/sync', async (req, res) => {
-  try {
-    const { startPricingInsightsSync } = await import('./walmart-pricing-insights');
-    const result = await startPricingInsightsSync();
-    
-    return res.json(result);
-  } catch (error) {
-    console.error('[Listings API] Error syncing pricing insights:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

@@ -86,32 +86,62 @@ interface PricingInsightsResponse {
 }
 
 /**
- * Fetch pricing insights from Walmart API
+ * Fetch pricing insights from Walmart API with retry logic
  * Uses POST /v3/price/getPricingInsights with pagination
  */
-async function fetchPricingInsights(pageNumber: number = 0): Promise<PricingInsightsResponse> {
+async function fetchPricingInsights(pageNumber: number = 0, maxRetries: number = 3): Promise<PricingInsightsResponse> {
   const config = await getWalmartConfig();
-  const accessToken = await getAccessToken();
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const accessToken = await getAccessToken();
 
-  console.log(`[Pricing Insights] Fetching page ${pageNumber}...`);
+      console.log(`[Pricing Insights] Fetching page ${pageNumber}${attempt > 0 ? ` (retry ${attempt})` : ''}...`);
 
-  const response = await axios.post(
-    `${config.apiUrl}/price/getPricingInsights`,
-    {
-      pageNumber
-    },
-    {
-      headers: {
-        'WM_SEC.ACCESS_TOKEN': accessToken,
-        'WM_SVC.NAME': config.serviceName,
-        'WM_QOS.CORRELATION_ID': generateCorrelationId(),
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+      const response = await axios.post(
+        `${config.apiUrl}/price/getPricingInsights`,
+        {
+          pageNumber
+        },
+        {
+          headers: {
+            'WM_SEC.ACCESS_TOKEN': accessToken,
+            'WM_SVC.NAME': config.serviceName,
+            'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      const isRateLimit = error.response?.status === 429;
+      const isLastAttempt = attempt === maxRetries;
+      
+      if (isRateLimit && !isLastAttempt) {
+        // Parse replenishment time from headers if available
+        const replenishTime = error.response?.headers?.['x-next-replenishment-time'];
+        let waitMs = 60000; // Default: 60 seconds
+        
+        if (replenishTime) {
+          const replenishDate = parseInt(replenishTime, 10);
+          waitMs = Math.max(replenishDate - Date.now() + 1000, 30000); // At least 30 seconds
+        }
+        
+        console.log(`[Pricing Insights] Rate limited (429). Waiting ${Math.round(waitMs / 1000)}s before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+        continue;
       }
+      
+      if (isLastAttempt) {
+        console.error(`[Pricing Insights] Failed after ${maxRetries + 1} attempts:`, error.response?.data || error.message);
+      }
+      throw error;
     }
-  );
-
-  return response.data;
+  }
+  
+  return { pricingInsightsResponseList: [] };
 }
 
 /**
@@ -123,24 +153,60 @@ function dollarsToCents(amount: number | null | undefined): number | null {
 }
 
 /**
- * Start a full sync of pricing insights for all Walmart listings
+ * Get all active Walmart listing SKUs from the database
  */
-export async function startPricingInsightsSync(): Promise<{
+async function getActiveWalmartSkuSet(): Promise<Set<string>> {
+  const listings = await db
+    .select({
+      sku: marketplaceListings.marketplaceSku
+    })
+    .from(marketplaceListings)
+    .where(and(
+      eq(marketplaceListings.marketplace, 'walmart'),
+      eq(marketplaceListings.status, 'active')
+    ));
+
+  return new Set(listings.filter(l => l.sku !== null).map(l => l.sku as string));
+}
+
+/**
+ * Start a sync of pricing insights for ACTIVE Walmart listings only
+ * Uses pagination to fetch all data, then filters to only update active listings
+ */
+export async function startPricingInsightsSync(options?: { 
+  activeOnly?: boolean;
+  maxPages?: number;
+  delayMs?: number;
+}): Promise<{
   message: string;
+  totalActive: number;
   totalProcessed: number;
   updated: number;
+  skipped: number;
   errors: number;
 }> {
-  console.log('[Pricing Insights] Starting pricing insights sync...');
+  const activeOnly = options?.activeOnly ?? true;
+  const maxPages = options?.maxPages ?? 2000; // Max pages to fetch
+  const delayMs = options?.delayMs ?? 30000; // 30 seconds between pages (rate limiting)
+
+  console.log(`[Pricing Insights] Starting pricing insights sync (activeOnly: ${activeOnly}, maxPages: ${maxPages})...`);
   
   let totalProcessed = 0;
   let updated = 0;
+  let skipped = 0;
   let errors = 0;
   let pageNumber = 0;
   let hasMore = true;
 
   try {
-    while (hasMore) {
+    // If filtering for active only, get the set of active SKUs first
+    let activeSkuSet: Set<string> | null = null;
+    if (activeOnly) {
+      activeSkuSet = await getActiveWalmartSkuSet();
+      console.log(`[Pricing Insights] Loaded ${activeSkuSet.size} active SKUs for filtering`);
+    }
+
+    while (hasMore && pageNumber < maxPages) {
       const response = await fetchPricingInsights(pageNumber);
       const items = response.pricingInsightsResponseList || [];
       
@@ -154,6 +220,12 @@ export async function startPricingInsightsSync(): Promise<{
 
       for (const item of items) {
         try {
+          // If filtering for active only, skip non-active SKUs
+          if (activeOnly && activeSkuSet && !activeSkuSet.has(item.sku)) {
+            skipped++;
+            continue;
+          }
+
           // Find the listing by SKU
           const [listing] = await db
             .select({ id: marketplaceListings.id })
@@ -195,16 +267,22 @@ export async function startPricingInsightsSync(): Promise<{
 
       pageNumber++;
 
-      // Rate limiting - 1 request per second
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Rate limiting - 30 seconds between requests
+      if (hasMore && pageNumber < maxPages) {
+        console.log(`[Pricing Insights] Waiting ${delayMs / 1000}s before next page...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
     }
 
-    console.log(`[Pricing Insights] Sync complete: ${totalProcessed} processed, ${updated} updated, ${errors} errors`);
+    const totalActive = activeSkuSet?.size ?? 0;
+    console.log(`[Pricing Insights] Sync complete: ${totalActive} active, ${totalProcessed} processed, ${updated} updated, ${skipped} skipped, ${errors} errors`);
     
     return {
-      message: 'Pricing insights sync completed',
+      message: activeOnly ? 'Pricing insights sync completed (active only)' : 'Pricing insights sync completed',
+      totalActive,
       totalProcessed,
       updated,
+      skipped,
       errors
     };
   } catch (error) {
