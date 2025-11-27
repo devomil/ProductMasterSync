@@ -2592,20 +2592,30 @@ export const marketplaceOrders = pgTable("marketplace_orders", {
   // Shipping
   shippingTrackingNumber: text("shipping_tracking_number"),
   shippingCarrier: text("shipping_carrier"),
-  shippingDate: timestamp("shipping_date"),
+  shippingService: text("shipping_service"),
+  shippingSettingsType: text("shipping_settings_type").default('manual'),
+  shippedAt: timestamp("shipped_at"),
   
   // Dates
   orderDate: timestamp("order_date").notNull(),
+  shipByDate: timestamp("ship_by_date"),
+  promisedDeliveryDate: timestamp("promised_delivery_date"),
   lastModifiedDate: timestamp("last_modified_date"),
   
   // Pricing
   totalInCents: integer("total_in_cents"),
   currencyCode: text("currency_code").default('USD'),
   
-  // Flags
+  // Attention flags
   needsAttention: boolean("needs_attention").default(false),
-  hasLateDocument: boolean("has_late_document").default(false),
-  isCancelled: boolean("is_cancelled").default(false),
+  vergeOfCancellation: boolean("verge_of_cancellation").default(false),
+  vergeOfLateShipment: boolean("verge_of_late_shipment").default(false),
+  buyerRequestedCancel: boolean("buyer_requested_cancel").default(false),
+  
+  // Order type flags
+  isPremium: boolean("is_premium").default(false),
+  isBusinessCustomer: boolean("is_business_customer").default(false),
+  requiresSignature: boolean("requires_signature").default(false),
   
   // Sync tracking
   lastSyncedAt: timestamp("last_synced_at"),
@@ -2619,6 +2629,7 @@ export const marketplaceOrders = pgTable("marketplace_orders", {
     statusIdx: index("marketplace_orders_status_idx").on(table.status),
     orderDateIdx: index("marketplace_orders_date_idx").on(table.orderDate),
     trackingIdx: index("marketplace_orders_tracking_idx").on(table.shippingTrackingNumber),
+    shipByDateIdx: index("marketplace_orders_ship_by_idx").on(table.shipByDate),
   };
 });
 
