@@ -388,7 +388,9 @@ export async function startPricingInsightsSync(options?: SyncOptions): Promise<S
     }
     
     jobId = existingJob.id;
-    startPage = parseInt(existingJob.lastProcessedId || '0');
+    // Resume from NEXT page after lastProcessedId (which is the last completed page)
+    const lastCompletedPage = parseInt(existingJob.lastProcessedId || '0');
+    startPage = lastCompletedPage + 1;
     totalProcessed = existingJob.processedItems;
     updated = existingJob.successItems;
     errors = existingJob.failedItems;
@@ -399,7 +401,7 @@ export async function startPricingInsightsSync(options?: SyncOptions): Promise<S
       .set({ status: 'running', updatedAt: new Date() })
       .where(eq(marketplaceSyncJobs.id, jobId));
     
-    console.log(`[Pricing Insights] Resuming job ${jobId} from page ${startPage}...`);
+    console.log(`[Pricing Insights] Resuming job ${jobId} from page ${startPage} (last completed: ${lastCompletedPage})...`);
   } else {
     jobId = await createSyncJob(0);
     console.log(`[Pricing Insights] Created new job ${jobId}`);
