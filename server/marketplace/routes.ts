@@ -3395,4 +3395,258 @@ router.get('/walmart/pricing-insights/:sku', async (req, res) => {
   }
 });
 
+/**
+ * ============================================
+ * ORDERS MANAGEMENT ROUTES
+ * ============================================
+ */
+
+/**
+ * GET /marketplace/orders
+ * Get orders with filtering
+ */
+router.get('/orders', async (req, res) => {
+  try {
+    const {
+      status,
+      marketplace,
+      shipByDate,
+      dateRange = '7days',
+      page = '1',
+      limit = '15',
+      sortBy = 'orderDate',
+      sortOrder = 'desc',
+      needsAttention,
+      orderType,
+      shippingSettingsType,
+    } = req.query;
+
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
+    const { sql, eq, and, desc, asc, gte, lte, inArray, or } = await import('drizzle-orm');
+
+    let conditions: any[] = [];
+
+    if (status && status !== 'all') {
+      conditions.push(eq(marketplaceOrders.status, status as string));
+    }
+    
+    if (marketplace) {
+      const channels = (marketplace as string).split(',');
+      conditions.push(inArray(marketplaceOrders.marketplace, channels as any));
+    }
+    
+    if (shipByDate === 'today') {
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      conditions.push(lte(marketplaceOrders.shipByDate, today));
+    } else if (shipByDate === 'tomorrow') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(23, 59, 59, 999);
+      conditions.push(lte(marketplaceOrders.shipByDate, tomorrow));
+    }
+
+    let dateFilter = new Date();
+    if (dateRange === 'today') {
+      dateFilter.setHours(0, 0, 0, 0);
+    } else if (dateRange === '7days') {
+      dateFilter.setDate(dateFilter.getDate() - 7);
+    } else if (dateRange === '30days') {
+      dateFilter.setDate(dateFilter.getDate() - 30);
+    } else if (dateRange === '90days') {
+      dateFilter.setDate(dateFilter.getDate() - 90);
+    }
+    conditions.push(gte(marketplaceOrders.orderDate, dateFilter));
+
+    if (needsAttention === 'cancellation') {
+      conditions.push(eq(marketplaceOrders.vergeOfCancellation, true));
+    } else if (needsAttention === 'late') {
+      conditions.push(eq(marketplaceOrders.vergeOfLateShipment, true));
+    }
+
+    if (orderType) {
+      const types = (orderType as string).split(',');
+      const typeConditions: any[] = [];
+      if (types.includes('subscription')) {
+        typeConditions.push(eq(marketplaceOrders.orderType, 'subscription'));
+      }
+      if (types.includes('business')) {
+        typeConditions.push(eq(marketplaceOrders.isBusinessCustomer, true));
+      }
+      if (typeConditions.length > 0) {
+        conditions.push(or(...typeConditions));
+      }
+    }
+
+    if (shippingSettingsType && shippingSettingsType !== 'all') {
+      conditions.push(eq(marketplaceOrders.shippingSettingsType, shippingSettingsType as string));
+    }
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 15;
+    const offset = (pageNum - 1) * limitNum;
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const orders = await db
+      .select()
+      .from(marketplaceOrders)
+      .where(whereClause)
+      .orderBy(sortOrder === 'asc' ? asc(marketplaceOrders.orderDate) : desc(marketplaceOrders.orderDate))
+      .limit(limitNum)
+      .offset(offset);
+
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(marketplaceOrders)
+      .where(whereClause);
+
+    const total = parseInt(countResult[0]?.count as any) || 0;
+
+    const statsResult = await db.execute(sql`
+      SELECT 
+        COUNT(*) as "totalOrders",
+        COUNT(*) FILTER (WHERE status = 'pending') as "pending",
+        COUNT(*) FILTER (WHERE status = 'unshipped') as "unshipped",
+        COUNT(*) FILTER (WHERE status = 'shipped') as "shipped",
+        COUNT(*) FILTER (WHERE status = 'cancelled') as "cancelled"
+      FROM marketplace_orders
+      WHERE order_date >= ${dateFilter}
+    `);
+
+    const stats = statsResult.rows[0] || {
+      totalOrders: 0,
+      pending: 0,
+      unshipped: 0,
+      shipped: 0,
+      cancelled: 0
+    };
+
+    return res.json({
+      orders,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      stats
+    });
+  } catch (error) {
+    console.error('[Orders API] Error fetching orders:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/orders/:orderId
+ * Get a single order by ID with line items
+ */
+router.get('/orders/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const order = await db
+      .select()
+      .from(marketplaceOrders)
+      .where(eq(marketplaceOrders.id, parseInt(orderId)))
+      .limit(1);
+
+    if (!order.length) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const items = await db
+      .select()
+      .from(marketplaceOrderItems)
+      .where(eq(marketplaceOrderItems.orderId, parseInt(orderId)));
+
+    return res.json({
+      ...order[0],
+      items
+    });
+  } catch (error) {
+    console.error('[Orders API] Error fetching order:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * PATCH /marketplace/orders/:orderId/tracking
+ * Update tracking information for an order
+ */
+router.patch('/orders/:orderId/tracking', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { trackingNumber, carrier, shippedAt } = req.body;
+
+    const { db } = await import('../db');
+    const { marketplaceOrders } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const updated = await db
+      .update(marketplaceOrders)
+      .set({
+        shippingTrackingNumber: trackingNumber,
+        shippingCarrier: carrier,
+        shippedAt: shippedAt ? new Date(shippedAt) : new Date(),
+        status: 'shipped',
+        updatedAt: new Date()
+      })
+      .where(eq(marketplaceOrders.id, parseInt(orderId)))
+      .returning();
+
+    if (!updated.length) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    return res.json(updated[0]);
+  } catch (error) {
+    console.error('[Orders API] Error updating tracking:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/orders/stats/summary
+ * Get order statistics summary
+ */
+router.get('/orders/stats/summary', async (req, res) => {
+  try {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+
+    const result = await db.execute(sql`
+      SELECT 
+        marketplace,
+        COUNT(*) as "totalOrders",
+        COUNT(*) FILTER (WHERE status = 'pending') as "pending",
+        COUNT(*) FILTER (WHERE status = 'unshipped') as "unshipped",
+        COUNT(*) FILTER (WHERE status = 'shipped') as "shipped",
+        COUNT(*) FILTER (WHERE status = 'cancelled') as "cancelled",
+        COUNT(*) FILTER (WHERE verge_of_late_shipment = true) as "vergeOfLateShipment",
+        COUNT(*) FILTER (WHERE verge_of_cancellation = true) as "vergeOfCancellation",
+        COUNT(*) FILTER (WHERE buyer_requested_cancel = true) as "buyerRequestedCancel",
+        SUM(total_in_cents) as "totalRevenue"
+      FROM marketplace_orders
+      GROUP BY marketplace
+    `);
+
+    return res.json({
+      byMarketplace: result.rows,
+      connected: {
+        walmart: true,
+        amazon: true,
+        newegg: false,
+        ebay: false
+      }
+    });
+  } catch (error) {
+    console.error('[Orders API] Error fetching order stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
