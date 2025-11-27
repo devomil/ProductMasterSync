@@ -24,12 +24,31 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
+function buildUrlWithParams(baseUrl: string, params?: Record<string, unknown>): string {
+  if (!params) return baseUrl;
+  
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  }
+  
+  const queryString = searchParams.toString();
+  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+}
+
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const baseUrl = queryKey[0] as string;
+    const params = queryKey[1] as Record<string, unknown> | undefined;
+    const url = buildUrlWithParams(baseUrl, params);
+    
+    const res = await fetch(url, {
       credentials: "include",
     });
 
