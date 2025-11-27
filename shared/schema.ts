@@ -2122,7 +2122,7 @@ export const insertSupplierAsinPerformanceSchema = createInsertSchema(supplierAs
 export const insertWalmartProductSchema = createInsertSchema(walmartProducts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWalmartMarketIntelligenceSchema = createInsertSchema(walmartMarketIntelligence).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWalmartTaxonomySchema = createInsertSchema(walmartTaxonomy).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertProductWalmartMappingSchema = createInsertSchema(productWalmartMapping).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProductWalmartMappingSchema = createInsertSchema(productWalmartMapping).omit({ id: true, createdAt: true });
 export const insertWalmartPricingInsightsSchema = createInsertSchema(walmartPricingInsights).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types for inserts
