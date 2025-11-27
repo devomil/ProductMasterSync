@@ -3024,6 +3024,110 @@ router.get('/listings', async (req, res) => {
 });
 
 /**
+ * GET /marketplace/listings/export
+ * Export marketplace listings as CSV with current filters
+ */
+router.get('/listings/export', async (req, res) => {
+  try {
+    const filters: listingsRepo.ListingsFilters = {
+      marketplace: req.query.marketplace as any,
+      status: req.query.status as string,
+      quantity: req.query.quantity as 'zero' | 'in_stock',
+      search: req.query.search as string,
+      productType: req.query.productType as string,
+      hasProductMatch: req.query.hasProductMatch === 'true' ? true : 
+                       req.query.hasProductMatch === 'false' ? false : undefined,
+      page: 1,
+      pageSize: 100000, // Large limit for export
+      sortBy: req.query.sortBy as string || 'title',
+      sortOrder: req.query.sortOrder as 'asc' | 'desc' || 'asc',
+    };
+
+    const result = await listingsRepo.getMarketplaceListings(filters);
+    const listings = result.listings;
+
+    // Build CSV content
+    const headers = [
+      'SKU',
+      'Title',
+      'Marketplace',
+      'Status',
+      'Quantity',
+      'Price',
+      'Referral Fee',
+      'Referral %',
+      'Product Type',
+      'Contract Category',
+      'UPC',
+      'Buy Box Price',
+      'Competitor Price',
+      'Price Competitive',
+      'In Demand',
+      'Traffic Level',
+      'GMV 30 Day',
+      'Last Synced'
+    ];
+
+    const formatCurrency = (cents: number | null) => {
+      if (cents === null || cents === undefined) return '';
+      return (cents / 100).toFixed(2);
+    };
+
+    const formatPercent = (refCents: number | null, priceCents: number | null) => {
+      if (!refCents || !priceCents || priceCents === 0) return '';
+      return ((refCents / priceCents) * 100).toFixed(1) + '%';
+    };
+
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = listings.map(listing => [
+      escapeCSV(listing.marketplaceSku),
+      escapeCSV(listing.title),
+      escapeCSV(listing.marketplace),
+      escapeCSV(listing.status),
+      listing.quantity ?? '',
+      formatCurrency(listing.priceInCents),
+      formatCurrency(listing.referralFeeInCents),
+      formatPercent(listing.referralFeeInCents, listing.priceInCents),
+      escapeCSV(listing.productType),
+      escapeCSV(listing.contractCategory),
+      escapeCSV(listing.upc),
+      formatCurrency(listing.buyBoxBasePriceInCents),
+      formatCurrency(listing.competitorPriceInCents),
+      listing.priceCompetitive === true ? 'Yes' : listing.priceCompetitive === false ? 'No' : '',
+      listing.inDemand === true ? 'Yes' : listing.inDemand === false ? 'No' : '',
+      escapeCSV(listing.trafficLevel),
+      formatCurrency(listing.gmv30InCents),
+      listing.lastSyncedAt ? new Date(listing.lastSyncedAt).toISOString().split('T')[0] : ''
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+
+    // Generate filename with filters info
+    const filterInfo = [];
+    if (filters.marketplace) filterInfo.push(filters.marketplace);
+    if (filters.status) filterInfo.push(filters.status);
+    if (filters.search) filterInfo.push('search');
+    const filterSuffix = filterInfo.length > 0 ? `_${filterInfo.join('_')}` : '';
+    const filename = `marketplace_listings${filterSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(csv);
+  } catch (error) {
+    console.error('[Listings API] Error exporting listings:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/listings/stats
  * Get listing statistics for a marketplace
  */

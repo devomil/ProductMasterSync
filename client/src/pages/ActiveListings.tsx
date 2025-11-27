@@ -23,7 +23,8 @@ import {
   XCircle,
   AlertCircle,
   TrendingUp,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 import { apiRequest } from '@/lib/queryClient';
@@ -353,6 +354,29 @@ export default function ActiveListings() {
     syncMutation.mutate(selectedMarketplace);
   };
 
+  const handleDownloadCSV = () => {
+    // Build query params with current filters
+    const params = new URLSearchParams();
+    if (selectedMarketplace !== 'all') {
+      params.set('marketplace', selectedMarketplace);
+    }
+    if (statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    }
+    if (searchQuery) {
+      params.set('search', searchQuery);
+    }
+    
+    // Open download in new window/tab
+    const url = `/api/marketplace/listings/export?${params.toString()}`;
+    window.open(url, '_blank');
+    
+    toast({
+      title: 'Download Started',
+      description: 'Your CSV file is being prepared and will download shortly.',
+    });
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -363,6 +387,15 @@ export default function ActiveListings() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleDownloadCSV}
+            disabled={isLoadingListings || !listingsData?.listings?.length}
+            data-testid="button-download-csv"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download CSV
+          </Button>
           {selectedMarketplace === 'walmart' && (
             <Button
               variant="outline"
