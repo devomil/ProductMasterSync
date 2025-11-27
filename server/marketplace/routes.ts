@@ -2460,16 +2460,35 @@ router.post('/walmart/scheduler/trigger', async (req, res) => {
  * Request body options:
  * - activeOnly: boolean (default: true) - Only update active listings (skips inactive/unpublished)
  * - maxPages: number (default: 2000) - Maximum pages to fetch from API
- * - delayMs: number (default: 30000) - Delay between API pages in milliseconds
+ * - delayMs: number (default: 35000) - Delay between API pages in milliseconds
+ * - resumeJobId: number (optional) - Resume from an existing job
+ * - pagesPerChunk: number (optional) - Number of pages before pausing (for long syncs)
+ * 
+ * For full catalog sync (~1,680 pages at 35s each = ~16 hours):
+ * - Set pagesPerChunk to run in batches (e.g., 100 pages = ~1 hour)
+ * - Use resumeJobId from response to continue from where it left off
+ * - Progress is saved after each page
  */
 router.post('/walmart/pricing-insights/sync', async (req, res) => {
   try {
-    const { activeOnly = true, maxPages = 2000, delayMs = 30000 } = req.body;
+    const { 
+      activeOnly = true, 
+      maxPages = 2000, 
+      delayMs = 35000,
+      resumeJobId,
+      pagesPerChunk
+    } = req.body;
     const { startPricingInsightsSync } = await import('./walmart-pricing-insights');
     
-    console.log(`[Walmart Routes] Starting Pricing Insights sync - activeOnly: ${activeOnly}, maxPages: ${maxPages}`);
+    console.log(`[Walmart Routes] Starting Pricing Insights sync - activeOnly: ${activeOnly}, maxPages: ${maxPages}${resumeJobId ? `, resumeJobId: ${resumeJobId}` : ''}`);
     
-    const result = await startPricingInsightsSync({ activeOnly, maxPages, delayMs });
+    const result = await startPricingInsightsSync({ 
+      activeOnly, 
+      maxPages, 
+      delayMs,
+      resumeJobId,
+      pagesPerChunk
+    });
     
     return res.json({
       success: true,
@@ -2477,6 +2496,42 @@ router.post('/walmart/pricing-insights/sync', async (req, res) => {
     });
   } catch (error) {
     console.error('[Walmart Routes] Error syncing pricing insights:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/walmart/pricing-insights/sync/status
+ * Get the status of the latest pricing insights sync job
+ */
+router.get('/walmart/pricing-insights/sync/status', async (req, res) => {
+  try {
+    const { getPricingInsightsSyncStatus } = await import('./walmart-pricing-insights');
+    const job = await getPricingInsightsSyncStatus();
+    
+    if (!job) {
+      return res.json({ 
+        success: true, 
+        hasJob: false, 
+        message: 'No sync job found' 
+      });
+    }
+    
+    const progress = job.totalItems > 0 
+      ? Math.round((job.processedItems / job.totalItems) * 100) 
+      : 0;
+    
+    return res.json({
+      success: true,
+      hasJob: true,
+      job: {
+        ...job,
+        progress,
+        canResume: job.status === 'running' || job.status === 'failed'
+      }
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error getting sync status:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

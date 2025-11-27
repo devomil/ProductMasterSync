@@ -3,13 +3,19 @@
  * 
  * Fetches pricing data from Walmart's /v3/price/getPricingInsights API
  * Includes: buyBoxBasePrice, buyBoxTotalPrice, competitorPrice, inDemand, traffic, priceCompetitive, etc.
+ * 
+ * Features:
+ * - Resumable sync with job tracking in database
+ * - Automatic retry with exponential backoff for rate limits
+ * - Active-only filtering to skip inactive listings
+ * - Progress tracking and reporting
  */
 
 import axios from 'axios';
 import { getWalmartConfig } from '../utils/walmart-api';
 import { db } from '../db';
-import { marketplaceListings, walmartListingDetails } from '../../shared/schema';
-import { eq, and, sql, isNull, or, lt } from 'drizzle-orm';
+import { marketplaceListings, walmartListingDetails, marketplaceSyncJobs } from '../../shared/schema';
+import { eq, and, sql, isNull, or, lt, desc } from 'drizzle-orm';
 import * as listingsRepo from './listings-repository';
 
 let tokenCache: { access_token: string; expires_at: number } | null = null;
@@ -179,44 +185,271 @@ async function getActiveWalmartSkuSet(): Promise<Set<string>> {
   return new Set(listings.filter(l => l.sku !== null).map(l => l.sku as string));
 }
 
+// ============================================================================
+// JOB TRACKING FUNCTIONS
+// ============================================================================
+
+interface SyncJobInfo {
+  id: number;
+  status: string;
+  totalItems: number;
+  processedItems: number;
+  successItems: number;
+  failedItems: number;
+  lastProcessedId: string | null; // Stores last page number
+  startedAt: Date | null;
+  completedAt: Date | null;
+}
+
 /**
- * Start a sync of pricing insights for ACTIVE Walmart listings only
- * Uses pagination to fetch all data, then filters to only update active listings
+ * Create a new pricing insights sync job
  */
-export async function startPricingInsightsSync(options?: { 
+async function createSyncJob(totalItems: number = 0): Promise<number> {
+  const [job] = await db
+    .insert(marketplaceSyncJobs)
+    .values({
+      marketplace: 'walmart',
+      jobType: 'pricing_insights',
+      status: 'running',
+      totalItems,
+      processedItems: 0,
+      successItems: 0,
+      failedItems: 0,
+      startedAt: new Date(),
+      lastProcessedId: '0' // Starting page
+    })
+    .returning({ id: marketplaceSyncJobs.id });
+  
+  return job.id;
+}
+
+/**
+ * Update sync job progress
+ */
+async function updateJobProgress(
+  jobId: number, 
+  processed: number, 
+  success: number, 
+  failed: number, 
+  lastPage: number
+): Promise<void> {
+  await db
+    .update(marketplaceSyncJobs)
+    .set({
+      processedItems: processed,
+      successItems: success,
+      failedItems: failed,
+      lastProcessedId: String(lastPage),
+      updatedAt: new Date()
+    })
+    .where(eq(marketplaceSyncJobs.id, jobId));
+}
+
+/**
+ * Mark sync job as completed
+ */
+async function completeJob(jobId: number, status: 'completed' | 'failed' | 'cancelled' = 'completed', errorMessage?: string): Promise<void> {
+  const [job] = await db
+    .select({ startedAt: marketplaceSyncJobs.startedAt })
+    .from(marketplaceSyncJobs)
+    .where(eq(marketplaceSyncJobs.id, jobId));
+  
+  const duration = job?.startedAt 
+    ? Math.floor((Date.now() - new Date(job.startedAt).getTime()) / 1000)
+    : null;
+
+  await db
+    .update(marketplaceSyncJobs)
+    .set({
+      status,
+      completedAt: new Date(),
+      duration,
+      errorMessage,
+      updatedAt: new Date()
+    })
+    .where(eq(marketplaceSyncJobs.id, jobId));
+}
+
+/**
+ * Get the most recent pricing insights sync job
+ */
+async function getLatestSyncJob(): Promise<SyncJobInfo | null> {
+  const [job] = await db
+    .select()
+    .from(marketplaceSyncJobs)
+    .where(and(
+      eq(marketplaceSyncJobs.marketplace, 'walmart'),
+      eq(marketplaceSyncJobs.jobType, 'pricing_insights')
+    ))
+    .orderBy(desc(marketplaceSyncJobs.createdAt))
+    .limit(1);
+  
+  return job ? {
+    id: job.id,
+    status: job.status || 'pending',
+    totalItems: job.totalItems || 0,
+    processedItems: job.processedItems || 0,
+    successItems: job.successItems || 0,
+    failedItems: job.failedItems || 0,
+    lastProcessedId: job.lastProcessedId,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt
+  } : null;
+}
+
+/**
+ * Get a sync job by ID
+ */
+export async function getSyncJobById(jobId: number): Promise<SyncJobInfo | null> {
+  const [job] = await db
+    .select()
+    .from(marketplaceSyncJobs)
+    .where(eq(marketplaceSyncJobs.id, jobId))
+    .limit(1);
+  
+  return job ? {
+    id: job.id,
+    status: job.status || 'pending',
+    totalItems: job.totalItems || 0,
+    processedItems: job.processedItems || 0,
+    successItems: job.successItems || 0,
+    failedItems: job.failedItems || 0,
+    lastProcessedId: job.lastProcessedId,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt
+  } : null;
+}
+
+export interface SyncOptions {
   activeOnly?: boolean;
   maxPages?: number;
   delayMs?: number;
-}): Promise<{
+  resumeJobId?: number; // Resume from existing job
+  pagesPerChunk?: number; // How many pages before pausing (for long syncs)
+}
+
+export interface SyncResult {
   message: string;
+  jobId: number;
+  status: 'running' | 'completed' | 'paused' | 'failed';
   totalActive: number;
+  totalPages: number;
+  currentPage: number;
   totalProcessed: number;
   updated: number;
   skipped: number;
   errors: number;
-}> {
-  const activeOnly = options?.activeOnly ?? true;
-  const maxPages = options?.maxPages ?? 2000; // Max pages to fetch
-  const delayMs = options?.delayMs ?? 30000; // 30 seconds between pages (rate limiting)
+  canResume: boolean;
+  estimatedTimeRemaining?: string;
+}
 
-  console.log(`[Pricing Insights] Starting pricing insights sync (activeOnly: ${activeOnly}, maxPages: ${maxPages})...`);
-  
+/**
+ * Start or resume a pricing insights sync for ACTIVE Walmart listings
+ * 
+ * For full catalog sync (~1,680 pages at 35s each = 16 hours):
+ * - Use pagesPerChunk to run in batches (e.g., 100 pages = ~1 hour)
+ * - Call again with resumeJobId to continue from where it left off
+ * - Progress is saved after each page
+ */
+export async function startPricingInsightsSync(options?: SyncOptions): Promise<SyncResult> {
+  const activeOnly = options?.activeOnly ?? true;
+  const maxPages = options?.maxPages ?? 2000;
+  const delayMs = options?.delayMs ?? 35000; // 35 seconds between pages (rate limiting)
+  const pagesPerChunk = options?.pagesPerChunk; // If set, pause after this many pages
+
+  let jobId: number;
+  let startPage = 0;
   let totalProcessed = 0;
   let updated = 0;
-  let skipped = 0;
+  let skipped = 0; 
   let errors = 0;
-  let pageNumber = 0;
+  let totalPages = 0;
+
+  // Resume existing job or create new one
+  if (options?.resumeJobId) {
+    const existingJob = await getSyncJobById(options.resumeJobId);
+    if (!existingJob) {
+      throw new Error(`Job ${options.resumeJobId} not found`);
+    }
+    if (existingJob.status === 'completed') {
+      return {
+        message: 'Job already completed',
+        jobId: existingJob.id,
+        status: 'completed',
+        totalActive: existingJob.totalItems,
+        totalPages: 0,
+        currentPage: parseInt(existingJob.lastProcessedId || '0'),
+        totalProcessed: existingJob.processedItems,
+        updated: existingJob.successItems,
+        skipped: existingJob.failedItems,
+        errors: 0,
+        canResume: false
+      };
+    }
+    
+    jobId = existingJob.id;
+    startPage = parseInt(existingJob.lastProcessedId || '0');
+    totalProcessed = existingJob.processedItems;
+    updated = existingJob.successItems;
+    errors = existingJob.failedItems;
+    
+    // Mark as running again
+    await db
+      .update(marketplaceSyncJobs)
+      .set({ status: 'running', updatedAt: new Date() })
+      .where(eq(marketplaceSyncJobs.id, jobId));
+    
+    console.log(`[Pricing Insights] Resuming job ${jobId} from page ${startPage}...`);
+  } else {
+    jobId = await createSyncJob(0);
+    console.log(`[Pricing Insights] Created new job ${jobId}`);
+  }
+
+  console.log(`[Pricing Insights] Starting sync (activeOnly: ${activeOnly}, maxPages: ${maxPages}, startPage: ${startPage})...`);
+
+  let pageNumber = startPage;
   let hasMore = true;
+  let pagesProcessedThisChunk = 0;
 
   try {
-    // If filtering for active only, get the set of active SKUs first
+    // Get active SKUs for filtering
     let activeSkuSet: Set<string> | null = null;
     if (activeOnly) {
       activeSkuSet = await getActiveWalmartSkuSet();
       console.log(`[Pricing Insights] Loaded ${activeSkuSet.size} active SKUs for filtering`);
+      
+      // Update job with total items
+      await db
+        .update(marketplaceSyncJobs)
+        .set({ totalItems: activeSkuSet.size })
+        .where(eq(marketplaceSyncJobs.id, jobId));
     }
 
     while (hasMore && pageNumber < maxPages) {
+      // Check if we should pause for this chunk
+      if (pagesPerChunk && pagesProcessedThisChunk >= pagesPerChunk) {
+        const remainingPages = totalPages - pageNumber;
+        const estimatedSecondsRemaining = remainingPages * (delayMs / 1000 + 2);
+        const estimatedTimeRemaining = formatDuration(estimatedSecondsRemaining);
+        
+        console.log(`[Pricing Insights] Pausing at page ${pageNumber} (chunk of ${pagesPerChunk} complete). Resume with jobId: ${jobId}`);
+        
+        return {
+          message: `Sync paused at page ${pageNumber}. Resume with jobId: ${jobId}`,
+          jobId,
+          status: 'paused',
+          totalActive: activeSkuSet?.size ?? 0,
+          totalPages,
+          currentPage: pageNumber,
+          totalProcessed,
+          updated,
+          skipped,
+          errors,
+          canResume: true,
+          estimatedTimeRemaining
+        };
+      }
+
       const response = await fetchPricingInsights(pageNumber);
       const items = response.pricingInsightsResponseList || [];
       
@@ -226,17 +459,16 @@ export async function startPricingInsightsSync(options?: {
       }
 
       const pageContext = response.pageContext;
-      console.log(`[Pricing Insights] Page ${pageNumber}: ${items.length} items (total: ${pageContext?.totalCount})`);
+      totalPages = pageContext?.totalPages || totalPages;
+      console.log(`[Pricing Insights] Page ${pageNumber}/${totalPages}: ${items.length} items`);
 
       for (const item of items) {
         try {
-          // If filtering for active only, skip non-active SKUs
           if (activeOnly && activeSkuSet && !activeSkuSet.has(item.sku)) {
             skipped++;
             continue;
           }
 
-          // Find the listing by SKU
           const [listing] = await db
             .select({ id: marketplaceListings.id })
             .from(marketplaceListings)
@@ -268,7 +500,10 @@ export async function startPricingInsightsSync(options?: {
         }
       }
 
-      // Check if there are more pages
+      // Save progress after each page
+      await updateJobProgress(jobId, totalProcessed, updated, errors, pageNumber);
+
+      // Check for more pages
       if (pageContext) {
         hasMore = pageNumber < pageContext.totalPages - 1;
       } else {
@@ -276,29 +511,72 @@ export async function startPricingInsightsSync(options?: {
       }
 
       pageNumber++;
+      pagesProcessedThisChunk++;
 
-      // Rate limiting - 30 seconds between requests
+      // Rate limiting
       if (hasMore && pageNumber < maxPages) {
         console.log(`[Pricing Insights] Waiting ${delayMs / 1000}s before next page...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
 
+    // Sync completed successfully
+    await completeJob(jobId, 'completed');
+    
     const totalActive = activeSkuSet?.size ?? 0;
     console.log(`[Pricing Insights] Sync complete: ${totalActive} active, ${totalProcessed} processed, ${updated} updated, ${skipped} skipped, ${errors} errors`);
     
     return {
-      message: activeOnly ? 'Pricing insights sync completed (active only)' : 'Pricing insights sync completed',
+      message: 'Pricing insights sync completed',
+      jobId,
+      status: 'completed',
       totalActive,
+      totalPages,
+      currentPage: pageNumber,
       totalProcessed,
       updated,
       skipped,
-      errors
+      errors,
+      canResume: false
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Pricing Insights] Sync failed:', error);
-    throw error;
+    await completeJob(jobId, 'failed', error.message);
+    
+    return {
+      message: `Sync failed: ${error.message}. Resume with jobId: ${jobId}`,
+      jobId,
+      status: 'failed',
+      totalActive: 0,
+      totalPages,
+      currentPage: pageNumber,
+      totalProcessed,
+      updated,
+      skipped,
+      errors,
+      canResume: true
+    };
   }
+}
+
+/**
+ * Format seconds into human-readable duration
+ */
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+/**
+ * Get the status of the latest pricing insights sync job
+ */
+export async function getPricingInsightsSyncStatus(): Promise<SyncJobInfo | null> {
+  return getLatestSyncJob();
 }
 
 /**
