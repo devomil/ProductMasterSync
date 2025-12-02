@@ -81,8 +81,52 @@ export default function ManageOrders() {
   const [resultsPerPage, setResultsPerPage] = useState<string>('15');
   const [page, setPage] = useState(1);
 
+  // Build query params for API call
+  const buildQueryParams = () => {
+    const params = new URLSearchParams();
+    if (statusTab && statusTab !== 'all') params.append('status', statusTab);
+    if (salesChannels.length > 0) params.append('marketplace', salesChannels.join(','));
+    if (shipByDate && shipByDate !== 'all') params.append('shipByDate', shipByDate);
+    if (dateRange) params.append('dateRange', dateRange);
+    if (needsAttention && needsAttention !== 'all') params.append('needsAttention', needsAttention);
+    if (orderTypes.length > 0) params.append('orderType', orderTypes.join(','));
+    if (shippingSettingsType && shippingSettingsType !== 'all') params.append('shippingSettingsType', shippingSettingsType);
+    if (shippingService.includes('premium')) params.append('isPremium', 'true');
+    if (pendingActions.includes('buyer_cancel')) params.append('buyerRequestedCancel', 'true');
+    if (deliveryRecommendation.includes('signature')) params.append('requiresSignature', 'true');
+    params.append('page', page.toString());
+    params.append('limit', resultsPerPage);
+    params.append('sortBy', sortBy.includes('asc') ? 'asc' : 'desc');
+    return params.toString();
+  };
+
   const { data: ordersData, isLoading, refetch } = useQuery<OrdersResponse>({
-    queryKey: ['/api/marketplace/orders', statusTab, salesChannels, shipByDate, page],
+    queryKey: [
+      '/api/marketplace/orders', 
+      statusTab, 
+      salesChannels.join(','), 
+      shipByDate, 
+      dateRange,
+      needsAttention,
+      orderTypes.join(','),
+      shippingSettingsType,
+      shippingService.join(','),
+      pendingActions.join(','),
+      deliveryRecommendation.join(','),
+      page, 
+      resultsPerPage,
+      sortBy
+    ],
+    queryFn: async () => {
+      const response = await fetch(`/api/marketplace/orders?${buildQueryParams()}`);
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    }
+  });
+
+  // Fetch marketplace connection status
+  const { data: marketplaceStatus } = useQuery({
+    queryKey: ['/api/marketplace/credentials/status'],
   });
 
   const quickFilters: QuickFilter[] = [
@@ -455,14 +499,22 @@ export default function ManageOrders() {
           <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
             <span className="text-sm font-medium">Connected Marketplaces:</span>
             <div className="flex items-center gap-1">
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              {(marketplaceStatus as any)?.walmart?.connected ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              )}
               <SiWalmart className="h-4 w-4" />
-              <span className="text-sm">Walmart</span>
+              <span className="text-sm">Walmart{!(marketplaceStatus as any)?.walmart?.connected && ' (Not Connected)'}</span>
             </div>
             <div className="flex items-center gap-1">
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              {(marketplaceStatus as any)?.amazon?.connected ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              )}
               <SiAmazon className="h-4 w-4" />
-              <span className="text-sm">Amazon</span>
+              <span className="text-sm">Amazon{!(marketplaceStatus as any)?.amazon?.connected && ' (Not Connected)'}</span>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
               <AlertTriangle className="h-4 w-4 text-yellow-500" />

@@ -143,6 +143,44 @@ router.delete('/credentials/:marketplace', async (req, res) => {
 });
 
 /**
+ * GET /marketplace/credentials/status
+ * Get connection status for all marketplaces
+ */
+router.get('/credentials/status', async (req, res) => {
+  try {
+    const allCredentials = await db
+      .select({
+        marketplace: marketplaceCredentials.marketplace,
+        isActive: marketplaceCredentials.isActive,
+        lastValidated: marketplaceCredentials.lastValidated,
+        validationError: marketplaceCredentials.validationError,
+      })
+      .from(marketplaceCredentials);
+    
+    const walmartCreds = allCredentials.find(c => c.marketplace === 'walmart');
+    const amazonCreds = allCredentials.find(c => c.marketplace === 'amazon');
+    
+    return res.json({
+      walmart: {
+        connected: walmartCreds?.isActive ?? false,
+        lastValidated: walmartCreds?.lastValidated,
+        error: walmartCreds?.validationError,
+      },
+      amazon: {
+        connected: amazonCreds?.isActive ?? false,
+        lastValidated: amazonCreds?.lastValidated,
+        error: amazonCreds?.validationError,
+      },
+      newegg: { connected: false },
+      ebay: { connected: false },
+    });
+  } catch (error) {
+    console.error('Error fetching credentials status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/status
  * Get real-time marketplace statistics from the database
  */
@@ -3419,6 +3457,9 @@ router.get('/orders', async (req, res) => {
       needsAttention,
       orderType,
       shippingSettingsType,
+      isPremium,
+      buyerRequestedCancel,
+      requiresSignature,
     } = req.query;
 
     const { db } = await import('../db');
@@ -3481,6 +3522,18 @@ router.get('/orders', async (req, res) => {
 
     if (shippingSettingsType && shippingSettingsType !== 'all') {
       conditions.push(eq(marketplaceOrders.shippingSettingsType, shippingSettingsType as string));
+    }
+
+    if (isPremium === 'true') {
+      conditions.push(eq(marketplaceOrders.isPremium, true));
+    }
+
+    if (buyerRequestedCancel === 'true') {
+      conditions.push(eq(marketplaceOrders.buyerRequestedCancel, true));
+    }
+
+    if (requiresSignature === 'true') {
+      conditions.push(eq(marketplaceOrders.requiresSignature, true));
     }
 
     const pageNum = parseInt(page as string) || 1;
