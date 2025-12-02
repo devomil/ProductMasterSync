@@ -3007,19 +3007,29 @@ router.get('/catalog', async (req, res) => {
       };
     });
     
+    // Deduplicate catalog by product ID (LEFT JOINs can produce duplicate rows)
+    const seenIds = new Set<number>();
+    const deduplicatedCatalog = catalog.filter(product => {
+      if (seenIds.has(product.id)) {
+        return false;
+      }
+      seenIds.add(product.id);
+      return true;
+    });
+    
     // Calculate stats
     const stats = {
-      totalProducts: catalog.length,
-      amazonMapped: catalog.filter(p => p.asin).length,
-      walmartMapped: catalog.filter(p => p.walmartItemId).length,
-      readyToList: catalog.filter(p => p.listingStatus === 'ready').length,
-      needsApproval: catalog.filter(p => p.listingStatus === 'needs_approval').length,
-      restricted: catalog.filter(p => p.listingStatus === 'restricted').length,
+      totalProducts: deduplicatedCatalog.length,
+      amazonMapped: deduplicatedCatalog.filter(p => p.asin).length,
+      walmartMapped: deduplicatedCatalog.filter(p => p.walmartItemId).length,
+      readyToList: deduplicatedCatalog.filter(p => p.listingStatus === 'ready').length,
+      needsApproval: deduplicatedCatalog.filter(p => p.listingStatus === 'needs_approval').length,
+      restricted: deduplicatedCatalog.filter(p => p.listingStatus === 'restricted').length,
     };
     
     return res.json({
-      products: catalog,
-      total: catalog.length,
+      products: deduplicatedCatalog,
+      total: deduplicatedCatalog.length,
       stats,
     });
   } catch (error) {
