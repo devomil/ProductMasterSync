@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const FLXPOINT_BASE_URL = 'https://app.flxpoint.com/api/v2';
+const FLXPOINT_BASE_URL = 'https://api.flxpoint.com/v2';
 const RATE_LIMIT_POOL_SIZE = 40;
 const RATE_LIMIT_REPLENISH_PER_SECOND = 1;
 const MAX_REQUESTS_PER_SECOND = 2;
@@ -65,7 +65,7 @@ export class FlxpointClient {
     this.client = axios.create({
       baseURL: FLXPOINT_BASE_URL,
       headers: {
-        'X-API-TOKEN': apiToken,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -242,6 +242,12 @@ export function createFlxpointClient(): FlxpointClient | null {
     console.warn('[Flxpoint] No API token configured');
     return null;
   }
+  
+  // Debug: show token length and first/last characters
+  const maskedToken = apiToken.length > 8 
+    ? `${apiToken.substring(0, 4)}...${apiToken.substring(apiToken.length - 4)} (${apiToken.length} chars)`
+    : `[too short: ${apiToken.length} chars]`;
+  console.log(`[Flxpoint] Using API token: ${maskedToken}`);
   
   return new FlxpointClient(apiToken);
 }
