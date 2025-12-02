@@ -3712,4 +3712,177 @@ router.get('/orders/stats/summary', async (req, res) => {
   }
 });
 
+// ============================================================================
+// FLXPOINT INTEGRATION ROUTES
+// ============================================================================
+
+import { flxpointService } from './flxpoint-service';
+
+/**
+ * GET /marketplace/flxpoint/test-connection
+ * Test Flxpoint API connection
+ */
+router.get('/flxpoint/test-connection', async (req, res) => {
+  try {
+    const result = await flxpointService.testConnection();
+    return res.json(result);
+  } catch (error) {
+    console.error('[Flxpoint] Test connection error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/stats
+ * Get Flxpoint sync statistics
+ */
+router.get('/flxpoint/stats', async (req, res) => {
+  try {
+    const stats = await flxpointService.getStats();
+    return res.json(stats);
+  } catch (error) {
+    console.error('[Flxpoint] Stats error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/pull
+ * Start a pull job to fetch variants from Flxpoint
+ */
+router.post('/flxpoint/pull', async (req, res) => {
+  try {
+    const { fullSync = true, maxPages = 1000, perPage = 100 } = req.body;
+    const jobId = await flxpointService.startPullJob({ fullSync, maxPages, perPage });
+    return res.json({ success: true, jobId, message: 'Pull job started' });
+  } catch (error) {
+    console.error('[Flxpoint] Pull error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/push
+ * Start a push job to sync commission data to Flxpoint
+ */
+router.post('/flxpoint/push', async (req, res) => {
+  try {
+    const { dryRun = false, batchSize = 50, onlyChanged = true } = req.body;
+    const jobId = await flxpointService.startPushJob({ dryRun, batchSize, onlyChanged });
+    return res.json({ success: true, jobId, message: dryRun ? 'Dry run push started' : 'Push job started' });
+  } catch (error) {
+    console.error('[Flxpoint] Push error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/sync-progress/:jobId
+ * Get progress of a sync job
+ */
+router.get('/flxpoint/sync-progress/:jobId', async (req, res) => {
+  try {
+    const jobId = parseInt(req.params.jobId);
+    const progress = await flxpointService.getSyncProgress(jobId);
+    if (!progress) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    return res.json(progress);
+  } catch (error) {
+    console.error('[Flxpoint] Progress error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/sync-runs
+ * Get recent sync run history
+ */
+router.get('/flxpoint/sync-runs', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+    const runs = await flxpointService.getRecentSyncRuns(limit);
+    return res.json(runs);
+  } catch (error) {
+    console.error('[Flxpoint] Sync runs error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/variants
+ * Get Flxpoint variants with optional filtering
+ */
+router.get('/flxpoint/variants', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const syncStatus = req.query.syncStatus as string | undefined;
+    const hasAsin = req.query.hasAsin === 'true' ? true : req.query.hasAsin === 'false' ? false : undefined;
+    const hasWalmartId = req.query.hasWalmartId === 'true' ? true : req.query.hasWalmartId === 'false' ? false : undefined;
+    
+    const result = await flxpointService.getVariants({ page, limit, syncStatus, hasAsin, hasWalmartId });
+    return res.json({
+      ...result,
+      page,
+      limit,
+      totalPages: Math.ceil(result.total / limit),
+    });
+  } catch (error) {
+    console.error('[Flxpoint] Variants error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/variants/:id/enrich
+ * Enrich a variant with marketplace data
+ */
+router.post('/flxpoint/variants/:id/enrich', async (req, res) => {
+  try {
+    const variantId = parseInt(req.params.id);
+    await flxpointService.enrichVariantFromMarketplace(variantId);
+    return res.json({ success: true, message: 'Variant enriched' });
+  } catch (error) {
+    console.error('[Flxpoint] Enrich error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/enrich-all
+ * Enrich all variants with marketplace data
+ */
+router.post('/flxpoint/enrich-all', async (req, res) => {
+  try {
+    const result = await flxpointService.enrichAllVariantsFromMarketplace();
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[Flxpoint] Enrich all error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * PATCH /marketplace/flxpoint/variants/:id/commission
+ * Update commission rates for a variant
+ */
+router.patch('/flxpoint/variants/:id/commission', async (req, res) => {
+  try {
+    const variantId = parseInt(req.params.id);
+    const { wmCommissionRate, amzCommissionRate, wmProductType } = req.body;
+    
+    await flxpointService.updateVariantCommissionRates(variantId, {
+      wmCommissionRate,
+      amzCommissionRate,
+      wmProductType,
+    });
+    
+    return res.json({ success: true, message: 'Commission rates updated' });
+  } catch (error) {
+    console.error('[Flxpoint] Update commission error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
