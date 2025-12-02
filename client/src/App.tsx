@@ -51,6 +51,7 @@ import ManageOrders from "@/pages/ManageOrders";
 import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
 import FieldMappingDocs from "@/pages/FieldMappingDocs";
+import FlxpointSync from "@/pages/FlxpointSync";
 
 // Lazy load AmazonScalingProgress
 const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
@@ -151,6 +152,11 @@ function Router() {
       <Route path="/marketplaces/orders" component={ManageOrders} />
       <Route path="/marketplace/orders" component={ManageOrders} />
       <Route path="/manage-orders" component={ManageOrders} />
+      
+      {/* Flxpoint Integration - Sync products and commission data */}
+      <Route path="/marketplaces/flxpoint" component={FlxpointSync} />
+      <Route path="/flxpoint-sync" component={FlxpointSync} />
+      
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
           <div className="text-center space-y-4">

@@ -20,7 +20,8 @@ import {
   FolderTree,
   Truck,
   Activity,
-  Package2
+  Package2,
+  RefreshCw
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -246,6 +247,12 @@ const TopNavigation = () => {
                   <Link to="/marketplaces/orders" className="flex items-center gap-2 w-full">
                     <ShoppingCart className="h-4 w-4" />
                     Manage Orders
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/flxpoint" className="flex items-center gap-2 w-full">
+                    <RefreshCw className="h-4 w-4" />
+                    Flxpoint Sync
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
