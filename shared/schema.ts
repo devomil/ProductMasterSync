@@ -21,7 +21,17 @@ export const dataSourceTypeEnum = pgEnum('data_source_type', [
   'csv', 'excel', 'json', 'xml', 'edi_x12', 'edifact', 'api', 'sftp', 'ftp', 'manual'
 ]);
 export const marketplaceEnum = pgEnum('marketplace', [
-  'amazon', 'walmart', 'ebay', 'target', 'home_depot'
+  'amazon', 'walmart', 'ebay', 'target', 'home_depot', 'flxpoint'
+]);
+
+// Flxpoint sync status enum
+export const flxpointSyncStatusEnum = pgEnum('flxpoint_sync_status', [
+  'pending', 'synced', 'error', 'skipped'
+]);
+
+// Flxpoint sync job type enum
+export const flxpointSyncJobTypeEnum = pgEnum('flxpoint_sync_job_type', [
+  'pull', 'push'
 ]);
 export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
   'once', 'hourly', 'daily', 'weekly', 'monthly', 'custom'
@@ -2715,3 +2725,110 @@ export type FileUpload = typeof fileUploads.$inferSelect;
 export type FileAnalysisResult = typeof fileAnalysisResults.$inferSelect;
 export type InsertFileUpload = z.infer<typeof insertFileUploadSchema>;
 export type InsertFileAnalysisResult = z.infer<typeof insertFileAnalysisResultSchema>;
+
+// ============================================================================
+// FLXPOINT INTEGRATION TABLES
+// ============================================================================
+
+/**
+ * Flxpoint Variants table
+ * Stores product variants pulled from Flxpoint and tracks sync status
+ */
+export const flxpointVariants = pgTable("flxpoint_variants", {
+  id: serial("id").primaryKey(),
+  
+  // Internal linking
+  productId: integer("product_id").references(() => products.id),
+  
+  // Flxpoint identifiers
+  flxVariantId: text("flx_variant_id"),            // Flxpoint's internal variant ID
+  parentSku: text("parent_sku").notNull(),         // Parent/Master SKU in Flxpoint
+  sourceSku: text("source_sku"),                   // Source-level SKU
+  
+  // Marketplace identifiers (can have multiple ASINs/Walmart IDs per parent SKU)
+  asin: text("asin"),                              // Amazon ASIN
+  walmartId: text("walmart_id"),                   // Walmart Item ID
+  
+  // Commission rates (stored as multiplier: 6% = 1.06, 12% = 1.12)
+  wmCommissionRate: real("wm_commission_rate"),    // Walmart commission rate (1.XX format)
+  amzCommissionRate: real("amz_commission_rate"),  // Amazon commission rate (1.XX format)
+  
+  // Product type (reference only, matching done internally)
+  wmProductType: text("wm_product_type"),          // Walmart product type
+  
+  // Buy box prices (in cents)
+  wmBuyBoxPrice: integer("wm_buybox_price"),       // Walmart buy box price in cents
+  amzBuyBoxPrice: integer("amz_buybox_price"),     // Amazon buy box price in cents
+  
+  // Raw Flxpoint data
+  flxpointData: json("flxpoint_data"),             // Full variant payload from Flxpoint
+  
+  // Sync tracking
+  lastPulledAt: timestamp("last_pulled_at"),       // Last time pulled from Flxpoint
+  lastPushedAt: timestamp("last_pushed_at"),       // Last time pushed to Flxpoint
+  payloadHash: text("payload_hash"),               // Hash of last pushed payload to detect changes
+  syncStatus: flxpointSyncStatusEnum("sync_status").default('pending'),
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    parentSkuIdx: index("flxpoint_variants_parent_sku_idx").on(table.parentSku),
+    asinIdx: index("flxpoint_variants_asin_idx").on(table.asin),
+    walmartIdIdx: index("flxpoint_variants_walmart_id_idx").on(table.walmartId),
+    productIdIdx: index("flxpoint_variants_product_id_idx").on(table.productId),
+  };
+});
+
+/**
+ * Flxpoint Sync Runs table
+ * Tracks pull/push sync job history
+ */
+export const flxpointSyncRuns = pgTable("flxpoint_sync_runs", {
+  id: serial("id").primaryKey(),
+  
+  jobType: flxpointSyncJobTypeEnum("job_type").notNull(),  // 'pull' or 'push'
+  status: text("status").notNull().default('running'),      // running, completed, failed
+  
+  // Statistics
+  totalVariants: integer("total_variants").default(0),
+  processedCount: integer("processed_count").default(0),
+  successCount: integer("success_count").default(0),
+  errorCount: integer("error_count").default(0),
+  skippedCount: integer("skipped_count").default(0),
+  
+  // Rate limiting tracking
+  requestCount: integer("request_count").default(0),
+  
+  // Timing
+  startedAt: timestamp("started_at").defaultNow(),
+  finishedAt: timestamp("finished_at"),
+  
+  // Error details
+  errors: json("errors"),                          // Array of error details
+  
+  // Resume support
+  lastProcessedPage: integer("last_processed_page").default(0),
+  lastProcessedSku: text("last_processed_sku"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Flxpoint insert schemas
+export const insertFlxpointVariantSchema = createInsertSchema(flxpointVariants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFlxpointSyncRunSchema = createInsertSchema(flxpointSyncRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Flxpoint types
+export type FlxpointVariant = typeof flxpointVariants.$inferSelect;
+export type InsertFlxpointVariant = z.infer<typeof insertFlxpointVariantSchema>;
+export type FlxpointSyncRun = typeof flxpointSyncRuns.$inferSelect;
+export type InsertFlxpointSyncRun = z.infer<typeof insertFlxpointSyncRunSchema>;
