@@ -139,14 +139,17 @@ function Router() {
       
       {/* Marketplace Catalog - Unified view for listing preparation */}
       <Route path="/marketplaces/catalog" component={MarketplaceCatalog} />
+      <Route path="/marketplace/catalog" component={MarketplaceCatalog} />
       <Route path="/marketplace-catalog" component={MarketplaceCatalog} />
       
       {/* Active Listings - Track existing marketplace listings */}
       <Route path="/marketplaces/listings" component={ActiveListings} />
+      <Route path="/marketplace/listings" component={ActiveListings} />
       <Route path="/active-listings" component={ActiveListings} />
       
       {/* Manage Orders - Track marketplace orders */}
       <Route path="/marketplaces/orders" component={ManageOrders} />
+      <Route path="/marketplace/orders" component={ManageOrders} />
       <Route path="/manage-orders" component={ManageOrders} />
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
