@@ -40,6 +40,14 @@ Preferred communication style: Simple, everyday language.
     - **AI-Powered Category Mapping**: Automated category mapping using Claude AI with an approval workflow.
     - **Purchasing AI**: Multi-select fulfillment preferences, bulk analysis triggering with progress monitoring, and production-ready rate limiting with deduplication.
     - **24/7 Automated Analysis System**: Infrastructure for continuous purchasing opportunity analysis with a job scheduler, database schema for tracking jobs and runs, business logic for comprehensive product analysis, and a monitoring UI.
+    - **Flxpoint Integration**: Bridge for pushing product listings to Amazon, Walmart, eBay until native listing module is complete. Features include:
+      - Rate-limited API client (2 req/sec, 40-request pool with Leaky Bucket algorithm)
+      - Pull variants from Flxpoint catalog
+      - Push commission data to Flxpoint (stored as 1 + rate/100, e.g., 6% = 1.06)
+      - Enrich variants with marketplace data (Buy Box prices, product types)
+      - Sync tracking with job history and progress monitoring
+      - Database tables: `flxpoint_variants`, `flxpoint_sync_runs`
+      - UI page at /marketplaces/flxpoint
     - **Performance Optimization**: Intelligent caching and optimized queries.
 
 ## System Design

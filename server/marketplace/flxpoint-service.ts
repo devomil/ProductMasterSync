@@ -74,11 +74,21 @@ export class FlxpointService {
         const response = await client.getListingParents(page, perPage);
         requestCount++;
         
-        const { data: variants, meta } = response;
+        const variants = response?.data || [];
+        const meta = response?.meta || { total_count: 0, total_pages: 1, current_page: 1 };
         
-        if (page === 1) {
+        console.log(`[Flxpoint] Page ${page} response: ${variants.length} variants, meta:`, meta);
+        
+        if (!Array.isArray(variants)) {
+          console.warn(`[Flxpoint] Invalid response on page ${page}: variants is not an array`);
+          errors.push({ page, error: 'Invalid response: variants is not an array' });
+          hasMore = false;
+          break;
+        }
+        
+        if (page === 1 && meta.total_count !== undefined) {
           await db.update(flxpointSyncRuns)
-            .set({ totalVariants: meta.total_count })
+            .set({ totalVariants: meta.total_count || variants.length })
             .where(eq(flxpointSyncRuns.id, jobId));
         }
         
@@ -88,7 +98,7 @@ export class FlxpointService {
             successCount++;
           } catch (err: any) {
             errorCount++;
-            errors.push({ sku: variant.sku, error: err.message });
+            errors.push({ sku: variant?.sku || 'unknown', error: err.message });
           }
           processedCount++;
         }
@@ -101,10 +111,12 @@ export class FlxpointService {
           lastProcessedPage: page,
         }).where(eq(flxpointSyncRuns.id, jobId));
         
-        hasMore = page < meta.total_pages;
+        const totalPages = meta.total_pages || 1;
+        const totalCount = meta.total_count || processedCount;
+        hasMore = page < totalPages && variants.length > 0;
         page++;
         
-        console.log(`[Flxpoint] Processed page ${page - 1}/${meta.total_pages}, ${processedCount}/${meta.total_count} variants`);
+        console.log(`[Flxpoint] Processed page ${page - 1}/${totalPages}, ${processedCount}/${totalCount} variants`);
         
       } catch (err: any) {
         console.error(`[Flxpoint] Error on page ${page}:`, err);
@@ -116,13 +128,15 @@ export class FlxpointService {
           continue;
         }
         
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        page++;
+        hasMore = false;
       }
     }
     
+    const hasFailed = successCount === 0 && errorCount > 0;
+    const finalStatus = hasFailed ? 'failed' : 'completed';
+    
     await db.update(flxpointSyncRuns).set({
-      status: 'completed',
+      status: finalStatus,
       processedCount,
       successCount,
       errorCount,
@@ -131,7 +145,7 @@ export class FlxpointService {
       errors: errors.length > 0 ? errors.slice(0, 100) : null,
     }).where(eq(flxpointSyncRuns.id, jobId));
     
-    console.log(`[Flxpoint] Pull job ${jobId} completed: ${successCount} success, ${errorCount} errors`);
+    console.log(`[Flxpoint] Pull job ${jobId} ${finalStatus}: ${successCount} success, ${errorCount} errors`);
   }
 
   private async upsertVariant(variant: FlxpointVariantResponse): Promise<void> {

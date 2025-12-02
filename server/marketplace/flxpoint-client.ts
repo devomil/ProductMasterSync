@@ -142,6 +142,23 @@ export class FlxpointClient {
         },
       });
       
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('Flxpoint API returned HTML instead of JSON - authentication may have failed. Please verify your API token.');
+      }
+      
+      if (!response.data || typeof response.data !== 'object') {
+        throw new Error('Flxpoint API returned invalid response format');
+      }
+      
+      console.log(`[Flxpoint] Raw response structure for listing-parents:`, {
+        hasData: 'data' in response.data,
+        hasMeta: 'meta' in response.data,
+        keys: Object.keys(response.data || {}),
+        dataIsArray: Array.isArray(response.data?.data),
+        dataLength: response.data?.data?.length,
+        metaKeys: response.data?.meta ? Object.keys(response.data.meta) : [],
+      });
+      
       return response.data;
     } catch (error) {
       console.error('[Flxpoint] Error fetching listing parents:', error);
@@ -182,6 +199,20 @@ export class FlxpointClient {
       const response = await this.client.get('/inventory-variants', {
         params: { page: 1, per_page: 1 },
       });
+      
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        return {
+          success: false,
+          message: 'Authentication failed - Flxpoint returned login page. Please verify your API token.',
+        };
+      }
+      
+      if (!response.data || typeof response.data !== 'object') {
+        return {
+          success: false,
+          message: 'Invalid response from Flxpoint API',
+        };
+      }
       
       return {
         success: true,
