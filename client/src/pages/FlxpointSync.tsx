@@ -373,6 +373,7 @@ export default function FlxpointSync() {
                       <TableHead>WM Rate</TableHead>
                       <TableHead>AMZ Rate</TableHead>
                       <TableHead>WM Buy Box</TableHead>
+                      <TableHead>AMZ Buy Box</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Last Sync</TableHead>
                     </TableRow>
@@ -380,7 +381,7 @@ export default function FlxpointSync() {
                   <TableBody>
                     {variantsData?.variants?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           No variants found. Click "Pull Variants" to fetch from Flxpoint.
                         </TableCell>
                       </TableRow>
@@ -413,6 +414,7 @@ export default function FlxpointSync() {
                           <TableCell>{formatCommissionRate(variant.wmCommissionRate)}</TableCell>
                           <TableCell>{formatCommissionRate(variant.amzCommissionRate)}</TableCell>
                           <TableCell>{formatPrice(variant.wmBuyBoxPrice)}</TableCell>
+                          <TableCell>{formatPrice(variant.amzBuyBoxPrice)}</TableCell>
                           <TableCell>{getStatusBadge(variant.syncStatus)}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {variant.lastPushedAt
