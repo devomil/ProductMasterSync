@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const FLXPOINT_BASE_URL = 'https://api.flxpoint.com/v2';
+const FLXPOINT_BASE_URL = 'https://api.flxpoint.com';
 const RATE_LIMIT_POOL_SIZE = 40;
 const RATE_LIMIT_REPLENISH_PER_SECOND = 1;
 const MAX_REQUESTS_PER_SECOND = 2;
@@ -65,7 +65,7 @@ export class FlxpointClient {
     this.client = axios.create({
       baseURL: FLXPOINT_BASE_URL,
       headers: {
-        'Authorization': `Bearer ${apiToken}`,
+        'X-API-TOKEN': apiToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -117,10 +117,10 @@ export class FlxpointClient {
     await this.waitForRateLimit();
     
     try {
-      const response = await this.client.get('/inventory-variants', {
+      const response = await this.client.get('/inventory/variants', {
         params: {
           page,
-          per_page: perPage,
+          pageSize: perPage,
         },
       });
       
@@ -135,10 +135,11 @@ export class FlxpointClient {
     await this.waitForRateLimit();
     
     try {
-      const response = await this.client.get('/listing-parents', {
+      const response = await this.client.get('/inventory/variants', {
         params: {
           page,
-          per_page: Math.min(perPage, 4000),
+          pageSize: Math.min(perPage, 100),
+          includeParent: true,
         },
       });
       
@@ -150,18 +151,27 @@ export class FlxpointClient {
         throw new Error('Flxpoint API returned invalid response format');
       }
       
-      console.log(`[Flxpoint] Raw response structure for listing-parents:`, {
-        hasData: 'data' in response.data,
-        hasMeta: 'meta' in response.data,
-        keys: Object.keys(response.data || {}),
-        dataIsArray: Array.isArray(response.data?.data),
-        dataLength: response.data?.data?.length,
-        metaKeys: response.data?.meta ? Object.keys(response.data.meta) : [],
+      console.log(`[Flxpoint] Raw response structure for inventory/variants:`, {
+        isArray: Array.isArray(response.data),
+        length: Array.isArray(response.data) ? response.data.length : 'N/A',
+        keys: Array.isArray(response.data) ? [] : Object.keys(response.data || {}),
       });
+      
+      if (Array.isArray(response.data)) {
+        return {
+          data: response.data,
+          meta: {
+            current_page: page,
+            total_pages: response.data.length < perPage ? page : page + 1,
+            total_count: response.data.length,
+            per_page: perPage,
+          },
+        };
+      }
       
       return response.data;
     } catch (error) {
-      console.error('[Flxpoint] Error fetching listing parents:', error);
+      console.error('[Flxpoint] Error fetching inventory variants:', error);
       throw error;
     }
   }
@@ -174,7 +184,7 @@ export class FlxpointClient {
     }
     
     try {
-      const response = await this.client.put('/inventory-variants', {
+      const response = await this.client.put('/inventory/variants', {
         variants,
       });
       
@@ -196,14 +206,21 @@ export class FlxpointClient {
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
       await this.waitForRateLimit();
-      const response = await this.client.get('/inventory-variants', {
-        params: { page: 1, per_page: 1 },
+      const response = await this.client.get('/inventory/variants', {
+        params: { page: 1, pageSize: 1 },
       });
       
       if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
         return {
           success: false,
           message: 'Authentication failed - Flxpoint returned login page. Please verify your API token.',
+        };
+      }
+      
+      if (Array.isArray(response.data)) {
+        return {
+          success: true,
+          message: `Connected successfully. API returned ${response.data.length} variant(s).`,
         };
       }
       
