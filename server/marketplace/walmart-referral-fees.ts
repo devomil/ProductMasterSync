@@ -439,6 +439,238 @@ export const PRODUCT_TYPE_TO_CONTRACT_MAPPING: Record<string, string> = {
   'Other Test & Measurement Equipment': 'electronics_accessories',
   'Other Electrical Equipment Supplies': 'electronics_accessories',
   
+  // Flash Memory and Storage
+  'Flash Memory': 'electronics_accessories',
+  'Flash Memory Cards': 'electronics_accessories',
+  'Memory Card Cases': 'electronics_accessories',
+  'Memory Card Readers': 'electronics_accessories',
+  'USB Flash Drives': 'electronics_accessories',
+  
+  // Screen and Privacy Protection
+  'Screen Privacy Filters': 'electronics_accessories',
+  'Screen Protectors': 'electronics_accessories',
+  'Privacy Screens': 'electronics_accessories',
+  
+  // Voice and Recording Devices
+  'Voice Recorders': 'electronics_accessories',
+  'Digital Voice Recorders': 'electronics_accessories',
+  'Dictation Machines': 'electronics_accessories',
+  
+  // Network and Connectivity
+  'Patch Cables': 'electronics_accessories',
+  'Network Patch Cables': 'electronics_accessories',
+  'VoIP Phone Adapters': 'electronics_accessories',
+  'VoIP Phones': 'consumer_electronics',
+  'KVM Switches': 'electronics_accessories',
+  'USB Hubs': 'electronics_accessories',
+  'Network Cards': 'electronics_accessories',
+  'Wireless Network Adapters': 'electronics_accessories',
+  'Wireless Access Points': 'electronics_accessories',
+  'Network Switches': 'electronics_accessories',
+  'Routers': 'consumer_electronics',
+  'Modems': 'consumer_electronics',
+  'Network Interface Cards': 'electronics_accessories',
+  
+  // Power and Battery
+  'Power Adapters': 'electronics_accessories',
+  'AC Adapters': 'electronics_accessories',
+  'DC Adapters': 'electronics_accessories',
+  'Battery Backups': 'electronics_accessories',
+  'UPS Systems': 'electronics_accessories',
+  'Uninterruptible Power Supplies': 'electronics_accessories',
+  'Device-Specific Electronics Batteries': 'electronics_accessories',
+  'Device-Specific Electronics Chargers': 'electronics_accessories',
+  'Laptop Batteries': 'electronics_accessories',
+  'Camera Batteries': 'electronics_accessories',
+  'Phone Batteries': 'electronics_accessories',
+  'Tablet Batteries': 'electronics_accessories',
+  
+  // Audio Components
+  'Sound Cards': 'electronics_accessories',
+  'Internal Sound Cards': 'electronics_accessories',
+  'External Sound Cards': 'electronics_accessories',
+  'Audio Interfaces': 'electronics_accessories',
+  
+  // Computer Racks and Mounting
+  'Computer Racks & Mounts': 'electronics_accessories',
+  'Computer Rack Hardware & Accessories': 'electronics_accessories',
+  'Server Racks': 'electronics_accessories',
+  'Rack Mount Hardware': 'electronics_accessories',
+  'Computer Port Cards': 'electronics_accessories',
+  'Expansion Cards': 'electronics_accessories',
+  
+  // Docking and Charging
+  'Electronics Docks & Cradles': 'electronics_accessories',
+  'Laptop Docking Stations': 'electronics_accessories',
+  'Tablet Docking Stations': 'electronics_accessories',
+  'Phone Docking Stations': 'electronics_accessories',
+  'Charging Docks': 'electronics_accessories',
+  
+  // Earbud Accessories
+  'Earbud Covers': 'electronics_accessories',
+  'Earphone Cushions': 'electronics_accessories',
+  'Ear Pads': 'electronics_accessories',
+  'Earphone Tips': 'electronics_accessories',
+  
+  // Printer Accessories
+  'Printer Transfer Rollers': 'office_products',
+  'Printer Rollers': 'office_products',
+  'Printer Drums': 'office_products',
+  'Printer Fusers': 'office_products',
+  'Printer Maintenance Kits': 'office_products',
+  
+  // Other Electronic Components
+  'Other Electronic Components & Accessories': 'electronics_accessories',
+  'Electronic Kits': 'electronics_accessories',
+  'Electronic Modules': 'electronics_accessories',
+  
+  // Media and Duplication
+  'Media Duplicators': 'electronics_accessories',
+  'CD Duplicators': 'electronics_accessories',
+  'DVD Duplicators': 'electronics_accessories',
+  'Blu-ray Duplicators': 'electronics_accessories',
+  
+  // Network Hardware
+  'Network Hubs': 'electronics_accessories',
+  'Ethernet Hubs': 'electronics_accessories',
+  'Networking Hubs': 'electronics_accessories',
+  
+  // Metal Detectors and Security
+  'Metal Detectors': 'electronics_accessories',
+  'Security Metal Detectors': 'electronics_accessories',
+  'Hand-Held Metal Detectors': 'electronics_accessories',
+  
+  // Audio and PA Systems
+  'Megaphones': 'consumer_electronics',
+  'Bullhorns': 'consumer_electronics',
+  'Boomboxes': 'consumer_electronics',
+  'Portable Stereos': 'consumer_electronics',
+  'PA Systems': 'consumer_electronics',
+  'Public Address Systems': 'consumer_electronics',
+  'Audio Mixers': 'consumer_electronics',
+  'DJ Mixers': 'consumer_electronics',
+  'Mixing Consoles': 'consumer_electronics',
+  'Loudspeakers': 'consumer_electronics',
+  'PA Speakers': 'consumer_electronics',
+  'CD Players': 'consumer_electronics',
+  'Portable CD Players': 'consumer_electronics',
+  'Digital Audio Players': 'consumer_electronics',
+  'MP3 Players': 'consumer_electronics',
+  'Blank Audio Tapes': 'consumer_electronics',
+  'Cassette Tapes': 'consumer_electronics',
+  
+  // Portable Video
+  'Portable Blu Ray & DVD Players': 'consumer_electronics',
+  'Portable DVD Players': 'consumer_electronics',
+  'Portable Blu-ray Players': 'consumer_electronics',
+  'Mini Projectors': 'consumer_electronics',
+  'Pocket Projectors': 'consumer_electronics',
+  'Pico Projectors': 'consumer_electronics',
+  
+  // Older Mobile Devices
+  'PDAs': 'consumer_electronics',
+  'Personal Digital Assistants': 'consumer_electronics',
+  'Handheld Computers': 'consumer_electronics',
+  
+  // Office Equipment
+  'Cash Registers': 'office_products',
+  'POS Systems': 'office_products',
+  'Point of Sale Systems': 'office_products',
+  'Printer Transfer Belts': 'office_products',
+  'Shredder Bags': 'office_products',
+  'Shredder Accessories': 'office_products',
+  'Typewriter Ribbons': 'office_products',
+  'Typewriter Supplies': 'office_products',
+  'Phone Shoulder Rests': 'office_products',
+  'Telephone Accessories': 'office_products',
+  'Sticky Notes': 'office_products',
+  'Post-it Notes': 'office_products',
+  'Adhesive Notes': 'office_products',
+  
+  // T-Shirts and Apparel
+  'T-Shirts': 'apparel_accessories',
+  'Tee Shirts': 'apparel_accessories',
+  'Shirts': 'apparel_accessories',
+  
+  // Workstations and High-End Computers
+  'Workstations': 'personal_computers',
+  'Computer Workstations': 'personal_computers',
+  
+  // Wireless Input Devices
+  'Wireless Keypads': 'electronics_accessories',
+  'Numeric Keypads': 'electronics_accessories',
+  
+  // Luggage and Travel
+  'Briefcases': 'luggage_travel',
+  'Attache Cases': 'luggage_travel',
+  'Document Cases': 'luggage_travel',
+  'Duffel Bags': 'luggage_travel',
+  'Duffle Bags': 'luggage_travel',
+  'Gym Bags': 'luggage_travel',
+  'Luggage Scales': 'luggage_travel',
+  'Travel Scales': 'luggage_travel',
+  'Travel Accessories': 'luggage_travel',
+  
+  // Handbags and Accessories
+  'Handbags': 'shoes_handbags_accessories',
+  'Purses': 'shoes_handbags_accessories',
+  'Shoulder Bags': 'shoes_handbags_accessories',
+  
+  // Fitness and Exercise Equipment
+  'Yoga Mats': 'outdoors_sports',
+  'Exercise Mats': 'outdoors_sports',
+  'Exercise Balls': 'outdoors_sports',
+  'Stability Balls': 'outdoors_sports',
+  'Fitness Equipment': 'outdoors_sports',
+  
+  // Lab and Safety Equipment
+  'Lab Face Masks & Shields': 'industrial_scientific',
+  'Lab Safety Equipment': 'industrial_scientific',
+  'Eye Wash Units': 'industrial_scientific',
+  'Eye Wash Stations': 'industrial_scientific',
+  'Emergency Eye Wash': 'industrial_scientific',
+  
+  // Office Equipment Additions
+  'Fax Machines': 'office_products',
+  'Fax Equipment': 'office_products',
+  'Name Plates': 'office_products',
+  'Desk Name Plates': 'office_products',
+  'Coin Counters, Sorters & Changers': 'office_products',
+  'Coin Counters': 'office_products',
+  'Coin Sorters': 'office_products',
+  
+  // Optics and Vision
+  'Binoculars': 'camera_photo',
+  'Telescopes': 'camera_photo',
+  'Spotting Scopes': 'camera_photo',
+  'Magnifiers & Low-Vision Aids': 'office_products',
+  'Magnifying Glasses': 'office_products',
+  
+  // More Consumer Electronics
+  'Blu Ray & DVD Players': 'consumer_electronics',
+  'Blu-Ray/DVD Combo Players': 'consumer_electronics',
+  'Video Monitors': 'consumer_electronics',
+  'Security Monitors': 'consumer_electronics',
+  'Corded/Cordless Phone Combos': 'consumer_electronics',
+  'Phone Combos': 'consumer_electronics',
+  'Karaoke Machines': 'consumer_electronics',
+  'Karaoke Systems': 'consumer_electronics',
+  'Cassette Tape Recorders': 'consumer_electronics',
+  'Tape Recorders': 'consumer_electronics',
+  'Compact Stereos': 'consumer_electronics',
+  'Stereo Systems': 'consumer_electronics',
+  'Disc Repairers': 'consumer_electronics',
+  'CD/DVD Repair Kits': 'consumer_electronics',
+  
+  // Safety Footwear
+  'Safety Shoes & Boots': 'industrial_scientific',
+  'Work Boots': 'industrial_scientific',
+  'Safety Footwear': 'industrial_scientific',
+  
+  // Other Hardware
+  'Other Hardware': 'electronics_accessories',
+  'Hardware Accessories': 'electronics_accessories',
+  
   // Consumer Electronics - 8% flat
   'Televisions': 'consumer_electronics',
   'TVs': 'consumer_electronics',
@@ -597,6 +829,9 @@ export const PRODUCT_TYPE_TO_CONTRACT_MAPPING: Record<string, string> = {
   'Automotive Seat Cushions': 'automotive_powersports',
   'Automotive Seats': 'automotive_powersports',
   'Vehicle Batteries': 'automotive_powersports',
+  'Automotive Batteries': 'automotive_powersports',
+  'Marine Batteries': 'automotive_powersports',
+  'Motorcycle Batteries': 'automotive_powersports',
   'RV Accessories': 'automotive_powersports',
   'Boat Accessories': 'automotive_powersports',
   'Automotive Steps': 'automotive_powersports',
@@ -1077,6 +1312,11 @@ export const PRODUCT_TYPE_TO_CONTRACT_MAPPING: Record<string, string> = {
   'Ice Makers': 'appliances_compact',
   'Countertop Burners': 'appliances_compact',
   'Pressure Cookers & Canners': 'appliances_compact',
+  'Appliance Air Filters': 'appliances_compact',
+  'Air Purifier Filters': 'appliances_compact',
+  'Humidifier Filters': 'appliances_compact',
+  'Vacuum Cleaner Filters': 'appliances_compact',
+  'Appliance Replacement Parts': 'appliances_compact',
   
   // Home, Kitchen & Garden (additions)
   'Outdoor Gas Grills': 'home_kitchen_decor_garden',
