@@ -20,6 +20,7 @@ import type {
   InsertMarketplaceSyncJob
 } from '../../shared/schema';
 import { eq, and, sql, desc, asc, count, ilike, or, gte, lte, isNull, inArray } from 'drizzle-orm';
+import { calculateReferralFee } from './walmart-referral-fees';
 
 // ============================================================================
 // MARKETPLACE LISTINGS CRUD
@@ -670,7 +671,7 @@ export async function linkListingsToProducts(marketplace: string): Promise<{ lin
  * Recalculate referral fees for all Walmart listings using product type
  */
 export async function recalculateWalmartReferralFees(): Promise<{ updated: number; errors: number }> {
-  const { calculateReferralFee } = await import('./walmart-referral-fees');
+  // Using static import at the top of file to avoid module cache issues
   
   let updated = 0;
   let errors = 0;
