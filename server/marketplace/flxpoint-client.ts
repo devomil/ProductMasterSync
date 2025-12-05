@@ -117,7 +117,8 @@ export class FlxpointClient {
     await this.waitForRateLimit();
     
     try {
-      const response = await this.client.get('/inventory/variants', {
+      // Correct endpoint is /product/variants (not /inventory/variants)
+      const response = await this.client.get('/product/variants', {
         params: {
           page,
           pageSize: perPage,
@@ -126,7 +127,7 @@ export class FlxpointClient {
       
       return response.data;
     } catch (error) {
-      console.error('[Flxpoint] Error fetching inventory variants:', error);
+      console.error('[Flxpoint] Error fetching product variants:', error);
       throw error;
     }
   }
@@ -135,7 +136,8 @@ export class FlxpointClient {
     await this.waitForRateLimit();
     
     try {
-      const response = await this.client.get('/inventory/variants', {
+      // Correct endpoint is /product/variants (not /inventory/variants)
+      const response = await this.client.get('/product/variants', {
         params: {
           page,
           pageSize: Math.min(perPage, 100),
@@ -184,7 +186,8 @@ export class FlxpointClient {
     }
     
     try {
-      const response = await this.client.put('/inventory/variants', {
+      // Correct endpoint is /product/variants (not /inventory/variants)
+      const response = await this.client.put('/product/variants', {
         variants,
       });
       
@@ -194,7 +197,7 @@ export class FlxpointClient {
         errors: [],
       };
     } catch (error: any) {
-      console.error('[Flxpoint] Error updating inventory variants:', error);
+      console.error('[Flxpoint] Error updating product variants:', error);
       return {
         success: false,
         updated: 0,
@@ -206,7 +209,8 @@ export class FlxpointClient {
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
       await this.waitForRateLimit();
-      const response = await this.client.get('/inventory/variants', {
+      // Correct endpoint is /product/variants (not /inventory/variants)
+      const response = await this.client.get('/product/variants', {
         params: { page: 1, pageSize: 1 },
       });
       

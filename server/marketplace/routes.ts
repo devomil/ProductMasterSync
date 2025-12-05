@@ -3904,7 +3904,7 @@ router.get('/flxpoint/debug-api', async (req, res) => {
   
   const requestDetails = {
     method: 'GET',
-    url: 'https://api.flxpoint.com/inventory/variants',
+    url: 'https://api.flxpoint.com/product/variants',
     headers: {
       'X-API-TOKEN': maskedToken,
       'Content-Type': 'application/json',
@@ -3922,7 +3922,7 @@ router.get('/flxpoint/debug-api', async (req, res) => {
   
   try {
     const startTime = Date.now();
-    const response = await axios.get('https://api.flxpoint.com/inventory/variants', {
+    const response = await axios.get('https://api.flxpoint.com/product/variants', {
       headers: {
         'X-API-TOKEN': apiToken,
         'Content-Type': 'application/json',
