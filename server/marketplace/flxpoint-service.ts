@@ -67,11 +67,13 @@ export class FlxpointService {
     let requestCount = 0;
     const errors: any[] = [];
     
-    console.log(`[Flxpoint] Starting pull job ${jobId}`);
+    console.log(`[Flxpoint] Starting pull job ${jobId} (using inventory/variants endpoint)`);
     
     while (hasMore && page <= maxPages) {
       try {
-        const response = await client.getListingParents(page, perPage);
+        // Use inventory/variants endpoint instead of product/variants
+        // This is where the tens of thousands of variants actually live
+        const response = await client.getInventoryVariants(page, perPage);
         requestCount++;
         
         const variants = response?.data || [];

@@ -3890,6 +3890,7 @@ router.patch('/flxpoint/variants/:id/commission', async (req, res) => {
  * GET /marketplace/flxpoint/debug-api
  * Debug endpoint to capture full Flxpoint API request/response
  * Use this to share the exact API details with Flxpoint support
+ * Query params: endpoint (optional, defaults to /product/variants), page, per_page
  */
 router.get('/flxpoint/debug-api', async (req, res) => {
   const apiToken = process.env.FLXPOINT_API_TOKEN;
@@ -3898,21 +3899,28 @@ router.get('/flxpoint/debug-api', async (req, res) => {
     return res.status(400).json({ error: 'FLXPOINT_API_TOKEN not configured' });
   }
   
+  // Allow testing different endpoints
+  const endpoint = (req.query.endpoint as string) || '/product/variants';
+  const page = parseInt(req.query.page as string) || 1;
+  const perPage = parseInt(req.query.per_page as string) || 5;
+  
   const maskedToken = apiToken.length > 8 
     ? `${apiToken.substring(0, 4)}...${apiToken.substring(apiToken.length - 4)} (${apiToken.length} chars)`
     : `[token too short: ${apiToken.length} chars]`;
   
+  const fullUrl = `https://api.flxpoint.com${endpoint}`;
+  
   const requestDetails = {
     method: 'GET',
-    url: 'https://api.flxpoint.com/product/variants',
+    url: fullUrl,
     headers: {
       'X-API-TOKEN': maskedToken,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
     params: {
-      page: 1,
-      pageSize: 5,
+      page,
+      per_page: perPage,
     },
     timestamp: new Date().toISOString(),
   };
@@ -3922,15 +3930,15 @@ router.get('/flxpoint/debug-api', async (req, res) => {
   
   try {
     const startTime = Date.now();
-    const response = await axios.get('https://api.flxpoint.com/product/variants', {
+    const response = await axios.get(fullUrl, {
       headers: {
         'X-API-TOKEN': apiToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
       params: {
-        page: 1,
-        pageSize: 5,
+        page,
+        per_page: perPage,
       },
       timeout: 30000,
       validateStatus: () => true, // Accept any status code

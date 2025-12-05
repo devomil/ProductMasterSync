@@ -113,11 +113,10 @@ export class FlxpointClient {
     this.rateLimitState.lastRequestTime = Date.now();
   }
 
-  async getInventoryVariants(page: number = 1, perPage: number = 50): Promise<FlxpointPaginatedResponse<FlxpointVariantResponse>> {
+  async getProductVariants(page: number = 1, perPage: number = 50): Promise<FlxpointPaginatedResponse<FlxpointVariantResponse>> {
     await this.waitForRateLimit();
     
     try {
-      // Correct endpoint is /product/variants (not /inventory/variants)
       const response = await this.client.get('/product/variants', {
         params: {
           page,
@@ -128,6 +127,55 @@ export class FlxpointClient {
       return response.data;
     } catch (error) {
       console.error('[Flxpoint] Error fetching product variants:', error);
+      throw error;
+    }
+  }
+
+  async getInventoryVariants(page: number = 1, perPage: number = 50): Promise<FlxpointPaginatedResponse<FlxpointVariantResponse>> {
+    await this.waitForRateLimit();
+    
+    try {
+      const response = await this.client.get('/inventory/variants', {
+        params: {
+          page,
+          per_page: Math.min(perPage, 100),
+        },
+      });
+      
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('Flxpoint API returned HTML instead of JSON - authentication may have failed.');
+      }
+      
+      // Check for pagination info in response headers
+      const totalCount = parseInt(response.headers['x-total-count'] || response.headers['x-total'] || '0');
+      const totalPages = parseInt(response.headers['x-total-pages'] || '0');
+      
+      console.log(`[Flxpoint] Inventory variants response:`, {
+        isArray: Array.isArray(response.data),
+        length: Array.isArray(response.data) ? response.data.length : 'N/A',
+        keys: Array.isArray(response.data) ? [] : Object.keys(response.data || {}),
+        totalCount,
+        totalPages,
+      });
+      
+      if (Array.isArray(response.data)) {
+        const FLXPOINT_MAX_PAGE_SIZE = 50;
+        const gotFullPage = response.data.length >= FLXPOINT_MAX_PAGE_SIZE;
+        
+        return {
+          data: response.data,
+          meta: {
+            current_page: page,
+            total_pages: totalPages > 0 ? totalPages : (gotFullPage ? page + 1 : page),
+            total_count: totalCount > 0 ? totalCount : (gotFullPage ? -1 : response.data.length),
+            per_page: FLXPOINT_MAX_PAGE_SIZE,
+          },
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('[Flxpoint] Error fetching inventory variants:', error);
       throw error;
     }
   }
