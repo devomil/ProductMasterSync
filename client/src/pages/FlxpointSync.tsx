@@ -19,8 +19,11 @@ interface FlxpointStats {
   withErrors: number;
   withAsin: number;
   withWalmartId: number;
+  withUpc: number;
+  matchedWalmart: number;
   lastPullRun?: any;
   lastPushRun?: any;
+  lastEnrichRun?: any;
 }
 
 interface FlxpointVariant {
@@ -143,13 +146,12 @@ export default function FlxpointSync() {
 
   const enrichMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/marketplace/flxpoint/enrich-all');
+      const response = await apiRequest('POST', '/api/marketplace/flxpoint/start-enrichment');
       return response.json();
     },
-    onSuccess: (data: { updated: number }) => {
-      toast({ title: 'Enrichment Complete', description: `Updated ${data.updated} variants with marketplace data.` });
-      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/variants'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/stats'] });
+    onSuccess: (data: { jobId: number }) => {
+      setActiveJobId(data.jobId);
+      toast({ title: 'Enrichment Started', description: 'Matching variants with marketplace data...' });
     },
     onError: (error: any) => {
       toast({ title: 'Enrichment Failed', description: error.message, variant: 'destructive' });
@@ -266,17 +268,25 @@ export default function FlxpointSync() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-lg">Marketplace Coverage</CardTitle>
-              <CardDescription>Variants with marketplace IDs</CardDescription>
+              <CardDescription>Variants with marketplace IDs and enrichment data</CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">With UPC</span>
+              <Badge variant="secondary" data-testid="stat-with-upc">{stats?.withUpc?.toLocaleString() || 0}</Badge>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">With ASIN (Amazon)</span>
               <Badge variant="secondary" data-testid="stat-with-asin">{stats?.withAsin?.toLocaleString() || 0}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">With Walmart ID</span>
+              <span className="text-sm">Matched to Walmart Listings</span>
               <Badge variant="secondary" data-testid="stat-with-walmart">{stats?.withWalmartId?.toLocaleString() || 0}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Enriched with Commission Rates</span>
+              <Badge variant="default" className="bg-purple-500" data-testid="stat-enriched">{stats?.matchedWalmart?.toLocaleString() || 0}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -309,11 +319,11 @@ export default function FlxpointSync() {
               </Button>
               <Button
                 onClick={() => enrichMutation.mutate()}
-                disabled={enrichMutation.isPending || !stats?.totalVariants}
+                disabled={!isConnected || isJobRunning || enrichMutation.isPending || !stats?.totalVariants}
                 variant="outline"
                 data-testid="button-enrich-data"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending || isJobRunning ? 'animate-spin' : ''}`} />
                 Enrich from Marketplace
               </Button>
             </div>
@@ -491,9 +501,11 @@ export default function FlxpointSync() {
                       syncRuns?.map((run) => (
                         <TableRow key={run.id} data-testid={`row-syncrun-${run.id}`}>
                           <TableCell>
-                            <Badge variant={run.jobType === 'pull' ? 'secondary' : 'default'}>
+                            <Badge variant={run.jobType === 'pull' ? 'secondary' : run.jobType === 'enrich' ? 'outline' : 'default'}>
                               {run.jobType === 'pull' ? (
                                 <><Download className="w-3 h-3 mr-1" /> Pull</>
+                              ) : run.jobType === 'enrich' ? (
+                                <><RefreshCw className="w-3 h-3 mr-1" /> Enrich</>
                               ) : (
                                 <><Upload className="w-3 h-3 mr-1" /> Push</>
                               )}
