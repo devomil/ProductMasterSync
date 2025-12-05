@@ -1,0 +1,317 @@
+[
+  {
+    "priceOverwrite": {
+      "priceOverwritten": true,
+      "costOverwritten": true,
+      "msrpOverwritten": true,
+      "mapOverwritten": true,
+      "shippingCostOverwritten": true,
+      "dropshipFeeOverwritten": true,
+      "dynamicPrice": 0,
+      "dynamicCost": 0,
+      "dynamicMsrp": 0,
+      "dynamicMap": 0,
+      "dynamicShippingCost": 0,
+      "dynamicDropshipFee": 0
+    },
+    "quantityOverwrite": {
+      "quantityOverwritten": true,
+      "dynamicQuantity": 0,
+      "orderVolumeProtectionLockedAt": "string",
+      "lastManualQuantity": 0,
+      "isLockedByOrderVolumeProtection": "false"
+    },
+    "productParentId": 0,
+    "price": 0,
+    "salePrice": 0,
+    "estimatedShippingCost": 0,
+    "estimatedDropshipFee": 0,
+    "inventoryListPrice": 0,
+    "imagesFetched": true,
+    "productBuilderId": 0,
+    "builtWithMappingTemplateId": 0,
+    "builtAt": "2019-08-24T14:15:22Z",
+    "rebuiltAt": "2019-08-24T14:15:22Z",
+    "inventoryLinks": [
+      {
+        "id": 0,
+        "productVariantId": 0,
+        "inventoryVariantId": 0,
+        "sourceId": 0,
+        "sku": "string"
+      }
+    ],
+    "productAlternatives": [
+      {
+        "id": 0,
+        "sku": "string",
+        "title": "string",
+        "quantity": 0,
+        "cost": 0,
+        "price": 0,
+        "image": "string",
+        "parentId": 0
+      }
+    ],
+    "referenceIdentifier": "string",
+    "id": 0,
+    "sku": "string",
+    "title": "string",
+    "mpn": "string",
+    "upc": "string",
+    "ean": "string",
+    "asin": "string",
+    "msrp": 0,
+    "map": 0,
+    "weight": 0,
+    "length": 0,
+    "width": 0,
+    "height": 0,
+    "insertedAt": "2019-08-24T14:15:22Z",
+    "updatedAt": "2019-08-24T14:15:22Z",
+    "archived": true,
+    "cost": 0,
+    "quantity": 0,
+    "pendingFulfillmentQuantity": 0,
+    "weightUnit": {
+      "handle": "pound",
+      "abbreviatedHandle": "lb"
+    },
+    "dimensionUnit": {
+      "handle": "inch",
+      "abbreviatedHandle": "in"
+    },
+    "dimensionalWeight": 0,
+    "images": [
+      {
+        "productParentId": 0,
+        "productVariantId": 0,
+        "md5Checksum": "string",
+        "originalUrl": "string",
+        "fetched": true,
+        "fetchAttempts": 0,
+        "archived": true,
+        "id": 0,
+        "url": "string",
+        "sortOrder": 0
+      }
+    ],
+    "options": [
+      {
+        "productParentOptionId": 0,
+        "globalOptionValueId": 0,
+        "productVariantId": 0,
+        "id": 0,
+        "position": 0,
+        "name": "string",
+        "value": "string",
+        "globalPosition": 0
+      }
+    ],
+    "bundle": true,
+    "bundleComponents": [
+      {
+        "componentQuantity": 0,
+        "componentProductVariant": {},
+        "bundleProductVariantId": 0,
+        "componentProductVariantId": 0
+      }
+    ],
+    "listingLinks": [
+      {
+        "listingVariantId": 0,
+        "channelId": 0
+      }
+    ],
+    "customAggregateFields": [
+      {
+        "id": 0,
+        "productVariantId": 0,
+        "accountId": 0,
+        "customAggregateField": {
+          "id": 0,
+          "aggregateFieldDataTypeId": 0,
+          "customAggregateFieldOptionId": 0,
+          "name": "string",
+          "handle": "string",
+          "ignoreOutOfStock": false,
+          "accountId": 0
+        },
+        "name": "string",
+        "value": 0,
+        "customAggregateFieldId": 0
+      }
+    ],
+    "scheduledToDeleteAt": "2019-08-24T14:15:22Z",
+    "customFields": [
+      {
+        "productVariantId": 0,
+        "id": 0,
+        "customFieldValueId": 0,
+        "customFieldId": 0,
+        "name": "string",
+        "value": "string",
+        "originalInventoryName": "string",
+        "originalInventoryValue": "string",
+        "mergeToCustomFieldId": 0,
+        "mergeToCustomFieldName": "string",
+        "mergeToCustomFieldValueId": 0,
+        "mergeToCustomFieldValue": "string"
+      }
+    ],
+    "parent": {
+      "id": 0,
+      "sku": "string",
+      "title": "string",
+      "description": "string",
+      "manufacturer": "string",
+      "insertedAt": "2019-08-24T14:15:22Z",
+      "updatedAt": "2019-08-24T14:15:22Z",
+      "archived": true,
+      "categoryOne": {
+        "accountId": 0,
+        "insertedAt": "2019-08-24T14:15:22Z",
+        "updatedAt": "2019-08-24T14:15:22Z",
+        "customized": true,
+        "id": 0,
+        "name": "string",
+        "parentCategoryId": 0,
+        "inventoryCategory": {
+          "sourceId": 0,
+          "productCategoryId": 0,
+          "id": 0,
+          "name": "string",
+          "excluded": true,
+          "parentCategoryId": 0
+        }
+      },
+      "categoryTwo": {
+        "accountId": 0,
+        "insertedAt": "2019-08-24T14:15:22Z",
+        "updatedAt": "2019-08-24T14:15:22Z",
+        "customized": true,
+        "id": 0,
+        "name": "string",
+        "parentCategoryId": 0,
+        "inventoryCategory": {
+          "sourceId": 0,
+          "productCategoryId": 0,
+          "id": 0,
+          "name": "string",
+          "excluded": true,
+          "parentCategoryId": 0
+        }
+      },
+      "categoryThree": {
+        "accountId": 0,
+        "insertedAt": "2019-08-24T14:15:22Z",
+        "updatedAt": "2019-08-24T14:15:22Z",
+        "customized": true,
+        "id": 0,
+        "name": "string",
+        "parentCategoryId": 0,
+        "inventoryCategory": {
+          "sourceId": 0,
+          "productCategoryId": 0,
+          "id": 0,
+          "name": "string",
+          "excluded": true,
+          "parentCategoryId": 0
+        }
+      },
+      "images": [
+        {
+          "productParentId": 0,
+          "productVariantId": 0,
+          "md5Checksum": "string",
+          "originalUrl": "string",
+          "fetched": true,
+          "fetchAttempts": 0,
+          "archived": true,
+          "id": 0,
+          "url": "string",
+          "sortOrder": 0
+        }
+      ],
+      "options": [
+        {
+          "productParentId": 0,
+          "id": 0,
+          "name": "string",
+          "globalOptionId": 0,
+          "optionValues": [
+            {
+              "id": 0,
+              "optionId": 0,
+              "value": "string",
+              "position": 0,
+              "globalPosition": 0,
+              "globalOptionValueId": 0
+            }
+          ]
+        }
+      ],
+      "attributes": [
+        {
+          "productParentId": 0,
+          "id": 0,
+          "attributeId": 0,
+          "attributeValueId": 0,
+          "name": "string",
+          "originalInventoryName": "string",
+          "value": "string",
+          "originalInventoryValue": "string",
+          "isPrivate": true,
+          "mergeToAttributeId": 0,
+          "mergeToAttributeName": "string",
+          "mergeToAttributeValueId": 0,
+          "mergeToAttributeValue": "string",
+          "mergeToAttributeIsPrivate": true
+        }
+      ],
+      "customFields": [
+        {
+          "productParentId": 0,
+          "id": 0,
+          "customFieldValueId": 0,
+          "customFieldId": 0,
+          "name": "string",
+          "value": "string",
+          "originalInventoryName": "string",
+          "originalInventoryValue": "string",
+          "mergeToCustomFieldId": 0,
+          "mergeToCustomFieldName": "string",
+          "mergeToCustomFieldValueId": 0,
+          "mergeToCustomFieldValue": "string"
+        }
+      ],
+      "variants": [
+        {}
+      ],
+      "categoryOneId": 0,
+      "categoryTwoId": 0,
+      "categoryThreeId": 0,
+      "imagesFetched": true,
+      "productBuilderId": 0,
+      "builtWithMappingTemplateId": 0,
+      "builtAt": "2019-08-24T14:15:22Z",
+      "rebuiltAt": "2019-08-24T14:15:22Z",
+      "tags": [
+        "string"
+      ],
+      "listingLinks": [
+        {
+          "listingParentId": 0,
+          "channelId": 0
+        }
+      ],
+      "imageFetcherEventTriggered": true
+    },
+    "description": "string",
+    "tags": [
+      "string"
+    ],
+    "requiresFfl": true,
+    "imageFetcherEventTriggered": true
+  }
+]
