@@ -6,6 +6,7 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
+import axios from 'axios';
 import { fetchAmazonDataByUpc, getAmazonDataForProduct, batchSyncAmazonData } from './amazon-service';
 import { syncProductWithAmazon } from './amazon-spapi-service';
 import { getAmazonConfig, validateAmazonConfig } from '../utils/amazon-spapi';
@@ -3882,6 +3883,112 @@ router.patch('/flxpoint/variants/:id/commission', async (req, res) => {
   } catch (error) {
     console.error('[Flxpoint] Update commission error:', error);
     return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/debug-api
+ * Debug endpoint to capture full Flxpoint API request/response
+ * Use this to share the exact API details with Flxpoint support
+ */
+router.get('/flxpoint/debug-api', async (req, res) => {
+  const apiToken = process.env.FLXPOINT_API_TOKEN;
+  
+  if (!apiToken) {
+    return res.status(400).json({ error: 'FLXPOINT_API_TOKEN not configured' });
+  }
+  
+  const maskedToken = apiToken.length > 8 
+    ? `${apiToken.substring(0, 4)}...${apiToken.substring(apiToken.length - 4)} (${apiToken.length} chars)`
+    : `[token too short: ${apiToken.length} chars]`;
+  
+  const requestDetails = {
+    method: 'GET',
+    url: 'https://api.flxpoint.com/inventory/variants',
+    headers: {
+      'X-API-TOKEN': maskedToken,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    params: {
+      page: 1,
+      pageSize: 5,
+    },
+    timestamp: new Date().toISOString(),
+  };
+  
+  console.log('[Flxpoint Debug] Making test API call...');
+  console.log('[Flxpoint Debug] Request:', JSON.stringify(requestDetails, null, 2));
+  
+  try {
+    const startTime = Date.now();
+    const response = await axios.get('https://api.flxpoint.com/inventory/variants', {
+      headers: {
+        'X-API-TOKEN': apiToken,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      params: {
+        page: 1,
+        pageSize: 5,
+      },
+      timeout: 30000,
+      validateStatus: () => true, // Accept any status code
+    });
+    const duration = Date.now() - startTime;
+    
+    const responseDetails = {
+      status: response.status,
+      statusText: response.statusText,
+      headers: {
+        'content-type': response.headers['content-type'],
+        'x-auth-pool-used': response.headers['x-auth-pool-used'],
+        'x-auth-pool-size': response.headers['x-auth-pool-size'],
+        'x-ratelimit-remaining': response.headers['x-ratelimit-remaining'],
+        'x-ratelimit-limit': response.headers['x-ratelimit-limit'],
+      },
+      duration: `${duration}ms`,
+      dataType: typeof response.data,
+      isHtml: typeof response.data === 'string' && response.data.includes('<!DOCTYPE'),
+      dataPreview: typeof response.data === 'string' 
+        ? response.data.substring(0, 500) 
+        : Array.isArray(response.data) 
+          ? { type: 'array', length: response.data.length, firstItem: response.data[0] }
+          : response.data,
+    };
+    
+    console.log('[Flxpoint Debug] Response:', JSON.stringify(responseDetails, null, 2));
+    
+    return res.json({
+      success: response.status >= 200 && response.status < 300,
+      request: requestDetails,
+      response: responseDetails,
+      message: response.status >= 200 && response.status < 300 
+        ? 'API call successful' 
+        : `API returned status ${response.status}`,
+    });
+  } catch (error: any) {
+    const errorDetails = {
+      message: error.message,
+      code: error.code,
+      response: error.response ? {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        headers: error.response.headers,
+        data: typeof error.response.data === 'string' 
+          ? error.response.data.substring(0, 500) 
+          : error.response.data,
+      } : null,
+    };
+    
+    console.error('[Flxpoint Debug] Error:', JSON.stringify(errorDetails, null, 2));
+    
+    return res.json({
+      success: false,
+      request: requestDetails,
+      error: errorDetails,
+      message: 'API call failed',
+    });
   }
 });
 
