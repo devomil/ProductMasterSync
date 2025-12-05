@@ -86,9 +86,10 @@ export class FlxpointService {
           break;
         }
         
-        if (page === 1 && meta.total_count !== undefined) {
+        // Update total count estimate on first page if available
+        if (page === 1 && meta.total_count !== undefined && meta.total_count > 0) {
           await db.update(flxpointSyncRuns)
-            .set({ totalVariants: meta.total_count || variants.length })
+            .set({ totalVariants: meta.total_count })
             .where(eq(flxpointSyncRuns.id, jobId));
         }
         
@@ -111,12 +112,20 @@ export class FlxpointService {
           lastProcessedPage: page,
         }).where(eq(flxpointSyncRuns.id, jobId));
         
-        const totalPages = meta.total_pages || 1;
-        const totalCount = meta.total_count || processedCount;
-        hasMore = page < totalPages && variants.length > 0;
-        page++;
+        // Determine if there are more pages:
+        // 1. If we have total_pages info from API, use it
+        // 2. Otherwise, if we got a full page of results (50 is Flxpoint's max), assume there are more
+        // 3. Stop if we got fewer than 50 results or empty results
+        const FLXPOINT_MAX_PAGE_SIZE = 50;
+        const gotFullPage = variants.length >= FLXPOINT_MAX_PAGE_SIZE;
+        const knownTotalPages = meta.total_pages > 0 ? meta.total_pages : (gotFullPage ? page + 1 : page);
         
-        console.log(`[Flxpoint] Processed page ${page - 1}/${totalPages}, ${processedCount}/${totalCount} variants`);
+        hasMore = variants.length > 0 && gotFullPage;
+        
+        const totalEstimate = meta.total_count > 0 ? meta.total_count : (hasMore ? '?' : processedCount);
+        console.log(`[Flxpoint] Processed page ${page}/${knownTotalPages}, ${processedCount}/${totalEstimate} variants, hasMore: ${hasMore}, gotFullPage: ${gotFullPage}`);
+        
+        page++;
         
       } catch (err: any) {
         console.error(`[Flxpoint] Error on page ${page}:`, err);
@@ -124,6 +133,7 @@ export class FlxpointService {
         errorCount++;
         
         if (err.response?.status === 429) {
+          console.log('[Flxpoint] Rate limited, waiting 5 seconds...');
           await new Promise(resolve => setTimeout(resolve, 5000));
           continue;
         }

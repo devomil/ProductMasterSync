@@ -137,11 +137,11 @@ export class FlxpointClient {
     
     try {
       // Correct endpoint is /product/variants (not /inventory/variants)
+      // Flxpoint uses 'per_page' not 'pageSize' for pagination
       const response = await this.client.get('/product/variants', {
         params: {
           page,
-          pageSize: Math.min(perPage, 100),
-          includeParent: true,
+          per_page: Math.min(perPage, 100),
         },
       });
       
@@ -153,27 +153,43 @@ export class FlxpointClient {
         throw new Error('Flxpoint API returned invalid response format');
       }
       
-      console.log(`[Flxpoint] Raw response structure for inventory/variants:`, {
+      // Check for pagination info in response headers
+      const totalCount = parseInt(response.headers['x-total-count'] || response.headers['x-total'] || '0');
+      const totalPages = parseInt(response.headers['x-total-pages'] || '0');
+      
+      console.log(`[Flxpoint] Raw response structure for product/variants:`, {
         isArray: Array.isArray(response.data),
         length: Array.isArray(response.data) ? response.data.length : 'N/A',
         keys: Array.isArray(response.data) ? [] : Object.keys(response.data || {}),
+        headers: {
+          totalCount: response.headers['x-total-count'] || response.headers['x-total'],
+          totalPages: response.headers['x-total-pages'],
+        },
       });
       
       if (Array.isArray(response.data)) {
+        // Flxpoint has a max page size of 50, regardless of what we request
+        // If we got any results, assume there might be more pages
+        // Only stop if we get 0 results or fewer than a typical full page (50)
+        const FLXPOINT_MAX_PAGE_SIZE = 50;
+        const gotResults = response.data.length > 0;
+        const gotFullPage = response.data.length >= FLXPOINT_MAX_PAGE_SIZE;
+        
         return {
           data: response.data,
           meta: {
             current_page: page,
-            total_pages: response.data.length < perPage ? page : page + 1,
-            total_count: response.data.length,
-            per_page: perPage,
+            // If we have header info, use it. Otherwise, assume more pages if we got a full page
+            total_pages: totalPages > 0 ? totalPages : (gotFullPage ? page + 1 : page),
+            total_count: totalCount > 0 ? totalCount : (gotFullPage ? -1 : response.data.length), // -1 means unknown
+            per_page: FLXPOINT_MAX_PAGE_SIZE,
           },
         };
       }
       
       return response.data;
     } catch (error) {
-      console.error('[Flxpoint] Error fetching inventory variants:', error);
+      console.error('[Flxpoint] Error fetching product variants:', error);
       throw error;
     }
   }
