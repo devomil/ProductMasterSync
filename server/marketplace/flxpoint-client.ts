@@ -353,7 +353,8 @@ export class FlxpointClient {
     }
     
     if (data.wmBuyBoxPrice !== undefined) {
-      fields.push({ name: 'wm_buybox_price', value: data.wmBuyBoxPrice.toFixed(2) });
+      // wmBuyBoxPrice is stored in cents, convert to dollars for Flxpoint
+      fields.push({ name: 'wm_buybox_price', value: (data.wmBuyBoxPrice / 100).toFixed(2) });
     }
     
     if (data.amzCommRate !== undefined) {
@@ -361,7 +362,8 @@ export class FlxpointClient {
     }
     
     if (data.amzBuyBoxPrice !== undefined) {
-      fields.push({ name: 'amz_buybox_price', value: data.amzBuyBoxPrice.toFixed(2) });
+      // amzBuyBoxPrice is stored in cents, convert to dollars for Flxpoint
+      fields.push({ name: 'amz_buybox_price', value: (data.amzBuyBoxPrice / 100).toFixed(2) });
     }
     
     return fields;

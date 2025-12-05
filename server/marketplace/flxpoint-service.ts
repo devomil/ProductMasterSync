@@ -764,7 +764,7 @@ export class FlxpointService {
       upcMap.set(normalizedUpc, {
         listingId: listing.listingId,
         productType: listing.productType,
-        buyBoxPrice: listing.buyBoxPrice ? listing.buyBoxPrice / 100 : null,
+        buyBoxPrice: listing.buyBoxPrice, // Keep as cents - UI will format
         commissionRate,
       });
     }
