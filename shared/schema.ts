@@ -31,7 +31,7 @@ export const flxpointSyncStatusEnum = pgEnum('flxpoint_sync_status', [
 
 // Flxpoint sync job type enum
 export const flxpointSyncJobTypeEnum = pgEnum('flxpoint_sync_job_type', [
-  'pull', 'push'
+  'pull', 'push', 'enrich'
 ]);
 export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
   'once', 'hourly', 'daily', 'weekly', 'monthly', 'custom'

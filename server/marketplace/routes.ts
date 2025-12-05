@@ -3852,7 +3852,7 @@ router.post('/flxpoint/variants/:id/enrich', async (req, res) => {
 
 /**
  * POST /marketplace/flxpoint/enrich-all
- * Enrich all variants with marketplace data
+ * Enrich all variants with marketplace data (legacy - one by one)
  */
 router.post('/flxpoint/enrich-all', async (req, res) => {
   try {
@@ -3860,6 +3860,58 @@ router.post('/flxpoint/enrich-all', async (req, res) => {
     return res.json({ success: true, ...result });
   } catch (error) {
     console.error('[Flxpoint] Enrich all error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/start-enrichment
+ * Start a background job to enrich all variants with Walmart commission data
+ * Matches Flxpoint variants to Walmart listings by normalized UPC
+ */
+router.post('/flxpoint/start-enrichment', async (req, res) => {
+  try {
+    const jobId = await flxpointService.startEnrichmentJob();
+    return res.json({ 
+      success: true, 
+      jobId, 
+      message: 'Enrichment job started. Use GET /marketplace/flxpoint/sync-progress/:jobId to monitor progress.' 
+    });
+  } catch (error) {
+    console.error('[Flxpoint] Start enrichment error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/push-custom-fields
+ * Push commission data to Flxpoint product catalog using customFields API
+ * Uses modifyVariantCustomFields=merge to update wm_comm_rate, wm_product_type, wm_buybox_price
+ */
+router.post('/flxpoint/push-custom-fields', async (req, res) => {
+  try {
+    const jobId = await flxpointService.startCustomFieldsPushJob();
+    return res.json({ 
+      success: true, 
+      jobId, 
+      message: 'Push job started. Use GET /marketplace/flxpoint/sync-progress/:jobId to monitor progress.' 
+    });
+  } catch (error) {
+    console.error('[Flxpoint] Push custom fields error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/matching-stats
+ * Get statistics on UPC matching between Flxpoint and Walmart
+ */
+router.get('/flxpoint/matching-stats', async (req, res) => {
+  try {
+    const stats = await flxpointService.getMatchingStats();
+    return res.json(stats);
+  } catch (error) {
+    console.error('[Flxpoint] Matching stats error:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

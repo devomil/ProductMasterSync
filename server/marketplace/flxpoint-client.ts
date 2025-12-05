@@ -53,6 +53,16 @@ interface FlxpointUpdatePayload {
   [key: string]: any;
 }
 
+interface FlxpointCustomField {
+  name: string;
+  value: string;
+}
+
+interface FlxpointVariantUpdateRequest {
+  sku: string;
+  customFields?: FlxpointCustomField[];
+}
+
 export class FlxpointClient {
   private client: AxiosInstance;
   private rateLimitState: RateLimitState = {
@@ -250,7 +260,6 @@ export class FlxpointClient {
     }
     
     try {
-      // Correct endpoint is /product/variants (not /inventory/variants)
       const response = await this.client.put('/product/variants', {
         variants,
       });
@@ -268,6 +277,94 @@ export class FlxpointClient {
         errors: [error.response?.data || error.message],
       };
     }
+  }
+
+  async updateProductVariantCustomFields(
+    sku: string, 
+    customFields: FlxpointCustomField[]
+  ): Promise<{ success: boolean; sku: string; error?: string }> {
+    await this.waitForRateLimit();
+    
+    try {
+      const response = await this.client.post('/product/products/variant', {
+        sku,
+        customFields,
+      }, {
+        params: {
+          modifyVariantCustomFields: 'merge',
+          restrictCreateOrUpdate: 'updateOnly',
+        },
+      });
+      
+      console.log(`[Flxpoint] Updated custom fields for SKU ${sku}:`, customFields.map(f => f.name));
+      
+      return {
+        success: true,
+        sku,
+      };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      console.error(`[Flxpoint] Error updating custom fields for SKU ${sku}:`, errorMessage);
+      
+      return {
+        success: false,
+        sku,
+        error: errorMessage,
+      };
+    }
+  }
+
+  async batchUpdateProductVariantCustomFields(
+    updates: Array<{ sku: string; customFields: FlxpointCustomField[] }>
+  ): Promise<{ success: number; failed: number; errors: Array<{ sku: string; error: string }> }> {
+    let success = 0;
+    let failed = 0;
+    const errors: Array<{ sku: string; error: string }> = [];
+    
+    for (const update of updates) {
+      const result = await this.updateProductVariantCustomFields(update.sku, update.customFields);
+      
+      if (result.success) {
+        success++;
+      } else {
+        failed++;
+        errors.push({ sku: update.sku, error: result.error || 'Unknown error' });
+      }
+    }
+    
+    return { success, failed, errors };
+  }
+
+  buildCustomFieldsForCommission(data: {
+    wmCommRate?: number;
+    wmProductType?: string;
+    wmBuyBoxPrice?: number;
+    amzCommRate?: number;
+    amzBuyBoxPrice?: number;
+  }): FlxpointCustomField[] {
+    const fields: FlxpointCustomField[] = [];
+    
+    if (data.wmCommRate !== undefined) {
+      fields.push({ name: 'wm_comm_rate', value: data.wmCommRate.toFixed(4) });
+    }
+    
+    if (data.wmProductType) {
+      fields.push({ name: 'wm_product_type', value: data.wmProductType });
+    }
+    
+    if (data.wmBuyBoxPrice !== undefined) {
+      fields.push({ name: 'wm_buybox_price', value: data.wmBuyBoxPrice.toFixed(2) });
+    }
+    
+    if (data.amzCommRate !== undefined) {
+      fields.push({ name: 'amz_comm_rate', value: data.amzCommRate.toFixed(4) });
+    }
+    
+    if (data.amzBuyBoxPrice !== undefined) {
+      fields.push({ name: 'amz_buybox_price', value: data.amzBuyBoxPrice.toFixed(2) });
+    }
+    
+    return fields;
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
@@ -337,4 +434,4 @@ export function createFlxpointClient(): FlxpointClient | null {
   return new FlxpointClient(apiToken);
 }
 
-export type { FlxpointVariantResponse, FlxpointPaginatedResponse, FlxpointUpdatePayload };
+export type { FlxpointVariantResponse, FlxpointPaginatedResponse, FlxpointUpdatePayload, FlxpointCustomField, FlxpointVariantUpdateRequest };

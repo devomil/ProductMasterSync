@@ -1,7 +1,8 @@
 import { db } from '../db';
 import { flxpointVariants, flxpointSyncRuns, marketplaceListings, walmartListingDetails } from '@shared/schema';
 import { eq, sql, and, isNotNull, desc } from 'drizzle-orm';
-import { createFlxpointClient, FlxpointVariantResponse, FlxpointUpdatePayload } from './flxpoint-client';
+import { createFlxpointClient, FlxpointVariantResponse, FlxpointUpdatePayload, FlxpointCustomField } from './flxpoint-client';
+import { calculateReferralFee } from './walmart-referral-fees';
 import crypto from 'crypto';
 
 interface SyncProgress {
@@ -533,8 +534,11 @@ export class FlxpointService {
     withErrors: number;
     withAsin: number;
     withWalmartId: number;
+    withUpc: number;
+    matchedWalmart: number;
     lastPullRun: any;
     lastPushRun: any;
+    lastEnrichRun: any;
   }> {
     const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(flxpointVariants);
     const [pendingResult] = await db.select({ count: sql<number>`count(*)::int` })
@@ -553,6 +557,14 @@ export class FlxpointService {
       .from(flxpointVariants)
       .where(isNotNull(flxpointVariants.walmartId));
     
+    const [upcResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(sql`${flxpointVariants.flxpointData}->>'upc' IS NOT NULL AND ${flxpointVariants.flxpointData}->>'upc' != 'null' AND ${flxpointVariants.flxpointData}->>'upc' != ''`);
+    
+    const [matchedResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(isNotNull(flxpointVariants.wmCommissionRate));
+    
     const [lastPullRun] = await db.select()
       .from(flxpointSyncRuns)
       .where(eq(flxpointSyncRuns.jobType, 'pull'))
@@ -565,6 +577,12 @@ export class FlxpointService {
       .orderBy(desc(flxpointSyncRuns.createdAt))
       .limit(1);
     
+    const [lastEnrichRun] = await db.select()
+      .from(flxpointSyncRuns)
+      .where(eq(flxpointSyncRuns.jobType, 'enrich'))
+      .orderBy(desc(flxpointSyncRuns.createdAt))
+      .limit(1);
+    
     return {
       totalVariants: totalResult.count,
       pendingSync: pendingResult.count,
@@ -572,8 +590,363 @@ export class FlxpointService {
       withErrors: errorResult.count,
       withAsin: asinResult.count,
       withWalmartId: walmartResult.count,
+      withUpc: upcResult.count,
+      matchedWalmart: matchedResult.count,
       lastPullRun,
       lastPushRun,
+      lastEnrichRun,
+    };
+  }
+
+  private normalizeUpc(upc: string | null | undefined): string | null {
+    if (!upc || upc === 'null' || upc === '') return null;
+    return upc.replace(/^0+/, '');
+  }
+
+  async startEnrichmentJob(): Promise<number> {
+    const [syncRun] = await db.insert(flxpointSyncRuns).values({
+      jobType: 'enrich',
+      status: 'running',
+    }).returning();
+    
+    this.executeEnrichmentJob(syncRun.id).catch(err => {
+      console.error('[Flxpoint] Enrichment job error:', err);
+      this.updateSyncRunStatus(syncRun.id, 'failed', err.message);
+    });
+    
+    return syncRun.id;
+  }
+
+  private async executeEnrichmentJob(jobId: number): Promise<void> {
+    console.log(`[Flxpoint] Starting enrichment job ${jobId}`);
+    
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
+    const errors: any[] = [];
+    
+    const variants = await db.select()
+      .from(flxpointVariants)
+      .where(sql`${flxpointVariants.flxpointData}->>'upc' IS NOT NULL AND ${flxpointVariants.flxpointData}->>'upc' != 'null' AND ${flxpointVariants.flxpointData}->>'upc' != ''`);
+    
+    console.log(`[Flxpoint] Found ${variants.length} variants with UPC to enrich`);
+    
+    await db.update(flxpointSyncRuns)
+      .set({ totalVariants: variants.length })
+      .where(eq(flxpointSyncRuns.id, jobId));
+    
+    const walmartListingsMap = await this.buildWalmartUpcMap();
+    console.log(`[Flxpoint] Built Walmart UPC map with ${walmartListingsMap.size} entries`);
+    
+    for (const variant of variants) {
+      try {
+        const flxUpc = (variant.flxpointData as any)?.upc;
+        const normalizedUpc = this.normalizeUpc(flxUpc);
+        
+        if (!normalizedUpc) {
+          skippedCount++;
+          processedCount++;
+          continue;
+        }
+        
+        const walmartData = walmartListingsMap.get(normalizedUpc);
+        
+        if (!walmartData) {
+          skippedCount++;
+          processedCount++;
+          continue;
+        }
+        
+        const updates: any = {
+          walmartId: walmartData.listingId,
+          wmProductType: walmartData.productType,
+          wmBuyBoxPrice: walmartData.buyBoxPrice,
+          wmCommissionRate: walmartData.commissionRate,
+          syncStatus: 'pending',
+          updatedAt: new Date(),
+        };
+        
+        await db.update(flxpointVariants)
+          .set(updates)
+          .where(eq(flxpointVariants.id, variant.id));
+        
+        successCount++;
+      } catch (err: any) {
+        errorCount++;
+        errors.push({ variantId: variant.id, error: err.message });
+      }
+      
+      processedCount++;
+      
+      if (processedCount % 500 === 0) {
+        await db.update(flxpointSyncRuns).set({
+          processedCount,
+          successCount,
+          errorCount,
+          skippedCount,
+        }).where(eq(flxpointSyncRuns.id, jobId));
+        
+        console.log(`[Flxpoint] Enrichment progress: ${processedCount}/${variants.length}, matched: ${successCount}`);
+      }
+    }
+    
+    await db.update(flxpointSyncRuns).set({
+      status: 'completed',
+      processedCount,
+      successCount,
+      errorCount,
+      skippedCount,
+      finishedAt: new Date(),
+      errors: errors.length > 0 ? errors.slice(0, 100) : null,
+    }).where(eq(flxpointSyncRuns.id, jobId));
+    
+    console.log(`[Flxpoint] Enrichment job ${jobId} completed: ${successCount} matched, ${skippedCount} skipped, ${errorCount} errors`);
+  }
+
+  private async buildWalmartUpcMap(): Promise<Map<string, {
+    listingId: string;
+    productType: string | null;
+    buyBoxPrice: number | null;
+    commissionRate: number | null;
+  }>> {
+    const upcMap = new Map<string, {
+      listingId: string;
+      productType: string | null;
+      buyBoxPrice: number | null;
+      commissionRate: number | null;
+    }>();
+    
+    const walmartListings = await db.select({
+      listingId: marketplaceListings.listingId,
+      upc: marketplaceListings.upc,
+      productType: marketplaceListings.productType,
+      priceInCents: marketplaceListings.priceInCents,
+      categoryPath: marketplaceListings.categoryPath,
+      contractCategory: marketplaceListings.contractCategory,
+      buyBoxPrice: walmartListingDetails.buyBoxTotalPriceInCents,
+    })
+    .from(marketplaceListings)
+    .innerJoin(walmartListingDetails, eq(marketplaceListings.id, walmartListingDetails.marketplaceListingId))
+    .where(
+      and(
+        eq(marketplaceListings.marketplace, 'walmart'),
+        isNotNull(marketplaceListings.upc),
+        eq(walmartListingDetails.walmartLifecycleStatus, 'ACTIVE'),
+        eq(walmartListingDetails.walmartPublishStatus, 'PUBLISHED')
+      )
+    );
+    
+    for (const listing of walmartListings) {
+      if (!listing.upc) continue;
+      
+      const normalizedUpc = this.normalizeUpc(listing.upc);
+      if (!normalizedUpc) continue;
+      
+      let commissionRate: number | null = null;
+      
+      if (listing.priceInCents) {
+        try {
+          const categoryPathArray = Array.isArray(listing.categoryPath) 
+            ? listing.categoryPath as string[]
+            : null;
+          const feeResult = calculateReferralFee(
+            listing.priceInCents,
+            categoryPathArray,
+            listing.productType
+          );
+          commissionRate = 1 + (feeResult.feePercentageEffective / 100);
+        } catch (err) {
+          console.warn(`[Flxpoint] Failed to calculate fee for ${listing.listingId}:`, err);
+        }
+      }
+      
+      upcMap.set(normalizedUpc, {
+        listingId: listing.listingId,
+        productType: listing.productType,
+        buyBoxPrice: listing.buyBoxPrice ? listing.buyBoxPrice / 100 : null,
+        commissionRate,
+      });
+    }
+    
+    return upcMap;
+  }
+
+  async startCustomFieldsPushJob(): Promise<number> {
+    const [syncRun] = await db.insert(flxpointSyncRuns).values({
+      jobType: 'push',
+      status: 'running',
+    }).returning();
+    
+    this.executeCustomFieldsPushJob(syncRun.id).catch(err => {
+      console.error('[Flxpoint] Push job error:', err);
+      this.updateSyncRunStatus(syncRun.id, 'failed', err.message);
+    });
+    
+    return syncRun.id;
+  }
+
+  private async executeCustomFieldsPushJob(jobId: number): Promise<void> {
+    const client = createFlxpointClient();
+    if (!client) {
+      throw new Error('Flxpoint API token not configured');
+    }
+    
+    console.log(`[Flxpoint] Starting custom fields push job ${jobId}`);
+    
+    const variantsToUpdate = await db.select()
+      .from(flxpointVariants)
+      .where(
+        and(
+          eq(flxpointVariants.syncStatus, 'pending'),
+          isNotNull(flxpointVariants.wmCommissionRate)
+        )
+      );
+    
+    console.log(`[Flxpoint] Found ${variantsToUpdate.length} variants to push`);
+    
+    await db.update(flxpointSyncRuns)
+      .set({ totalVariants: variantsToUpdate.length })
+      .where(eq(flxpointSyncRuns.id, jobId));
+    
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let requestCount = 0;
+    const errors: any[] = [];
+    
+    for (const variant of variantsToUpdate) {
+      try {
+        const sku = (variant.flxpointData as any)?.sku || variant.parentSku;
+        
+        if (!sku) {
+          errorCount++;
+          errors.push({ variantId: variant.id, error: 'No SKU found' });
+          processedCount++;
+          continue;
+        }
+        
+        const customFields = client.buildCustomFieldsForCommission({
+          wmCommRate: variant.wmCommissionRate || undefined,
+          wmProductType: variant.wmProductType || undefined,
+          wmBuyBoxPrice: variant.wmBuyBoxPrice || undefined,
+        });
+        
+        if (customFields.length === 0) {
+          processedCount++;
+          continue;
+        }
+        
+        const result = await client.updateProductVariantCustomFields(sku, customFields);
+        requestCount++;
+        
+        if (result.success) {
+          const payloadHash = this.hashPayload({ sku, ...customFields.reduce((acc, f) => ({ ...acc, [f.name]: f.value }), {}) });
+          
+          await db.update(flxpointVariants)
+            .set({
+              syncStatus: 'synced',
+              lastPushedAt: new Date(),
+              payloadHash,
+              updatedAt: new Date(),
+            })
+            .where(eq(flxpointVariants.id, variant.id));
+          
+          successCount++;
+        } else {
+          await db.update(flxpointVariants)
+            .set({
+              syncStatus: 'error',
+              updatedAt: new Date(),
+            })
+            .where(eq(flxpointVariants.id, variant.id));
+          
+          errorCount++;
+          errors.push({ sku, error: result.error });
+        }
+      } catch (err: any) {
+        errorCount++;
+        errors.push({ variantId: variant.id, error: err.message });
+      }
+      
+      processedCount++;
+      
+      if (processedCount % 50 === 0) {
+        await db.update(flxpointSyncRuns).set({
+          processedCount,
+          successCount,
+          errorCount,
+          requestCount,
+        }).where(eq(flxpointSyncRuns.id, jobId));
+        
+        console.log(`[Flxpoint] Push progress: ${processedCount}/${variantsToUpdate.length}, success: ${successCount}, errors: ${errorCount}`);
+      }
+    }
+    
+    await db.update(flxpointSyncRuns).set({
+      status: 'completed',
+      processedCount,
+      successCount,
+      errorCount,
+      requestCount,
+      finishedAt: new Date(),
+      errors: errors.length > 0 ? errors.slice(0, 100) : null,
+    }).where(eq(flxpointSyncRuns.id, jobId));
+    
+    console.log(`[Flxpoint] Push job ${jobId} completed: ${successCount} success, ${errorCount} errors`);
+  }
+
+  async getMatchingStats(): Promise<{
+    flxpointWithUpc: number;
+    walmartActiveWithUpc: number;
+    matchedByUpc: number;
+    enrichedWithCommission: number;
+    readyToPush: number;
+    alreadyPushed: number;
+  }> {
+    const [flxUpcResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(sql`${flxpointVariants.flxpointData}->>'upc' IS NOT NULL AND ${flxpointVariants.flxpointData}->>'upc' != 'null' AND ${flxpointVariants.flxpointData}->>'upc' != ''`);
+    
+    const [walmartUpcResult] = await db.select({ count: sql<number>`count(DISTINCT ${marketplaceListings.upc})::int` })
+      .from(marketplaceListings)
+      .innerJoin(walmartListingDetails, eq(marketplaceListings.id, walmartListingDetails.marketplaceListingId))
+      .where(
+        and(
+          eq(marketplaceListings.marketplace, 'walmart'),
+          isNotNull(marketplaceListings.upc),
+          eq(walmartListingDetails.walmartLifecycleStatus, 'ACTIVE')
+        )
+      );
+    
+    const [matchedResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(isNotNull(flxpointVariants.walmartId));
+    
+    const [enrichedResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(isNotNull(flxpointVariants.wmCommissionRate));
+    
+    const [readyResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(
+        and(
+          eq(flxpointVariants.syncStatus, 'pending'),
+          isNotNull(flxpointVariants.wmCommissionRate)
+        )
+      );
+    
+    const [pushedResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(eq(flxpointVariants.syncStatus, 'synced'));
+    
+    return {
+      flxpointWithUpc: flxUpcResult.count,
+      walmartActiveWithUpc: walmartUpcResult.count,
+      matchedByUpc: matchedResult.count,
+      enrichedWithCommission: enrichedResult.count,
+      readyToPush: readyResult.count,
+      alreadyPushed: pushedResult.count,
     };
   }
 }
