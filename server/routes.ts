@@ -261,6 +261,20 @@ async function simulateAmazonSearch(productData: any, sampleAsins: string[], mer
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Download endpoint for Flxpoint verification CSV
+  app.get("/api/downloads/flxpoint-verification", async (req, res) => {
+    try {
+      const filePath = path.resolve("/home/runner/workspace/flxpoint_verification_list.csv");
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Verification file not found. Please generate the export first." });
+      }
+      res.download(filePath, "flxpoint_verification_list.csv");
+    } catch (error) {
+      console.error("Error downloading verification file:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
   // Suppliers API with proper pagination for million+ supplier scale
   app.get("/api/suppliers", async (req, res) => {
     try {
