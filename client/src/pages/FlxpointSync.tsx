@@ -326,6 +326,17 @@ export default function FlxpointSync() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending || isJobRunning ? 'animate-spin' : ''}`} />
                 Enrich from Marketplace
               </Button>
+              <Button
+                asChild
+                variant="secondary"
+                disabled={!stats?.synced}
+                data-testid="button-download-verification"
+              >
+                <a href="/api/downloads/flxpoint-verification" download>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Download Verification CSV
+                </a>
+              </Button>
             </div>
 
             {isJobRunning && progressData && (
