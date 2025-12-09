@@ -9,8 +9,8 @@ import pg from 'pg';
 import path from 'path';
 import { parse as parseCsv } from 'csv-parse/sync';
 
-// Helper function to properly parse CSV lines, handling quoted fields
-const parseCSVLine = (line: string): string[] => {
+// Helper function to properly parse CSV/TSV lines, handling quoted fields
+const parseCSVLine = (line: string, delimiter: string = ','): string[] => {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -27,7 +27,7 @@ const parseCSVLine = (line: string): string[] => {
         // Toggle quote mode
         inQuotes = !inQuotes;
       }
-    } else if (char === ',' && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       // End of field
       result.push(current);
       current = '';
@@ -40,6 +40,14 @@ const parseCSVLine = (line: string): string[] => {
   result.push(current);
   
   return result;
+};
+
+// Helper function to detect delimiter from content (tabs vs commas)
+const detectDelimiter = (content: string): string => {
+  const firstLine = content.split(/\r?\n/)[0] || '';
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  return tabCount > commaCount ? '\t' : ',';
 };
 
 // Helper to apply environment credentials to server SFTP connections
@@ -812,9 +820,12 @@ const pullSampleDataFromSFTP = async (
           try {
             console.log(`Processing file: ${filePath}, type: ${fileType}`);
             
-            // For CSV files, use a streaming approach with limits
+            // For CSV/TSV files, use a streaming approach with limits
             if (fileType === 'csv') {
-              console.log('Using optimized CSV streaming parser');
+              // Auto-detect delimiter based on file extension
+              const isTsv = filename.toLowerCase().endsWith('.tsv');
+              const delimiter = isTsv ? '\t' : ',';
+              console.log(`Using optimized CSV/TSV streaming parser with ${isTsv ? 'TAB' : 'COMMA'} delimiter`);
               
               let headerLine = '';
               let dataRows: string[] = [];
@@ -822,6 +833,7 @@ const pullSampleDataFromSFTP = async (
               let inHeader = true;
               let buffer = '';
               let reachedLimit = false;
+              let detectedDelimiter = delimiter;
               
               const stream = sftp.createReadStream(filePath);
               
@@ -839,6 +851,11 @@ const pullSampleDataFromSFTP = async (
                   
                   if (inHeader) {
                     headerLine = line;
+                    // Auto-detect delimiter from header line if not TSV
+                    if (!isTsv) {
+                      detectedDelimiter = detectDelimiter(headerLine);
+                      console.log(`Auto-detected delimiter: ${detectedDelimiter === '\t' ? 'TAB' : 'COMMA'}`);
+                    }
                     inHeader = false;
                     continue;
                   }
@@ -856,14 +873,14 @@ const pullSampleDataFromSFTP = async (
                     console.log(`Reached limit of ${limit} rows, stopping early`);
                     client.end();
                     
-                    // Parse the header using a proper CSV parsing function
-                    const headers = parseCSVLine(headerLine);
+                    // Parse the header using a proper CSV parsing function with detected delimiter
+                    const headers = parseCSVLine(headerLine, detectedDelimiter);
                     
                     // Parse each row
                     const parsedData = dataRows.map(line => {
                       if (!line.trim()) return null;
                       
-                      const values = parseCSVLine(line);
+                      const values = parseCSVLine(line, detectedDelimiter);
                       const row: any = {};
                       
                       headers.forEach((header, i) => {
@@ -892,18 +909,18 @@ const pullSampleDataFromSFTP = async (
                 // Only process if we haven't already resolved via the limit check
                 if (!reachedLimit) {
                   client.end();
-                  console.log(`Finished reading CSV data. Processing ${dataRows.length} rows`);
+                  console.log(`Finished reading CSV/TSV data. Processing ${dataRows.length} rows`);
                   
                   try {
-                    // Parse the header using a proper CSV parsing function
-                    const headers = parseCSVLine(headerLine);
+                    // Parse the header using a proper CSV parsing function with detected delimiter
+                    const headers = parseCSVLine(headerLine, detectedDelimiter);
                     const total = dataRows.length;
                     
                     // Parse each row
                     const parsedData = dataRows.map(line => {
                       if (!line.trim()) return null;
                       
-                      const values = parseCSVLine(line);
+                      const values = parseCSVLine(line, detectedDelimiter);
                       const row: any = {};
                       
                       headers.forEach((header, i) => {
@@ -925,7 +942,7 @@ const pullSampleDataFromSFTP = async (
                   } catch (err: any) {
                     resolve({
                       success: false,
-                      message: `Error parsing CSV data: ${err.message}`,
+                      message: `Error parsing CSV/TSV data: ${err.message}`,
                       filename: filename,
                       remote_path: filePath
                     });
@@ -1061,9 +1078,9 @@ const pullSampleDataFromSFTP = async (
               const filename = currentPath.split('/').pop() || '';
               const fileExt = filename.split('.').pop()?.toLowerCase() || '';
               
-              // Check if it's a supported file type
-              if (['csv', 'xlsx', 'xls', 'json'].includes(fileExt)) {
-                const fileType = fileExt === 'csv' ? 'csv' : 
+              // Check if it's a supported file type (including TSV)
+              if (['csv', 'tsv', 'xlsx', 'xls', 'json'].includes(fileExt)) {
+                const fileType = (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
                               fileExt === 'json' ? 'json' : 'excel';
                               
                 processFile(currentPath, fileType, filename);
@@ -1086,10 +1103,11 @@ const pullSampleDataFromSFTP = async (
                 return;
               }
               
-              // Filter for CSV, Excel or JSON files
+              // Filter for CSV, TSV, Excel or JSON files
               const files = list.filter(item => {
                 const filename = item.filename.toLowerCase();
                 return filename.endsWith('.csv') || 
+                       filename.endsWith('.tsv') ||
                        filename.endsWith('.xlsx') || 
                        filename.endsWith('.xls') || 
                        filename.endsWith('.json');
@@ -1116,7 +1134,7 @@ const pullSampleDataFromSFTP = async (
                   console.log(`Found specific file ${targetFile.filename} in directory ${dirPath}`);
                   const fullPath = `${dirPath === '/' ? '' : dirPath}/${targetFile.filename}`;
                   const fileExt = targetFile.filename.split('.').pop()?.toLowerCase() || '';
-                  const fileType = fileExt === 'csv' ? 'csv' : 
+                  const fileType = (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
                                 fileExt === 'json' ? 'json' : 'excel';
                                 
                   processFile(fullPath, fileType, targetFile.filename);
@@ -1208,10 +1226,11 @@ const pullSampleDataFromFTP = async (
           return;
         }
         
-        // Filter for CSV, Excel or JSON files
+        // Filter for CSV, TSV, Excel or JSON files
         const files = list.filter((item: any) => {
           const filename = item.name.toLowerCase();
           return filename.endsWith('.csv') || 
+                 filename.endsWith('.tsv') ||
                  filename.endsWith('.xlsx') || 
                  filename.endsWith('.xls') || 
                  filename.endsWith('.json');
@@ -1228,7 +1247,7 @@ const pullSampleDataFromFTP = async (
         
         // Choose the first suitable file
         const targetFile = files[0];
-        const fileType = targetFile.name.toLowerCase().endsWith('.csv') ? 'csv' :
+        const fileType = (targetFile.name.toLowerCase().endsWith('.csv') || targetFile.name.toLowerCase().endsWith('.tsv')) ? 'csv' :
                        targetFile.name.toLowerCase().endsWith('.json') ? 'json' : 'excel';
         
         // Get the file
@@ -1258,7 +1277,7 @@ const pullSampleDataFromFTP = async (
               let total = 0;
               
               if (fileType === 'csv') {
-                // Basic CSV parsing
+                // Basic CSV/TSV parsing - auto-detect delimiter
                 const lines = content.split(/\r?\n/);
                 if (lines.length === 0) {
                   resolve({ 
@@ -1268,15 +1287,22 @@ const pullSampleDataFromFTP = async (
                   return;
                 }
                 
+                // Auto-detect delimiter: check if first line has more tabs than commas
+                const firstLine = lines[0];
+                const tabCount = (firstLine.match(/\t/g) || []).length;
+                const commaCount = (firstLine.match(/,/g) || []).length;
+                const delimiter = tabCount > commaCount ? '\t' : ',';
+                console.log(`Auto-detected delimiter: ${delimiter === '\t' ? 'TAB' : 'COMMA'} (tabs: ${tabCount}, commas: ${commaCount})`);
+                
                 // Assume first row is header
-                const headers = lines[0].split(',').map(h => h.trim());
+                const headers = lines[0].split(delimiter).map(h => h.trim());
                 total = lines.length - 1;
                 
                 // Get data rows (limit to requested amount)
                 const dataRows = lines.slice(1, Math.min(lines.length, limit + 1));
                 
                 parsedData = dataRows.map(line => {
-                  const values = line.split(',').map(v => v.trim());
+                  const values = line.split(delimiter).map(v => v.trim());
                   const row: any = {};
                   
                   headers.forEach((header, i) => {
