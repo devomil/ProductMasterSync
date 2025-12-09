@@ -2020,46 +2020,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
             password = process.env.SFTP_PASSWORD;
           }
           
-          await sftp.connect({
+          // Support legacy SSH algorithms for older servers like BlueStar
+          const connectConfig: any = {
             host: config.host,
             port: config.port || 22,
             username: config.username,
             password: password
-          });
+          };
+          
+          // Add legacy algorithm support for older SFTP servers
+          if (config.host?.includes('bluestarinc') || config.legacyAlgorithms) {
+            console.log('[SFTP] Using legacy SSH algorithms for compatibility');
+            connectConfig.algorithms = {
+              kex: [
+                'curve25519-sha256',
+                'curve25519-sha256@libssh.org',
+                'ecdh-sha2-nistp256',
+                'ecdh-sha2-nistp384',
+                'ecdh-sha2-nistp521',
+                'diffie-hellman-group-exchange-sha256',
+                'diffie-hellman-group14-sha256',
+                'diffie-hellman-group14-sha1',
+                'diffie-hellman-group1-sha1'
+              ],
+              cipher: [
+                'aes128-ctr',
+                'aes192-ctr',
+                'aes256-ctr',
+                'aes128-gcm',
+                'aes128-gcm@openssh.com',
+                'aes256-gcm',
+                'aes256-gcm@openssh.com',
+                'aes256-cbc',
+                'aes192-cbc',
+                'aes128-cbc',
+                '3des-cbc'
+              ]
+            };
+          }
+          
+          await sftp.connect(connectConfig);
           
           console.log('SFTP connected successfully');
           
-          // Try to list files in common directories
+          // Use configured file path if available
+          let targetFileName = config.path || config.filePath || config.file;
           let fileList: any[] = [];
-          const dirsToTry = ['./', '/'];
           
-          for (const dir of dirsToTry) {
-            try {
-              fileList = await sftp.list(dir);
-              console.log(`Files in SFTP ${dir}:`, fileList.map(f => f.name));
-              break; // Success, stop trying
-            } catch (listError) {
-              console.log(`Cannot list ${dir}, trying next...`);
-              // Continue to next directory
+          if (!targetFileName) {
+            // Try to list files in common directories
+            const dirsToTry = ['./', '/'];
+            
+            for (const dir of dirsToTry) {
+              try {
+                fileList = await sftp.list(dir);
+                console.log(`Files in SFTP ${dir}:`, fileList.map(f => f.name));
+                break; // Success, stop trying
+              } catch (listError) {
+                console.log(`Cannot list ${dir}, trying next...`);
+              }
             }
+            
+            if (fileList.length === 0) {
+              throw new Error('Unable to list any files on SFTP server');
+            }
+            
+            // Look for data files (CSV, TSV, or common patterns)
+            const catalogFile = fileList.find(f => 
+              f.name.toLowerCase().includes('catalog') || 
+              f.name.toLowerCase().includes('product') ||
+              f.name.toLowerCase().endsWith('.csv') ||
+              f.name.toLowerCase().endsWith('.tsv') ||
+              f.name.toLowerCase().endsWith('.txt')
+            );
+            
+            if (!catalogFile) {
+              throw new Error(`No data file found on SFTP server. Available files: ${fileList.map(f => f.name).join(', ')}`);
+            }
+            
+            targetFileName = catalogFile.name;
           }
           
-          if (fileList.length === 0) {
-            throw new Error('Unable to list any files on SFTP server');
-          }
-          
-          // Look for catalog CSV file (adjust filename as needed)
-          const catalogFile = fileList.find(f => 
-            f.name.toLowerCase().includes('catalog') || 
-            f.name.toLowerCase().includes('product') ||
-            f.name.toLowerCase().endsWith('.csv')
-          );
-          
-          if (!catalogFile) {
-            throw new Error(`No catalog CSV file found on SFTP server. Available files: ${fileList.map(f => f.name).join(', ')}`);
-          }
-          
-          console.log('Found catalog file:', catalogFile.name);
+          console.log('Using data file:', targetFileName);
           
           // Download the file to temp directory
           const tempDir = './temp';
@@ -2067,30 +2109,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fs.mkdirSync(tempDir, { recursive: true });
           }
           
-          const localPath = path.join(tempDir, catalogFile.name);
-          await sftp.get(`/${catalogFile.name}`, localPath);
+          // Handle file path - may or may not have leading slash
+          const remotePath = targetFileName.startsWith('/') ? targetFileName : `/${targetFileName}`;
+          const localFileName = path.basename(targetFileName);
+          const localPath = path.join(tempDir, localFileName);
+          
+          await sftp.get(remotePath, localPath);
           
           await sftp.end();
           console.log('SFTP file downloaded:', localPath);
           
-          // Parse the CSV file
-          const csvContent = fs.readFileSync(localPath, 'utf-8');
-          const records = csvParse.parse(csvContent, {
+          // Parse the file - detect delimiter from content or filename
+          const fileContent = fs.readFileSync(localPath, 'utf-8');
+          const isTsv = localFileName.toLowerCase().endsWith('.tsv') || 
+                        (fileContent.split('\n')[0]?.includes('\t') && !fileContent.split('\n')[0]?.includes(','));
+          
+          const delimiter = isTsv ? '\t' : ',';
+          console.log(`Parsing file with delimiter: ${isTsv ? 'TAB (TSV)' : 'COMMA (CSV)'}`);
+          
+          const records = csvParse.parse(fileContent, {
             columns: true,
             skip_empty_lines: true,
             relax_column_count: true,
-            relax_quotes: true
+            relax_quotes: true,
+            delimiter: delimiter
           });
           
           // Take the requested number of records
           const sampleData = records.slice(0, requestedLimit);
+          
+          console.log(`Parsed ${records.length} total records, returning ${sampleData.length} samples`);
+          if (sampleData.length > 0) {
+            console.log('Sample field names:', Object.keys(sampleData[0]));
+          }
           
           res.json({ 
             success: true, 
             data: sampleData,
             totalRecords: sampleData.length,
             source: 'sftp',
-            file: catalogFile.name
+            file: targetFileName
           });
           return;
           
