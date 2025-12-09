@@ -6,7 +6,7 @@ export default function DescriptionProcessorPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Description Processor</h1>
         <p className="text-muted-foreground mt-2">
-          Clean up HTML-heavy product descriptions from suppliers like your CWR data.
+          Clean up HTML-heavy product descriptions from your supplier data.
           Remove tags, extract features, and format for better readability.
         </p>
       </div>

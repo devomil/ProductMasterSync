@@ -19,7 +19,7 @@ export function DescriptionProcessor() {
   const [processed, setProcessed] = useState<ProcessedDescription | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Example CWR description for demonstration
+  // Example supplier description for demonstration
   const exampleDescription = `<p><strong>Survival Res-Q&trade; Whistle with Lanyard&nbsp;</strong></p><p>Get attention when you need it with the ResQ&trade; Whistle. &nbsp;This compact survival whistle was specially developed to locate boaters who&rsquo;ve fallen overboard, but it can also aid in land rescues.&nbsp;</p><p>The ResQ issues a shrill dual-tone up to 100 decibels, which is audible over great distances. &nbsp;The unique, flat design of this whistle keeps it from holding water, and its 31.5" (80 cm) lanyard easily attaches to life jackets, rafts, and other weather gear.&nbsp;</p><p><strong>Features:</strong></p><ul><li>Loud, shrill, dual tone audible from great distance</li><li>Unique flat design</li><li>Meets USCG/SOLAS requirements</li><li>Aids in land or sea rescues</li></ul><p>*Sold as an Individual&nbsp;</p><p><img src="https://productimageserver.com/prop65/6pt.png" alt="Warning" /><strong>WARNING:</strong> This product can expose you to chemicals which are known to the State of California to cause cancer, birth defects or other reproductive harm. For more information go to <a href="http://P65Warnings.ca.gov">P65Warnings.ca.gov</a>.</p>`;
 
   const processDescription = async () => {
@@ -139,7 +139,7 @@ export function DescriptionProcessor() {
                 variant="outline" 
                 onClick={() => setHtmlInput(exampleDescription)}
               >
-                Load CWR Example
+                Load Example
               </Button>
             </div>
           </div>

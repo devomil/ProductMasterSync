@@ -29,9 +29,9 @@ export default function SimpleMappingDemo() {
   const [mappingTarget, setMappingTarget] = useState("catalog"); // "catalog" or "product_detail"
   const [productDetailMappings, setProductDetailMappings] = useState<FieldMapping[]>([]);
 
-  // Sample headers from CWR data
+  // Sample headers from supplier data
   const sampleHeaders = [
-    "CWR Part Number",
+    "Supplier Part Number",
     "Title", 
     "UPC Code",
     "Your Cost",
@@ -108,7 +108,7 @@ export default function SimpleMappingDemo() {
     if (mappingTarget === "catalog") {
       // Smart mapping based on actual source field names
       const mappingRules = [
-        { source: ["CWR Part Number", "Part Number", "SKU", "PartNumber"], target: "sku" },
+        { source: ["Supplier Part Number", "Part Number", "SKU", "PartNumber"], target: "sku" },
         { source: ["Title", "Description", "Product Name", "Name"], target: "product_name" },
         { source: ["UPC Code", "UPC", "Barcode"], target: "upc" },
         { source: ["Your Cost", "Cost", "Wholesale Price"], target: "cost" },
@@ -140,7 +140,7 @@ export default function SimpleMappingDemo() {
         { source: ["Weight", "Product Weight", "Shipping Weight"], target: "specifications" },
         { source: ["Dimensions", "Size", "Product Dimensions"], target: "technical_specs" },
         { source: ["Manufacturer Name", "Brand", "Vendor"], target: "brand_details" },
-        { source: ["CWR Part Number", "Part Number", "SKU"], target: "part_number" },
+        { source: ["Supplier Part Number", "Part Number", "SKU"], target: "part_number" },
         { source: ["Features", "Product Features"], target: "features" },
         { source: ["Warranty", "Warranty Info"], target: "warranty_info" }
       ];
@@ -260,10 +260,10 @@ export default function SimpleMappingDemo() {
         const errorData = await response.json();
         console.error("SFTP connection failed:", errorData);
         
-        // Use real CWR field structure from actual catalog
-        const realCWRData = [
+        // Use sample supplier field structure for mapping demonstration
+        const sampleSupplierData = [
           {
-            "CWR Part Number": "10020",
+            "Supplier Part Number": "10020",
             "Manufacturer Part Number": "2228", 
             "UPC Code": "791659022283",
             "Quantity Available to Ship (Combined)": "66",
@@ -276,7 +276,7 @@ export default function SimpleMappingDemo() {
             "Category Name": "Safety Equipment"
           },
           {
-            "CWR Part Number": "10025",
+            "Supplier Part Number": "10025",
             "Manufacturer Part Number": "3340",
             "UPC Code": "791659033402", 
             "Quantity Available to Ship (Combined)": "45",
@@ -289,7 +289,7 @@ export default function SimpleMappingDemo() {
             "Category Name": "Safety Equipment"
           },
           {
-            "CWR Part Number": "10030",
+            "Supplier Part Number": "10030",
             "Manufacturer Part Number": "4455",
             "UPC Code": "791659044506",
             "Quantity Available to Ship (Combined)": "32",
@@ -303,10 +303,10 @@ export default function SimpleMappingDemo() {
           }
         ];
         
-        setSampleData(realCWRData);
+        setSampleData(sampleSupplierData);
         toast({
-          title: "Real CWR Data Structure Loaded",
-          description: "Using actual CWR field structure for mapping demonstration.",
+          title: "Sample Supplier Data Loaded",
+          description: "Using sample supplier field structure for mapping demonstration.",
           variant: "default"
         });
       }

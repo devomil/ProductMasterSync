@@ -95,7 +95,7 @@ export function SimpleMappingInterface({ sampleHeaders, onMappingsChange }: Simp
     
     // Auto-mapping logic
     const mappingRules = [
-      { target: 'sku', sources: ['sku', 'part number', 'item number', 'product id', 'cwr part number'] },
+      { target: 'sku', sources: ['sku', 'part number', 'item number', 'product id', 'supplier part number'] },
       { target: 'product_name', sources: ['title', 'name', 'product name', 'description', 'uppercase title'] },
       { target: 'upc', sources: ['upc', 'upc code', 'barcode', 'gtin'] },
       { target: 'price', sources: ['price', 'list price', 'retail price', 'msrp'] },

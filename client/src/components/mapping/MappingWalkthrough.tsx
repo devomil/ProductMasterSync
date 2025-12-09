@@ -533,7 +533,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
     // Extract field names from sample data
     if (sampleData && sampleData.length > 0) {
       const fields = Object.keys(sampleData[0] || {});
-      console.log('Available source fields from CWR data:', fields);
+      console.log('Available source fields from supplier data:', fields);
       setSourceFields(fields);
     }
     
@@ -847,7 +847,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
             {sourceFields.length > 0 && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-sm font-medium text-blue-800 mb-2">
-                  Available fields from your CWR data ({sourceFields.length} fields):
+                  Available fields from your supplier data ({sourceFields.length} fields):
                 </div>
                 <div className="flex flex-wrap gap-1 text-xs">
                   {sourceFields.slice(0, 10).map((field) => (

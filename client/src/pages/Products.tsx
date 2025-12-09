@@ -270,7 +270,7 @@ const Products = () => {
     // Always start with EDC (sku) - this is application-generated
     dynamicColumns = ['sku'];
     
-    // Add USIN if it exists in mapping (CWR Part Number maps to usin)
+    // Add USIN if it exists in mapping (Supplier Part Number maps to usin)
     if (Object.values(cwrTemplate.mappings).includes('usin')) {
       dynamicColumns.push('usin');
     }
@@ -326,7 +326,7 @@ const Products = () => {
   const getProductValue = (product: any, field: string): string => {
     const fieldMap: Record<string, string> = {
       sku: removeEdcPrefix(product.sku),  // Remove EDC prefix from SKU display
-      usin: product.usin || product.cwrPartNumber || '-',  // USIN field from CWR Part Number
+      usin: product.usin || product.supplierPartNumber || '-',  // USIN field from Supplier Part Number
       upc: product.upc || '-',
       cost: product.cost ? `$${parseFloat(product.cost).toFixed(2)}` : '-',
       price: product.price ? `$${parseFloat(product.price).toFixed(2)}` : '-',

@@ -147,7 +147,7 @@ function AutoMappingAnimation({ message }: { message?: string }) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4 }}
         >
-          {['CWR Part Number', 'Title', 'Your Cost'].map((field, i) => (
+          {['Supplier Part Number', 'Title', 'Your Cost'].map((field, i) => (
             <motion.div
               key={field}
               className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm"

@@ -29,7 +29,7 @@ export class FallbackMappingService {
     return FallbackMappingService.instance;
   }
 
-  // Common field mapping patterns for CWR data
+  // Common field mapping patterns for supplier data
   private mappingPatterns: Record<string, { target: string; confidence: number; category: string }> = {
     // Pricing fields
     'your cost': { target: 'yourCost', confidence: 0.95, category: 'pricing' },
@@ -43,8 +43,10 @@ export class FallbackMappingService {
     'original price': { target: 'originalPriceSale', confidence: 0.90, category: 'pricing' },
 
     // Product identification
+    'supplier part number': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
+    'supplierpart number': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
+    'supplierpartnumber': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
     'cwr part number': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
-    'cwrpart number': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
     'cwrpartnumber': { target: 'usin', confidence: 0.95, category: 'master_catalog' },
     'part number': { target: 'usin', confidence: 0.90, category: 'master_catalog' },
     'partnumber': { target: 'usin', confidence: 0.90, category: 'master_catalog' },

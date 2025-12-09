@@ -203,7 +203,7 @@ const CategoryMappingIntelligence = () => {
                     <Globe className="h-5 w-5 text-blue-600" />
                     <div className="flex-1">
                       <p className="font-medium text-sm">Marine Navigation & Instruments</p>
-                      <p className="text-xs text-muted-foreground">CWR Supplier • Auto-generated</p>
+                      <p className="text-xs text-muted-foreground">Supplier • Auto-generated</p>
                     </div>
                     <Badge variant="secondary">Marine</Badge>
                   </div>
@@ -264,7 +264,7 @@ const CategoryMappingIntelligence = () => {
                     <div className="flex-1">
                       <p className="text-sm font-medium">Smart category creation</p>
                       <p className="text-xs text-muted-foreground">
-                        Created hierarchical categories from CWR data structure
+                        Created hierarchical categories from supplier data structure
                       </p>
                       <p className="text-xs text-green-600 mt-1">95% confidence • Active</p>
                     </div>
@@ -313,7 +313,7 @@ const CategoryMappingIntelligence = () => {
                 ) : mappings.length === 0 ? (
                   <div className="text-center py-8">
                     <GitBranch className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                    <p className="text-muted-foreground">Import CWR data to see intelligent category mappings</p>
+                    <p className="text-muted-foreground">Import supplier data to see intelligent category mappings</p>
                   </div>
                 ) : (
                   mappings.map((mapping) => (

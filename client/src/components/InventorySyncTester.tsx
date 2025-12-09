@@ -7,7 +7,7 @@ import { apiRequest } from '@/lib/queryClient';
 
 interface SyncResult {
   success: boolean;
-  totalCWRRecords: number;
+  totalSupplierRecords: number;
   updatedProducts: number;
   newProductsFound: number;
   errors: string[];
@@ -31,7 +31,7 @@ export function InventorySyncTester() {
       });
       
       setSyncResult(result);
-      console.log('CWR inventory sync completed:', result);
+      console.log('Supplier inventory sync completed:', result);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sync inventory';
@@ -48,17 +48,17 @@ export function InventorySyncTester() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5" />
-          CWR Inventory Synchronization
+          Inventory Synchronization
         </CardTitle>
         <CardDescription>
-          Test automated synchronization with authentic CWR SFTP data from /eco8/out/inventory.csv
+          Test automated synchronization with supplier SFTP data
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-medium">Sync from CWR SFTP</h4>
+            <h4 className="font-medium">Sync from Supplier SFTP</h4>
             <p className="text-sm text-muted-foreground">
               Connect to edi.cwrdistribution.com and update all product inventory
             </p>
@@ -100,8 +100,8 @@ export function InventorySyncTester() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-800">CWR Records</p>
-                <p className="text-2xl font-bold text-blue-600">{syncResult.totalCWRRecords}</p>
+                <p className="text-sm font-medium text-blue-800">Supplier Records</p>
+                <p className="text-2xl font-bold text-blue-600">{syncResult.totalSupplierRecords}</p>
               </div>
               
               <div className="p-3 bg-green-50 rounded-lg">
@@ -113,10 +113,10 @@ export function InventorySyncTester() {
             {syncResult.newProductsFound > 0 && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm font-medium text-yellow-800">
-                  New Products Found in CWR: {syncResult.newProductsFound}
+                  New Products Found: {syncResult.newProductsFound}
                 </p>
                 <p className="text-xs text-yellow-600">
-                  These products exist in CWR inventory but not in your catalog
+                  These products exist in supplier inventory but not in your catalog
                 </p>
               </div>
             )}

@@ -1012,7 +1012,7 @@ export default function ProductDetails() {
                           <div className="text-sm text-gray-600 space-y-1">
                             {/* Show supplier-specific part number based on vendor */}
                             {vendor.name === 'CWR' && product.usin && (
-                              <div><strong>CWR Part Number:</strong> {product.usin}</div>
+                              <div><strong>Supplier Part Number:</strong> {product.usin}</div>
                             )}
                             {vendor.name === 'Ingram Micro' && product.ingramPartNumber && (
                               <div><strong>Ingram Part Number:</strong> {product.ingramPartNumber}</div>
