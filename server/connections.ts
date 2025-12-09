@@ -110,11 +110,51 @@ const testSFTPConnection = async (credentials: any) => {
       });
     }, 30000); // 30 seconds timeout
     
-    // Prepare connection config
+    // Prepare connection config with algorithm support for older servers
     const connectConfig: any = {
       host: credentials.host,
       port: credentials.port || 22,
-      username: credentials.username
+      username: credentials.username,
+      algorithms: {
+        kex: [
+          'curve25519-sha256',
+          'curve25519-sha256@libssh.org',
+          'ecdh-sha2-nistp256',
+          'ecdh-sha2-nistp384',
+          'ecdh-sha2-nistp521',
+          'diffie-hellman-group-exchange-sha256',
+          'diffie-hellman-group14-sha256',
+          'diffie-hellman-group14-sha1',
+          'diffie-hellman-group1-sha1'
+        ],
+        cipher: [
+          'aes128-ctr',
+          'aes192-ctr',
+          'aes256-ctr',
+          'aes128-gcm',
+          'aes128-gcm@openssh.com',
+          'aes256-gcm',
+          'aes256-gcm@openssh.com',
+          'aes256-cbc',
+          'aes192-cbc',
+          'aes128-cbc',
+          '3des-cbc'
+        ],
+        serverHostKey: [
+          'ssh-rsa',
+          'ssh-dss',
+          'ecdsa-sha2-nistp256',
+          'ecdsa-sha2-nistp384',
+          'ecdsa-sha2-nistp521',
+          'rsa-sha2-256',
+          'rsa-sha2-512'
+        ],
+        hmac: [
+          'hmac-sha2-256',
+          'hmac-sha2-512',
+          'hmac-sha1'
+        ]
+      }
     };
     
     // Handle authentication

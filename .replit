@@ -41,6 +41,10 @@ localPort = 32857
 externalPort = 5173
 
 [[ports]]
+localPort = 34071
+externalPort = 8008
+
+[[ports]]
 localPort = 39503
 externalPort = 6800
 
@@ -51,10 +55,6 @@ externalPort = 3002
 [[ports]]
 localPort = 42261
 externalPort = 3000
-
-[[ports]]
-localPort = 44283
-externalPort = 8008
 
 [[ports]]
 localPort = 44467
@@ -81,7 +81,7 @@ localPort = 45847
 externalPort = 6000
 
 [agent]
-integrations = ["javascript_anthropic==1.0.0"]
+integrations = ["javascript_anthropic:1.0.0"]
 
 [userenv]
 
