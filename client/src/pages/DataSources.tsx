@@ -851,6 +851,7 @@ export default function DataSources() {
       <main className="container mx-auto py-6 px-4 md:px-6">
         <MappingWalkthrough
           dataSourceId={currentDataSource?.id || ''}
+          dataSourceName={currentDataSource?.name || 'Supplier'}
           sampleData={sampleData}
           onComplete={handleMappingComplete}
           onCancel={handleMappingCancel}

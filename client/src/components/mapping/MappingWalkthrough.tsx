@@ -40,6 +40,7 @@ interface MappingField {
 
 interface MappingWalkthroughProps {
   dataSourceId: string;
+  dataSourceName?: string;
   sampleData: any[];
   onComplete: (mappings: MappingField[]) => void;
   onCancel: () => void;
@@ -513,7 +514,7 @@ const CATEGORY_LABELS = {
   documentation: 'Documentation Tab Fields'
 };
 
-export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCancel }: MappingWalkthroughProps) {
+export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, onComplete, onCancel }: MappingWalkthroughProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [mappings, setMappings] = useState<Record<string, MappingField>>({});
@@ -847,7 +848,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
             {sourceFields.length > 0 && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-sm font-medium text-blue-800 mb-2">
-                  Available fields from your supplier data ({sourceFields.length} fields):
+                  Source fields from {dataSourceName || 'your supplier'} ({sourceFields.length} fields):
                 </div>
                 <div className="flex flex-wrap gap-1 text-xs">
                   {sourceFields.slice(0, 10).map((field) => (
@@ -999,7 +1000,7 @@ export function MappingWalkthrough({ dataSourceId, sampleData, onComplete, onCan
                     onValueChange={(value) => updateMapping(field.id, value)}
                   >
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select a field from your data..." />
+                      <SelectValue placeholder={`Select a field from ${dataSourceName || 'your supplier'} data...`} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__SKIP__">-- Skip this field --</SelectItem>
