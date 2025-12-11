@@ -2574,41 +2574,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
             password = process.env.SFTP_PASSWORD;
           }
           
-          await sftp.connect({
+          // Support legacy SSH algorithms for older servers like BlueStar
+          const connectConfig: any = {
             host: sftpConfig.host,
             port: sftpConfig.port || 22,
             username: sftpConfig.username,
             password: password
-          });
+          };
+          
+          // Add legacy algorithm support for older SFTP servers
+          if (sftpConfig.host?.includes('bluestarinc') || sftpConfig.legacyAlgorithms) {
+            console.log('[SFTP] Using legacy SSH algorithms for sample pull');
+            connectConfig.algorithms = {
+              kex: [
+                'curve25519-sha256',
+                'curve25519-sha256@libssh.org',
+                'ecdh-sha2-nistp256',
+                'ecdh-sha2-nistp384',
+                'ecdh-sha2-nistp521',
+                'diffie-hellman-group-exchange-sha256',
+                'diffie-hellman-group14-sha256',
+                'diffie-hellman-group14-sha1',
+                'diffie-hellman-group1-sha1'
+              ],
+              cipher: [
+                'aes128-ctr',
+                'aes192-ctr',
+                'aes256-ctr',
+                'aes128-gcm',
+                'aes128-gcm@openssh.com',
+                'aes256-gcm',
+                'aes256-gcm@openssh.com',
+                'aes256-cbc',
+                'aes192-cbc',
+                'aes128-cbc',
+                '3des-cbc'
+              ]
+            };
+          }
+          
+          await sftp.connect(connectConfig);
           
           let remotePath: string | null = null;
           
-          // First, check if file paths are in the data source config
-          console.log('Checking for file paths in config...');
-          console.log('sftpConfig.filePaths:', sftpConfig.filePaths);
-          console.log('Is array?', Array.isArray(sftpConfig.filePaths));
+          // FIRST: Check for simple file path in config (path, filePath, or file)
+          const simpleFilePath = sftpConfig.path || sftpConfig.filePath || sftpConfig.file;
+          if (simpleFilePath) {
+            remotePath = simpleFilePath.startsWith('/') ? simpleFilePath : `/${simpleFilePath}`;
+            console.log(`✓ Using configured file path from data source config: ${remotePath}`);
+          }
           
-          const configFilePaths = sftpConfig.filePaths;
-          if (configFilePaths && Array.isArray(configFilePaths) && configFilePaths.length > 0) {
-            console.log('Found file paths in data source config:', JSON.stringify(configFilePaths, null, 2));
+          // SECOND: Check if file paths array is in the data source config
+          if (!remotePath) {
+            console.log('Checking for file paths array in config...');
+            console.log('sftpConfig.filePaths:', sftpConfig.filePaths);
+            console.log('Is array?', Array.isArray(sftpConfig.filePaths));
             
-            // Find the catalog file path
-            const catalogPath = configFilePaths.find((fp: any) => 
-              fp.path && 
-              fp.label && 
-              fp.label.toLowerCase().includes('catalog')
-            );
-            
-            console.log('Catalog path found:', catalogPath);
-            
-            if (catalogPath && catalogPath.path) {
-              remotePath = catalogPath.path;
-              console.log(`✓ Using configured catalog path from data source config: ${remotePath}`);
+            const configFilePaths = sftpConfig.filePaths;
+            if (configFilePaths && Array.isArray(configFilePaths) && configFilePaths.length > 0) {
+              console.log('Found file paths in data source config:', JSON.stringify(configFilePaths, null, 2));
+              
+              // Find the catalog file path
+              const catalogPath = configFilePaths.find((fp: any) => 
+                fp.path && 
+                fp.label && 
+                fp.label.toLowerCase().includes('catalog')
+              );
+              
+              console.log('Catalog path found:', catalogPath);
+              
+              if (catalogPath && catalogPath.path) {
+                remotePath = catalogPath.path;
+                console.log(`✓ Using configured catalog path from data source config: ${remotePath}`);
+              } else {
+                console.log('No valid catalog path in config filePaths');
+              }
             } else {
-              console.log('No valid catalog path in config filePaths');
+              console.log('No file paths array found in data source config');
             }
-          } else {
-            console.log('No file paths found in data source config');
           }
           
           // If not in config, check automation file paths table
@@ -2656,10 +2699,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!remotePath) {
             console.log('No automation file path found, attempting auto-detection...');
             const fileList = await sftp.list('./');
+            console.log('Files on SFTP server:', fileList.map(f => f.name));
             const catalogFile = fileList.find(f => 
               f.name.toLowerCase().includes('catalog') || 
               f.name.toLowerCase().includes('product') ||
-              f.name.toLowerCase().endsWith('.csv')
+              f.name.toLowerCase().endsWith('.csv') ||
+              f.name.toLowerCase().endsWith('.tsv') ||
+              f.name.toLowerCase().endsWith('.txt')
             );
             
             if (catalogFile) {
@@ -2680,15 +2726,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await sftp.get(remotePath, localPath);
             await sftp.end();
             
-            const csvContent = fs.readFileSync(localPath, 'utf-8');
-            const records = csvParse.parse(csvContent, {
+            // Detect delimiter from file extension or content
+            const fileContent = fs.readFileSync(localPath, 'utf-8');
+            const isTsv = fileName.toLowerCase().endsWith('.tsv') || 
+                          (fileContent.split('\n')[0]?.includes('\t') && !fileContent.split('\n')[0]?.includes(','));
+            const delimiter = isTsv ? '\t' : ',';
+            console.log(`Parsing file with delimiter: ${isTsv ? 'TAB (TSV)' : 'COMMA (CSV)'}`);
+            
+            const records = csvParse.parse(fileContent, {
               columns: true,
               skip_empty_lines: true,
               relax_column_count: true,
-              relax_quotes: true
+              relax_quotes: true,
+              delimiter: delimiter
             });
             
             console.log(`Successfully parsed ${records.length} records from catalog file`);
+            if (records.length > 0) {
+              console.log('Sample field names:', Object.keys(records[0]));
+            }
             
             sampleResult = {
               success: true,
