@@ -72,6 +72,8 @@ export class PerformanceOptimizedQueries {
       SELECT p.id, p.sku, p.usin, p.name, p.description,
              p.category_id as "categoryId",
              c.name as "categoryName",
+             p.supplier_id as "supplierId",
+             s.name as "supplier",
              p.manufacturer_name as "manufacturerName",
              p.manufacturer_part_number as "manufacturerPartNumber",
              p.upc, p.price, p.cost, p.weight, p.status,
@@ -110,6 +112,7 @@ export class PerformanceOptimizedQueries {
       FROM paged_products pp
       INNER JOIN products p ON p.id = pp.id
       LEFT JOIN categories c ON c.id = p.category_id
+      LEFT JOIN suppliers s ON s.id = p.supplier_id
       ORDER BY p.id DESC
     `;
 

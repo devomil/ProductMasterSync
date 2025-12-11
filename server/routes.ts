@@ -2780,10 +2780,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the next available EDC number for unique SKU generation
       let nextEDCNumber = await getNextEDCNumber();
       
+      // Get the supplier ID from the data source
+      const supplierId = dataSource.supplierId;
+      console.log(`Associating products with supplier ID: ${supplierId}`);
+      
       for (let i = 0; i < Math.min(limit, sampleResult.data.length); i++) {
         const sourceRecord = sampleResult.data[i];
         const transformedRecord: any = {
           status: 'active',
+          supplierId: supplierId,  // Link product to supplier
           createdAt: new Date(),
           updatedAt: new Date()
         };
