@@ -19,7 +19,8 @@ import {
   Info, 
   RefreshCw, 
   Settings, 
-  XCircle 
+  XCircle,
+  Building2
 } from 'lucide-react';
 import { Slider } from "@/components/ui/slider";
 import {
@@ -31,7 +32,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useBatchSyncAmazonData, useAmazonConfigStatus, useAmazonSyncStats } from '@/hooks/useAmazonMarketData';
+import { useSuppliers } from '@/hooks/useSuppliers';
 import { toast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,9 +49,11 @@ export function AmazonBatchSync() {
   const [batchSize, setBatchSize] = useState<number>(10);
   const [isFullCatalog, setIsFullCatalog] = useState<boolean>(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('all');
   
   const { data: configStatus, isLoading: isConfigStatusLoading } = useAmazonConfigStatus();
   const { data: syncStats, isLoading: isStatsLoading } = useAmazonSyncStats();
+  const { suppliers, isLoading: isSuppliersLoading } = useSuppliers();
   const batchSyncMutation = useBatchSyncAmazonData();
 
   // Check if configuration is valid
@@ -58,7 +69,8 @@ export function AmazonBatchSync() {
     // If full catalog is selected, use a very large number (999999)
     // Otherwise use the specified batch size
     const effectiveLimit = isFullCatalog ? 999999 : batchSize;
-    batchSyncMutation.mutate(effectiveLimit);
+    const supplierId = selectedSupplier !== 'all' ? parseInt(selectedSupplier, 10) : undefined;
+    batchSyncMutation.mutate({ limit: effectiveLimit, supplierId });
   };
 
   // Handle "save" config click
@@ -94,8 +106,31 @@ export function AmazonBatchSync() {
         ) : null}
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 mb-3">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplier-select" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                Supplier Filter
+              </Label>
+              <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                <SelectTrigger id="supplier-select" data-testid="select-supplier">
+                  <SelectValue placeholder="Select a supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {!isSuppliersLoading && suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Sync products from a specific supplier instead of the full catalog.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
                 id="full-catalog"
@@ -105,7 +140,7 @@ export function AmazonBatchSync() {
                 data-testid="checkbox-full-catalog"
               />
               <Label htmlFor="full-catalog" className="cursor-pointer font-medium">
-                Sync Full Product Catalog
+                {selectedSupplier === 'all' ? 'Sync Full Catalog' : 'Sync All Products from This Supplier'}
               </Label>
             </div>
             
@@ -132,10 +167,13 @@ export function AmazonBatchSync() {
             {isFullCatalog && (
               <div className="rounded-md bg-blue-50 p-4 border border-blue-200">
                 <p className="text-sm text-blue-800 font-medium">
-                  🚀 Full catalog sync enabled
+                  🚀 {selectedSupplier === 'all' ? 'Full catalog sync enabled' : 'Full supplier sync enabled'}
                 </p>
                 <p className="text-sm text-blue-600 mt-1">
-                  This will process all products in your catalog with UPC codes. For large catalogs (30,000+ products), this may take several hours.
+                  {selectedSupplier === 'all' 
+                    ? 'This will process all products in your catalog with UPC or MPN codes. For large catalogs (30,000+ products), this may take several hours.'
+                    : 'This will sync all products from the selected supplier that have UPC or MPN codes.'
+                  }
                 </p>
               </div>
             )}

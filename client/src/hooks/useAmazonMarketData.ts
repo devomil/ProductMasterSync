@@ -105,15 +105,26 @@ export function useAmazonConfigStatus() {
 }
 
 /**
+ * Batch sync options interface
+ */
+interface BatchSyncOptions {
+  limit: number;
+  supplierId?: number;
+}
+
+/**
  * Hook to run a batch sync of Amazon data
  */
 export function useBatchSyncAmazonData() {
   const mutation = useMutation({
-    mutationFn: async (limit: number = 10) => {
+    mutationFn: async (options: BatchSyncOptions) => {
       const response = await fetch('/api/marketplace/amazon/batch-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit })
+        body: JSON.stringify({ 
+          limit: options.limit,
+          supplierId: options.supplierId 
+        })
       });
       if (!response.ok) throw new Error('Batch sync failed');
       return response.json();

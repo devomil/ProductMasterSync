@@ -337,15 +337,16 @@ export async function getAmazonDataForProduct(productId: number) {
 
 /**
  * Run a batch sync job to fetch Amazon data for multiple products
- * @param limit 
+ * @param limit Maximum number of products to sync
  * @param force Force re-sync even if products were recently synced
+ * @param supplierId Optional supplier ID to filter products
  */
-export async function batchSyncAmazonData(limit: number = 10, force: boolean = false) {
+export async function batchSyncAmazonData(limit: number = 10, force: boolean = false, supplierId?: number) {
   // Generate batch ID for grouping these sync operations
   const batchId = generateBatchId();
   
-  // Get products that need syncing
-  const products = await getProductsForAmazonSync(limit, force);
+  // Get products that need syncing (with optional supplier filter)
+  const products = await getProductsForAmazonSync(limit, force, supplierId);
   
   // Create sync job record
   await createSyncJob(batchId, products.length);

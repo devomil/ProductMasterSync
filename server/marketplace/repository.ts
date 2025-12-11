@@ -181,41 +181,46 @@ export async function createProductAsinMapping(mappingData: any): Promise<any> {
 /**
  * Get products that need Amazon marketplace data sync
  * Criteria:
- * - Has a UPC code
+ * - Has a UPC code OR MPN (manufacturer part number)
  * - Either never synced (lastAmazonSync is null) or hasn't been synced in the last 24 hours
  * - Excludes products with amazonSyncStatus = 'processing'
+ * - Optionally filter by supplier
  * @param limit Maximum number of products to return
- * @param force If true, ignore the 24-hour cooldown and sync all products with UPCs
+ * @param force If true, ignore the 24-hour cooldown and sync all products
+ * @param supplierId If provided, only sync products from this supplier
  */
-export async function getProductsForAmazonSync(limit: number = 10, force: boolean = false): Promise<Product[]> {
+export async function getProductsForAmazonSync(limit: number = 10, force: boolean = false, supplierId?: number): Promise<Product[]> {
   const oneDayAgo = new Date();
   oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
+  // Build conditions based on parameters
+  const hasIdentifier = sql`(${products.upc} IS NOT NULL AND ${products.upc} != '') OR (${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '')`;
+  const notProcessing = sql`(${products.amazonSyncStatus} != 'processing' OR ${products.amazonSyncStatus} IS NULL)`;
+  const supplierCondition = supplierId ? eq(products.supplierId, supplierId) : undefined;
+
   if (force) {
-    // Force mode: sync all products with UPCs, ignore cooldown
+    // Force mode: sync all products with identifiers, ignore cooldown
+    const conditions = supplierCondition 
+      ? and(hasIdentifier, notProcessing, supplierCondition)
+      : and(hasIdentifier, notProcessing);
+      
     return await db
       .select()
       .from(products)
-      .where(
-        and(
-          sql`${products.upc} IS NOT NULL AND ${products.upc} != ''`,
-          sql`(${products.amazonSyncStatus} != 'processing' OR ${products.amazonSyncStatus} IS NULL)`
-        )
-      )
+      .where(conditions)
       .limit(limit);
   }
 
   // Normal mode: respect 24-hour cooldown
+  const cooldownCondition = sql`(${products.lastAmazonSync} IS NULL OR ${products.lastAmazonSync} < ${oneDayAgo.toISOString()})`;
+  const conditions = supplierCondition
+    ? and(hasIdentifier, cooldownCondition, notProcessing, supplierCondition)
+    : and(hasIdentifier, cooldownCondition, notProcessing);
+    
   return await db
     .select()
     .from(products)
-    .where(
-      and(
-        sql`${products.upc} IS NOT NULL AND ${products.upc} != ''`,
-        sql`(${products.lastAmazonSync} IS NULL OR ${products.lastAmazonSync} < ${oneDayAgo.toISOString()})`,
-        sql`(${products.amazonSyncStatus} != 'processing' OR ${products.amazonSyncStatus} IS NULL)`
-      )
-    )
+    .where(conditions)
     .limit(limit);
 }
 

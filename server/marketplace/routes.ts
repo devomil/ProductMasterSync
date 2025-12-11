@@ -446,10 +446,11 @@ router.post('/amazon/batch-sync', async (req, res) => {
       });
     }
 
-    // Validate limit and force parameters - allow large values for full catalog sync
+    // Validate limit, force, and supplierId parameters - allow large values for full catalog sync
     const limitSchema = z.object({
       limit: z.number().int().positive().max(999999).optional().default(10),
-      force: z.boolean().optional().default(false)
+      force: z.boolean().optional().default(false),
+      supplierId: z.number().int().positive().optional()
     });
     
     const validationResult = limitSchema.safeParse(req.body);
@@ -460,10 +461,11 @@ router.post('/amazon/batch-sync', async (req, res) => {
       });
     }
 
-    // Run batch sync
-    const { limit, force } = validationResult.data;
-    console.log(`🚀 Starting Amazon batch sync with limit: ${limit}${limit > 10000 ? ' (FULL CATALOG SYNC)' : ''}${force ? ' (FORCE)' : ''}`);
-    const result = await batchSyncAmazonData(limit, force);
+    // Run batch sync (with optional supplier filter)
+    const { limit, force, supplierId } = validationResult.data;
+    const supplierLog = supplierId ? ` (Supplier ID: ${supplierId})` : '';
+    console.log(`🚀 Starting Amazon batch sync with limit: ${limit}${limit > 10000 ? ' (FULL CATALOG SYNC)' : ''}${force ? ' (FORCE)' : ''}${supplierLog}`);
+    const result = await batchSyncAmazonData(limit, force, supplierId);
     
     return res.json({
       success: true,
