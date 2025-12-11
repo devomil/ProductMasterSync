@@ -59,6 +59,7 @@ const removeEdcPrefix = (sku: string): string => {
 };
 import { useCategories } from "@/hooks/useCategories";
 import { useMappingTemplates } from "@/hooks/useMappingTemplates";
+import { useSuppliers } from "@/hooks/useSuppliers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -257,6 +258,9 @@ const Products = () => {
   
   // Get categories data
   const { categories, isLoading: categoriesLoading } = useCategories();
+  
+  // Get suppliers data
+  const { suppliers } = useSuppliers();
   
   // Get CWR mapping template to determine dynamic columns
   const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
@@ -828,11 +832,11 @@ const Products = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all_suppliers">All Suppliers</SelectItem>
-                  <SelectItem value="ABC Trading Co.">ABC Trading Co.</SelectItem>
-                  <SelectItem value="XYZ Supplies Inc.">XYZ Supplies Inc.</SelectItem>
-                  <SelectItem value="Global Supplies Ltd.">Global Supplies Ltd.</SelectItem>
-                  <SelectItem value="West Coast Distributors">West Coast Distributors</SelectItem>
-                  <SelectItem value="Eastern Merchandise Group">Eastern Merchandise Group</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.name}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1249,11 +1253,11 @@ const Products = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all_suppliers">All Suppliers</SelectItem>
-                              <SelectItem value="ABC Trading Co.">ABC Trading Co.</SelectItem>
-                              <SelectItem value="XYZ Supplies Inc.">XYZ Supplies Inc.</SelectItem>
-                              <SelectItem value="Global Supplies Ltd.">Global Supplies Ltd.</SelectItem>
-                              <SelectItem value="West Coast Distributors">West Coast Distributors</SelectItem>
-                              <SelectItem value="Eastern Merchandise Group">Eastern Merchandise Group</SelectItem>
+                              {suppliers.map((supplier) => (
+                                <SelectItem key={supplier.id} value={supplier.name}>
+                                  {supplier.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </FormItem>
