@@ -221,6 +221,113 @@ export async function searchWalmartCatalogByUPC(
 }
 
 /**
+ * Search Walmart Global Catalog by MPN (Manufacturer Part Number)
+ * Uses the /items/walmart/search endpoint with query parameter
+ */
+export async function searchWalmartCatalogByMPN(
+  mpn: string,
+  brand?: string
+): Promise<WalmartItemResponse[]> {
+  try {
+    const config = await getWalmartConfig();
+    const accessToken = await getAccessToken(config);
+    
+    // Build search query: combine MPN with brand for better accuracy
+    const query = brand ? `${brand} ${mpn}` : mpn;
+    console.log(`[Walmart API] Searching Walmart global catalog for MPN: ${mpn} (query: ${query})`);
+    
+    const response = await axios.get(`${config.apiUrl}/items/walmart/search`, {
+      headers: {
+        'WM_SEC.ACCESS_TOKEN': accessToken,
+        'WM_SVC.NAME': config.serviceName,
+        'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+        'Accept': 'application/json'
+      },
+      params: {
+        query: query
+      }
+    });
+
+    if (response.data && response.data.items && response.data.items.length > 0) {
+      console.log(`[Walmart API] Found ${response.data.items.length} items for query "${query}"`);
+      
+      // Filter results to find items that match the MPN more precisely
+      const filteredItems = response.data.items.filter((item: any) => {
+        // Check if the item title or model number contains the MPN
+        const title = (item.title || '').toLowerCase();
+        const modelNumber = (item.modelNumber || item.mpn || '').toLowerCase();
+        const mpnLower = mpn.toLowerCase();
+        
+        // Match if MPN is in title, model number, or sku
+        return title.includes(mpnLower) || 
+               modelNumber === mpnLower ||
+               (item.sku || '').toLowerCase().includes(mpnLower);
+      });
+      
+      console.log(`[Walmart API] ✅ Filtered to ${filteredItems.length} items matching MPN ${mpn}`);
+      
+      // Add matchMethod to each item
+      return filteredItems.map((item: any) => ({
+        ...item,
+        matchMethod: 'mpn'
+      }));
+    }
+
+    console.log(`[Walmart API] No items found for MPN ${mpn} in Walmart global catalog`);
+    return [];
+  } catch (error: any) {
+    console.error(`[Walmart API] Error searching Walmart catalog by MPN:`, {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    if (error.response?.status === 429) {
+      throw new Error('Walmart API rate limit exceeded. Please try again later.');
+    }
+    
+    if (error.response?.status === 404) {
+      console.log(`[Walmart API] MPN ${mpn} not found in Walmart catalog (404)`);
+      return [];
+    }
+    
+    throw new Error(`Failed to search Walmart catalog by MPN: ${error.message}`);
+  }
+}
+
+/**
+ * Search Walmart catalog with fallback: UPC first, then MPN if no results
+ */
+export async function searchWalmartCatalogWithFallback(
+  upc?: string,
+  mpn?: string,
+  brand?: string
+): Promise<{ items: WalmartItemResponse[], matchMethod: 'upc' | 'mpn' | 'none' }> {
+  // Try UPC first if available
+  if (upc) {
+    const upcResults = await searchWalmartCatalogByUPC(upc);
+    if (upcResults.length > 0) {
+      return { 
+        items: upcResults.map(item => ({ ...item, matchMethod: 'upc' })), 
+        matchMethod: 'upc' 
+      };
+    }
+    console.log(`[Walmart API] No results for UPC ${upc}, trying MPN fallback`);
+  }
+  
+  // Fall back to MPN if available
+  if (mpn) {
+    const mpnResults = await searchWalmartCatalogByMPN(mpn, brand);
+    if (mpnResults.length > 0) {
+      return { items: mpnResults, matchMethod: 'mpn' };
+    }
+  }
+  
+  return { items: [], matchMethod: 'none' };
+}
+
+/**
  * Get Walmart item by item ID
  */
 export async function getWalmartItem(itemId: string): Promise<WalmartItemResponse | null> {

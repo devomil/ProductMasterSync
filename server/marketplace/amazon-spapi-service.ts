@@ -179,6 +179,118 @@ export async function searchCatalogItemsByUPC(upc: string): Promise<any[]> {
 }
 
 /**
+ * Search Amazon catalog by MPN (Manufacturer Part Number) using keyword search
+ * The SP-API allows searching by keywords which can include MPN
+ */
+export async function searchCatalogItemsByMPN(mpn: string, brand?: string): Promise<any[]> {
+  const client = await createSpApiClient();
+  const config = await getAmazonConfig();
+  
+  try {
+    // Build search keywords: combine MPN with brand for better accuracy
+    const keywords = brand ? `${brand} ${mpn}` : mpn;
+    console.log(`Searching Amazon catalog by MPN: ${mpn} (keywords: ${keywords})`);
+    
+    // Apply rate limiting before making request
+    await rateLimiter.waitForRateLimit('searchCatalogItems');
+    
+    const response = await client.searchCatalogItems({
+      marketplaceIds: [config.marketplaceId],
+      keywords: keywords,
+      includedData: ['summaries', 'identifiers', 'images', 'classifications', 'salesRanks']
+    });
+
+    // Update rate limits from response headers if available
+    if (response.headers) {
+      rateLimiter.updateLimitsFromHeaders('searchCatalogItems', response.headers);
+    }
+
+    const items = response.items || [];
+    console.log(`Found ${items.length} items for MPN ${mpn}`);
+    
+    // Filter results to find items that match the MPN more precisely
+    const filteredItems = items.filter(item => {
+      // Check if any identifier matches the MPN
+      const identifiers = item.identifiers || [];
+      for (const marketplaceId of identifiers) {
+        for (const identifier of marketplaceId.identifiers || []) {
+          if (identifier.identifierType === 'MODEL_NUMBER' && 
+              identifier.identifier?.toLowerCase() === mpn.toLowerCase()) {
+            return true;
+          }
+        }
+      }
+      // Also check if the title contains the MPN (common pattern)
+      const title = item.summaries?.[0]?.itemName || '';
+      if (title.toLowerCase().includes(mpn.toLowerCase())) {
+        return true;
+      }
+      return false;
+    });
+    
+    console.log(`Filtered to ${filteredItems.length} items matching MPN ${mpn}`);
+    
+    return filteredItems.map(item => ({
+      asin: item.asin,
+      title: item.summaries?.[0]?.itemName || '',
+      brand: item.summaries?.[0]?.brand || '',
+      manufacturer: item.summaries?.[0]?.manufacturer || '',
+      mpn: mpn,
+      matchMethod: 'mpn',
+      category: item.classifications?.[0]?.productGroup || '',
+      subcategory: item.classifications?.[0]?.productType || '',
+      imageUrl: item.images?.[0]?.images?.[0]?.link || '',
+      primaryImageUrl: item.images?.[0]?.images?.[0]?.link || '',
+      salesRank: item.salesRanks?.[0]?.rank || 0,
+      categoryRank: item.salesRanks?.[0]?.rank || 0,
+      browseNodes: item.classifications?.map(c => c.classificationType) || [],
+      identifiers: item.identifiers || [],
+      dimensions: item.dimensions || {},
+      relationships: item.relationships || []
+    }));
+    
+  } catch (error: any) {
+    console.error('Error searching Amazon catalog by MPN:', error);
+    if (error.response?.status === 429) {
+      console.log('Rate limit exceeded, implementing backoff');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    return [];
+  }
+}
+
+/**
+ * Search Amazon catalog with fallback: UPC first, then MPN if no results
+ */
+export async function searchCatalogItemsWithFallback(
+  upc?: string, 
+  mpn?: string, 
+  brand?: string
+): Promise<{ items: any[], matchMethod: 'upc' | 'mpn' | 'none' }> {
+  // Try UPC first if available
+  if (upc) {
+    const upcResults = await searchCatalogItemsByUPC(upc);
+    if (upcResults.length > 0) {
+      return { 
+        items: upcResults.map(item => ({ ...item, matchMethod: 'upc' })), 
+        matchMethod: 'upc' 
+      };
+    }
+    console.log(`No results for UPC ${upc}, trying MPN fallback`);
+  }
+  
+  // Fall back to MPN if available
+  if (mpn) {
+    const mpnResults = await searchCatalogItemsByMPN(mpn, brand);
+    if (mpnResults.length > 0) {
+      return { items: mpnResults, matchMethod: 'mpn' };
+    }
+  }
+  
+  return { items: [], matchMethod: 'none' };
+}
+
+/**
  * Get detailed catalog item data by ASIN with rate limiting
  */
 export async function getCatalogItem(asin: string): Promise<any | null> {
@@ -236,18 +348,26 @@ export async function getCatalogItem(asin: string): Promise<any | null> {
 
 /**
  * Enhanced product sync with comprehensive Amazon data
+ * Supports both UPC and MPN-based lookups with automatic fallback
  */
-export async function syncProductWithAmazon(productId: number, upc: string, mpn?: string): Promise<any> {
+export async function syncProductWithAmazon(
+  productId: number, 
+  upc?: string, 
+  mpn?: string, 
+  brand?: string
+): Promise<any> {
   try {
-    console.log(`Starting Amazon sync for product ${productId} with UPC: ${upc}`);
+    console.log(`Starting Amazon sync for product ${productId} with UPC: ${upc || 'none'}, MPN: ${mpn || 'none'}`);
     
-    // Search by UPC first
-    const catalogItems = await searchCatalogItemsByUPC(upc);
+    // Use fallback search: UPC first, then MPN
+    const { items: catalogItems, matchMethod } = await searchCatalogItemsWithFallback(upc, mpn, brand);
     
     if (catalogItems.length === 0) {
-      console.log(`No Amazon items found for UPC: ${upc}`);
-      return { success: false, message: 'No Amazon items found', items: [] };
+      console.log(`No Amazon items found for product ${productId}`);
+      return { success: false, message: 'No Amazon items found', items: [], matchMethod: 'none' };
     }
+    
+    console.log(`Found ${catalogItems.length} items via ${matchMethod} search`);
 
     // Process each found item
     const processedItems = [];
@@ -282,25 +402,27 @@ export async function syncProductWithAmazon(productId: number, upc: string, mpn?
 
     return {
       success: true,
-      message: `Found ${processedItems.length} Amazon items`,
-      items: processedItems
+      message: `Found ${processedItems.length} Amazon items via ${matchMethod}`,
+      items: processedItems,
+      matchMethod
     };
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing product with Amazon:', error);
-    return { success: false, message: error.message, items: [] };
+    return { success: false, message: error.message, items: [], matchMethod: 'none' };
   }
 }
 
 /**
  * Batch sync multiple products with Amazon
+ * Supports UPC, MPN, and brand for matching
  */
-export async function batchSyncWithAmazon(products: { id: number, upc: string, mpn?: string }[]): Promise<any> {
+export async function batchSyncWithAmazon(products: { id: number, upc?: string, mpn?: string, brand?: string }[]): Promise<any> {
   const results = [];
   
   for (const product of products) {
     try {
-      const result = await syncProductWithAmazon(product.id, product.upc, product.mpn);
+      const result = await syncProductWithAmazon(product.id, product.upc, product.mpn, product.brand);
       results.push({ productId: product.id, ...result });
       
       // Rate limiting - wait 200ms between requests (5 req/sec limit)

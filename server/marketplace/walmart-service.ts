@@ -27,6 +27,8 @@ import {
 } from './listings-repository';
 import {
   searchWalmartCatalogByUPC,
+  searchWalmartCatalogByMPN,
+  searchWalmartCatalogWithFallback,
   getWalmartItem,
   getWalmartTaxonomy,
   getBulkWalmartItemsByUPC,
@@ -148,6 +150,101 @@ export async function fetchWalmartDataByUpc(productId: number, upc: string) {
 }
 
 /**
+ * Fetch Walmart data with MPN fallback - tries UPC first, then MPN
+ * Supports matching products without UPCs using manufacturer part numbers
+ */
+export async function fetchWalmartDataWithFallback(
+  productId: number, 
+  upc?: string, 
+  mpn?: string, 
+  brand?: string
+): Promise<{ items: any[], matchMethod: 'upc' | 'mpn' | 'none' }> {
+  try {
+    console.log(`[Walmart Service] Fetching data for product ${productId} - UPC: ${upc || 'none'}, MPN: ${mpn || 'none'}`);
+    
+    // Use the fallback search function
+    const { items, matchMethod } = await searchWalmartCatalogWithFallback(upc, mpn, brand);
+    
+    if (!items || items.length === 0) {
+      console.log(`[Walmart Service] No Walmart items found for product ${productId}`);
+      return { items: [], matchMethod: 'none' };
+    }
+    
+    const savedItems = [];
+    
+    for (const item of items) {
+      try {
+        // Map Walmart API response to our schema
+        const imageUrls = item.images?.map((img: any) => img.url) || [];
+        const categoryPath = item.properties?.categories || [];
+        const productType = categoryPath.length > 0 ? categoryPath[categoryPath.length - 1] : null;
+        
+        // Save Walmart product
+        const walmartProduct = await upsertWalmartProduct({
+          walmartItemId: item.itemId,
+          sku: item.sku,
+          upc: item.upc || upc,
+          gtin: item.gtin,
+          brand: item.brand,
+          title: item.title,
+          description: item.description,
+          keyFeatures: item.keyFeatures || [],
+          imageUrls: imageUrls,
+          primaryImageUrl: imageUrls[0] || null,
+          categoryPath: categoryPath,
+          productType: productType,
+          variants: item.variants || [],
+          currentPrice: item.price?.amount ? Math.round(parseFloat(item.price.amount) * 100) : null,
+          listPrice: item.listPrice?.amount ? Math.round(parseFloat(item.listPrice.amount) * 100) : null,
+          availabilityStatus: item.availabilityStatus,
+          lifecycleStatus: item.lifecycleStatus,
+          publishedStatus: item.publishedStatus,
+          sellerName: item.sellerName,
+          sellerMarketplace: item.isMarketPlaceItem || false,
+          averageRating: item.customerRating ? parseFloat(item.customerRating) : null,
+          totalReviews: item.properties?.num_reviews ? parseInt(item.properties.num_reviews) : null,
+          attributes: item.properties || {},
+          createdDate: item.createdDate ? new Date(item.createdDate) : null,
+          lastUpdatedDate: item.lastUpdatedDate ? new Date(item.lastUpdatedDate) : null
+        });
+        
+        // Create mapping between our product and Walmart item
+        try {
+          await db.insert(productWalmartMapping).values({
+            productId,
+            walmartItemId: item.itemId,
+            mappingSource: matchMethod, // Use the match method (upc or mpn)
+            matchConfidence: matchMethod === 'upc' ? 1.0 : 0.8, // Lower confidence for MPN matches
+            isActive: true,
+            isVerified: false
+          });
+          console.log(`[Walmart Service] Created ${matchMethod} mapping: Product ${productId} -> Walmart ${item.itemId}`);
+        } catch (error: any) {
+          if (!error.message?.includes('duplicate key')) {
+            console.error(`[Walmart Service] Error creating mapping:`, error);
+            throw error;
+          }
+        }
+        
+        savedItems.push({
+          walmartProduct,
+          matchMethod
+        });
+        
+        console.log(`[Walmart Service] ✅ Saved Walmart item: ${item.itemId} (matched via ${matchMethod})`);
+      } catch (error) {
+        console.error(`[Walmart Service] Error saving item ${item.itemId}:`, error);
+      }
+    }
+    
+    return { items: savedItems, matchMethod };
+  } catch (error) {
+    console.error(`[Walmart Service] Error in fetchWalmartDataWithFallback:`, error);
+    throw error;
+  }
+}
+
+/**
  * Sync products with Walmart marketplace (with presence tracking)
  */
 export async function syncProductsWithWalmart(limit: number = 100) {
@@ -176,23 +273,28 @@ export async function syncProductsWithWalmart(limit: number = 100) {
     for (const product of productsToSync) {
       try {
         const upc = product.upc;
+        const mpn = (product as any).manufacturerPartNumber || (product as any).mpn;
+        const brand = (product as any).manufacturerName || (product as any).brand;
         
-        if (!upc) {
-          console.log(`[Walmart Service] Product ${product.id} has no UPC, skipping`);
+        // Skip if neither UPC nor MPN is available
+        if (!upc && !mpn) {
+          console.log(`[Walmart Service] Product ${product.id} has no UPC or MPN, skipping`);
           errors++;
           continue;
         }
         
-        const results = await fetchWalmartDataByUpc(product.id, upc);
+        // Use fallback function that tries UPC first, then MPN
+        const { items: results, matchMethod } = await fetchWalmartDataWithFallback(product.id, upc, mpn, brand);
         
         if (results.length > 0) {
           synced++;
-          await recordMarketplacePresence(product.id, 'walmart', 'available', `Found ${results.length} Walmart item(s)`);
-          console.log(`[Walmart Service] ✅ Synced product ${product.id} (${results.length} Walmart items)`);
+          await recordMarketplacePresence(product.id, 'walmart', 'available', `Found ${results.length} Walmart item(s) via ${matchMethod}`);
+          console.log(`[Walmart Service] ✅ Synced product ${product.id} (${results.length} Walmart items via ${matchMethod})`);
         } else {
           notFound++;
-          await recordMarketplacePresence(product.id, 'walmart', 'not_found', 'UPC not in Walmart catalog');
-          console.log(`[Walmart Service] ⚠️ Product ${product.id} not available on Walmart (UPC: ${upc})`);
+          const identifier = upc || mpn;
+          await recordMarketplacePresence(product.id, 'walmart', 'not_found', `${upc ? 'UPC' : 'MPN'} not in Walmart catalog`);
+          console.log(`[Walmart Service] ⚠️ Product ${product.id} not available on Walmart (${upc ? 'UPC: ' + upc : 'MPN: ' + mpn})`);
         }
         
         // Rate limiting: wait 500ms between products
