@@ -72,8 +72,8 @@ const REQUIRED_MAPPINGS = {
     {
       id: 'upc',
       targetField: 'upc',
-      required: true,
-      description: 'UPC',
+      required: false,
+      description: 'UPC (optional - use MPN for matching if unavailable)',
       example: '123456789012'
     },
     {
