@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2 } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -416,6 +416,7 @@ export default function DataSources() {
   const [fullImportSize, setFullImportSize] = useState(5000);
   const [showAutomationDialog, setShowAutomationDialog] = useState(false);
   const [selectedDataSourceForAutomation, setSelectedDataSourceForAutomation] = useState<DataSource | null>(null);
+  const [loadingWalkthroughId, setLoadingWalkthroughId] = useState<string | null>(null);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -645,6 +646,8 @@ export default function DataSources() {
   };
 
   const startMappingWalkthrough = async (dataSourceId: string) => {
+    setLoadingWalkthroughId(dataSourceId);
+    
     try {
       // Fetch actual sample data from the data source
       const response = await fetch(`/api/datasources/${dataSourceId}/sample-data`);
@@ -717,6 +720,8 @@ export default function DataSources() {
         title: "Walkthrough Error",
         description: "Failed to start field mapping walkthrough"
       });
+    } finally {
+      setLoadingWalkthroughId(null);
     }
   };
 
@@ -1109,13 +1114,24 @@ export default function DataSources() {
                         size="sm" 
                         variant="secondary" 
                         className="w-full gap-1"
+                        disabled={loadingWalkthroughId === dataSource.id.toString()}
                         onClick={() => {
                           setCurrentDataSource(dataSource);
                           startMappingWalkthrough(dataSource.id.toString());
                         }}
+                        data-testid={`button-mapping-walkthrough-${dataSource.id}`}
                       >
-                        <MapPin className="w-4 h-4" />
-                        Field Mapping Walkthrough
+                        {loadingWalkthroughId === dataSource.id.toString() ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Connecting to SFTP...
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="w-4 h-4" />
+                            Field Mapping Walkthrough
+                          </>
+                        )}
                       </Button>
                       
                       {/* Full Import & Automation (after mapping is complete) */}
