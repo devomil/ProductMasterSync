@@ -78,9 +78,25 @@ export async function getMarketplaceListings(filters: ListingsFilters = {}): Pro
   }
   
   if (status) {
-    conditions.push(eq(marketplaceListings.status, status as any));
+    // Handle special filter values
+    if (status === 'in_stock') {
+      conditions.push(sql`${marketplaceListings.quantity} > 0`);
+    } else if (status === 'out_of_stock') {
+      conditions.push(eq(marketplaceListings.quantity, 0));
+    } else if (status === 'published') {
+      // Filter by publishedStatus = 'PUBLISHED' or 'published'
+      conditions.push(
+        or(
+          ilike(marketplaceListings.publishedStatus, 'published'),
+          eq(marketplaceListings.status, 'published' as any)
+        )
+      );
+    } else {
+      conditions.push(eq(marketplaceListings.status, status as any));
+    }
   }
   
+  // Also support separate quantity filter if provided
   if (quantity === 'zero') {
     conditions.push(eq(marketplaceListings.quantity, 0));
   } else if (quantity === 'in_stock') {

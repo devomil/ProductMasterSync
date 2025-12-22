@@ -133,8 +133,11 @@ function SortableHeader({
   );
 }
 
-function getStatusBadge(status: string) {
-  switch (status) {
+function getStatusBadge(status: string, publishedStatus?: string | null) {
+  const statusLower = status?.toLowerCase() || '';
+  const publishedLower = publishedStatus?.toLowerCase() || '';
+  
+  switch (statusLower) {
     case 'active':
       return <Badge className="bg-green-100 text-green-800" data-testid="status-badge-active"><CheckCircle className="h-3 w-3 mr-1" /> Active</Badge>;
     case 'inactive':
@@ -143,8 +146,21 @@ function getStatusBadge(status: string) {
       return <Badge className="bg-yellow-100 text-yellow-800" data-testid="status-badge-pending"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
     case 'retired':
       return <Badge className="bg-red-100 text-red-800" data-testid="status-badge-retired"><AlertCircle className="h-3 w-3 mr-1" /> Retired</Badge>;
+    case 'unpublished':
+      return <Badge className="bg-orange-100 text-orange-800" data-testid="status-badge-unpublished"><AlertCircle className="h-3 w-3 mr-1" /> Unpublished</Badge>;
+    case 'suppressed':
+      return <Badge className="bg-red-100 text-red-800" data-testid="status-badge-suppressed"><XCircle className="h-3 w-3 mr-1" /> Suppressed</Badge>;
+    case 'published':
+      return <Badge className="bg-blue-100 text-blue-800" data-testid="status-badge-published"><CheckCircle className="h-3 w-3 mr-1" /> Published</Badge>;
     default:
-      return <Badge className="bg-gray-100 text-gray-600" data-testid="status-badge-unknown">{status}</Badge>;
+      // Check publishedStatus as fallback
+      if (publishedLower === 'published') {
+        return <Badge className="bg-blue-100 text-blue-800" data-testid="status-badge-published"><CheckCircle className="h-3 w-3 mr-1" /> Published</Badge>;
+      }
+      if (publishedLower === 'unpublished') {
+        return <Badge className="bg-orange-100 text-orange-800" data-testid="status-badge-unpublished"><AlertCircle className="h-3 w-3 mr-1" /> Unpublished</Badge>;
+      }
+      return <Badge className="bg-gray-100 text-gray-600" data-testid="status-badge-unknown">{status || 'Unknown'}</Badge>;
   }
 }
 
@@ -560,9 +576,13 @@ export default function ActiveListings() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="unpublished">Unpublished</SelectItem>
+                <SelectItem value="in_stock">In Stock (Qty &gt; 0)</SelectItem>
+                <SelectItem value="out_of_stock">Out of Stock (Qty = 0)</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="retired">Retired</SelectItem>
-                <SelectItem value="unpublished">Unpublished</SelectItem>
+                <SelectItem value="suppressed">Suppressed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -683,7 +703,7 @@ export default function ActiveListings() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(listing.status)}
+                        {getStatusBadge(listing.status, listing.publishedStatus)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {listing.quantity.toLocaleString()}
