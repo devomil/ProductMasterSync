@@ -2330,40 +2330,38 @@ router.get('/walmart/sync-logs', async (req, res) => {
 
 /**
  * GET /marketplace/walmart/sync-stats
- * Get Walmart sync statistics
+ * Get Walmart sync statistics (for full_catalog listings sync jobs only)
  */
 router.get('/walmart/sync-stats', async (req, res) => {
   try {
-    // Get actual sync statistics from the database
     const { db } = await import('../db');
     const { sql } = await import('drizzle-orm');
-    const { productWalmartMapping } = await import('../../shared/schema');
     
-    // Count successful syncs (products with Walmart mappings)
-    const successfulResult = await db.execute(sql`
-      SELECT COUNT(DISTINCT product_id) as count
-      FROM product_walmart_mapping
-      WHERE is_active = true
+    // Get stats from marketplace sync jobs (full_catalog type only)
+    const jobStatsResult = await db.execute(sql`
+      SELECT 
+        COUNT(*) as total_jobs,
+        COALESCE(SUM(success_items), 0) as total_successful,
+        COALESCE(SUM(failed_items), 0) as total_failed,
+        COALESCE(SUM(processed_items), 0) as total_processed
+      FROM marketplace_sync_jobs
+      WHERE marketplace = 'walmart' AND job_type = 'full_catalog'
     `);
-    const successful = Number(successfulResult.rows[0]?.count || 0);
     
-    // Get total products with UPCs (these are the ones that can be synced)
-    const totalResult = await db.execute(sql`
-      SELECT COUNT(*) as count
-      FROM products
-      WHERE upc IS NOT NULL AND upc != ''
-    `);
-    const totalWithUpc = Number(totalResult.rows[0]?.count || 0);
+    const jobStats = jobStatsResult.rows[0] || {};
+    const totalJobs = Number(jobStats.total_jobs || 0);
+    const successful = Number(jobStats.total_successful || 0);
+    const failed = Number(jobStats.total_failed || 0);
     
-    // Calculate not found (products with UPC but no mapping)
-    const notFound = totalWithUpc - successful;
+    // Calculate average response time from recent jobs (estimate based on processing)
+    const avgResponseTime = 500; // Default estimate in ms
     
     return res.json({
-      total: successful,
+      total: totalJobs,
       successful: successful,
-      failed: 0,
-      notFound: Math.max(0, notFound),
-      avgResponseTime: 500
+      failed: failed,
+      notFound: 0,
+      avgResponseTime: avgResponseTime
     });
   } catch (error) {
     console.error('[Walmart Routes] Error fetching sync stats:', error);
@@ -2392,13 +2390,30 @@ router.get('/walmart/sync-progress', async (req, res) => {
 
 /**
  * GET /marketplace/walmart/sync-jobs
- * Get Walmart sync job history
+ * Get Walmart sync job history (full_catalog listings sync jobs only)
  */
 router.get('/walmart/sync-jobs', async (req, res) => {
   try {
-    // Return empty array for now - job history would be implemented
-    // when sync functionality is built
-    return res.json([]);
+    const limit = parseInt(req.query.limit as string) || 10;
+    const jobs = await listingsRepo.getRecentSyncJobs('walmart', limit * 2);
+    
+    // Filter to full_catalog jobs only (listings sync)
+    const fullCatalogJobs = jobs.filter(job => job.jobType === 'full_catalog');
+    
+    // Transform to match expected format
+    const formattedJobs = fullCatalogJobs.slice(0, limit).map(job => ({
+      id: job.id,
+      status: job.status === 'completed' ? 'completed' : 
+              job.status === 'running' || job.status === 'in_progress' ? 'running' : 
+              'failed',
+      startedAt: job.createdAt,
+      completedAt: job.completedAt,
+      productsProcessed: job.processedItems || 0,
+      successCount: job.successItems || 0,
+      errorCount: job.failedItems || 0
+    }));
+    
+    return res.json(formattedJobs);
   } catch (error) {
     console.error('[Walmart Routes] Error fetching sync jobs:', error);
     return res.status(500).json({ error: (error as Error).message });
@@ -2461,7 +2476,7 @@ router.post('/walmart/schedule', async (req, res) => {
 router.get('/walmart/scheduler/status', async (req, res) => {
   try {
     const { getSchedulerStatus } = await import('./walmart-listings-scheduler');
-    const status = getSchedulerStatus();
+    const status = await getSchedulerStatus();
     return res.json(status);
   } catch (error) {
     console.error('[Walmart Routes] Error fetching scheduler status:', error);
@@ -2498,7 +2513,7 @@ router.post('/walmart/scheduler/toggle', async (req, res) => {
     
     const { stopWalmartListingsScheduler, initWalmartListingsScheduler, getSchedulerStatus } = await import('./walmart-listings-scheduler');
     
-    const currentStatus = getSchedulerStatus();
+    const currentStatus = await getSchedulerStatus();
     
     if (!enabled && currentStatus.details?.isRunning) {
       return res.status(409).json({ 
@@ -2513,7 +2528,7 @@ router.post('/walmart/scheduler/toggle', async (req, res) => {
       stopWalmartListingsScheduler();
     }
     
-    const status = getSchedulerStatus();
+    const status = await getSchedulerStatus();
     return res.json({
       success: true,
       enabled: status.active,

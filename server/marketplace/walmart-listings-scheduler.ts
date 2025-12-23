@@ -175,7 +175,7 @@ export async function triggerManualSync(): Promise<{ success: boolean; jobId: nu
   }
 }
 
-export function getSchedulerStatus(): {
+export async function getSchedulerStatus(): Promise<{
   active: boolean;
   details: {
     lastRun: number | null;
@@ -184,19 +184,51 @@ export function getSchedulerStatus(): {
     interval: number;
     lastJobId: number | null;
   } | null;
-} {
+}> {
+  // Get last completed full_catalog sync job from database for persistent Last Run
+  let lastRunFromDb: number | null = null;
+  let lastJobIdFromDb: number | null = null;
+  
+  try {
+    // Only get full_catalog jobs (listings sync), not pricing_insights
+    const recentJobs = await listingsRepo.getRecentSyncJobs('walmart', 10);
+    const fullCatalogJob = recentJobs.find(job => job.jobType === 'full_catalog');
+    if (fullCatalogJob) {
+      if (fullCatalogJob.completedAt) {
+        lastRunFromDb = new Date(fullCatalogJob.completedAt).getTime();
+      } else if (fullCatalogJob.createdAt) {
+        lastRunFromDb = new Date(fullCatalogJob.createdAt).getTime();
+      }
+      lastJobIdFromDb = fullCatalogJob.id;
+    }
+  } catch (error) {
+    log(`Error fetching last sync job: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  // Use in-memory state for isRunning (more reliable than DB query every time)
+  const isRunning = state.isRunning;
+
   if (!state.active) {
-    return { active: false, details: null };
+    return { 
+      active: false, 
+      details: {
+        lastRun: lastRunFromDb,
+        nextRun: null,
+        isRunning: isRunning,
+        interval: state.intervalMs,
+        lastJobId: lastJobIdFromDb
+      }
+    };
   }
 
   return {
     active: true,
     details: {
-      lastRun: state.lastRun,
+      lastRun: state.lastRun || lastRunFromDb,
       nextRun: state.nextRun,
-      isRunning: state.isRunning,
+      isRunning: isRunning,
       interval: state.intervalMs,
-      lastJobId: state.lastJobId
+      lastJobId: state.lastJobId || lastJobIdFromDb
     }
   };
 }
