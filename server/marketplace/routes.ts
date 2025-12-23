@@ -3054,6 +3054,7 @@ router.get('/listings', async (req, res) => {
     const filters: listingsRepo.ListingsFilters = {
       marketplace: req.query.marketplace as any,
       status: req.query.status as string,
+      publishStatus: req.query.publishStatus as string,
       quantity: req.query.quantity as 'zero' | 'in_stock',
       search: req.query.search as string,
       productType: req.query.productType as string,
@@ -3083,6 +3084,7 @@ router.get('/listings/export', async (req, res) => {
     const filters: listingsRepo.ListingsFilters = {
       marketplace: req.query.marketplace as any,
       status: req.query.status as string,
+      publishStatus: req.query.publishStatus as string,
       quantity: req.query.quantity as 'zero' | 'in_stock',
       search: req.query.search as string,
       productType: req.query.productType as string,

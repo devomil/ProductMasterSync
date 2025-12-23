@@ -29,6 +29,7 @@ import { calculateReferralFee } from './walmart-referral-fees';
 export interface ListingsFilters {
   marketplace?: 'walmart' | 'amazon' | 'ebay' | 'target' | 'home_depot';
   status?: string;
+  publishStatus?: string; // PUBLISHED, UNPUBLISHED, DRAFT, ERROR (Walmart-specific)
   quantity?: 'zero' | 'in_stock';
   search?: string;
   productType?: string;
@@ -60,6 +61,7 @@ export async function getMarketplaceListings(filters: ListingsFilters = {}): Pro
   const {
     marketplace,
     status,
+    publishStatus,
     quantity,
     search,
     productType,
@@ -77,18 +79,21 @@ export async function getMarketplaceListings(filters: ListingsFilters = {}): Pro
     conditions.push(eq(marketplaceListings.marketplace, marketplace));
   }
   
+  // Filter by listing status (active/inactive/pending/retired/suppressed)
   if (status) {
-    // Handle special filter values
+    // Handle special filter values for quantity
     if (status === 'in_stock') {
       conditions.push(sql`${marketplaceListings.quantity} > 0`);
     } else if (status === 'out_of_stock') {
       conditions.push(eq(marketplaceListings.quantity, 0));
-    } else if (status === 'published') {
-      // Filter by publishedStatus = 'PUBLISHED' or 'published' (case-insensitive)
-      conditions.push(ilike(marketplaceListings.publishedStatus, 'published'));
     } else {
       conditions.push(eq(marketplaceListings.status, status as any));
     }
+  }
+  
+  // Filter by publish status (Walmart-specific: PUBLISHED, UNPUBLISHED, DRAFT, ERROR)
+  if (publishStatus) {
+    conditions.push(ilike(marketplaceListings.publishedStatus, publishStatus));
   }
   
   // Also support separate quantity filter if provided

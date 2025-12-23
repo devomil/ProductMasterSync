@@ -227,6 +227,24 @@ function getDemandBadge(inDemand: boolean | null) {
   return <span className="text-muted-foreground text-xs">-</span>;
 }
 
+function getPublishStatusBadge(publishedStatus: string | null) {
+  if (!publishedStatus) return <span className="text-muted-foreground text-xs">-</span>;
+  
+  const status = publishedStatus.toUpperCase();
+  switch (status) {
+    case 'PUBLISHED':
+      return <Badge className="bg-blue-100 text-blue-800 text-xs"><CheckCircle className="h-3 w-3 mr-1" /> Published</Badge>;
+    case 'UNPUBLISHED':
+      return <Badge className="bg-orange-100 text-orange-800 text-xs"><AlertCircle className="h-3 w-3 mr-1" /> Unpublished</Badge>;
+    case 'DRAFT':
+      return <Badge className="bg-gray-100 text-gray-600 text-xs"><Clock className="h-3 w-3 mr-1" /> Draft</Badge>;
+    case 'ERROR':
+      return <Badge className="bg-red-100 text-red-800 text-xs"><XCircle className="h-3 w-3 mr-1" /> Error</Badge>;
+    default:
+      return <Badge className="bg-gray-100 text-gray-600 text-xs">{publishedStatus}</Badge>;
+  }
+}
+
 export default function ActiveListings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -234,6 +252,7 @@ export default function ActiveListings() {
   const [selectedMarketplace, setSelectedMarketplace] = useState<'all' | 'walmart' | 'amazon'>('walmart');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [publishStatusFilter, setPublishStatusFilter] = useState<string>('all');
   const [sortColumn, setSortColumn] = useState<string>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -243,6 +262,10 @@ export default function ActiveListings() {
   const handleMarketplaceChange = (value: 'all' | 'walmart' | 'amazon') => {
     setSelectedMarketplace(value);
     setCurrentPage(1);
+    // Reset publish status filter when leaving Walmart (it's Walmart-specific)
+    if (value !== 'walmart') {
+      setPublishStatusFilter('all');
+    }
   };
 
   const handleSearchChange = (value: string) => {
@@ -255,10 +278,16 @@ export default function ActiveListings() {
     setCurrentPage(1);
   };
 
+  const handlePublishStatusFilterChange = (value: string) => {
+    setPublishStatusFilter(value);
+    setCurrentPage(1);
+  };
+
   const { data: listingsData, isLoading: isLoadingListings } = useQuery<ListingsResponse>({
     queryKey: ['/api/marketplace/listings', { 
       marketplace: selectedMarketplace === 'all' ? undefined : selectedMarketplace,
       status: statusFilter === 'all' ? undefined : statusFilter,
+      publishStatus: (selectedMarketplace === 'walmart' && publishStatusFilter !== 'all') ? publishStatusFilter : undefined,
       search: searchQuery || undefined,
       page: currentPage,
       limit: listingsPerPage 
@@ -378,6 +407,9 @@ export default function ActiveListings() {
     }
     if (statusFilter !== 'all') {
       params.set('status', statusFilter);
+    }
+    if (selectedMarketplace === 'walmart' && publishStatusFilter !== 'all') {
+      params.set('publishStatus', publishStatusFilter);
     }
     if (searchQuery) {
       params.set('search', searchQuery);
@@ -576,8 +608,6 @@ export default function ActiveListings() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="unpublished">Unpublished</SelectItem>
                 <SelectItem value="in_stock">In Stock (Qty &gt; 0)</SelectItem>
                 <SelectItem value="out_of_stock">Out of Stock (Qty = 0)</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -585,6 +615,18 @@ export default function ActiveListings() {
                 <SelectItem value="suppressed">Suppressed</SelectItem>
               </SelectContent>
             </Select>
+            {selectedMarketplace === 'walmart' && (
+              <Select value={publishStatusFilter} onValueChange={handlePublishStatusFilterChange}>
+                <SelectTrigger className="w-[180px]" data-testid="select-publish-status-filter">
+                  <SelectValue placeholder="Publish Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Publish Status</SelectItem>
+                  <SelectItem value="PUBLISHED">Published</SelectItem>
+                  <SelectItem value="UNPUBLISHED">Unpublished</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -618,6 +660,7 @@ export default function ActiveListings() {
                   >
                     Status
                   </SortableHeader>
+                  <TableHead className="w-28">Publish</TableHead>
                   <SortableHeader
                     column="quantity"
                     currentColumn={sortColumn}
@@ -657,17 +700,17 @@ export default function ActiveListings() {
               <TableBody>
                 {isLoadingListings ? (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center py-8">
+                    <TableCell colSpan={15} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       <p className="text-sm text-muted-foreground mt-2">Loading listings...</p>
                     </TableCell>
                   </TableRow>
                 ) : filteredListings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center py-8">
+                    <TableCell colSpan={15} className="text-center py-8">
                       <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
                       <p className="text-muted-foreground">
-                        {searchQuery || statusFilter !== 'all' 
+                        {searchQuery || statusFilter !== 'all' || publishStatusFilter !== 'all'
                           ? 'No listings match your filters' 
                           : 'No listings synced yet. Click "Sync Listings" to import from marketplace.'}
                       </p>
@@ -704,6 +747,9 @@ export default function ActiveListings() {
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(listing.status, listing.publishedStatus)}
+                      </TableCell>
+                      <TableCell>
+                        {getPublishStatusBadge(listing.publishedStatus)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {listing.quantity.toLocaleString()}
