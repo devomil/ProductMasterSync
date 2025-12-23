@@ -2484,6 +2484,47 @@ router.post('/walmart/scheduler/trigger', async (req, res) => {
   }
 });
 
+/**
+ * POST /marketplace/walmart/scheduler/toggle
+ * Enable or disable the automated scheduler
+ */
+router.post('/walmart/scheduler/toggle', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean' });
+    }
+    
+    const { stopWalmartListingsScheduler, initWalmartListingsScheduler, getSchedulerStatus } = await import('./walmart-listings-scheduler');
+    
+    const currentStatus = getSchedulerStatus();
+    
+    if (!enabled && currentStatus.details?.isRunning) {
+      return res.status(409).json({ 
+        error: 'Cannot disable scheduler while sync is running. Please wait for the current sync to complete.',
+        isRunning: true
+      });
+    }
+    
+    if (enabled) {
+      await initWalmartListingsScheduler();
+    } else {
+      stopWalmartListingsScheduler();
+    }
+    
+    const status = getSchedulerStatus();
+    return res.json({
+      success: true,
+      enabled: status.active,
+      message: enabled ? 'Scheduler enabled' : 'Scheduler disabled'
+    });
+  } catch (error) {
+    console.error('[Walmart Routes] Error toggling scheduler:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // ============================================================================
 // WALMART PRICING INSIGHTS ROUTES
 // ============================================================================

@@ -1,8 +1,10 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useWalmartConfigStatus, useWalmartSchedulerStatus, useTriggerWalmartSyncJob } from '@/hooks/useWalmartMarketData';
-import { Loader2, PlayCircle, Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useWalmartConfigStatus, useWalmartSchedulerStatus, useTriggerWalmartSyncJob, useToggleWalmartScheduler } from '@/hooks/useWalmartMarketData';
+import { Loader2, PlayCircle, Calendar, Clock, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -10,9 +12,14 @@ export function WalmartScheduler() {
   const { data: configStatus, isLoading: isLoadingConfig } = useWalmartConfigStatus();
   const { data: schedulerStatus, isLoading: isLoadingScheduler } = useWalmartSchedulerStatus();
   const triggerSyncJob = useTriggerWalmartSyncJob();
+  const toggleScheduler = useToggleWalmartScheduler();
 
   const handleTriggerSync = () => {
     triggerSyncJob.mutate();
+  };
+
+  const handleToggleScheduler = (enabled: boolean) => {
+    toggleScheduler.mutate(enabled);
   };
 
   const formatInterval = (intervalMs: number) => {
@@ -63,14 +70,35 @@ export function WalmartScheduler() {
               Configure automatic syncing of Walmart marketplace data
             </CardDescription>
           </div>
-          {isJobActive && (
-            <Badge variant={jobDetails?.isRunning ? "default" : "outline"}>
-              {jobDetails?.isRunning ? "Running" : "Active"}
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {configValid && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="scheduler-toggle"
+                  checked={isJobActive}
+                  onCheckedChange={handleToggleScheduler}
+                  disabled={toggleScheduler.isPending || jobDetails?.isRunning}
+                  data-testid="switch-scheduler-toggle"
+                />
+                <Label htmlFor="scheduler-toggle" className="text-sm">
+                  {toggleScheduler.isPending ? 'Updating...' : (isJobActive ? 'Enabled' : 'Disabled')}
+                </Label>
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {jobDetails?.isRunning && (
+          <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
+            <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+            <AlertTitle className="text-blue-800 dark:text-blue-200">Sync In Progress</AlertTitle>
+            <AlertDescription className="text-blue-700 dark:text-blue-300">
+              Walmart listings are currently being synced. This may take several minutes depending on catalog size.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {!configValid && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -81,17 +109,17 @@ export function WalmartScheduler() {
           </Alert>
         )}
 
-        {configValid && !isJobActive && (
+        {configValid && !isJobActive && !jobDetails?.isRunning && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Scheduler Not Active</AlertTitle>
+            <AlertTitle>Scheduler Disabled</AlertTitle>
             <AlertDescription>
-              Automated syncing is not currently enabled. The scheduler will be activated automatically when the server restarts with valid API credentials.
+              Automated syncing is turned off. Toggle the switch above to enable automatic syncs every 12 hours.
             </AlertDescription>
           </Alert>
         )}
 
-        {configValid && isJobActive && (
+        {configValid && (
           <div className="space-y-4">
             <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
               <div className="flex items-center space-x-4">
@@ -99,10 +127,13 @@ export function WalmartScheduler() {
                 <div>
                   <p className="text-sm font-medium">Sync Frequency</p>
                   <p className="text-sm text-muted-foreground">
-                    Every {formatInterval(jobDetails?.interval || 0)}
+                    Every {formatInterval(jobDetails?.interval || 43200000)}
                   </p>
                 </div>
               </div>
+              <Badge variant={isJobActive ? "default" : "secondary"}>
+                {isJobActive ? "Scheduled" : "Manual Only"}
+              </Badge>
             </div>
 
             <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
@@ -118,9 +149,9 @@ export function WalmartScheduler() {
               
               <div>
                 {jobDetails?.isRunning ? (
-                  <Badge variant="secondary" className="flex items-center">
+                  <Badge variant="default" className="flex items-center bg-blue-600">
                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    Running
+                    Syncing
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="flex items-center">
@@ -140,10 +171,10 @@ export function WalmartScheduler() {
           disabled={!configValid || triggerSyncJob.isPending || (jobDetails?.isRunning || false)}
           data-testid="button-trigger-sync"
         >
-          {triggerSyncJob.isPending ? (
+          {triggerSyncJob.isPending || jobDetails?.isRunning ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Running...
+              {jobDetails?.isRunning ? 'Sync In Progress...' : 'Starting...'}
             </>
           ) : (
             <>

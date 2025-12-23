@@ -157,3 +157,45 @@ export function useTriggerWalmartSyncJob() {
 
   return mutation;
 }
+
+/**
+ * Hook to toggle the automated scheduler on/off
+ */
+export function useToggleWalmartScheduler() {
+  const mutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const response = await fetch('/api/marketplace/walmart/scheduler/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Toggle scheduler failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.enabled ? 'Scheduler Enabled' : 'Scheduler Disabled',
+        description: data.enabled 
+          ? 'Automated sync will run every 12 hours.' 
+          : 'Automated sync has been turned off.',
+      });
+      
+      // Invalidate scheduler status
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/walmart/scheduler/status'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to toggle scheduler',
+        description: error.message || 'An error occurred.',
+        variant: 'destructive'
+      });
+      // Refetch to revert switch state
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/walmart/scheduler/status'] });
+    }
+  });
+
+  return mutation;
+}
