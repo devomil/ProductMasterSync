@@ -51,6 +51,11 @@ export interface ListingsResult {
     activeListings: number;
     zeroQuantityListings: number;
     withProductMatch: number;
+    // Walmart-specific publish status counts
+    totalPublished?: number;
+    totalUnpublished?: number;
+    totalDraft?: number;
+    totalError?: number;
   };
 }
 
@@ -223,6 +228,50 @@ export async function getMarketplaceListings(filters: ListingsFilters = {}): Pro
       sql`${marketplaceListings.productId} IS NOT NULL`
     ));
 
+  // Walmart-specific: get publish status counts
+  let publishStatusCounts: { totalPublished?: number; totalUnpublished?: number; totalDraft?: number; totalError?: number } = {};
+  
+  if (marketplace === 'walmart') {
+    const [publishedCount] = await db
+      .select({ count: count() })
+      .from(marketplaceListings)
+      .where(and(
+        eq(marketplaceListings.marketplace, 'walmart'),
+        ilike(marketplaceListings.publishedStatus, 'PUBLISHED')
+      ));
+    
+    const [unpublishedCount] = await db
+      .select({ count: count() })
+      .from(marketplaceListings)
+      .where(and(
+        eq(marketplaceListings.marketplace, 'walmart'),
+        ilike(marketplaceListings.publishedStatus, 'UNPUBLISHED')
+      ));
+    
+    const [draftCount] = await db
+      .select({ count: count() })
+      .from(marketplaceListings)
+      .where(and(
+        eq(marketplaceListings.marketplace, 'walmart'),
+        ilike(marketplaceListings.publishedStatus, 'DRAFT')
+      ));
+    
+    const [errorCount] = await db
+      .select({ count: count() })
+      .from(marketplaceListings)
+      .where(and(
+        eq(marketplaceListings.marketplace, 'walmart'),
+        ilike(marketplaceListings.publishedStatus, 'ERROR')
+      ));
+    
+    publishStatusCounts = {
+      totalPublished: Number(publishedCount?.count || 0),
+      totalUnpublished: Number(unpublishedCount?.count || 0),
+      totalDraft: Number(draftCount?.count || 0),
+      totalError: Number(errorCount?.count || 0)
+    };
+  }
+
   return {
     listings,
     total,
@@ -233,7 +282,8 @@ export async function getMarketplaceListings(filters: ListingsFilters = {}): Pro
       totalListings: Number(totalStats?.count || 0),
       activeListings: Number(activeStats?.count || 0),
       zeroQuantityListings: Number(zeroQuantityStats?.count || 0),
-      withProductMatch: Number(productMatchStats?.count || 0)
+      withProductMatch: Number(productMatchStats?.count || 0),
+      ...publishStatusCounts
     }
   };
 }

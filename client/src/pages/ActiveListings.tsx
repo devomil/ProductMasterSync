@@ -97,6 +97,11 @@ interface ListingsStats {
   activeListings: number;
   zeroQuantityListings: number;
   withProductMatch: number;
+  // Walmart-specific publish status counts
+  totalPublished?: number;
+  totalUnpublished?: number;
+  totalDraft?: number;
+  totalError?: number;
 }
 
 function SortableHeader({ 
@@ -556,6 +561,48 @@ export default function ActiveListings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Marketplace-specific publish status stats (Walmart only) */}
+      {selectedMarketplace === 'walmart' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <SiWalmart className="h-4 w-4 text-blue-600" /> Walmart Total Listings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="stat-walmart-total">
+                {isLoadingStats ? '-' : (statsData?.totalListings ?? 0).toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-200 bg-green-50/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-green-600" /> Walmart Total Published
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600" data-testid="stat-walmart-published">
+                {isLoadingStats ? '-' : (statsData?.totalPublished ?? 0).toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-orange-200 bg-orange-50/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <AlertCircle className="h-4 w-4 text-orange-600" /> Walmart Total Unpublished
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600" data-testid="stat-walmart-unpublished">
+                {isLoadingStats ? '-' : (statsData?.totalUnpublished ?? 0).toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
