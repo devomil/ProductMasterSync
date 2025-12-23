@@ -2460,12 +2460,9 @@ router.post('/walmart/schedule', async (req, res) => {
  */
 router.get('/walmart/scheduler/status', async (req, res) => {
   try {
-    // Placeholder - return inactive scheduler status
-    return res.json({
-      active: false,
-      details: null,
-      allJobs: []
-    });
+    const { getSchedulerStatus } = await import('./walmart-listings-scheduler');
+    const status = getSchedulerStatus();
+    return res.json(status);
   } catch (error) {
     console.error('[Walmart Routes] Error fetching scheduler status:', error);
     return res.status(500).json({ error: (error as Error).message });
@@ -2478,12 +2475,9 @@ router.get('/walmart/scheduler/status', async (req, res) => {
  */
 router.post('/walmart/scheduler/trigger', async (req, res) => {
   try {
-    // Placeholder - actual trigger would be implemented later
-    return res.json({
-      success: true,
-      message: 'Walmart sync job triggered',
-      jobId: 'walmart-sync-' + Date.now()
-    });
+    const { triggerManualSync } = await import('./walmart-listings-scheduler');
+    const result = await triggerManualSync();
+    return res.json(result);
   } catch (error) {
     console.error('[Walmart Routes] Error triggering sync job:', error);
     return res.status(500).json({ error: (error as Error).message });

@@ -4303,6 +4303,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   */
   console.log('ℹ️ Amazon automatic sync disabled - can be enabled later from settings');
 
+  // Initialize Walmart listings scheduler (twice daily sync)
+  try {
+    const { initWalmartListingsScheduler } = await import("./marketplace/walmart-listings-scheduler");
+    await initWalmartListingsScheduler();
+    console.log('✅ Walmart listings scheduler initialized (every 12 hours)');
+  } catch (error) {
+    console.error('⚠️ Walmart listings scheduler not started:', error);
+  }
+
   const httpServer = createServer(app);
   return httpServer;
 }
