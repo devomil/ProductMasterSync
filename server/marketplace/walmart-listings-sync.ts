@@ -156,6 +156,105 @@ async function fetchInventoryForSKU(sku: string): Promise<WalmartInventoryRespon
 }
 
 /**
+ * Bulk inventory response from /v3/inventories endpoint
+ */
+interface BulkInventoryResponse {
+  elements?: Array<{
+    sku: string;
+    quantity?: {
+      unit?: string;
+      amount?: number;
+    };
+    fulfillmentLagTime?: number;
+    shipNodes?: Array<{
+      shipNodeId?: string;
+      availToSellQty?: number;
+    }>;
+  }>;
+  totalCount?: number;
+  nextCursor?: string;
+}
+
+/**
+ * Fetch all inventory in bulk using /v3/inventories endpoint
+ * Much faster than individual SKU calls - uses cursor-based pagination
+ * Returns a map of SKU -> quantity
+ */
+async function fetchBulkInventory(jobId: number): Promise<Map<string, number>> {
+  const config = await getWalmartConfig();
+  const inventoryMap = new Map<string, number>();
+  
+  let nextCursor: string | undefined = '*'; // Start with * for initial request
+  const limit = 200;
+  let pageCount = 0;
+  const maxPages = 2000; // Safety limit to prevent infinite loops
+  
+  console.log(`[Walmart Sync] Starting bulk inventory fetch using /v3/inventories...`);
+  
+  while (nextCursor && pageCount < maxPages) {
+    try {
+      const accessToken = await getAccessToken();
+      
+      const params: Record<string, any> = { limit };
+      if (nextCursor) {
+        params.nextCursor = nextCursor;
+      }
+      
+      const response = await axios.get<BulkInventoryResponse>(`${config.apiUrl}/inventories`, {
+        headers: {
+          'WM_SEC.ACCESS_TOKEN': accessToken,
+          'WM_SVC.NAME': config.serviceName,
+          'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+          'Accept': 'application/json'
+        },
+        params
+      });
+      
+      pageCount++;
+      const elements = response.data.elements || [];
+      
+      for (const item of elements) {
+        if (item.sku && item.quantity?.amount !== undefined) {
+          inventoryMap.set(item.sku, item.quantity.amount);
+        }
+      }
+      
+      // Update cursor for next page - stop if no cursor returned
+      nextCursor = response.data.nextCursor;
+      
+      if (pageCount % 10 === 0 || !nextCursor) {
+        console.log(`[Walmart Sync] Bulk inventory page ${pageCount}: ${inventoryMap.size} SKUs loaded`);
+        await listingsRepo.updateSyncJob(jobId, {
+          lastProcessedId: `bulk_inventory_${inventoryMap.size}`
+        });
+      }
+      
+      // No more pages if cursor is empty or no elements returned
+      if (!nextCursor || elements.length === 0) {
+        break;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error: any) {
+      console.error(`[Walmart Sync] Error fetching bulk inventory at page ${pageCount}:`, error.message);
+      if (inventoryMap.size === 0) {
+        throw error;
+      }
+      console.log(`[Walmart Sync] Continuing with ${inventoryMap.size} inventory entries collected`);
+      break;
+    }
+  }
+  
+  if (pageCount >= maxPages) {
+    console.warn(`[Walmart Sync] Reached max page limit (${maxPages}), inventory may be incomplete`);
+  }
+  
+  console.log(`[Walmart Sync] Bulk inventory fetch complete: ${inventoryMap.size} SKUs with inventory data`);
+  return inventoryMap;
+}
+
+/**
  * Transform Walmart item to marketplace listing format
  */
 function transformToListing(item: WalmartListingItem, inventoryQuantity?: number): {
@@ -289,35 +388,31 @@ export async function startWalmartListingsSync(jobId: number): Promise<void> {
     }
 
     console.log(`[Walmart Sync] Phase 1 complete: ${allItems.length} items fetched`);
-    console.log(`[Walmart Sync] Phase 2: Fetching inventory for each item...`);
+    
+    // Count published items that need inventory
+    const publishedItems = allItems.filter(
+      entry => entry.item.lifecycleStatus === 'ACTIVE' && entry.item.publishedStatus === 'PUBLISHED'
+    );
+    console.log(`[Walmart Sync] Phase 2: Fetching bulk inventory (${publishedItems.length} published items)...`);
 
     await listingsRepo.updateSyncJob(jobId, {
       totalItems: allItems.length
     });
 
-    let inventoryFetched = 0;
+    // Use bulk inventory API for efficiency
+    const inventoryMap = await fetchBulkInventory(jobId);
+    
+    // Apply inventory to all items
+    let inventoryApplied = 0;
     for (const entry of allItems) {
-      try {
-        const inventory = await fetchInventoryForSKU(entry.item.sku);
-        if (inventory?.quantity?.amount !== undefined) {
-          entry.inventoryQuantity = inventory.quantity.amount;
-        }
-        inventoryFetched++;
-        
-        if (inventoryFetched % 100 === 0) {
-          console.log(`[Walmart Sync] Inventory progress: ${inventoryFetched}/${allItems.length}`);
-          await listingsRepo.updateSyncJob(jobId, {
-            lastProcessedId: `inventory_${inventoryFetched}/${allItems.length}`
-          });
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (err) {
-        console.error(`[Walmart Sync] Error fetching inventory for ${entry.item.sku}:`, err);
+      const quantity = inventoryMap.get(entry.item.sku);
+      if (quantity !== undefined) {
+        entry.inventoryQuantity = quantity;
+        inventoryApplied++;
       }
     }
 
-    console.log(`[Walmart Sync] Phase 2 complete: Inventory fetched for ${inventoryFetched} items`);
+    console.log(`[Walmart Sync] Phase 2 complete: Inventory applied to ${inventoryApplied} items`);
     console.log(`[Walmart Sync] Phase 3: Saving listings to database...`);
 
     await listingsRepo.updateSyncJob(jobId, {
