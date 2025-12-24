@@ -3400,7 +3400,7 @@ router.post('/walmart/listings/sync', async (req, res) => {
     // Create a new sync job
     const job = await listingsRepo.createSyncJob({
       marketplace: 'walmart',
-      jobType: mode === 'full' ? 'full_sync' : 'items_sync',
+      jobType: 'full_catalog', // Always use full_catalog for consistency with Monitoring tab
       triggeredBy: 'manual',
       totalItems: 0,
     });
