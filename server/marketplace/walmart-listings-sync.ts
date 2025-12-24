@@ -327,24 +327,33 @@ function transformToListing(item: WalmartListingItem, inventoryQuantity?: number
  * 
  * Fetches all items using cursor-based pagination from GET /v3/items
  * Then fetches inventory for each item from GET /v3/inventory
+ * 
+ * @param jobId - The sync job ID
+ * @param resumeFromCursor - Optional cursor to resume from (for interrupted syncs)
+ * @param resumeProcessedCount - Number of items already processed (for accurate progress tracking)
  */
-export async function startWalmartListingsSync(jobId: number): Promise<void> {
-  console.log(`[Walmart Sync] Starting sync job ${jobId}...`);
+export async function startWalmartListingsSync(
+  jobId: number,
+  resumeFromCursor?: string,
+  resumeProcessedCount: number = 0
+): Promise<void> {
+  const isResuming = !!resumeFromCursor;
+  console.log(`[Walmart Sync] Starting sync job ${jobId}${isResuming ? ` (resuming from cursor, already processed: ${resumeProcessedCount})` : ''}...`);
 
   try {
     await listingsRepo.startSyncJob(jobId);
 
-    let nextCursor: string | undefined;
-    let totalProcessed = 0;
-    let successCount = 0;
+    let nextCursor: string | undefined = resumeFromCursor;
+    let totalProcessed = resumeProcessedCount;
+    let successCount = resumeProcessedCount;
     let errorCount = 0;
     let hasMore = true;
     let totalItems = 0;
-    let pageCount = 0;
+    let pageCount = isResuming ? Math.floor(resumeProcessedCount / 200) : 0;
 
     const allItems: { item: WalmartListingItem; inventoryQuantity: number }[] = [];
 
-    console.log(`[Walmart Sync] Phase 1: Fetching all items from Walmart API...`);
+    console.log(`[Walmart Sync] Phase 1: Fetching all items from Walmart API${isResuming ? ` (starting from page ${pageCount + 1})` : ''}...`);
 
     while (hasMore) {
       try {

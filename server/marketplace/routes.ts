@@ -3405,16 +3405,16 @@ router.post('/walmart/listings/sync', async (req, res) => {
       totalItems: 0,
     });
     
+    // Pass resume cursor and processed count if available
+    const resumeCursor = resumeInfo?.cursor || undefined;
+    const resumeProcessed = resumeInfo?.processedItems || 0;
+    
     // Start the sync in the background
     if (mode === 'full') {
-      startWalmartListingsSync(job.id).catch(err => {
+      startWalmartListingsSync(job.id, resumeCursor, resumeProcessed).catch(err => {
         console.error('[Listings API] Full sync job failed:', err);
       });
     } else {
-      // Pass resume cursor and processed count if available
-      const resumeCursor = resumeInfo?.cursor || undefined;
-      const resumeProcessed = resumeInfo?.processedItems || 0;
-      
       startWalmartListingsSyncItemsOnly(job.id, resumeCursor, resumeProcessed).catch(err => {
         console.error('[Listings API] Items sync job failed:', err);
       });

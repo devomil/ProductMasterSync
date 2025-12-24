@@ -649,7 +649,8 @@ export async function getLastInterruptedSyncCursor(marketplace: string): Promise
   jobId: number | null;
   processedItems: number;
 } | null> {
-  // Find the most recent failed/cancelled job that has a cursor saved
+  // Find the interrupted job with the MOST progress (highest processedItems)
+  // This ensures we resume from the furthest checkpoint, not just the most recent job
   const [job] = await db
     .select()
     .from(marketplaceSyncJobs)
@@ -659,9 +660,10 @@ export async function getLastInterruptedSyncCursor(marketplace: string): Promise
         eq(marketplaceSyncJobs.status, 'failed'),
         eq(marketplaceSyncJobs.status, 'cancelled')
       ),
-      sql`${marketplaceSyncJobs.nextCursor} IS NOT NULL AND ${marketplaceSyncJobs.nextCursor} != ''`
+      sql`${marketplaceSyncJobs.nextCursor} IS NOT NULL AND ${marketplaceSyncJobs.nextCursor} != ''`,
+      sql`${marketplaceSyncJobs.processedItems} > 0`
     ))
-    .orderBy(desc(marketplaceSyncJobs.createdAt))
+    .orderBy(desc(marketplaceSyncJobs.processedItems), desc(marketplaceSyncJobs.updatedAt))
     .limit(1);
 
   if (!job || !job.nextCursor) {
