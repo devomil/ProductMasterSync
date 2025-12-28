@@ -19,7 +19,7 @@ import { products, categories, amazonAsins, amazonMarketIntelligence, productAsi
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import { amazonSyncService } from '../services/amazon-sync';
 import * as listingsRepo from './listings-repository';
-import { startWalmartListingsSync, startWalmartListingsSyncItemsOnly } from './walmart-listings-sync';
+import { startWalmartListingsSync, startWalmartListingsSyncItemsOnly, runInventoryFetchOnly } from './walmart-listings-sync';
 
 const router = Router();
 
@@ -3432,6 +3432,26 @@ router.post('/walmart/listings/sync', async (req, res) => {
     });
   } catch (error) {
     console.error('[Listings API] Error creating sync job:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/walmart/listings/inventory
+ * Fetch inventory only and update existing listings
+ * Use when catalog sync completed but inventory fetch failed
+ */
+router.post('/walmart/listings/inventory', async (req, res) => {
+  try {
+    const result = await runInventoryFetchOnly();
+    
+    return res.json({ 
+      message: 'Inventory fetch job started',
+      jobId: result.jobId,
+      status: 'running'
+    });
+  } catch (error) {
+    console.error('[Listings API] Error starting inventory fetch:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

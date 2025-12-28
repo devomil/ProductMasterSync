@@ -184,14 +184,15 @@ async function fetchBulkInventory(jobId: number): Promise<Map<string, number>> {
   const config = await getWalmartConfig();
   const inventoryMap = new Map<string, number>();
   
-  let nextCursor: string | undefined = '*'; // Start with * for initial request
-  const limit = 200;
+  let nextCursor: string | undefined = undefined; // Don't pass cursor on first request
+  let isFirstRequest = true;
+  const limit = 50; // Walmart API max is 50 for inventories endpoint
   let pageCount = 0;
-  const maxPages = 2000; // Safety limit to prevent infinite loops
+  const maxPages = 5000; // Safety limit - need more pages with smaller limit
   
   console.log(`[Walmart Sync] Starting bulk inventory fetch using /v3/inventories...`);
   
-  while (nextCursor && pageCount < maxPages) {
+  while ((isFirstRequest || nextCursor) && pageCount < maxPages) {
     try {
       const accessToken = await getAccessToken();
       
@@ -199,28 +200,40 @@ async function fetchBulkInventory(jobId: number): Promise<Map<string, number>> {
       if (nextCursor) {
         params.nextCursor = nextCursor;
       }
+      isFirstRequest = false;
       
       const response = await axios.get<BulkInventoryResponse>(`${config.apiUrl}/inventories`, {
         headers: {
           'WM_SEC.ACCESS_TOKEN': accessToken,
           'WM_SVC.NAME': config.serviceName,
           'WM_QOS.CORRELATION_ID': generateCorrelationId(),
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
         params
       });
       
       pageCount++;
-      const elements = response.data.elements || [];
       
-      for (const item of elements) {
-        if (item.sku && item.quantity?.amount !== undefined) {
-          inventoryMap.set(item.sku, item.quantity.amount);
+      // Response structure: { meta: { totalCount, nextCursor }, elements: { inventories: [...] } }
+      // Each inventory item: { sku, nodes: [{ shipNode, availToSellQty: { amount } }] }
+      const inventories = response.data.elements?.inventories || [];
+      
+      for (const item of Array.isArray(inventories) ? inventories : []) {
+        if (item.sku && item.nodes && item.nodes.length > 0) {
+          // Sum up available quantity from all ship nodes
+          let totalQty = 0;
+          for (const node of item.nodes) {
+            if (node.availToSellQty?.amount !== undefined) {
+              totalQty += node.availToSellQty.amount;
+            }
+          }
+          inventoryMap.set(item.sku, totalQty);
         }
       }
       
-      // Update cursor for next page - stop if no cursor returned
-      nextCursor = response.data.nextCursor;
+      // Update cursor for next page - cursor is in meta
+      nextCursor = response.data.meta?.nextCursor;
       
       if (pageCount % 10 === 0 || !nextCursor) {
         console.log(`[Walmart Sync] Bulk inventory page ${pageCount}: ${inventoryMap.size} SKUs loaded`);
@@ -229,8 +242,8 @@ async function fetchBulkInventory(jobId: number): Promise<Map<string, number>> {
         });
       }
       
-      // No more pages if cursor is empty or no elements returned
-      if (!nextCursor || elements.length === 0) {
+      // No more pages if cursor is empty or no inventories returned
+      if (!nextCursor || inventories.length === 0) {
         break;
       }
       
@@ -238,6 +251,9 @@ async function fetchBulkInventory(jobId: number): Promise<Map<string, number>> {
       
     } catch (error: any) {
       console.error(`[Walmart Sync] Error fetching bulk inventory at page ${pageCount}:`, error.message);
+      if (error.response?.data) {
+        console.error(`[Walmart Sync] API Error Response:`, JSON.stringify(error.response.data, null, 2));
+      }
       if (inventoryMap.size === 0) {
         throw error;
       }
@@ -589,4 +605,75 @@ export async function getSyncStatus(jobId: number) {
 export async function isSyncRunning(): Promise<boolean> {
   const runningJob = await listingsRepo.getRunningSync('walmart');
   return !!runningJob;
+}
+
+/**
+ * Standalone inventory fetch - fetches inventory and updates existing listings
+ * Use this when catalog sync completed but inventory fetch failed
+ */
+export async function runInventoryFetchOnly(): Promise<{ jobId: number }> {
+  // Check for running sync
+  if (await isSyncRunning()) {
+    throw new Error('A sync is already running. Please wait for it to complete.');
+  }
+
+  // Create a new job for inventory fetch
+  const job = await listingsRepo.createSyncJob({
+    marketplace: 'walmart',
+    jobType: 'inventory_fetch',
+    status: 'running',
+    triggeredBy: 'manual'
+  });
+  const jobId = job.id;
+
+  // Run async in background
+  (async () => {
+    try {
+      console.log(`[Walmart Sync] Job ${jobId}: Starting standalone inventory fetch...`);
+      
+      // Fetch bulk inventory
+      const inventoryMap = await fetchBulkInventory(jobId);
+      console.log(`[Walmart Sync] Job ${jobId}: Fetched ${inventoryMap.size} inventory entries`);
+      
+      // Update existing listings with inventory data
+      let updated = 0;
+      let notFound = 0;
+      
+      const entries = Array.from(inventoryMap.entries());
+      for (const [sku, quantity] of entries) {
+        try {
+          const result = await listingsRepo.updateListingInventoryBySku('walmart', sku, quantity);
+          if (result) {
+            updated++;
+          } else {
+            notFound++;
+          }
+        } catch (err) {
+          console.error(`[Walmart Sync] Error updating inventory for SKU ${sku}:`, err);
+        }
+        
+        if (updated % 1000 === 0) {
+          console.log(`[Walmart Sync] Job ${jobId}: Updated ${updated} listings with inventory`);
+          await listingsRepo.updateSyncJob(jobId, {
+            processedItems: updated,
+            successItems: updated
+          });
+        }
+      }
+      
+      await listingsRepo.completeSyncJob(jobId, {
+        processedItems: inventoryMap.size,
+        successItems: updated,
+        failedItems: notFound
+      });
+      
+      console.log(`[Walmart Sync] Job ${jobId}: ✅ Inventory fetch complete - ${updated} listings updated, ${notFound} SKUs not found in listings`);
+      
+    } catch (error) {
+      console.error(`[Walmart Sync] Job ${jobId} failed:`, error);
+      await listingsRepo.failSyncJob(jobId, (error as Error).message, { stack: (error as Error).stack });
+    }
+  })();
+
+  return { jobId };
 }

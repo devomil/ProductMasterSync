@@ -427,6 +427,29 @@ export async function updateListingQuantity(id: number, quantity: number): Promi
 }
 
 /**
+ * Update listing inventory by SKU and marketplace
+ */
+export async function updateListingInventoryBySku(
+  marketplace: 'walmart' | 'amazon' | 'ebay' | 'target' | 'home_depot' | 'flxpoint', 
+  sku: string, 
+  quantity: number
+): Promise<boolean> {
+  const result = await db
+    .update(marketplaceListings)
+    .set({ 
+      quantity, 
+      lastSeenAt: new Date(),
+      updatedAt: new Date() 
+    })
+    .where(and(
+      eq(marketplaceListings.marketplace, marketplace),
+      eq(marketplaceListings.marketplaceSku, sku)
+    ));
+  
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
  * Delete a marketplace listing
  */
 export async function deleteMarketplaceListing(id: number): Promise<boolean> {
