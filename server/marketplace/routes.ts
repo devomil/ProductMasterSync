@@ -24,6 +24,58 @@ import { startWalmartListingsSync, startWalmartListingsSyncItemsOnly, runInvento
 const router = Router();
 
 /**
+ * GET /marketplace/credentials/status
+ * Get connection status for all marketplaces
+ * NOTE: This route MUST come before /credentials/:marketplace to avoid matching :marketplace = "status"
+ */
+router.get('/credentials/status', async (req, res) => {
+  try {
+    const allCredentials = await db
+      .select({
+        marketplace: marketplaceCredentials.marketplace,
+        isActive: marketplaceCredentials.isActive,
+        lastValidated: marketplaceCredentials.lastValidated,
+        validationError: marketplaceCredentials.validationError,
+      })
+      .from(marketplaceCredentials);
+    
+    const walmartCreds = allCredentials.find(c => c.marketplace === 'walmart');
+    const amazonCreds = allCredentials.find(c => c.marketplace === 'amazon');
+    
+    const walmartEnvConnected = !!(
+      process.env.WALMART_CLIENT_ID && 
+      process.env.WALMART_CLIENT_SECRET
+    );
+    
+    const amazonEnvConnected = !!(
+      process.env.AMAZON_SP_API_CLIENT_ID && 
+      process.env.AMAZON_SP_API_CLIENT_SECRET &&
+      process.env.AMAZON_SP_API_REFRESH_TOKEN
+    );
+    
+    return res.json({
+      walmart: {
+        connected: walmartCreds?.isActive ?? walmartEnvConnected,
+        lastValidated: walmartCreds?.lastValidated,
+        error: walmartCreds?.validationError,
+        source: walmartCreds?.isActive ? 'database' : (walmartEnvConnected ? 'environment' : 'none')
+      },
+      amazon: {
+        connected: amazonCreds?.isActive ?? amazonEnvConnected,
+        lastValidated: amazonCreds?.lastValidated,
+        error: amazonCreds?.validationError,
+        source: amazonCreds?.isActive ? 'database' : (amazonEnvConnected ? 'environment' : 'none')
+      },
+      newegg: { connected: false },
+      ebay: { connected: false },
+    });
+  } catch (error) {
+    console.error('Error fetching credentials status:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/credentials/:marketplace
  * Get marketplace credentials (without exposing secrets)
  */
@@ -139,44 +191,6 @@ router.delete('/credentials/:marketplace', async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting marketplace credentials:', error);
-    return res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-/**
- * GET /marketplace/credentials/status
- * Get connection status for all marketplaces
- */
-router.get('/credentials/status', async (req, res) => {
-  try {
-    const allCredentials = await db
-      .select({
-        marketplace: marketplaceCredentials.marketplace,
-        isActive: marketplaceCredentials.isActive,
-        lastValidated: marketplaceCredentials.lastValidated,
-        validationError: marketplaceCredentials.validationError,
-      })
-      .from(marketplaceCredentials);
-    
-    const walmartCreds = allCredentials.find(c => c.marketplace === 'walmart');
-    const amazonCreds = allCredentials.find(c => c.marketplace === 'amazon');
-    
-    return res.json({
-      walmart: {
-        connected: walmartCreds?.isActive ?? false,
-        lastValidated: walmartCreds?.lastValidated,
-        error: walmartCreds?.validationError,
-      },
-      amazon: {
-        connected: amazonCreds?.isActive ?? false,
-        lastValidated: amazonCreds?.lastValidated,
-        error: amazonCreds?.validationError,
-      },
-      newegg: { connected: false },
-      ebay: { connected: false },
-    });
-  } catch (error) {
-    console.error('Error fetching credentials status:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
@@ -3743,6 +3757,30 @@ router.patch('/orders/:orderId/tracking', async (req, res) => {
     return res.json(updated[0]);
   } catch (error) {
     console.error('[Orders API] Error updating tracking:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/orders/sync/walmart
+ * Sync orders from Walmart
+ */
+router.post('/orders/sync/walmart', async (req, res) => {
+  try {
+    const { daysBack = 30 } = req.body;
+    const { syncWalmartOrders } = await import('./walmart-listings-sync');
+    
+    console.log(`[Orders API] Starting Walmart orders sync for last ${daysBack} days...`);
+    
+    const result = await syncWalmartOrders(daysBack);
+    
+    return res.json({
+      success: true,
+      message: `Synced ${result.synced} new orders, updated ${result.updated} existing orders`,
+      ...result
+    });
+  } catch (error) {
+    console.error('[Orders API] Error syncing Walmart orders:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

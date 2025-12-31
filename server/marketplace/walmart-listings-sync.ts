@@ -13,7 +13,10 @@ import axios from 'axios';
 import { getWalmartConfig } from '../utils/walmart-api';
 import * as listingsRepo from './listings-repository';
 import { calculateReferralFee, getContractCategory } from './walmart-referral-fees';
-import type { InsertMarketplaceListing, InsertWalmartListingDetails } from '../../shared/schema';
+import type { InsertMarketplaceListing, InsertWalmartListingDetails, InsertMarketplaceOrder, InsertMarketplaceOrderItem } from '../../shared/schema';
+import { db } from '../db';
+import { marketplaceOrders, marketplaceOrderItems } from '../../shared/schema';
+import { eq, and } from 'drizzle-orm';
 
 let tokenCache: { access_token: string; expires_at: number } | null = null;
 
@@ -676,4 +679,337 @@ export async function runInventoryFetchOnly(): Promise<{ jobId: number }> {
   })();
 
   return { jobId };
+}
+
+/**
+ * ============================================
+ * ORDERS SYNC FUNCTIONALITY
+ * ============================================
+ */
+
+interface WalmartOrderLine {
+  lineNumber: string;
+  item: {
+    productName: string;
+    sku: string;
+  };
+  charges?: {
+    charge: {
+      chargeType: string;
+      chargeName: string;
+      chargeAmount: { currency: string; amount: number };
+    }[];
+  };
+  orderLineQuantity: {
+    unitOfMeasurement: string;
+    amount: string;
+  };
+  statusDate?: string;
+  orderLineStatuses?: {
+    orderLineStatus: {
+      status: string;
+      statusQuantity: { unitOfMeasurement: string; amount: string };
+      trackingInfo?: {
+        shipDateTime?: string;
+        carrierName?: {
+          carrier?: string;
+        };
+        trackingNumber?: string;
+      };
+    }[];
+  };
+}
+
+interface WalmartOrderResponse {
+  purchaseOrderId: string;
+  customerOrderId: string;
+  customerEmailId?: string;
+  orderType?: string;
+  orderDate: string;
+  estimatedShipDate?: string;
+  estimatedDeliveryDate?: string;
+  shippingInfo: {
+    postalAddress: {
+      name: string;
+      address1: string;
+      address2?: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
+    phone: string;
+    estimatedDeliveryDate?: string;
+    estimatedShipDate?: string;
+  };
+  orderLines: {
+    orderLine: WalmartOrderLine[];
+  };
+}
+
+interface WalmartOrdersApiResponse {
+  list?: {
+    elements?: {
+      order?: WalmartOrderResponse[];
+    };
+    meta?: {
+      totalCount?: number;
+      limit?: number;
+      nextCursor?: string;
+    };
+  };
+}
+
+/**
+ * Fetch orders from Walmart API
+ */
+async function fetchWalmartOrders(
+  createdStartDate?: string,
+  createdEndDate?: string,
+  status?: string,
+  nextCursor?: string
+): Promise<{ orders: WalmartOrderResponse[]; nextCursor?: string; totalCount?: number }> {
+  const config = await getWalmartConfig();
+  const accessToken = await getAccessToken();
+  
+  const params: Record<string, string> = {
+    limit: '200'
+  };
+  
+  if (createdStartDate) params.createdStartDate = createdStartDate;
+  if (createdEndDate) params.createdEndDate = createdEndDate;
+  if (status) params.status = status;
+  if (nextCursor) params.nextCursor = nextCursor;
+  
+  console.log(`[Walmart Orders] Fetching orders with params:`, params);
+  
+  const response = await axios.get<WalmartOrdersApiResponse>(`${config.apiUrl}/orders`, {
+    headers: {
+      'WM_SEC.ACCESS_TOKEN': accessToken,
+      'WM_SVC.NAME': config.serviceName,
+      'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    params
+  });
+  
+  const orders = response.data.list?.elements?.order || [];
+  const meta = response.data.list?.meta;
+  
+  console.log(`[Walmart Orders] Fetched ${orders.length} orders, totalCount: ${meta?.totalCount || 'N/A'}`);
+  
+  return {
+    orders,
+    nextCursor: meta?.nextCursor,
+    totalCount: meta?.totalCount
+  };
+}
+
+/**
+ * Transform Walmart order to our schema format
+ */
+function transformWalmartOrder(order: WalmartOrderResponse): {
+  order: InsertMarketplaceOrder;
+  items: Omit<InsertMarketplaceOrderItem, 'orderId'>[];
+} {
+  const orderLines = order.orderLines?.orderLine || [];
+  
+  let totalInCents = 0;
+  let overallStatus: string | null = null;
+  
+  const statusPriority: Record<string, number> = {
+    'Shipped': 1,
+    'Acknowledged': 2,
+    'Created': 3,
+    'Cancelled': 4
+  };
+  
+  let shipmentInfo: { trackingNumber?: string; carrier?: string; shippedAt?: Date } = {};
+  
+  for (const line of orderLines) {
+    if (line.charges?.charge) {
+      for (const charge of line.charges.charge) {
+        if (charge.chargeType === 'PRODUCT' && charge.chargeAmount?.amount) {
+          totalInCents += Math.round(charge.chargeAmount.amount * 100);
+        }
+      }
+    }
+    
+    if (line.orderLineStatuses?.orderLineStatus) {
+      for (const lineStatus of line.orderLineStatuses.orderLineStatus) {
+        const status = lineStatus.status;
+        const currentPriority = overallStatus ? statusPriority[overallStatus] : Infinity;
+        const newPriority = statusPriority[status] ?? Infinity;
+        
+        if (newPriority < currentPriority) {
+          overallStatus = status;
+        }
+        
+        if (lineStatus.trackingInfo) {
+          shipmentInfo.trackingNumber = lineStatus.trackingInfo.trackingNumber;
+          shipmentInfo.carrier = lineStatus.trackingInfo.carrierName?.carrier;
+          if (lineStatus.trackingInfo.shipDateTime) {
+            shipmentInfo.shippedAt = new Date(lineStatus.trackingInfo.shipDateTime);
+          }
+        }
+      }
+    }
+  }
+  
+  const statusMap: Record<string, 'pending' | 'unshipped' | 'shipped' | 'delivered' | 'cancelled' | 'on_hold'> = {
+    'Created': 'pending',
+    'Acknowledged': 'unshipped',
+    'Shipped': 'shipped',
+    'Delivered': 'delivered',
+    'Cancelled': 'cancelled'
+  };
+  
+  const mappedStatus = (overallStatus && statusMap[overallStatus]) || 'pending';
+  
+  const orderData: InsertMarketplaceOrder = {
+    marketplace: 'walmart',
+    marketplaceOrderId: order.purchaseOrderId,
+    orderNumber: order.customerOrderId,
+    status: mappedStatus,
+    orderType: order.orderType === 'REPLACEMENT' ? 'standard' : 'standard',
+    customerEmail: order.customerEmailId,
+    customerName: order.shippingInfo?.postalAddress?.name,
+    shippingTrackingNumber: shipmentInfo.trackingNumber,
+    shippingCarrier: shipmentInfo.carrier,
+    shippedAt: shipmentInfo.shippedAt,
+    orderDate: new Date(order.orderDate),
+    shipByDate: order.estimatedShipDate ? new Date(order.estimatedShipDate) : undefined,
+    promisedDeliveryDate: order.shippingInfo?.estimatedDeliveryDate ? new Date(order.shippingInfo.estimatedDeliveryDate) : undefined,
+    totalInCents,
+    currencyCode: 'USD',
+    rawData: order
+  };
+  
+  const items: Omit<InsertMarketplaceOrderItem, 'orderId'>[] = orderLines.map(line => {
+    let unitPriceInCents = 0;
+    if (line.charges?.charge) {
+      for (const charge of line.charges.charge) {
+        if (charge.chargeType === 'PRODUCT' && charge.chargeAmount?.amount) {
+          unitPriceInCents = Math.round(charge.chargeAmount.amount * 100);
+        }
+      }
+    }
+    
+    return {
+      marketplaceSku: line.item.sku,
+      title: line.item.productName,
+      quantity: parseInt(line.orderLineQuantity?.amount || '1'),
+      unitPriceInCents
+    };
+  });
+  
+  return { order: orderData, items };
+}
+
+/**
+ * Sync Walmart orders to database
+ */
+export async function syncWalmartOrders(
+  daysBack: number = 30
+): Promise<{ synced: number; updated: number; errors: number }> {
+  console.log(`[Walmart Orders] Starting orders sync for last ${daysBack} days...`);
+  
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysBack);
+  
+  const formatDate = (date: Date) => date.toISOString();
+  
+  let allOrders: WalmartOrderResponse[] = [];
+  let nextCursor: string | undefined;
+  let pageCount = 0;
+  const maxPages = 50;
+  
+  do {
+    try {
+      const result = await fetchWalmartOrders(
+        formatDate(startDate),
+        formatDate(endDate),
+        undefined,
+        nextCursor
+      );
+      
+      allOrders = allOrders.concat(result.orders);
+      nextCursor = result.nextCursor;
+      pageCount++;
+      
+      console.log(`[Walmart Orders] Page ${pageCount}: ${result.orders.length} orders, total: ${allOrders.length}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        console.log(`[Walmart Orders] No orders found for date range`);
+        break;
+      }
+      throw error;
+    }
+  } while (nextCursor && pageCount < maxPages);
+  
+  console.log(`[Walmart Orders] Fetched ${allOrders.length} total orders`);
+  
+  let synced = 0;
+  let updated = 0;
+  let errors = 0;
+  
+  for (const walmartOrder of allOrders) {
+    try {
+      const { order: orderData, items } = transformWalmartOrder(walmartOrder);
+      
+      const existing = await db
+        .select()
+        .from(marketplaceOrders)
+        .where(
+          and(
+            eq(marketplaceOrders.marketplace, 'walmart'),
+            eq(marketplaceOrders.marketplaceOrderId, walmartOrder.purchaseOrderId)
+          )
+        )
+        .limit(1);
+      
+      if (existing.length > 0) {
+        await db
+          .update(marketplaceOrders)
+          .set({
+            ...orderData,
+            lastSyncedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(marketplaceOrders.id, existing[0].id));
+        updated++;
+      } else {
+        const [insertedOrder] = await db
+          .insert(marketplaceOrders)
+          .values({
+            ...orderData,
+            lastSyncedAt: new Date()
+          })
+          .returning({ id: marketplaceOrders.id });
+        
+        if (items.length > 0) {
+          await db.insert(marketplaceOrderItems).values(
+            items.map(item => ({
+              ...item,
+              orderId: insertedOrder.id
+            }))
+          );
+        }
+        synced++;
+      }
+      
+    } catch (error) {
+      console.error(`[Walmart Orders] Error syncing order ${walmartOrder.purchaseOrderId}:`, error);
+      errors++;
+    }
+  }
+  
+  console.log(`[Walmart Orders] ✅ Sync complete - New: ${synced}, Updated: ${updated}, Errors: ${errors}`);
+  
+  return { synced, updated, errors };
 }
