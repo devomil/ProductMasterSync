@@ -11,6 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   RefreshCw,
   Loader2,
   Package,
@@ -19,6 +25,11 @@ import {
   X,
   CheckCircle,
   AlertTriangle,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Truck,
+  AlertCircle,
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 
@@ -63,9 +74,59 @@ interface QuickFilter {
   count?: number;
 }
 
+interface SupplierOption {
+  source: string;
+  supplierName: string;
+  costInCents: number;
+  referralFeeInCents: number;
+  profitInCents: number;
+  marginPercentage: number;
+  inStock: boolean;
+  leadTime?: string | null;
+}
+
+interface OrderItem {
+  id: number;
+  orderId: number;
+  marketplaceSku: string;
+  title: string | null;
+  quantity: number;
+  unitPriceInCents: number | null;
+  productType: string | null;
+  category: string | null;
+  contractCategory: string | null;
+  referralFeeInCents: number;
+  referralFeePercentage: number;
+  upc: string | null;
+  costInCents: number | null;
+  supplierOptions: SupplierOption[];
+  profitability: {
+    bestOption: SupplierOption;
+    hasMultipleSuppliers: boolean;
+  } | null;
+}
+
+interface OrderProfitability {
+  totalRevenue: number;
+  totalCost: number;
+  totalReferralFees: number;
+  totalProfit: number;
+  marginPercentage: number;
+  hasMissingCosts: boolean;
+}
+
+interface OrderDetails extends Order {
+  items: OrderItem[];
+  profitability: OrderProfitability;
+  availableSuppliers: { id: number; name: string; code: string }[];
+  shippingAddress?: string;
+  currencyCode?: string;
+}
+
 export default function ManageOrders() {
   const [statusTab, setStatusTab] = useState<string>('all');
   const [activeQuickFilters, setActiveQuickFilters] = useState<string[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   
   const [needsAttention, setNeedsAttention] = useState<string>('all');
   const [shipByDate, setShipByDate] = useState<string>('all');
@@ -129,6 +190,17 @@ export default function ManageOrders() {
     queryKey: ['/api/marketplace/credentials/status'],
   });
 
+  // Fetch order details when an order is selected
+  const { data: orderDetails, isLoading: isLoadingDetails } = useQuery<OrderDetails>({
+    queryKey: ['/api/marketplace/orders', selectedOrderId],
+    queryFn: async () => {
+      const response = await fetch(`/api/marketplace/orders/${selectedOrderId}`);
+      if (!response.ok) throw new Error('Failed to fetch order details');
+      return response.json();
+    },
+    enabled: !!selectedOrderId,
+  });
+
   const quickFilters: QuickFilter[] = [
     { id: 'ship_today', label: 'Ship by today', count: 0 },
     { id: 'premium_unshipped', label: 'Premium unshipped', count: 0 },
@@ -179,6 +251,18 @@ export default function ManageOrders() {
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatCurrency = (cents: number | null | undefined) => {
+    if (cents === null || cents === undefined) return '-';
+    return `$${(cents / 100).toFixed(2)}`;
+  };
+
+  const getProfitColor = (margin: number) => {
+    if (margin >= 20) return 'text-green-600';
+    if (margin >= 10) return 'text-yellow-600';
+    if (margin > 0) return 'text-orange-600';
+    return 'text-red-600';
   };
 
   return (
@@ -554,11 +638,16 @@ export default function ManageOrders() {
                   </TableHeader>
                   <TableBody>
                     {ordersData.orders.map(order => (
-                      <TableRow key={order.id}>
-                        <TableCell>
+                      <TableRow 
+                        key={order.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setSelectedOrderId(order.id)}
+                        data-testid={`row-order-${order.id}`}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox data-testid={`checkbox-order-${order.id}`} />
                         </TableCell>
-                        <TableCell className="font-medium" data-testid={`text-order-${order.id}`}>
+                        <TableCell className="font-medium text-blue-600 hover:underline" data-testid={`text-order-${order.id}`}>
                           {order.orderNumber}
                         </TableCell>
                         <TableCell>
@@ -609,6 +698,214 @@ export default function ManageOrders() {
           </div>
         </div>
       </div>
+
+      {/* Order Details Dialog */}
+      <Dialog open={!!selectedOrderId} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {orderDetails?.marketplace === 'walmart' && <SiWalmart className="h-5 w-5" />}
+              {orderDetails?.marketplace === 'amazon' && <SiAmazon className="h-5 w-5" />}
+              Order #{orderDetails?.orderNumber}
+              <Badge className={statusBadgeColor(orderDetails?.status || '')}>
+                {orderDetails?.status}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {isLoadingDetails ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : orderDetails ? (
+            <div className="space-y-6">
+              {/* Order Summary */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-muted-foreground">Customer</div>
+                    <div className="font-medium">{orderDetails.customerName || 'N/A'}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-muted-foreground">Order Date</div>
+                    <div className="font-medium">{new Date(orderDetails.orderDate).toLocaleDateString()}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-muted-foreground">Ship By</div>
+                    <div className="font-medium">{orderDetails.shipByDate ? new Date(orderDetails.shipByDate).toLocaleDateString() : '-'}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Profitability Summary */}
+              <Card className="border-2 border-blue-200">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    Order Profitability
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-5 gap-4">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Revenue</div>
+                      <div className="text-lg font-semibold">{formatCurrency(orderDetails.profitability.totalRevenue)}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Cost</div>
+                      <div className="text-lg font-semibold">
+                        {orderDetails.profitability.hasMissingCosts ? (
+                          <span className="text-yellow-600 flex items-center gap-1">
+                            <AlertCircle className="h-4 w-4" />
+                            Incomplete
+                          </span>
+                        ) : formatCurrency(orderDetails.profitability.totalCost)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Referral Fees</div>
+                      <div className="text-lg font-semibold text-orange-600">{formatCurrency(orderDetails.profitability.totalReferralFees)}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Profit</div>
+                      <div className={`text-lg font-semibold ${getProfitColor(orderDetails.profitability.marginPercentage)}`}>
+                        {orderDetails.profitability.hasMissingCosts ? '-' : formatCurrency(orderDetails.profitability.totalProfit)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Margin</div>
+                      <div className={`text-lg font-semibold flex items-center gap-1 ${getProfitColor(orderDetails.profitability.marginPercentage)}`}>
+                        {orderDetails.profitability.hasMissingCosts ? (
+                          '-'
+                        ) : (
+                          <>
+                            {orderDetails.profitability.marginPercentage >= 0 ? (
+                              <TrendingUp className="h-4 w-4" />
+                            ) : (
+                              <TrendingDown className="h-4 w-4" />
+                            )}
+                            {orderDetails.profitability.marginPercentage}%
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {orderDetails.profitability.hasMissingCosts && (
+                    <div className="mt-3 p-2 bg-yellow-50 rounded-md text-sm text-yellow-800 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Some items are missing supplier cost data. Profitability calculation may be incomplete.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Order Items */}
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Order Items ({orderDetails.items.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="max-w-xs">Product</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Cost</TableHead>
+                        <TableHead>Fee</TableHead>
+                        <TableHead>Profit</TableHead>
+                        <TableHead>Supplier</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderDetails.items.map(item => {
+                        const profit = item.profitability?.bestOption;
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-mono text-sm">{item.marketplaceSku}</TableCell>
+                            <TableCell className="max-w-xs">
+                              <div className="truncate" title={item.title || ''}>
+                                {item.title || 'Unknown Product'}
+                              </div>
+                              {item.contractCategory && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {item.contractCategory} ({item.referralFeePercentage.toFixed(1)}%)
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell>{formatCurrency(item.unitPriceInCents)}</TableCell>
+                            <TableCell>
+                              {item.costInCents !== null ? (
+                                formatCurrency(item.costInCents)
+                              ) : (
+                                <span className="text-yellow-600 flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  N/A
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-orange-600">
+                              {formatCurrency(item.referralFeeInCents)}
+                            </TableCell>
+                            <TableCell>
+                              {profit ? (
+                                <div className={getProfitColor(profit.marginPercentage)}>
+                                  {formatCurrency(profit.profitInCents)}
+                                  <span className="text-xs ml-1">({profit.marginPercentage}%)</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {item.supplierOptions.length > 0 ? (
+                                <Select defaultValue={item.supplierOptions[0].supplierName}>
+                                  <SelectTrigger className="h-8 text-xs w-32" data-testid={`select-supplier-${item.id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {item.supplierOptions.map((supplier, idx) => (
+                                      <SelectItem key={idx} value={supplier.supplierName}>
+                                        {supplier.supplierName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">No suppliers</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setSelectedOrderId(null)} data-testid="button-close-details">
+                  Close
+                </Button>
+                <Button variant="default" className="flex items-center gap-2" data-testid="button-fulfill-order">
+                  <Truck className="h-4 w-4" />
+                  Fulfill Order
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

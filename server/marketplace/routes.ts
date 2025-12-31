@@ -3691,14 +3691,15 @@ router.get('/orders', async (req, res) => {
 
 /**
  * GET /marketplace/orders/:orderId
- * Get a single order by ID with line items
+ * Get a single order by ID with line items, supplier costs, and profitability analysis
  */
 router.get('/orders/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
     const { db } = await import('../db');
-    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
-    const { eq } = await import('drizzle-orm');
+    const { marketplaceOrders, marketplaceOrderItems, marketplaceListings, flxpointVariants, suppliers } = await import('@shared/schema');
+    const { eq, inArray, or, sql: sqlOp } = await import('drizzle-orm');
+    const { calculateReferralFee } = await import('./walmart-referral-fees');
 
     const order = await db
       .select()
@@ -3715,9 +3716,136 @@ router.get('/orders/:orderId', async (req, res) => {
       .from(marketplaceOrderItems)
       .where(eq(marketplaceOrderItems.orderId, parseInt(orderId)));
 
+    // Get marketplace listing data for each item (for product type, referral fees, etc.)
+    const skus = items.map(item => item.marketplaceSku).filter(sku => sku);
+    
+    let listings: any[] = [];
+    if (skus.length > 0) {
+      try {
+        listings = await db
+          .select({
+            marketplaceSku: marketplaceListings.marketplaceSku,
+            productType: marketplaceListings.productType,
+            category: marketplaceListings.category,
+            categoryPath: marketplaceListings.categoryPath,
+            contractCategory: marketplaceListings.contractCategory,
+            referralFeeInCents: marketplaceListings.referralFeeInCents,
+            priceInCents: marketplaceListings.priceInCents,
+            upc: marketplaceListings.upc,
+          })
+          .from(marketplaceListings)
+          .where(inArray(marketplaceListings.marketplaceSku, skus));
+      } catch (e) {
+        console.log('[Orders API] No listings found for SKUs:', skus);
+      }
+    }
+
+    // Get supplier cost data from flxpoint_variants (check both parentSku and sourceSku)
+    let variants: any[] = [];
+    if (skus.length > 0) {
+      try {
+        variants = await db
+          .select({
+            parentSku: flxpointVariants.parentSku,
+            sourceSku: flxpointVariants.sourceSku,
+            wmCommissionRate: flxpointVariants.wmCommissionRate,
+            wmBuyboxPrice: flxpointVariants.wmBuyboxPrice,
+            flxpointData: flxpointVariants.flxpointData,
+          })
+          .from(flxpointVariants)
+          .where(or(
+            inArray(flxpointVariants.parentSku, skus),
+            inArray(flxpointVariants.sourceSku, skus)
+          ));
+      } catch (e) {
+        console.log('[Orders API] No variants found for SKUs:', skus);
+      }
+    }
+
+    // Get all suppliers for display
+    const allSuppliers = await db.select({ id: suppliers.id, name: suppliers.name, code: suppliers.code }).from(suppliers).where(eq(suppliers.active, true));
+
+    // Build enriched items with supplier costs and profitability
+    const enrichedItems = items.map(item => {
+      const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku);
+      const variant = variants.find(v => v.parentSku === item.marketplaceSku || v.sourceSku === item.marketplaceSku);
+      
+      // Get cost from flxpoint data
+      const flxData = variant?.flxpointData as Record<string, any> | null;
+      const costFromFlx = flxData?.cost ? parseFloat(flxData.cost) : null;
+      const costInCents = costFromFlx ? Math.round(costFromFlx * 100) : null;
+      
+      // Calculate referral fee for Walmart
+      let referralFeeInCents = listing?.referralFeeInCents || 0;
+      let referralFeePercentage = 0;
+      let contractCategory = listing?.contractCategory || null;
+      
+      if (order[0].marketplace === 'walmart' && item.unitPriceInCents) {
+        const categoryPath = listing?.categoryPath as string[] | null;
+        const feeResult = calculateReferralFee(item.unitPriceInCents, categoryPath, listing?.productType);
+        referralFeeInCents = feeResult.feeInCents;
+        referralFeePercentage = feeResult.feePercentageEffective;
+        contractCategory = feeResult.contractCategoryName;
+      }
+
+      // Build supplier options with profitability
+      const supplierOptions = [];
+      
+      // Add the known cost from Flxpoint if available
+      if (costInCents !== null) {
+        const revenue = item.unitPriceInCents || 0;
+        const profit = revenue - costInCents - referralFeeInCents;
+        const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+        
+        supplierOptions.push({
+          source: 'flxpoint',
+          supplierName: flxData?.supplierName || 'Primary Supplier',
+          costInCents,
+          referralFeeInCents,
+          profitInCents: profit,
+          marginPercentage: margin,
+          inStock: true, // Assuming in stock if in Flxpoint
+          leadTime: flxData?.leadTime || null,
+        });
+      }
+
+      return {
+        ...item,
+        productType: listing?.productType || null,
+        category: listing?.category || null,
+        contractCategory,
+        referralFeeInCents,
+        referralFeePercentage,
+        upc: listing?.upc || null,
+        costInCents,
+        supplierOptions,
+        profitability: supplierOptions.length > 0 ? {
+          bestOption: supplierOptions[0],
+          hasMultipleSuppliers: supplierOptions.length > 1,
+        } : null,
+      };
+    });
+
+    // Calculate order-level totals
+    const orderProfitability = {
+      totalRevenue: enrichedItems.reduce((sum, item) => sum + ((item.unitPriceInCents || 0) * (item.quantity || 1)), 0),
+      totalCost: enrichedItems.reduce((sum, item) => sum + ((item.costInCents || 0) * (item.quantity || 1)), 0),
+      totalReferralFees: enrichedItems.reduce((sum, item) => sum + ((item.referralFeeInCents || 0) * (item.quantity || 1)), 0),
+      totalProfit: 0,
+      marginPercentage: 0,
+      hasMissingCosts: enrichedItems.some(item => item.costInCents === null),
+    };
+    
+    orderProfitability.totalProfit = orderProfitability.totalRevenue - orderProfitability.totalCost - orderProfitability.totalReferralFees;
+    orderProfitability.marginPercentage = orderProfitability.totalRevenue > 0 
+      ? Math.round((orderProfitability.totalProfit / orderProfitability.totalRevenue) * 100) 
+      : 0;
+
     return res.json({
       ...order[0],
-      items
+      items: enrichedItems,
+      profitability: orderProfitability,
+      availableSuppliers: allSuppliers,
     });
   } catch (error) {
     console.error('[Orders API] Error fetching order:', error);
