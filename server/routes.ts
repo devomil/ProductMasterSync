@@ -1995,11 +1995,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Data source not found" });
       }
 
-      console.log(`[SFTP DEBUG] Data source type: ${dataSource.type}, has config: ${!!dataSource.config}`);
+      console.log(`[Sample Data] Data source type: ${dataSource.type}, has config: ${!!dataSource.config}`);
       
-      // Pull real data from SFTP using ssh2-sftp-client
       const config = dataSource.config as any;
       
+      // Handle API data sources (like Flxpoint)
+      if (dataSource.type === 'api') {
+        try {
+          console.log('[Sample Data] Pulling sample data from API source');
+          
+          // Get API token from config or environment
+          const apiToken = config?.api_token || config?.token || config?.apiToken || process.env.FLXPOINT_API_TOKEN;
+          const apiType = config?.api_type || config?.apiType || 'flxpoint';
+          
+          if (apiType === 'flxpoint' || !apiType) {
+            if (!apiToken) {
+              return res.status(400).json({ 
+                error: "Flxpoint API token not configured",
+                message: "Please set the API token in the data source configuration or FLXPOINT_API_TOKEN environment variable"
+              });
+            }
+            
+            const { FlxpointClient } = await import('./marketplace/flxpoint-client');
+            const flxpointClient = new FlxpointClient(apiToken);
+            
+            // Pull product variants from Flxpoint
+            const response = await flxpointClient.getListingParents(1, Math.min(requestedLimit, 50));
+            
+            if (!response.data || response.data.length === 0) {
+              return res.status(400).json({ 
+                error: "No product variants found in Flxpoint catalog"
+              });
+            }
+            
+            // Transform the Flxpoint data to a flat structure for field mapping
+            const sampleData = response.data.slice(0, requestedLimit).map((variant: any) => ({
+              sku: variant.sku || '',
+              parent_sku: variant.parent_sku || variant.parentSku || '',
+              source_sku: variant.source_sku || variant.sourceSku || '',
+              title: variant.title || variant.name || '',
+              description: variant.description || '',
+              brand: variant.brand || '',
+              upc: variant.upc || '',
+              asin: variant.asin || '',
+              walmart_id: variant.walmart_id || variant.walmartId || '',
+              cost: variant.cost || 0,
+              price: variant.price || 0,
+              map_price: variant.map_price || variant.mapPrice || 0,
+              msrp: variant.msrp || 0,
+              quantity: variant.quantity || 0,
+              weight: variant.weight || 0,
+              weight_unit: typeof variant.weight_unit === 'object' ? variant.weight_unit?.abbreviatedHandle : (variant.weight_unit || 'lb'),
+              length: variant.length || 0,
+              width: variant.width || 0,
+              height: variant.height || 0,
+              category: variant.category || '',
+              product_type: variant.product_type || variant.productType || '',
+              mpn: variant.mpn || variant.manufacturerPartNumber || '',
+              ean: variant.ean || '',
+              estimated_shipping_cost: variant.estimatedShippingCost || 0,
+            }));
+            
+            console.log(`[Sample Data] Retrieved ${sampleData.length} variants from Flxpoint API`);
+            console.log('[Sample Data] Sample field names:', Object.keys(sampleData[0] || {}));
+            
+            // Calculate total records - use meta if available, otherwise use sample length
+            const totalRecords = response.meta?.total_count > 0 
+              ? response.meta.total_count 
+              : sampleData.length;
+            
+            res.json({ 
+              success: true, 
+              data: sampleData,
+              totalRecords: totalRecords,
+              source: 'flxpoint_api'
+            });
+            return;
+          }
+          
+          return res.status(400).json({ 
+            error: `API type '${apiType}' is not supported`,
+            message: "Supported API types: flxpoint"
+          });
+          
+        } catch (apiError) {
+          console.error("[Sample Data] API pull failed:", apiError);
+          return res.status(500).json({ 
+            error: "Failed to pull sample data from API",
+            details: apiError instanceof Error ? apiError.message : "Unknown error"
+          });
+        }
+      }
+      
+      // Pull real data from SFTP using ssh2-sftp-client
       if (dataSource.type === 'sftp' && config?.host && config?.username) {
         try {
           const SftpClient = (await import('ssh2-sftp-client')).default;
