@@ -151,7 +151,7 @@ export default function ProductDetails() {
 
   // Fetch actual supplier data for this product
   const { data: supplierResponse } = useQuery({
-    queryKey: ['/api/products', id, 'suppliers'],
+    queryKey: [`/api/products/${id}/suppliers`],
     enabled: !!id,
   }) as { data: { suppliers: any[] } };
 
