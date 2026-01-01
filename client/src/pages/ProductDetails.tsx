@@ -91,65 +91,47 @@ const calculateShippingCost = async (supplierId: number, cost: number, weight: n
   }
 };
 
-// Authentic vendor stock data from CWR supplier information
-const getVendorStockData = (product: any, inventoryData?: any, shippingCosts?: any) => {
+// Build vendor stock data from actual supplier links
+const getVendorStockData = (product: any, supplierData?: any[], inventoryData?: any, shippingCosts?: any) => {
   if (!product) return [];
   
   const vendors = [];
   
-  // Primary CWR supplier with authentic pricing data
-  if (product.cost || product.price) {
-    // Calculate combined warehouse quantity from FL and NJ
-    let combinedQuantity = 0;
-    if (inventoryData?.warehouses) {
-      combinedQuantity = inventoryData.warehouses.reduce((total: number, warehouse: any) => {
-        return total + (warehouse.quantity || 0);
-      }, 0);
-    }
-    
-    // Determine stock status and ETA
-    let stockDisplay;
-    if (combinedQuantity > 0) {
-      stockDisplay = combinedQuantity;
-    } else {
-      // Check for Next Shipment Date for ETA
-      const nextShipmentDate = product.nextShipmentDateCombined || product.nextShipmentDate;
-      if (nextShipmentDate && nextShipmentDate.toLowerCase() !== 'pending') {
-        stockDisplay = `Out of Stock - ETA: ${nextShipmentDate}`;
-      } else {
-        stockDisplay = "Out of Stock - ETA: Pending";
+  // Use actual supplier data if available
+  if (supplierData && supplierData.length > 0) {
+    for (const supplier of supplierData) {
+      // Calculate quantity from inventory data if available
+      let quantity = supplier.quantity || product.inventoryQuantity || 0;
+      if (inventoryData?.warehouses) {
+        quantity = inventoryData.warehouses.reduce((total: number, warehouse: any) => {
+          return total + (warehouse.quantity || 0);
+        }, 0);
       }
+      
+      // Determine stock display
+      let stockDisplay;
+      if (quantity > 0) {
+        stockDisplay = quantity;
+      } else {
+        const nextShipmentDate = product.nextShipmentDateCombined || product.nextShipmentDate;
+        if (nextShipmentDate && nextShipmentDate.toLowerCase() !== 'pending') {
+          stockDisplay = `Out of Stock - ETA: ${nextShipmentDate}`;
+        } else {
+          stockDisplay = "Out of Stock";
+        }
+      }
+      
+      vendors.push({
+        name: supplier.name,
+        stock: "Live Inventory",
+        cost: supplier.cost || parseFloat(product.cost) || 0,
+        quantity: stockDisplay,
+        type: supplier.isPrimary ? "primary" : "secondary",
+        shippingCost: shippingCosts?.[supplier.name] || null,
+        supplierSku: supplier.supplierSku
+      });
     }
-    
-    vendors.push({
-      name: "CWR",
-      stock: "Live Inventory",
-      cost: parseFloat(product.cost) || 0,
-      quantity: stockDisplay,
-      type: "authentic",
-      shippingCost: shippingCosts?.CWR || null
-    });
   }
-  
-  if (product.manufacturerName && product.manufacturerName !== "CWR") {
-    vendors.push({
-      name: "Ingram Micro",
-      stock: `cost ${parseFloat(product.cost * 1.1).toFixed(2)}`,
-      cost: parseFloat(product.cost * 1.1),
-      quantity: 8,
-      type: "cost",
-      shippingCost: 0 // Free shipping for Ingram Micro
-    });
-  }
-  
-  vendors.push({
-    name: "TD/Synnex",
-    stock: "Free Shipping",
-    cost: 0,
-    quantity: 29,
-    type: "shipping",
-    shippingCost: 0 // Free shipping for TD/Synnex
-  });
   
   return vendors;
 };
@@ -166,6 +148,12 @@ export default function ProductDetails() {
     queryKey: [`/api/inventory/${product?.sku}`],
     enabled: !!product?.sku,
   }) as { data: any };
+
+  // Fetch actual supplier data for this product
+  const { data: supplierResponse } = useQuery({
+    queryKey: ['/api/products', id, 'suppliers'],
+    enabled: !!id,
+  }) as { data: { suppliers: any[] } };
 
   // Fetch shipping templates for suppliers
   const { data: shippingTemplates } = useQuery({
@@ -215,7 +203,8 @@ export default function ProductDetails() {
   const { mappingTemplates, isLoading: templatesLoading } = useMappingTemplates();
   const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
   
-  const vendorStockData = getVendorStockData(product, inventoryData, shippingCosts);
+  // Use actual supplier data from API
+  const vendorStockData = getVendorStockData(product, supplierResponse?.suppliers, inventoryData, shippingCosts);
   
   // Helper function to get product field value with proper mapping
   const getProductFieldValue = (fieldName: string): string => {
@@ -1010,15 +999,9 @@ export default function ProductDetails() {
                         
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="text-sm text-gray-600 space-y-1">
-                            {/* Show supplier-specific part number based on vendor */}
-                            {vendor.name === 'CWR' && product.usin && (
-                              <div><strong>Supplier Part Number:</strong> {product.usin}</div>
-                            )}
-                            {vendor.name === 'Ingram Micro' && product.ingramPartNumber && (
-                              <div><strong>Ingram Part Number:</strong> {product.ingramPartNumber}</div>
-                            )}
-                            {vendor.name === 'TD/Synnex' && product.synnexPartNumber && (
-                              <div><strong>TD/Synnex Part Number:</strong> {product.synnexPartNumber}</div>
+                            {/* Show supplier-specific part number from actual data */}
+                            {vendor.supplierSku && (
+                              <div><strong>Supplier Part Number:</strong> {vendor.supplierSku}</div>
                             )}
                             
                             {/* Always show these for the primary supplier (first card) */}

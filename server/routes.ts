@@ -1342,6 +1342,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get actual supplier data for a product from productSuppliers table
+  app.get("/api/products/:id/suppliers", async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      
+      // Get the product
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
+      // Get linked suppliers from productSuppliers table
+      const supplierLinks = await db
+        .select({
+          id: productSuppliers.id,
+          supplierId: productSuppliers.supplierId,
+          supplierSku: productSuppliers.supplierSku,
+          isPrimary: productSuppliers.isPrimary,
+          confidence: productSuppliers.confidence,
+          supplierName: suppliers.name,
+          supplierCode: suppliers.code,
+        })
+        .from(productSuppliers)
+        .leftJoin(suppliers, eq(suppliers.id, productSuppliers.supplierId))
+        .where(eq(productSuppliers.productId, productId));
+      
+      // Build response with actual supplier data
+      const supplierData = supplierLinks.map(link => ({
+        supplierId: link.supplierId,
+        name: link.supplierName || 'Unknown Supplier',
+        code: link.supplierCode,
+        supplierSku: link.supplierSku,
+        isPrimary: link.isPrimary,
+        confidence: link.confidence,
+        cost: product.cost ? parseFloat(product.cost as string) : null,
+        quantity: product.inventoryQuantity || 0,
+        type: link.isPrimary ? 'primary' : 'secondary'
+      }));
+      
+      res.json({
+        success: true,
+        productId,
+        suppliers: supplierData
+      });
+      
+    } catch (error) {
+      console.error('Error fetching product suppliers:', error);
+      handleError(res, error);
+    }
+  });
+
   // Product-centric Amazon data read model for detail pages
   app.get("/api/products/:id/amazon-data", async (req, res) => {
     try {
