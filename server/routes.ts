@@ -2054,6 +2054,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               mpn: variant.mpn || variant.manufacturerPartNumber || '',
               ean: variant.ean || '',
               estimated_shipping_cost: variant.estimatedShippingCost || 0,
+              images: Array.isArray(variant.images) ? variant.images.join('|') : (variant.images || ''),
+              image_url: Array.isArray(variant.images) && variant.images.length > 0 ? variant.images[0] : (variant.image_url || variant.imageUrl || ''),
             }));
             
             console.log(`[Sample Data] Retrieved ${sampleData.length} variants from Flxpoint API`);
