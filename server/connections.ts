@@ -683,10 +683,15 @@ export const pullSampleData = async (req: Request, res: Response) => {
         break;
       
       case 'api':
-        result = {
-          success: false,
-          message: 'API sample data pull not implemented yet'
-        };
+        try {
+          result = await pullSampleDataFromAPI(credentials, supplier_id, limit);
+        } catch (apiError) {
+          console.error('API sample data pull error:', apiError);
+          result = {
+            success: false,
+            message: `API error: ${apiError instanceof Error ? apiError.message : 'Unknown API error'}`
+          };
+        }
         break;
       
       default:
@@ -1382,6 +1387,121 @@ const pullSampleDataFromFTP = async (
       secure: credentials.secure || false
     });
   });
+};
+
+// Helper function to pull sample data from API connection (e.g., Flxpoint)
+const pullSampleDataFromAPI = async (
+  credentials: any, 
+  supplierId: number,
+  limit: number = 50
+): Promise<{ 
+  success: boolean, 
+  message: string, 
+  data?: any[],
+  filename?: string,
+  fileType?: string,
+  total_records?: number
+}> => {
+  console.log('[API Pull] Starting API sample data pull for supplier:', supplierId);
+  console.log('[API Pull] Credentials structure:', Object.keys(credentials || {}));
+  
+  // Check if this is a Flxpoint API connection
+  const apiType = credentials?.api_type || credentials?.apiType || 'flxpoint';
+  
+  if (apiType === 'flxpoint' || !apiType) {
+    // Get API token from credentials first, then fall back to environment variable
+    const apiToken = credentials?.api_token || credentials?.token || credentials?.apiToken || process.env.FLXPOINT_API_TOKEN;
+    
+    if (!apiToken) {
+      return {
+        success: false,
+        message: 'Flxpoint API token not provided. Please enter your API token in the connection setup or set FLXPOINT_API_TOKEN in environment secrets.'
+      };
+    }
+    
+    // Import FlxpointClient class directly to use with custom token
+    const { FlxpointClient } = await import('./marketplace/flxpoint-client');
+    const flxpointClient = new FlxpointClient(apiToken);
+    
+    try {
+      // First test the connection
+      const testResult = await flxpointClient.testConnection();
+      if (!testResult.success) {
+        return {
+          success: false,
+          message: `Flxpoint connection failed: ${testResult.message}`
+        };
+      }
+      
+      // Pull sample product variants
+      console.log('[API Pull] Fetching product variants from Flxpoint...');
+      const response = await flxpointClient.getListingParents(1, Math.min(limit, 50));
+      
+      if (!response.data || response.data.length === 0) {
+        return {
+          success: false,
+          message: 'No product variants found in Flxpoint catalog'
+        };
+      }
+      
+      // Transform the Flxpoint data to a flat structure for field mapping
+      const sampleData = response.data.slice(0, limit).map((variant: any) => {
+        // Flatten the variant data for easy field mapping
+        return {
+          sku: variant.sku || '',
+          parent_sku: variant.parent_sku || variant.parentSku || '',
+          source_sku: variant.source_sku || variant.sourceSku || '',
+          title: variant.title || variant.name || '',
+          description: variant.description || '',
+          brand: variant.brand || '',
+          upc: variant.upc || '',
+          asin: variant.asin || '',
+          walmart_id: variant.walmart_id || variant.walmartId || '',
+          cost: variant.cost || 0,
+          price: variant.price || 0,
+          map_price: variant.map_price || variant.mapPrice || 0,
+          quantity: variant.quantity || 0,
+          weight: variant.weight || 0,
+          weight_unit: variant.weight_unit || variant.weightUnit || 'lb',
+          category: variant.category || '',
+          product_type: variant.product_type || variant.productType || '',
+          manufacturer: variant.manufacturer || variant.brand || '',
+          mpn: variant.mpn || variant.manufacturerPartNumber || '',
+          // Include any custom fields
+          ...Object.fromEntries(
+            Object.entries(variant)
+              .filter(([key]) => !['sku', 'parent_sku', 'source_sku', 'title', 'description', 
+                'brand', 'upc', 'asin', 'walmart_id', 'cost', 'price', 'map_price', 
+                'quantity', 'weight', 'weight_unit', 'category', 'product_type'].includes(key))
+              .map(([key, value]) => [`flx_${key}`, value])
+          )
+        };
+      });
+      
+      console.log(`[API Pull] Successfully retrieved ${sampleData.length} variants from Flxpoint`);
+      
+      return {
+        success: true,
+        message: `Retrieved ${sampleData.length} product variants from Flxpoint`,
+        data: sampleData,
+        filename: 'flxpoint_products.json',
+        fileType: 'json',
+        total_records: response.meta?.total_count || sampleData.length
+      };
+    } catch (error: any) {
+      console.error('[API Pull] Flxpoint API error:', error);
+      return {
+        success: false,
+        message: `Flxpoint API error: ${error.message || 'Unknown error'}`
+      };
+    }
+  }
+  
+  // For other API types, return not implemented
+  return {
+    success: false,
+    message: `API type '${apiType}' is not supported. Supported types: flxpoint`
+  };
 };
 
 // Sync inventory for a specific data source
