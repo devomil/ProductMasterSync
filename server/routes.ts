@@ -3132,6 +3132,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('First inserted product result:', JSON.stringify(insertedProduct, null, 2));
             console.log('Inserted image_url:', insertedProduct.image_url);
           }
+          
+          // Link product to supplier via productSuppliers table
+          if (supplierId && insertedProduct.id) {
+            try {
+              await db
+                .insert(productSuppliers)
+                .values({
+                  productId: insertedProduct.id,
+                  supplierId: supplierId,
+                  supplierSku: product.usin || product.sku || insertedProduct.sku,
+                  isPrimary: true,
+                  confidence: 100,
+                  supplierAttributes: {}
+                })
+                .onConflictDoNothing();
+              
+              if (i === 0) {
+                console.log(`Linked product ${insertedProduct.id} to supplier ${supplierId}`);
+              }
+            } catch (linkError) {
+              console.error(`Error linking product to supplier:`, linkError);
+            }
+          }
             
           insertedProducts.push(insertedProduct);
         } catch (error) {
