@@ -2641,10 +2641,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Mappings is null?:', mappingTemplate.mappings === null);
       console.log('Mappings is undefined?:', mappingTemplate.mappings === undefined);
       
-      // Pull sample data from the data source - inline SFTP logic instead of HTTP request
+      // Pull sample data from the data source
       let sampleResult: any = { success: false, data: [] };
       
-      const sftpConfig = dataSource.config as any;
+      const config = dataSource.config as any;
+      
+      // Handle API data sources (like Flxpoint)
+      if (dataSource.type === 'api') {
+        try {
+          console.log('[Sample Pull] Pulling data from API source');
+          
+          const apiToken = config?.api_token || config?.token || config?.apiToken || config?.api_key || process.env.FLXPOINT_API_TOKEN;
+          const apiType = config?.api_type || config?.apiType || 'flxpoint';
+          
+          if (apiType === 'flxpoint' || !apiType) {
+            if (!apiToken) {
+              return res.status(400).json({ 
+                success: false,
+                message: "Flxpoint API token not configured"
+              });
+            }
+            
+            const { FlxpointClient } = await import('./marketplace/flxpoint-client');
+            const flxpointClient = new FlxpointClient(apiToken);
+            
+            const response = await flxpointClient.getListingParents(1, Math.min(limit, 100));
+            
+            if (!response.data || response.data.length === 0) {
+              return res.status(400).json({ 
+                success: false,
+                message: "No product variants found in Flxpoint catalog"
+              });
+            }
+            
+            // Transform Flxpoint data to flat structure
+            const transformedData = response.data.slice(0, limit).map((variant: any) => ({
+              sku: variant.sku || '',
+              parent_sku: variant.parent_sku || variant.parentSku || '',
+              source_sku: variant.source_sku || variant.sourceSku || '',
+              title: variant.title || variant.name || '',
+              description: variant.description || '',
+              brand: variant.brand || '',
+              upc: variant.upc || '',
+              asin: variant.asin || '',
+              walmart_id: variant.walmart_id || variant.walmartId || '',
+              cost: variant.cost || 0,
+              price: variant.price || 0,
+              map_price: variant.map_price || variant.mapPrice || 0,
+              msrp: variant.msrp || 0,
+              quantity: variant.quantity || 0,
+              weight: variant.weight || 0,
+              weight_unit: typeof variant.weight_unit === 'object' ? variant.weight_unit?.abbreviatedHandle : (variant.weight_unit || 'lb'),
+              length: variant.length || 0,
+              width: variant.width || 0,
+              height: variant.height || 0,
+              category: variant.category || '',
+              product_type: variant.product_type || variant.productType || '',
+              mpn: variant.mpn || variant.manufacturerPartNumber || '',
+              ean: variant.ean || '',
+              estimated_shipping_cost: variant.estimatedShippingCost || 0,
+              images: Array.isArray(variant.images) ? variant.images.join('|') : (variant.images || ''),
+              image_url: Array.isArray(variant.images) && variant.images.length > 0 ? variant.images[0] : (variant.image_url || variant.imageUrl || ''),
+            }));
+            
+            console.log(`[Sample Pull] Retrieved ${transformedData.length} variants from Flxpoint API`);
+            
+            sampleResult = {
+              success: true,
+              data: transformedData,
+              totalRecords: response.meta?.total_count || transformedData.length
+            };
+          } else {
+            return res.status(400).json({ 
+              success: false,
+              message: `API type '${apiType}' is not supported`
+            });
+          }
+        } catch (apiError) {
+          console.error("[Sample Pull] API pull failed:", apiError);
+          return res.status(500).json({ 
+            success: false,
+            message: "Failed to pull data from API",
+            details: apiError instanceof Error ? apiError.message : "Unknown error"
+          });
+        }
+      }
+      
+      // Handle SFTP data sources
+      const sftpConfig = config;
       if (dataSource.type === 'sftp' && sftpConfig?.host && sftpConfig?.username) {
         try {
           const SftpClient = (await import('ssh2-sftp-client')).default;
