@@ -22,6 +22,10 @@ import {
   insertApprovalSchema,
   insertDataSourceSchema,
   insertMappingTemplateSchema,
+  insertBrandPartnerSchema,
+  insertPartnerContactSchema,
+  insertPartnerDocumentSchema,
+  insertPartnerCommunicationSchema,
   schedules,
   dataSources,
   categories,
@@ -40,7 +44,11 @@ import {
   productSuppliers,
   purchasingOpportunities,
   supplierAutomation,
-  automationFilePaths
+  automationFilePaths,
+  brandPartners,
+  partnerContacts,
+  partnerDocuments,
+  partnerCommunications
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -4559,6 +4567,425 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (error) {
     console.error('⚠️ Walmart listings scheduler not started:', error);
   }
+
+  // =====================================================
+  // Brand Partner Portal API Routes
+  // =====================================================
+
+  // Get all brand partners with search and pagination
+  app.get("/api/brand-partners", async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string;
+      const status = req.query.status as string;
+      const offset = (page - 1) * limit;
+
+      let query = db.select().from(brandPartners);
+      let countQuery = db.select({ count: sql<number>`count(*)` }).from(brandPartners);
+
+      const conditions = [];
+      if (search) {
+        conditions.push(sql`LOWER(${brandPartners.name}) LIKE LOWER(${'%' + search + '%'})`);
+      }
+      if (status && status !== 'all') {
+        conditions.push(sql`${brandPartners.partnerStatus} = ${status}`);
+      }
+
+      if (conditions.length > 0) {
+        const whereClause = sql.join(conditions, sql` AND `);
+        query = query.where(whereClause) as any;
+        countQuery = countQuery.where(whereClause) as any;
+      }
+
+      const [partners, countResult] = await Promise.all([
+        query.orderBy(brandPartners.name).limit(limit).offset(offset),
+        countQuery
+      ]);
+
+      const totalItems = Number(countResult[0]?.count || 0);
+
+      res.json({
+        partners,
+        pagination: {
+          page,
+          limit,
+          totalItems,
+          totalPages: Math.ceil(totalItems / limit),
+          hasNextPage: page * limit < totalItems,
+          hasPreviousPage: page > 1
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching brand partners:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Get single brand partner with related data
+  app.get("/api/brand-partners/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const [partner, contacts, documents, communications] = await Promise.all([
+        db.select().from(brandPartners).where(eq(brandPartners.id, id)).limit(1),
+        db.select().from(partnerContacts).where(eq(partnerContacts.partnerId, id)).orderBy(desc(partnerContacts.isPrimary)),
+        db.select().from(partnerDocuments).where(eq(partnerDocuments.partnerId, id)).orderBy(desc(partnerDocuments.createdAt)),
+        db.select().from(partnerCommunications).where(eq(partnerCommunications.partnerId, id)).orderBy(desc(partnerCommunications.communicationDate)).limit(20)
+      ]);
+
+      if (!partner[0]) {
+        return res.status(404).json({ error: "Brand partner not found" });
+      }
+
+      res.json({
+        ...partner[0],
+        contacts,
+        documents,
+        communications
+      });
+    } catch (error) {
+      console.error("Error fetching brand partner:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Create brand partner
+  app.post("/api/brand-partners", async (req, res) => {
+    try {
+      const validatedData = insertBrandPartnerSchema.parse(req.body);
+      const [newPartner] = await db.insert(brandPartners).values(validatedData).returning();
+      res.status(201).json(newPartner);
+    } catch (error) {
+      console.error("Error creating brand partner:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Update brand partner
+  app.patch("/api/brand-partners/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData = { ...req.body, updatedAt: new Date() };
+      
+      const [updated] = await db.update(brandPartners)
+        .set(updateData)
+        .where(eq(brandPartners.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Brand partner not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating brand partner:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Delete brand partner
+  app.delete("/api/brand-partners/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(brandPartners).where(eq(brandPartners.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting brand partner:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // =====================================================
+  // Partner Contacts API
+  // =====================================================
+
+  app.get("/api/brand-partners/:partnerId/contacts", async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      const contacts = await db.select().from(partnerContacts)
+        .where(eq(partnerContacts.partnerId, partnerId))
+        .orderBy(desc(partnerContacts.isPrimary));
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.post("/api/brand-partners/:partnerId/contacts", async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      const validatedData = insertPartnerContactSchema.parse({ ...req.body, partnerId });
+      const [newContact] = await db.insert(partnerContacts).values(validatedData).returning();
+      res.status(201).json(newContact);
+    } catch (error) {
+      console.error("Error creating contact:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.patch("/api/brand-partners/:partnerId/contacts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData = { ...req.body, updatedAt: new Date() };
+      
+      const [updated] = await db.update(partnerContacts)
+        .set(updateData)
+        .where(eq(partnerContacts.id, id))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/brand-partners/:partnerId/contacts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(partnerContacts).where(eq(partnerContacts.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // =====================================================
+  // Partner Documents API
+  // =====================================================
+
+  // Configure multer for document uploads
+  const documentStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(process.cwd(), 'uploads', 'partner-documents');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + '-' + file.originalname);
+    }
+  });
+
+  const documentUpload = multer({ 
+    storage: documentStorage,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only PDF, DOC, DOCX, JPG, PNG allowed.'));
+      }
+    }
+  });
+
+  app.get("/api/brand-partners/:partnerId/documents", async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      const documents = await db.select().from(partnerDocuments)
+        .where(eq(partnerDocuments.partnerId, partnerId))
+        .orderBy(desc(partnerDocuments.createdAt));
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.post("/api/brand-partners/:partnerId/documents", documentUpload.single('file'), async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const documentData = {
+        partnerId,
+        name: req.body.name || file.originalname,
+        filename: file.originalname,
+        fileType: path.extname(file.originalname).slice(1).toUpperCase(),
+        fileSize: file.size,
+        filePath: file.path,
+        documentType: req.body.documentType || 'other',
+        description: req.body.description,
+        effectiveDate: req.body.effectiveDate ? new Date(req.body.effectiveDate) : null,
+        expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : null,
+        uploadedBy: req.body.uploadedBy
+      };
+
+      const [newDocument] = await db.insert(partnerDocuments).values(documentData).returning();
+      res.status(201).json(newDocument);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/brand-partners/:partnerId/documents/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get document to delete file
+      const [doc] = await db.select().from(partnerDocuments).where(eq(partnerDocuments.id, id));
+      if (doc?.filePath && fs.existsSync(doc.filePath)) {
+        fs.unlinkSync(doc.filePath);
+      }
+      
+      await db.delete(partnerDocuments).where(eq(partnerDocuments.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Download document
+  app.get("/api/brand-partners/:partnerId/documents/:id/download", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [doc] = await db.select().from(partnerDocuments).where(eq(partnerDocuments.id, id));
+      
+      if (!doc || !doc.filePath) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      if (!fs.existsSync(doc.filePath)) {
+        return res.status(404).json({ error: "File not found on server" });
+      }
+
+      res.download(doc.filePath, doc.filename);
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // =====================================================
+  // Partner Communications API
+  // =====================================================
+
+  app.get("/api/brand-partners/:partnerId/communications", async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const communications = await db.select().from(partnerCommunications)
+        .where(eq(partnerCommunications.partnerId, partnerId))
+        .orderBy(desc(partnerCommunications.communicationDate))
+        .limit(limit);
+      res.json(communications);
+    } catch (error) {
+      console.error("Error fetching communications:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.post("/api/brand-partners/:partnerId/communications", async (req, res) => {
+    try {
+      const partnerId = parseInt(req.params.partnerId);
+      const validatedData = insertPartnerCommunicationSchema.parse({ 
+        ...req.body, 
+        partnerId,
+        communicationDate: req.body.communicationDate ? new Date(req.body.communicationDate) : new Date(),
+        followUpDate: req.body.followUpDate ? new Date(req.body.followUpDate) : null
+      });
+      const [newComm] = await db.insert(partnerCommunications).values(validatedData).returning();
+      res.status(201).json(newComm);
+    } catch (error) {
+      console.error("Error creating communication:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.patch("/api/brand-partners/:partnerId/communications/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData = { ...req.body, updatedAt: new Date() };
+      
+      const [updated] = await db.update(partnerCommunications)
+        .set(updateData)
+        .where(eq(partnerCommunications.id, id))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating communication:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/brand-partners/:partnerId/communications/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(partnerCommunications).where(eq(partnerCommunications.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting communication:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Get follow-ups due
+  app.get("/api/brand-partners/follow-ups/due", async (req, res) => {
+    try {
+      const dueFollowUps = await db.select({
+        communication: partnerCommunications,
+        partner: brandPartners
+      })
+        .from(partnerCommunications)
+        .innerJoin(brandPartners, eq(partnerCommunications.partnerId, brandPartners.id))
+        .where(and(
+          eq(partnerCommunications.followUpRequired, true),
+          eq(partnerCommunications.followUpCompleted, false),
+          sql`${partnerCommunications.followUpDate} <= NOW()`
+        ))
+        .orderBy(partnerCommunications.followUpDate);
+      
+      res.json(dueFollowUps);
+    } catch (error) {
+      console.error("Error fetching due follow-ups:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Brand partner statistics
+  app.get("/api/brand-partners/stats/summary", async (req, res) => {
+    try {
+      const [stats] = await db.select({
+        total: sql<number>`count(*)::int`,
+        active: sql<number>`count(*) filter (where ${brandPartners.partnerStatus} = 'active')::int`,
+        prospect: sql<number>`count(*) filter (where ${brandPartners.partnerStatus} = 'prospect')::int`,
+        inactive: sql<number>`count(*) filter (where ${brandPartners.partnerStatus} = 'inactive')::int`,
+        suspended: sql<number>`count(*) filter (where ${brandPartners.partnerStatus} = 'suspended')::int`,
+        withPartnerId: sql<number>`count(*) filter (where ${brandPartners.partnerId} is not null and ${brandPartners.partnerId} != '')::int`,
+        totalProducts: sql<number>`coalesce(sum(${brandPartners.productCount}), 0)::int`
+      }).from(brandPartners);
+
+      const [pendingFollowUps] = await db.select({
+        count: sql<number>`count(*)::int`
+      }).from(partnerCommunications)
+        .where(and(
+          eq(partnerCommunications.followUpRequired, true),
+          eq(partnerCommunications.followUpCompleted, false)
+        ));
+
+      res.json({
+        ...stats,
+        pendingFollowUps: pendingFollowUps?.count || 0
+      });
+    } catch (error) {
+      console.error("Error fetching brand partner stats:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

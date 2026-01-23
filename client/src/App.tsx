@@ -52,6 +52,8 @@ import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
 import FieldMappingDocs from "@/pages/FieldMappingDocs";
 import FlxpointSync from "@/pages/FlxpointSync";
+import BrandPartners from "@/pages/BrandPartners";
+import BrandPartnerDetails from "@/pages/BrandPartnerDetails";
 
 // Lazy load AmazonScalingProgress
 const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
@@ -255,6 +257,11 @@ function Router() {
       {/* Fallback for other marketplaces */}
       <Route path="/marketplaces/:marketplace" component={() => <div className="container mx-auto p-6"><div className="text-center"><h1 className="text-2xl font-bold mb-4">Marketplace Integration</h1><p className="text-muted-foreground">This marketplace integration is coming soon...</p></div></div>} />
       <Route path="/field-mapping-docs" component={FieldMappingDocs} />
+      
+      {/* Brand Partner Portal */}
+      <Route path="/brand-partners" component={BrandPartners} />
+      <Route path="/brand-partners/:id" component={BrandPartnerDetails} />
+      
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

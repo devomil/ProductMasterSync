@@ -21,7 +21,8 @@ import {
   Truck,
   Activity,
   Package2,
-  RefreshCw
+  RefreshCw,
+  Building2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -213,6 +214,12 @@ const TopNavigation = () => {
             <NavButton to="/purchasing-ai">
               <Brain className="h-4 w-4" />
               Purchasing AI
+            </NavButton>
+
+            {/* Brand Partners */}
+            <NavButton to="/brand-partners">
+              <Building2 className="h-4 w-4" />
+              Brand Partners
             </NavButton>
 
             {/* Marketplaces Dropdown */}

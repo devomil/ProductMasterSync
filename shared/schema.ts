@@ -2832,3 +2832,232 @@ export type FlxpointVariant = typeof flxpointVariants.$inferSelect;
 export type InsertFlxpointVariant = z.infer<typeof insertFlxpointVariantSchema>;
 export type FlxpointSyncRun = typeof flxpointSyncRuns.$inferSelect;
 export type InsertFlxpointSyncRun = z.infer<typeof insertFlxpointSyncRunSchema>;
+
+// =====================================================
+// Brand Partner Portal Tables
+// =====================================================
+
+// Partner status enum
+export const partnerStatusEnum = pgEnum('partner_status', [
+  'prospect', 'active', 'inactive', 'suspended'
+]);
+
+// Communication type enum
+export const communicationTypeEnum = pgEnum('communication_type', [
+  'email', 'phone', 'meeting', 'video_call', 'note', 'other'
+]);
+
+/**
+ * Brand Partners table
+ * Main table for storing brand/manufacturer partnership information
+ */
+export const brandPartners = pgTable("brand_partners", {
+  id: serial("id").primaryKey(),
+  
+  // Brand identification
+  name: text("name").notNull(),                        // Brand/Manufacturer name
+  code: text("code"),                                  // Internal code/identifier
+  
+  // Partnership details
+  partnerId: text("partner_id"),                       // Partner ID assigned by manufacturer
+  partnerStatus: partnerStatusEnum("partner_status").default('prospect'),
+  approvalDate: timestamp("approval_date"),            // When we were approved as partner
+  
+  // Contact info
+  website: text("website"),                            // Manufacturer website
+  rebatePortalUrl: text("rebate_portal_url"),          // Rebate portal URL
+  rebatePortalNotes: text("rebate_portal_notes"),      // Login info notes (not passwords)
+  
+  // Terms
+  paymentTerms: text("payment_terms"),                 // Net 30, etc.
+  minimumOrder: text("minimum_order"),                 // Minimum order requirements
+  territoryRestrictions: text("territory_restrictions"), // Territory/region limitations
+  
+  // Additional info
+  notes: text("notes"),                                // General notes
+  tags: json("tags").default([]),                      // Tags for filtering
+  
+  // Product count (denormalized for quick display)
+  productCount: integer("product_count").default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    nameIdx: index("brand_partners_name_idx").on(table.name),
+    partnerIdIdx: index("brand_partners_partner_id_idx").on(table.partnerId),
+    statusIdx: index("brand_partners_status_idx").on(table.partnerStatus),
+  };
+});
+
+/**
+ * Partner Contacts table
+ * Key contacts for each brand partner
+ */
+export const partnerContacts = pgTable("partner_contacts", {
+  id: serial("id").primaryKey(),
+  
+  partnerId: integer("partner_id").references(() => brandPartners.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Contact details
+  name: text("name").notNull(),
+  title: text("title"),                                // Job title
+  email: text("email"),
+  phone: text("phone"),
+  mobile: text("mobile"),
+  
+  // Role
+  role: text("role"),                                  // sales_rep, account_manager, support, etc.
+  isPrimary: boolean("is_primary").default(false),     // Primary contact flag
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    partnerIdx: index("partner_contacts_partner_idx").on(table.partnerId),
+  };
+});
+
+/**
+ * Partner Documents table
+ * Stores metadata about uploaded documents (PDFs, contracts, approvals)
+ */
+export const partnerDocuments = pgTable("partner_documents", {
+  id: serial("id").primaryKey(),
+  
+  partnerId: integer("partner_id").references(() => brandPartners.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Document info
+  name: text("name").notNull(),                        // Display name
+  filename: text("filename").notNull(),                // Original filename
+  fileType: text("file_type"),                         // PDF, DOC, etc.
+  fileSize: integer("file_size"),                      // Size in bytes
+  filePath: text("file_path"),                         // Storage path
+  
+  // Categorization
+  documentType: text("document_type"),                 // approval, contract, price_list, rebate, other
+  description: text("description"),
+  
+  // Validity
+  effectiveDate: timestamp("effective_date"),
+  expirationDate: timestamp("expiration_date"),
+  
+  // Upload info
+  uploadedBy: text("uploaded_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    partnerIdx: index("partner_documents_partner_idx").on(table.partnerId),
+    typeIdx: index("partner_documents_type_idx").on(table.documentType),
+  };
+});
+
+/**
+ * Partner Communications table
+ * Log of communications with brand partners
+ */
+export const partnerCommunications = pgTable("partner_communications", {
+  id: serial("id").primaryKey(),
+  
+  partnerId: integer("partner_id").references(() => brandPartners.id, { onDelete: 'cascade' }).notNull(),
+  contactId: integer("contact_id").references(() => partnerContacts.id, { onDelete: 'set null' }),
+  
+  // Communication details
+  type: communicationTypeEnum("type").notNull(),
+  subject: text("subject").notNull(),
+  content: text("content"),                            // Notes/summary of communication
+  
+  // Metadata
+  communicationDate: timestamp("communication_date").defaultNow(),
+  direction: text("direction"),                        // inbound, outbound
+  
+  // Follow-up
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpDate: timestamp("follow_up_date"),
+  followUpCompleted: boolean("follow_up_completed").default(false),
+  
+  // User who logged this
+  loggedBy: text("logged_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    partnerIdx: index("partner_communications_partner_idx").on(table.partnerId),
+    dateIdx: index("partner_communications_date_idx").on(table.communicationDate),
+    followUpIdx: index("partner_communications_followup_idx").on(table.followUpRequired, table.followUpDate),
+  };
+});
+
+// Brand Partner Relations
+export const brandPartnerRelations = relations(brandPartners, ({ many }) => ({
+  contacts: many(partnerContacts),
+  documents: many(partnerDocuments),
+  communications: many(partnerCommunications),
+}));
+
+export const partnerContactRelations = relations(partnerContacts, ({ one }) => ({
+  partner: one(brandPartners, {
+    fields: [partnerContacts.partnerId],
+    references: [brandPartners.id],
+  }),
+}));
+
+export const partnerDocumentRelations = relations(partnerDocuments, ({ one }) => ({
+  partner: one(brandPartners, {
+    fields: [partnerDocuments.partnerId],
+    references: [brandPartners.id],
+  }),
+}));
+
+export const partnerCommunicationRelations = relations(partnerCommunications, ({ one }) => ({
+  partner: one(brandPartners, {
+    fields: [partnerCommunications.partnerId],
+    references: [brandPartners.id],
+  }),
+  contact: one(partnerContacts, {
+    fields: [partnerCommunications.contactId],
+    references: [partnerContacts.id],
+  }),
+}));
+
+// Brand Partner insert schemas
+export const insertBrandPartnerSchema = createInsertSchema(brandPartners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPartnerContactSchema = createInsertSchema(partnerContacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPartnerDocumentSchema = createInsertSchema(partnerDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPartnerCommunicationSchema = createInsertSchema(partnerCommunications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Brand Partner types
+export type BrandPartner = typeof brandPartners.$inferSelect;
+export type InsertBrandPartner = z.infer<typeof insertBrandPartnerSchema>;
+export type PartnerContact = typeof partnerContacts.$inferSelect;
+export type InsertPartnerContact = z.infer<typeof insertPartnerContactSchema>;
+export type PartnerDocument = typeof partnerDocuments.$inferSelect;
+export type InsertPartnerDocument = z.infer<typeof insertPartnerDocumentSchema>;
+export type PartnerCommunication = typeof partnerCommunications.$inferSelect;
+export type InsertPartnerCommunication = z.infer<typeof insertPartnerCommunicationSchema>;
