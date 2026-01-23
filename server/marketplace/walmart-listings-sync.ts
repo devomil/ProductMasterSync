@@ -819,6 +819,7 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
   let overallStatus: string | null = null;
   
   const statusPriority: Record<string, number> = {
+    'Delivered': 0,
     'Shipped': 1,
     'Acknowledged': 2,
     'Created': 3,
