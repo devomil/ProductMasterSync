@@ -1297,73 +1297,92 @@ export class FlxpointService {
       lastOrderDate: string;
     }>;
   }> {
-    // Get items with actual commission from orders
-    const orderItemsWithCommission = await db.execute(sql`
+    // Compare calculated referral fees (from marketplace listings based on Walmart's fee schedule)
+    // with estimated rates from Flxpoint (stored as 1.XX where 6% = 1.06)
+    const comparisonData = await db.execute(sql`
       SELECT 
-        moi.marketplace_sku,
-        moi.product_type,
-        moi.commission_rate as actual_rate,
-        moi.commission_in_cents,
-        moi.unit_price_in_cents,
-        mo.order_date,
-        fv.wm_commission_rate as estimated_rate,
-        fv.wm_product_type
-      FROM marketplace_order_items moi
-      JOIN marketplace_orders mo ON moi.order_id = mo.id
-      LEFT JOIN marketplace_listings ml ON moi.marketplace_sku = ml.marketplace_sku
+        ml.marketplace_sku,
+        ml.product_type,
+        ml.price_in_cents,
+        ml.referral_fee_in_cents,
+        CASE 
+          WHEN ml.price_in_cents > 0 AND ml.referral_fee_in_cents > 0 
+          THEN (ml.referral_fee_in_cents::float / ml.price_in_cents::float) * 100
+          ELSE 0 
+        END as calculated_rate,
+        fv.wm_commission_rate as estimated_flxpoint_rate,
+        fv.wm_product_type as flxpoint_product_type,
+        fv.parent_sku
+      FROM marketplace_listings ml
       LEFT JOIN flxpoint_variants fv ON (
         ml.upc = fv.upc OR 
         ml.marketplace_sku = fv.parent_sku OR
-        ml.walmart_item_id = fv.walmart_id
+        ml.listing_id = fv.walmart_id
       )
-      WHERE mo.marketplace = 'walmart'
-        AND moi.commission_rate IS NOT NULL
-        AND moi.commission_rate > 0
-      ORDER BY mo.order_date DESC
-      LIMIT 1000
+      WHERE ml.marketplace = 'walmart'
+        AND ml.referral_fee_in_cents IS NOT NULL
+        AND ml.referral_fee_in_cents > 0
+        AND ml.price_in_cents > 0
+        AND fv.wm_commission_rate IS NOT NULL
+        AND fv.wm_commission_rate > 0
+      ORDER BY ml.product_type
+      LIMIT 2000
     `);
 
-    const rows = orderItemsWithCommission.rows || [];
+    const rows = comparisonData.rows || [];
     
     // Calculate summary statistics
-    let totalActualRate = 0;
+    let totalCalculatedRate = 0;
     let totalEstimatedRate = 0;
-    let itemsWithEstimate = 0;
+    let itemsWithBothRates = 0;
     let discrepancyCount = 0;
-    const productTypeStats: Record<string, { count: number; actualSum: number; estimatedSum: number }> = {};
+    const productTypeStats: Record<string, { count: number; calculatedSum: number; estimatedSum: number }> = {};
     const discrepancies: any[] = [];
 
     for (const row of rows) {
-      const actualRate = parseFloat(row.actual_rate) || 0;
-      totalActualRate += actualRate;
-      
-      const productType = row.product_type || row.wm_product_type || 'Unknown';
-      
-      // Initialize product type stats
-      if (!productTypeStats[productType]) {
-        productTypeStats[productType] = { count: 0, actualSum: 0, estimatedSum: 0 };
+      const calculatedRate = parseFloat(row.calculated_rate) || 0;
+      // Flxpoint format is 1.XX where 6% = 1.06
+      const estimatedRateRaw = parseFloat(row.estimated_flxpoint_rate) || 0;
+      let estimatedRatePercent = 0;
+      if (estimatedRateRaw > 0) {
+        if (estimatedRateRaw >= 1 && estimatedRateRaw < 2) {
+          // Format 1.XX (e.g., 1.06 = 6%, 1.15 = 15%)
+          estimatedRatePercent = (estimatedRateRaw - 1) * 100;
+        } else if (estimatedRateRaw >= 2 && estimatedRateRaw <= 100) {
+          // Already a percentage (e.g., 6.5 = 6.5%)
+          estimatedRatePercent = estimatedRateRaw;
+        } else if (estimatedRateRaw < 1) {
+          // Fractional format (e.g., 0.06 = 6%)
+          estimatedRatePercent = estimatedRateRaw * 100;
+        }
       }
-      productTypeStats[productType].count++;
-      productTypeStats[productType].actualSum += actualRate;
       
-      // Check if we have an estimated rate (Flxpoint format is 1.XX, so 6% = 1.06)
-      if (row.estimated_rate) {
-        const estimatedRatePercent = (parseFloat(row.estimated_rate) - 1) * 100;
+      if (calculatedRate > 0 && estimatedRatePercent > 0) {
+        totalCalculatedRate += calculatedRate;
         totalEstimatedRate += estimatedRatePercent;
-        itemsWithEstimate++;
+        itemsWithBothRates++;
+        
+        const productType = row.product_type || row.flxpoint_product_type || 'Unknown';
+        
+        // Initialize product type stats
+        if (!productTypeStats[productType]) {
+          productTypeStats[productType] = { count: 0, calculatedSum: 0, estimatedSum: 0 };
+        }
+        productTypeStats[productType].count++;
+        productTypeStats[productType].calculatedSum += calculatedRate;
         productTypeStats[productType].estimatedSum += estimatedRatePercent;
         
         // Check for significant discrepancy (> 1%)
-        const diff = Math.abs(actualRate - estimatedRatePercent);
-        if (diff > 1) {
+        const diff = calculatedRate - estimatedRatePercent;
+        if (Math.abs(diff) > 1) {
           discrepancyCount++;
           discrepancies.push({
             sku: row.marketplace_sku,
             productType,
-            actualRate: Math.round(actualRate * 100) / 100,
+            actualRate: Math.round(calculatedRate * 100) / 100,
             estimatedRate: Math.round(estimatedRatePercent * 100) / 100,
             difference: Math.round(diff * 100) / 100,
-            lastOrderDate: row.order_date,
+            lastOrderDate: '', // Not applicable for listing-based comparison
           });
         }
       }
@@ -1374,26 +1393,22 @@ export class FlxpointService {
       .map(([productType, stats]) => ({
         productType,
         itemCount: stats.count,
-        avgActualRate: Math.round((stats.actualSum / stats.count) * 100) / 100,
-        avgEstimatedRate: stats.estimatedSum > 0 
-          ? Math.round((stats.estimatedSum / stats.count) * 100) / 100 
-          : 0,
-        difference: stats.estimatedSum > 0
-          ? Math.round(((stats.actualSum / stats.count) - (stats.estimatedSum / stats.count)) * 100) / 100
-          : 0,
+        avgActualRate: Math.round((stats.calculatedSum / stats.count) * 100) / 100,
+        avgEstimatedRate: Math.round((stats.estimatedSum / stats.count) * 100) / 100,
+        difference: Math.round(((stats.calculatedSum / stats.count) - (stats.estimatedSum / stats.count)) * 100) / 100,
       }))
       .sort((a, b) => b.itemCount - a.itemCount)
       .slice(0, 20);
 
     return {
       summary: {
-        totalItemsWithActualCommission: rows.length,
-        totalItemsWithEstimate: itemsWithEstimate,
-        averageActualRate: rows.length > 0 
-          ? Math.round((totalActualRate / rows.length) * 100) / 100 
+        totalItemsWithActualCommission: itemsWithBothRates,
+        totalItemsWithEstimate: itemsWithBothRates,
+        averageActualRate: itemsWithBothRates > 0 
+          ? Math.round((totalCalculatedRate / itemsWithBothRates) * 100) / 100 
           : 0,
-        averageEstimatedRate: itemsWithEstimate > 0 
-          ? Math.round((totalEstimatedRate / itemsWithEstimate) * 100) / 100 
+        averageEstimatedRate: itemsWithBothRates > 0 
+          ? Math.round((totalEstimatedRate / itemsWithBothRates) * 100) / 100 
           : 0,
         discrepancyCount,
       },

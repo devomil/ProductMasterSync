@@ -3775,6 +3775,22 @@ router.get('/orders/:orderId', async (req, res) => {
       const costFromFlx = flxData?.cost ? parseFloat(flxData.cost) : null;
       const costInCents = costFromFlx ? Math.round(costFromFlx * 100) : null;
       
+      // Get Flxpoint estimated commission rate (stored as 1.XX where 6% = 1.06)
+      const flxpointCommissionRateRaw = variant?.wmCommissionRate || 0;
+      let flxpointCommissionRate = 0;
+      if (flxpointCommissionRateRaw > 0) {
+        if (flxpointCommissionRateRaw >= 1 && flxpointCommissionRateRaw < 2) {
+          // Format 1.XX (e.g., 1.06 = 6%, 1.15 = 15%)
+          flxpointCommissionRate = (flxpointCommissionRateRaw - 1) * 100;
+        } else if (flxpointCommissionRateRaw >= 2 && flxpointCommissionRateRaw <= 100) {
+          // Already a percentage (e.g., 6.5 = 6.5%)
+          flxpointCommissionRate = flxpointCommissionRateRaw;
+        } else if (flxpointCommissionRateRaw < 1) {
+          // Fractional format (e.g., 0.06 = 6%)
+          flxpointCommissionRate = flxpointCommissionRateRaw * 100;
+        }
+      }
+      
       // Calculate referral fee for Walmart
       let referralFeeInCents = listing?.referralFeeInCents || 0;
       let referralFeePercentage = 0;
@@ -3816,6 +3832,7 @@ router.get('/orders/:orderId', async (req, res) => {
         contractCategory,
         referralFeeInCents,
         referralFeePercentage,
+        flxpointCommissionRate: flxpointCommissionRate > 0 ? Math.round(flxpointCommissionRate * 100) / 100 : null,
         upc: listing?.upc || null,
         costInCents,
         supplierOptions,

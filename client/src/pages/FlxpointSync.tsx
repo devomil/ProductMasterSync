@@ -692,7 +692,7 @@ export default function FlxpointSync() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Commission Rate Comparison</CardTitle>
-                <CardDescription>Compare estimated rates with actual rates from Walmart orders</CardDescription>
+                <CardDescription>Compare calculated Walmart fees (from fee schedule) vs Flxpoint estimated rates</CardDescription>
               </div>
               <Button
                 onClick={() => syncCommissionMutation.mutate()}
@@ -719,25 +719,25 @@ export default function FlxpointSync() {
                     <Card>
                       <CardContent className="pt-4">
                         <div className="text-2xl font-bold">{commissionComparison.summary.totalItemsWithActualCommission}</div>
-                        <p className="text-xs text-muted-foreground">Items with Actual Commission</p>
+                        <p className="text-xs text-muted-foreground">Items Compared</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="pt-4">
                         <div className="text-2xl font-bold">{commissionComparison.summary.totalItemsWithEstimate}</div>
-                        <p className="text-xs text-muted-foreground">Items with Estimate</p>
+                        <p className="text-xs text-muted-foreground">With Flxpoint Rate</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="pt-4">
                         <div className="text-2xl font-bold text-blue-600">{commissionComparison.summary.averageActualRate}%</div>
-                        <p className="text-xs text-muted-foreground">Avg Actual Rate</p>
+                        <p className="text-xs text-muted-foreground">Avg Calculated Rate</p>
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="pt-4">
                         <div className="text-2xl font-bold text-green-600">{commissionComparison.summary.averageEstimatedRate}%</div>
-                        <p className="text-xs text-muted-foreground">Avg Estimated Rate</p>
+                        <p className="text-xs text-muted-foreground">Avg Flxpoint Rate</p>
                       </CardContent>
                     </Card>
                     <Card>
@@ -752,7 +752,7 @@ export default function FlxpointSync() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">By Product Type</CardTitle>
-                        <CardDescription>Commission rates by category</CardDescription>
+                        <CardDescription>Calculated (Walmart fee schedule) vs Flxpoint rates</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="rounded-md border max-h-[400px] overflow-y-auto">
@@ -761,8 +761,8 @@ export default function FlxpointSync() {
                               <TableRow>
                                 <TableHead>Product Type</TableHead>
                                 <TableHead className="text-right">Count</TableHead>
-                                <TableHead className="text-right">Actual</TableHead>
-                                <TableHead className="text-right">Estimated</TableHead>
+                                <TableHead className="text-right">Calculated</TableHead>
+                                <TableHead className="text-right">Flxpoint</TableHead>
                                 <TableHead className="text-right">Diff</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -787,7 +787,7 @@ export default function FlxpointSync() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">Discrepancies</CardTitle>
-                        <CardDescription>Items where actual differs from estimated by &gt;1%</CardDescription>
+                        <CardDescription>Items where calculated differs from Flxpoint by &gt;1%</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="rounded-md border max-h-[400px] overflow-y-auto">
@@ -796,8 +796,8 @@ export default function FlxpointSync() {
                               <TableRow>
                                 <TableHead>SKU</TableHead>
                                 <TableHead>Product Type</TableHead>
-                                <TableHead className="text-right">Actual</TableHead>
-                                <TableHead className="text-right">Estimated</TableHead>
+                                <TableHead className="text-right">Calculated</TableHead>
+                                <TableHead className="text-right">Flxpoint</TableHead>
                                 <TableHead className="text-right">Diff</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -830,7 +830,7 @@ export default function FlxpointSync() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  No commission data available. Sync Walmart orders first to capture actual commission rates.
+                  No comparison data available. Make sure listings have calculated referral fees and Flxpoint variants have wm_commission_rate set.
                 </div>
               )}
             </CardContent>

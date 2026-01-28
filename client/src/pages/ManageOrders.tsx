@@ -99,6 +99,7 @@ interface OrderItem {
   contractCategory: string | null;
   referralFeeInCents: number;
   referralFeePercentage: number;
+  flxpointCommissionRate: number | null;
   upc: string | null;
   costInCents: number | null;
   supplierOptions: SupplierOption[];
@@ -893,8 +894,18 @@ export default function ManageOrders() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="text-orange-600">
-                              {formatCurrency(item.referralFeeInCents)}
+                            <TableCell>
+                              <div className="text-orange-600">
+                                {formatCurrency(item.referralFeeInCents)}
+                              </div>
+                              {item.flxpointCommissionRate !== null && (
+                                <div className="text-xs text-muted-foreground">
+                                  Flx: {item.flxpointCommissionRate.toFixed(1)}%
+                                  {Math.abs(item.referralFeePercentage - item.flxpointCommissionRate) > 1 && (
+                                    <span className="text-yellow-600 ml-1">(diff!)</span>
+                                  )}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell>
                               {profit ? (
