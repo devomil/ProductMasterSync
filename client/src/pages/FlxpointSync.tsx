@@ -7,9 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { RefreshCw, Upload, Download, CheckCircle, XCircle, Clock, AlertCircle, Package, ExternalLink, ArrowUpDown } from "lucide-react";
+import { RefreshCw, Upload, Download, CheckCircle, XCircle, Clock, AlertCircle, Package, ExternalLink, ArrowUpDown, Info } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface FlxpointStats {
@@ -368,67 +369,129 @@ export default function FlxpointSync() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => syncWalmartMutation.mutate()}
-                disabled={isJobRunning || syncWalmartMutation.isPending}
-                variant="default"
-                className="bg-blue-600 hover:bg-blue-700"
-                data-testid="button-sync-walmart"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Sync Walmart Listings ({walmartStats?.totalActive?.toLocaleString() || 0})
-              </Button>
-              <Button
-                onClick={() => pullMutation.mutate()}
-                disabled={!isConnected || isJobRunning || pullMutation.isPending}
-                variant="outline"
-                data-testid="button-pull-variants"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Pull from Flxpoint API
-              </Button>
-              <Button
-                onClick={() => enrichMutation.mutate()}
-                disabled={isJobRunning || enrichMutation.isPending || !stats?.totalVariants}
-                variant="outline"
-                data-testid="button-enrich-data"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending || isJobRunning ? 'animate-spin' : ''}`} />
-                Enrich from Marketplace
-              </Button>
-              <Button
-                onClick={() => pushMutation.mutate(false)}
-                disabled={!isConnected || isJobRunning || pushMutation.isPending || !walmartStats?.readyToPush}
-                variant="default"
-                data-testid="button-push-data"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Push to Flxpoint ({walmartStats?.readyToPush?.toLocaleString() || 0})
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 pt-2 border-t">
-              <Button
-                onClick={() => generateCsvMutation.mutate()}
-                disabled={generateCsvMutation.isPending || !stats?.totalVariants}
-                variant="secondary"
-                data-testid="button-generate-csv"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${generateCsvMutation.isPending ? 'animate-spin' : ''}`} />
-                Generate Verification CSV
-              </Button>
-              <Button
-                asChild
-                variant="secondary"
-                disabled={!stats?.synced}
-                data-testid="button-download-verification"
-              >
-                <a href="/api/downloads/flxpoint-verification" download>
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Download Verification CSV
-                </a>
-              </Button>
-            </div>
+            <TooltipProvider>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-1">
+                  <Button
+                    onClick={() => syncWalmartMutation.mutate()}
+                    disabled={isJobRunning || syncWalmartMutation.isPending}
+                    variant="default"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    data-testid="button-sync-walmart"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Sync Walmart Listings ({walmartStats?.totalActive?.toLocaleString() || 0})
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Syncs all active Walmart listings from your Seller Center to the variants table, automatically calculating commission rates based on product category.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    onClick={() => pullMutation.mutate()}
+                    disabled={!isConnected || isJobRunning || pullMutation.isPending}
+                    variant="outline"
+                    data-testid="button-pull-variants"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Pull from Flxpoint API
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Fetches product variants from your Flxpoint catalog. Use this to import products that exist in Flxpoint but not yet synced here.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    onClick={() => enrichMutation.mutate()}
+                    disabled={isJobRunning || enrichMutation.isPending || !stats?.totalVariants}
+                    variant="outline"
+                    data-testid="button-enrich-data"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending || isJobRunning ? 'animate-spin' : ''}`} />
+                    Enrich from Marketplace
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Matches Flxpoint variants with Walmart listings using UPC, then adds Walmart IDs, commission rates, and buy box prices to each product.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    onClick={() => pushMutation.mutate(false)}
+                    disabled={!isConnected || isJobRunning || pushMutation.isPending || !walmartStats?.readyToPush}
+                    variant="default"
+                    data-testid="button-push-data"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Push to Flxpoint ({walmartStats?.readyToPush?.toLocaleString() || 0})
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Sends commission rates back to Flxpoint via custom fields, enabling accurate profit calculations for marketplace listings.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-2 border-t">
+                <div className="flex items-center gap-1">
+                  <Button
+                    onClick={() => generateCsvMutation.mutate()}
+                    disabled={generateCsvMutation.isPending || !stats?.totalVariants}
+                    variant="secondary"
+                    data-testid="button-generate-csv"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${generateCsvMutation.isPending ? 'animate-spin' : ''}`} />
+                    Generate Verification CSV
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Creates a CSV file containing all synced Walmart listings with their commission rates for verification and auditing purposes.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    asChild
+                    variant="secondary"
+                    disabled={!stats?.synced}
+                    data-testid="button-download-verification"
+                  >
+                    <a href="/api/downloads/flxpoint-verification" download>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Download Verification CSV
+                    </a>
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Downloads the most recently generated verification CSV file to your computer.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            </TooltipProvider>
 
             {isJobRunning && progressData && (
               <div className="space-y-2" data-testid="sync-progress">
