@@ -474,6 +474,7 @@ export default function FlxpointSync() {
                   <Button
                     asChild
                     variant="secondary"
+                    className="bg-[#f6f9fb] hover:bg-[#f6f9fb]/80"
                     disabled={!stats?.synced}
                     data-testid="button-download-verification"
                   >
