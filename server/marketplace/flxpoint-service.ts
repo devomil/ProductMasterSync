@@ -171,12 +171,50 @@ export class FlxpointService {
       .where(eq(flxpointVariants.parentSku, parentSku))
       .limit(1);
     
+    // Convert weight to ounces and pounds based on weight_unit
+    let weightOz: number | undefined;
+    let weightLbs: number | undefined;
+    if (variant.weight !== undefined && variant.weight !== null) {
+      const weightUnit = (variant.weight_unit || 'oz').toLowerCase();
+      if (weightUnit === 'lb' || weightUnit === 'lbs' || weightUnit === 'pounds') {
+        weightLbs = variant.weight;
+        weightOz = variant.weight * 16;
+      } else if (weightUnit === 'kg' || weightUnit === 'kilograms') {
+        weightLbs = variant.weight * 2.20462;
+        weightOz = variant.weight * 35.274;
+      } else if (weightUnit === 'g' || weightUnit === 'grams') {
+        weightOz = variant.weight * 0.035274;
+        weightLbs = variant.weight * 0.00220462;
+      } else {
+        // Default to ounces
+        weightOz = variant.weight;
+        weightLbs = variant.weight / 16;
+      }
+    }
+    
+    // Calculate estimated shipping cost based on weight (simple estimation)
+    // Using a base rate of $5 + $0.50 per ounce over 8oz
+    let estimatedShippingCents: number | undefined;
+    if (weightOz !== undefined) {
+      const baseShipping = 500; // $5 base
+      const additionalWeight = Math.max(0, weightOz - 8);
+      estimatedShippingCents = Math.round(baseShipping + (additionalWeight * 50));
+    }
+    
     const variantData = {
       flxVariantId: variant.id,
       parentSku,
       sourceSku: variant.source_sku,
       asin: variant.asin,
       walmartId: variant.walmart_id,
+      upc: variant.upc,
+      costInCents: variant.cost ? Math.round(variant.cost * 100) : undefined,
+      mapPriceInCents: variant.map_price ? Math.round(variant.map_price * 100) : undefined,
+      msrpInCents: variant.msrp ? Math.round(variant.msrp * 100) : undefined,
+      weightOz,
+      weightLbs,
+      shippingWeightOz: variant.shipping_weight ? variant.shipping_weight : weightOz,
+      estimatedShippingCents,
       flxpointData: variant,
       lastPulledAt: new Date(),
       updatedAt: new Date(),
@@ -1230,6 +1268,238 @@ export class FlxpointService {
       readyToPush: pendingResult.count,
       pushed: pushedResult.count,
     };
+  }
+
+  /**
+   * Get commission comparison between estimated and actual rates
+   */
+  async getCommissionComparison(): Promise<{
+    summary: {
+      totalItemsWithActualCommission: number;
+      totalItemsWithEstimate: number;
+      averageActualRate: number;
+      averageEstimatedRate: number;
+      discrepancyCount: number;
+    };
+    byProductType: Array<{
+      productType: string;
+      itemCount: number;
+      avgActualRate: number;
+      avgEstimatedRate: number;
+      difference: number;
+    }>;
+    discrepancies: Array<{
+      sku: string;
+      productType: string;
+      actualRate: number;
+      estimatedRate: number;
+      difference: number;
+      lastOrderDate: string;
+    }>;
+  }> {
+    // Get items with actual commission from orders
+    const orderItemsWithCommission = await db.execute(sql`
+      SELECT 
+        moi.marketplace_sku,
+        moi.product_type,
+        moi.commission_rate as actual_rate,
+        moi.commission_in_cents,
+        moi.unit_price_in_cents,
+        mo.order_date,
+        fv.wm_commission_rate as estimated_rate,
+        fv.wm_product_type
+      FROM marketplace_order_items moi
+      JOIN marketplace_orders mo ON moi.order_id = mo.id
+      LEFT JOIN marketplace_listings ml ON moi.marketplace_sku = ml.marketplace_sku
+      LEFT JOIN flxpoint_variants fv ON (
+        ml.upc = fv.upc OR 
+        ml.marketplace_sku = fv.parent_sku OR
+        ml.walmart_item_id = fv.walmart_id
+      )
+      WHERE mo.marketplace = 'walmart'
+        AND moi.commission_rate IS NOT NULL
+        AND moi.commission_rate > 0
+      ORDER BY mo.order_date DESC
+      LIMIT 1000
+    `);
+
+    const rows = orderItemsWithCommission.rows || [];
+    
+    // Calculate summary statistics
+    let totalActualRate = 0;
+    let totalEstimatedRate = 0;
+    let itemsWithEstimate = 0;
+    let discrepancyCount = 0;
+    const productTypeStats: Record<string, { count: number; actualSum: number; estimatedSum: number }> = {};
+    const discrepancies: any[] = [];
+
+    for (const row of rows) {
+      const actualRate = parseFloat(row.actual_rate) || 0;
+      totalActualRate += actualRate;
+      
+      const productType = row.product_type || row.wm_product_type || 'Unknown';
+      
+      // Initialize product type stats
+      if (!productTypeStats[productType]) {
+        productTypeStats[productType] = { count: 0, actualSum: 0, estimatedSum: 0 };
+      }
+      productTypeStats[productType].count++;
+      productTypeStats[productType].actualSum += actualRate;
+      
+      // Check if we have an estimated rate (Flxpoint format is 1.XX, so 6% = 1.06)
+      if (row.estimated_rate) {
+        const estimatedRatePercent = (parseFloat(row.estimated_rate) - 1) * 100;
+        totalEstimatedRate += estimatedRatePercent;
+        itemsWithEstimate++;
+        productTypeStats[productType].estimatedSum += estimatedRatePercent;
+        
+        // Check for significant discrepancy (> 1%)
+        const diff = Math.abs(actualRate - estimatedRatePercent);
+        if (diff > 1) {
+          discrepancyCount++;
+          discrepancies.push({
+            sku: row.marketplace_sku,
+            productType,
+            actualRate: Math.round(actualRate * 100) / 100,
+            estimatedRate: Math.round(estimatedRatePercent * 100) / 100,
+            difference: Math.round(diff * 100) / 100,
+            lastOrderDate: row.order_date,
+          });
+        }
+      }
+    }
+
+    // Build by product type array
+    const byProductType = Object.entries(productTypeStats)
+      .map(([productType, stats]) => ({
+        productType,
+        itemCount: stats.count,
+        avgActualRate: Math.round((stats.actualSum / stats.count) * 100) / 100,
+        avgEstimatedRate: stats.estimatedSum > 0 
+          ? Math.round((stats.estimatedSum / stats.count) * 100) / 100 
+          : 0,
+        difference: stats.estimatedSum > 0
+          ? Math.round(((stats.actualSum / stats.count) - (stats.estimatedSum / stats.count)) * 100) / 100
+          : 0,
+      }))
+      .sort((a, b) => b.itemCount - a.itemCount)
+      .slice(0, 20);
+
+    return {
+      summary: {
+        totalItemsWithActualCommission: rows.length,
+        totalItemsWithEstimate: itemsWithEstimate,
+        averageActualRate: rows.length > 0 
+          ? Math.round((totalActualRate / rows.length) * 100) / 100 
+          : 0,
+        averageEstimatedRate: itemsWithEstimate > 0 
+          ? Math.round((totalEstimatedRate / itemsWithEstimate) * 100) / 100 
+          : 0,
+        discrepancyCount,
+      },
+      byProductType,
+      discrepancies: discrepancies.slice(0, 50),
+    };
+  }
+
+  /**
+   * Sync actual commission rates from orders back to Flxpoint variants
+   */
+  async syncCommissionFromOrders(): Promise<{
+    updated: number;
+    skipped: number;
+    errors: number;
+  }> {
+    console.log('[Flxpoint] Syncing commission rates from orders...');
+    
+    // Get unique SKUs with commission data from recent orders
+    const skusWithCommission = await db.execute(sql`
+      SELECT DISTINCT ON (moi.marketplace_sku)
+        moi.marketplace_sku,
+        moi.commission_rate,
+        moi.commission_in_cents,
+        mo.order_date
+      FROM marketplace_order_items moi
+      JOIN marketplace_orders mo ON moi.order_id = mo.id
+      WHERE mo.marketplace = 'walmart'
+        AND moi.commission_rate IS NOT NULL
+        AND moi.commission_rate > 0
+      ORDER BY moi.marketplace_sku, mo.order_date DESC
+    `);
+
+    const rows = skusWithCommission.rows || [];
+    console.log(`[Flxpoint] Found ${rows.length} unique SKUs with commission data`);
+
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const row of rows) {
+      try {
+        const sku = row.marketplace_sku;
+        const actualRate = parseFloat(row.commission_rate);
+        const actualCents = parseInt(row.commission_in_cents);
+        const orderDate = row.order_date;
+
+        // Find matching Flxpoint variant by SKU
+        const variants = await db.select()
+          .from(flxpointVariants)
+          .where(
+            or(
+              eq(flxpointVariants.parentSku, sku),
+              eq(flxpointVariants.sourceSku, sku)
+            )
+          )
+          .limit(1);
+
+        if (variants.length === 0) {
+          // Try matching via marketplace listings
+          const listing = await db.select()
+            .from(marketplaceListings)
+            .where(eq(marketplaceListings.marketplaceSku, sku))
+            .limit(1);
+
+          if (listing.length > 0 && listing[0].upc) {
+            const variantByUpc = await db.select()
+              .from(flxpointVariants)
+              .where(eq(flxpointVariants.upc, listing[0].upc))
+              .limit(1);
+
+            if (variantByUpc.length > 0) {
+              await db.update(flxpointVariants)
+                .set({
+                  actualWmCommissionRate: actualRate,
+                  actualWmCommissionCents: actualCents,
+                  lastOrderWithCommission: new Date(orderDate),
+                  updatedAt: new Date(),
+                })
+                .where(eq(flxpointVariants.id, variantByUpc[0].id));
+              updated++;
+              continue;
+            }
+          }
+          skipped++;
+          continue;
+        }
+
+        await db.update(flxpointVariants)
+          .set({
+            actualWmCommissionRate: actualRate,
+            actualWmCommissionCents: actualCents,
+            lastOrderWithCommission: new Date(orderDate),
+            updatedAt: new Date(),
+          })
+          .where(eq(flxpointVariants.id, variants[0].id));
+        updated++;
+
+      } catch (err: any) {
+        console.error(`[Flxpoint] Error updating commission for ${row.marketplace_sku}:`, err.message);
+        errors++;
+      }
+    }
+
+    console.log(`[Flxpoint] Commission sync complete: ${updated} updated, ${skipped} skipped, ${errors} errors`);
+    return { updated, skipped, errors };
   }
 }
 

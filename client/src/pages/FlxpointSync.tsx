@@ -76,6 +76,31 @@ interface SyncProgress {
   skippedCount: number;
 }
 
+interface CommissionComparison {
+  summary: {
+    totalItemsWithActualCommission: number;
+    totalItemsWithEstimate: number;
+    averageActualRate: number;
+    averageEstimatedRate: number;
+    discrepancyCount: number;
+  };
+  byProductType: Array<{
+    productType: string;
+    itemCount: number;
+    avgActualRate: number;
+    avgEstimatedRate: number;
+    difference: number;
+  }>;
+  discrepancies: Array<{
+    sku: string;
+    productType: string;
+    actualRate: number;
+    estimatedRate: number;
+    difference: number;
+    lastOrderDate: string;
+  }>;
+}
+
 export default function FlxpointSync() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -190,6 +215,29 @@ export default function FlxpointSync() {
   const { data: walmartStats } = useQuery<WalmartStats>({
     queryKey: ['/api/marketplace/flxpoint/walmart-stats'],
     refetchInterval: 10000,
+  });
+
+  const { data: commissionComparison, isLoading: commissionLoading } = useQuery<CommissionComparison>({
+    queryKey: ['/api/marketplace/flxpoint/commission-comparison'],
+    refetchInterval: 30000,
+  });
+
+  const syncCommissionMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/flxpoint/sync-commission-from-orders');
+      return response.json();
+    },
+    onSuccess: (data: { updated: number; skipped: number; errors: number }) => {
+      toast({ 
+        title: 'Commission Sync Complete', 
+        description: `Updated ${data.updated} variants, skipped ${data.skipped}, errors: ${data.errors}` 
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/commission-comparison'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/stats'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Commission Sync Failed', description: error.message, variant: 'destructive' });
+    },
   });
 
   const syncWalmartMutation = useMutation({
@@ -518,6 +566,7 @@ export default function FlxpointSync() {
       <Tabs defaultValue="variants" className="space-y-4">
         <TabsList>
           <TabsTrigger value="variants" data-testid="tab-variants">Variants</TabsTrigger>
+          <TabsTrigger value="commission" data-testid="tab-commission">Commission Comparison</TabsTrigger>
           <TabsTrigger value="history" data-testid="tab-history">Sync History</TabsTrigger>
         </TabsList>
 
@@ -632,6 +681,156 @@ export default function FlxpointSync() {
                       Next
                     </Button>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="commission" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Commission Rate Comparison</CardTitle>
+                <CardDescription>Compare estimated rates with actual rates from Walmart orders</CardDescription>
+              </div>
+              <Button
+                onClick={() => syncCommissionMutation.mutate()}
+                disabled={syncCommissionMutation.isPending}
+                variant="default"
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {syncCommissionMutation.isPending ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Sync Commission from Orders
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {commissionLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : commissionComparison ? (
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-5">
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-2xl font-bold">{commissionComparison.summary.totalItemsWithActualCommission}</div>
+                        <p className="text-xs text-muted-foreground">Items with Actual Commission</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-2xl font-bold">{commissionComparison.summary.totalItemsWithEstimate}</div>
+                        <p className="text-xs text-muted-foreground">Items with Estimate</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-2xl font-bold text-blue-600">{commissionComparison.summary.averageActualRate}%</div>
+                        <p className="text-xs text-muted-foreground">Avg Actual Rate</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-2xl font-bold text-green-600">{commissionComparison.summary.averageEstimatedRate}%</div>
+                        <p className="text-xs text-muted-foreground">Avg Estimated Rate</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-2xl font-bold text-orange-600">{commissionComparison.summary.discrepancyCount}</div>
+                        <p className="text-xs text-muted-foreground">Discrepancies (&gt;1%)</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">By Product Type</CardTitle>
+                        <CardDescription>Commission rates by category</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="rounded-md border max-h-[400px] overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Product Type</TableHead>
+                                <TableHead className="text-right">Count</TableHead>
+                                <TableHead className="text-right">Actual</TableHead>
+                                <TableHead className="text-right">Estimated</TableHead>
+                                <TableHead className="text-right">Diff</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {commissionComparison.byProductType.map((row, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium text-xs">{row.productType}</TableCell>
+                                  <TableCell className="text-right">{row.itemCount}</TableCell>
+                                  <TableCell className="text-right text-blue-600">{row.avgActualRate}%</TableCell>
+                                  <TableCell className="text-right text-green-600">{row.avgEstimatedRate > 0 ? `${row.avgEstimatedRate}%` : '-'}</TableCell>
+                                  <TableCell className={`text-right ${Math.abs(row.difference) > 1 ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                                    {row.avgEstimatedRate > 0 ? `${row.difference > 0 ? '+' : ''}${row.difference}%` : '-'}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Discrepancies</CardTitle>
+                        <CardDescription>Items where actual differs from estimated by &gt;1%</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="rounded-md border max-h-[400px] overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>Product Type</TableHead>
+                                <TableHead className="text-right">Actual</TableHead>
+                                <TableHead className="text-right">Estimated</TableHead>
+                                <TableHead className="text-right">Diff</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {commissionComparison.discrepancies.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                    No significant discrepancies found
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                commissionComparison.discrepancies.map((row, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell className="font-mono text-xs">{row.sku}</TableCell>
+                                    <TableCell className="text-xs">{row.productType}</TableCell>
+                                    <TableCell className="text-right text-blue-600">{row.actualRate}%</TableCell>
+                                    <TableCell className="text-right text-green-600">{row.estimatedRate}%</TableCell>
+                                    <TableCell className="text-right text-orange-600">
+                                      {row.difference > 0 ? '+' : ''}{row.difference}%
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No commission data available. Sync Walmart orders first to capture actual commission rates.
                 </div>
               )}
             </CardContent>

@@ -2653,11 +2653,26 @@ export const marketplaceOrderItems = pgTable("marketplace_order_items", {
   quantity: integer("quantity").default(1),
   unitPriceInCents: integer("unit_price_in_cents"),
   
+  // UPC for matching with Flxpoint variants
+  upc: text("upc"),
+  
+  // Actual fees from marketplace (captured from order charges)
+  commissionInCents: integer("commission_in_cents"),       // Actual marketplace commission
+  commissionRate: real("commission_rate"),                 // Computed: commission / unit price
+  shippingChargeInCents: integer("shipping_charge_in_cents"), // Shipping fee charged
+  taxInCents: integer("tax_in_cents"),                     // Tax amount
+  
+  // Product categorization (for fee verification)
+  productType: text("product_type"),
+  contractCategory: text("contract_category"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
     orderIdIdx: index("order_items_order_idx").on(table.orderId),
+    skuIdx: index("order_items_sku_idx").on(table.marketplaceSku),
+    upcIdx: index("order_items_upc_idx").on(table.upc),
   };
 });
 
@@ -2760,6 +2775,25 @@ export const flxpointVariants = pgTable("flxpoint_variants", {
   wmBuyBoxPrice: integer("wm_buybox_price"),       // Walmart buy box price in cents
   amzBuyBoxPrice: integer("amz_buybox_price"),     // Amazon buy box price in cents
   
+  // Cost and pricing data from Flxpoint (in cents)
+  costInCents: integer("cost_in_cents"),           // Product cost from supplier
+  mapPriceInCents: integer("map_price_in_cents"),  // Minimum advertised price
+  msrpInCents: integer("msrp_in_cents"),           // Manufacturer's suggested retail price
+  
+  // Shipping data from Flxpoint
+  weightOz: real("weight_oz"),                     // Product weight in ounces
+  weightLbs: real("weight_lbs"),                   // Product weight in pounds
+  shippingWeightOz: real("shipping_weight_oz"),    // Shipping weight in ounces
+  estimatedShippingCents: integer("estimated_shipping_cents"), // Estimated shipping cost
+  
+  // Actual commission from orders (captured from synced Walmart orders)
+  actualWmCommissionRate: real("actual_wm_commission_rate"), // Actual Walmart commission observed
+  actualWmCommissionCents: integer("actual_wm_commission_cents"), // Actual commission in cents
+  lastOrderWithCommission: timestamp("last_order_with_commission"), // When we last captured commission
+  
+  // UPC for matching
+  upc: text("upc"),
+  
   // Raw Flxpoint data
   flxpointData: json("flxpoint_data"),             // Full variant payload from Flxpoint
   
@@ -2778,6 +2812,7 @@ export const flxpointVariants = pgTable("flxpoint_variants", {
     asinIdx: index("flxpoint_variants_asin_idx").on(table.asin),
     walmartIdIdx: index("flxpoint_variants_walmart_id_idx").on(table.walmartId),
     productIdIdx: index("flxpoint_variants_product_id_idx").on(table.productId),
+    upcIdx: index("flxpoint_variants_upc_idx").on(table.upc),
   };
 });
 

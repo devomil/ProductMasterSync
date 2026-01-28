@@ -889,19 +889,43 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
   
   const items: Omit<InsertMarketplaceOrderItem, 'orderId'>[] = orderLines.map(line => {
     let unitPriceInCents = 0;
+    let commissionInCents = 0;
+    let shippingChargeInCents = 0;
+    let taxInCents = 0;
+    
     if (line.charges?.charge) {
       for (const charge of line.charges.charge) {
-        if (charge.chargeType === 'PRODUCT' && charge.chargeAmount?.amount) {
-          unitPriceInCents = Math.round(charge.chargeAmount.amount * 100);
+        const amount = charge.chargeAmount?.amount ? Math.round(charge.chargeAmount.amount * 100) : 0;
+        const chargeType = charge.chargeType?.toUpperCase() || '';
+        const chargeName = charge.chargeName?.toUpperCase() || '';
+        
+        if (chargeType === 'PRODUCT') {
+          unitPriceInCents = amount;
+        } else if (chargeType === 'COMMISSION' || chargeName.includes('COMMISSION') || chargeName.includes('REFERRAL')) {
+          commissionInCents = amount;
+        } else if (chargeType === 'SHIPPING' || chargeName.includes('SHIPPING')) {
+          shippingChargeInCents = amount;
+        } else if (chargeType === 'TAX' || chargeName.includes('TAX')) {
+          taxInCents = amount;
         }
       }
+    }
+    
+    // Calculate commission rate as a percentage if we have both values
+    let commissionRate: number | undefined;
+    if (commissionInCents > 0 && unitPriceInCents > 0) {
+      commissionRate = (commissionInCents / unitPriceInCents) * 100;
     }
     
     return {
       marketplaceSku: line.item.sku,
       title: line.item.productName,
       quantity: parseInt(line.orderLineQuantity?.amount || '1'),
-      unitPriceInCents
+      unitPriceInCents,
+      commissionInCents: commissionInCents > 0 ? commissionInCents : undefined,
+      commissionRate,
+      shippingChargeInCents: shippingChargeInCents > 0 ? shippingChargeInCents : undefined,
+      taxInCents: taxInCents > 0 ? taxInCents : undefined,
     };
   });
   

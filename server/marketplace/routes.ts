@@ -4345,4 +4345,32 @@ router.get('/flxpoint/walmart-stats', async (req, res) => {
   }
 });
 
+/**
+ * GET /marketplace/flxpoint/commission-comparison
+ * Compare estimated commission rates with actual rates from orders
+ */
+router.get('/flxpoint/commission-comparison', async (req, res) => {
+  try {
+    const comparison = await flxpointService.getCommissionComparison();
+    return res.json(comparison);
+  } catch (error) {
+    console.error('[Flxpoint] Commission comparison error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/sync-commission-from-orders
+ * Update Flxpoint variants with actual commission rates from synced orders
+ */
+router.post('/flxpoint/sync-commission-from-orders', async (req, res) => {
+  try {
+    const result = await flxpointService.syncCommissionFromOrders();
+    return res.json(result);
+  } catch (error) {
+    console.error('[Flxpoint] Commission sync error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
