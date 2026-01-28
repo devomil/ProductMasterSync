@@ -415,6 +415,7 @@ export default function FlxpointSync() {
                     onClick={() => enrichMutation.mutate()}
                     disabled={isJobRunning || enrichMutation.isPending || !stats?.totalVariants}
                     variant="outline"
+                    className="bg-[#e9f1fe] hover:bg-[#e9f1fe]/80"
                     data-testid="button-enrich-data"
                   >
                     <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending || isJobRunning ? 'animate-spin' : ''}`} />
