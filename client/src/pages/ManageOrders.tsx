@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -188,6 +190,30 @@ export default function ManageOrders() {
   // Fetch marketplace connection status
   const { data: marketplaceStatus } = useQuery({
     queryKey: ['/api/marketplace/credentials/status'],
+  });
+
+  const { toast } = useToast();
+
+  // Sync Walmart orders mutation
+  const syncWalmartOrdersMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/orders/sync/walmart', { daysBack: 60 });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Walmart Orders Synced',
+        description: `Synced ${data.synced} new orders, updated ${data.updated} existing orders.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Sync Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   // Fetch order details when an order is selected
@@ -572,6 +598,20 @@ export default function ManageOrders() {
               </Select>
               <Button variant="outline" size="sm" data-testid="button-table-preferences">
                 Set Table Preferences
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => syncWalmartOrdersMutation.mutate()}
+                disabled={syncWalmartOrdersMutation.isPending}
+                data-testid="button-sync-walmart"
+              >
+                {syncWalmartOrdersMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                )}
+                Sync Walmart Orders
               </Button>
               <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh">
                 <RefreshCw className="h-4 w-4" />
