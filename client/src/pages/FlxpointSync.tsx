@@ -455,6 +455,7 @@ export default function FlxpointSync() {
                     onClick={() => generateCsvMutation.mutate()}
                     disabled={generateCsvMutation.isPending || !stats?.totalVariants}
                     variant="secondary"
+                    className="bg-[#22c55e] hover:bg-[#22c55e]/80"
                     data-testid="button-generate-csv"
                   >
                     <RefreshCw className={`w-4 h-4 mr-2 ${generateCsvMutation.isPending ? 'animate-spin' : ''}`} />
