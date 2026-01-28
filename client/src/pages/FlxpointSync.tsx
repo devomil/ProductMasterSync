@@ -435,6 +435,7 @@ export default function FlxpointSync() {
                     onClick={() => pushMutation.mutate(false)}
                     disabled={!isConnected || isJobRunning || pushMutation.isPending || !walmartStats?.readyToPush}
                     variant="default"
+                    className="bg-[#f2cf65] text-[#0c0a09] hover:bg-[#f2cf65]/80"
                     data-testid="button-push-data"
                   >
                     <Upload className="w-4 h-4 mr-2" />
