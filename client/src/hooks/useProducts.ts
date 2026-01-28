@@ -8,6 +8,7 @@ export interface ProductSearchFilters {
   searchType: SearchType;
   query?: string;
   category?: string;
+  status?: string;
   supplier?: string;
   manufacturer?: string;
   isRemanufactured?: boolean;
