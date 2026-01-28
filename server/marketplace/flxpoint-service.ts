@@ -1,9 +1,11 @@
 import { db } from '../db';
 import { flxpointVariants, flxpointSyncRuns, marketplaceListings, walmartListingDetails } from '@shared/schema';
-import { eq, sql, and, isNotNull, desc } from 'drizzle-orm';
+import { eq, sql, and, isNotNull, desc, or } from 'drizzle-orm';
 import { createFlxpointClient, FlxpointVariantResponse, FlxpointUpdatePayload, FlxpointCustomField } from './flxpoint-client';
 import { calculateReferralFee } from './walmart-referral-fees';
 import crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface SyncProgress {
   jobId: number;
@@ -947,6 +949,284 @@ export class FlxpointService {
       enrichedWithCommission: enrichedResult.count,
       readyToPush: readyResult.count,
       alreadyPushed: pushedResult.count,
+    };
+  }
+
+  async startWalmartListingsSyncJob(): Promise<number> {
+    const [syncRun] = await db.insert(flxpointSyncRuns).values({
+      jobType: 'walmart_sync',
+      status: 'running',
+    }).returning();
+    
+    this.executeWalmartListingsSyncJob(syncRun.id).catch(err => {
+      console.error('[Flxpoint] Walmart listings sync error:', err);
+      this.updateSyncRunStatus(syncRun.id, 'failed', err.message);
+    });
+    
+    return syncRun.id;
+  }
+
+  private async executeWalmartListingsSyncJob(jobId: number): Promise<void> {
+    console.log(`[Flxpoint] Starting Walmart listings sync job ${jobId}`);
+    
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
+    const errors: any[] = [];
+    const BATCH_SIZE = 1000;
+    let offset = 0;
+    let hasMore = true;
+    
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(marketplaceListings)
+      .where(
+        and(
+          eq(marketplaceListings.marketplace, 'walmart'),
+          eq(marketplaceListings.status, 'active')
+        )
+      );
+    
+    const totalListings = totalResult.count;
+    console.log(`[Flxpoint] Found ${totalListings} active Walmart listings to sync`);
+    
+    await db.update(flxpointSyncRuns)
+      .set({ totalVariants: totalListings })
+      .where(eq(flxpointSyncRuns.id, jobId));
+    
+    while (hasMore) {
+      const listings = await db.select({
+        listingId: marketplaceListings.listingId,
+        marketplaceSku: marketplaceListings.marketplaceSku,
+        title: marketplaceListings.title,
+        upc: marketplaceListings.upc,
+        productType: marketplaceListings.productType,
+        priceInCents: marketplaceListings.priceInCents,
+        categoryPath: marketplaceListings.categoryPath,
+        contractCategory: marketplaceListings.contractCategory,
+        buyBoxPrice: walmartListingDetails.buyBoxTotalPriceInCents,
+        walmartLifecycleStatus: walmartListingDetails.walmartLifecycleStatus,
+        walmartPublishStatus: walmartListingDetails.walmartPublishStatus,
+      })
+      .from(marketplaceListings)
+      .leftJoin(walmartListingDetails, eq(marketplaceListings.id, walmartListingDetails.marketplaceListingId))
+      .where(
+        and(
+          eq(marketplaceListings.marketplace, 'walmart'),
+          eq(marketplaceListings.status, 'active')
+        )
+      )
+      .orderBy(marketplaceListings.id)
+      .limit(BATCH_SIZE)
+      .offset(offset);
+      
+      if (listings.length === 0) {
+        hasMore = false;
+        break;
+      }
+      
+      for (const listing of listings) {
+        try {
+          const sku = listing.marketplaceSku || listing.listingId;
+          if (!sku) {
+            skippedCount++;
+            processedCount++;
+            continue;
+          }
+          
+          let commissionRate: number | null = null;
+          if (listing.priceInCents) {
+            try {
+              const categoryPathArray = Array.isArray(listing.categoryPath) 
+                ? listing.categoryPath as string[]
+                : null;
+              const feeResult = calculateReferralFee(
+                listing.priceInCents,
+                categoryPathArray,
+                listing.productType
+              );
+              commissionRate = 1 + (feeResult.feePercentageEffective / 100);
+            } catch (err) {
+              // Continue without commission rate
+            }
+          }
+          
+          const existingVariant = await db.select()
+            .from(flxpointVariants)
+            .where(eq(flxpointVariants.parentSku, sku))
+            .limit(1);
+          
+          const variantData = {
+            walmartId: listing.listingId,
+            wmProductType: listing.productType,
+            wmBuyBoxPrice: listing.buyBoxPrice,
+            wmCommissionRate: commissionRate,
+            syncStatus: 'pending' as const,
+            updatedAt: new Date(),
+          };
+          
+          if (existingVariant.length > 0) {
+            await db.update(flxpointVariants)
+              .set(variantData)
+              .where(eq(flxpointVariants.id, existingVariant[0].id));
+          } else {
+            await db.insert(flxpointVariants).values({
+              parentSku: sku,
+              flxpointData: { 
+                upc: listing.upc, 
+                title: listing.title,
+                sku: sku,
+                walmart_id: listing.listingId,
+              },
+              ...variantData,
+            });
+          }
+          
+          successCount++;
+        } catch (err: any) {
+          errorCount++;
+          if (errors.length < 100) {
+            errors.push({ sku: listing.marketplaceSku || listing.listingId, error: err.message });
+          }
+        }
+        processedCount++;
+      }
+      
+      offset += BATCH_SIZE;
+      hasMore = listings.length === BATCH_SIZE;
+      
+      await db.update(flxpointSyncRuns).set({
+        processedCount,
+        successCount,
+        errorCount,
+        skippedCount,
+      }).where(eq(flxpointSyncRuns.id, jobId));
+      
+      console.log(`[Flxpoint] Walmart sync progress: ${processedCount}/${totalListings}`);
+    }
+    
+    await db.update(flxpointSyncRuns).set({
+      status: 'completed',
+      processedCount,
+      successCount,
+      errorCount,
+      skippedCount,
+      finishedAt: new Date(),
+      errors: errors.length > 0 ? errors : null,
+    }).where(eq(flxpointSyncRuns.id, jobId));
+    
+    console.log(`[Flxpoint] Walmart sync job ${jobId} completed: ${successCount} synced, ${skippedCount} skipped, ${errorCount} errors`);
+  }
+
+  async generateVerificationCSV(): Promise<{ success: boolean; filePath: string; rowCount: number }> {
+    console.log('[Flxpoint] Generating verification CSV...');
+    
+    const BATCH_SIZE = 5000;
+    let offset = 0;
+    let hasMore = true;
+    let rowCount = 0;
+    
+    const filePath = path.resolve('/home/runner/workspace/flxpoint_verification_list.csv');
+    const writeStream = fs.createWriteStream(filePath);
+    
+    writeStream.write('Parent SKU,UPC,Product Name,Walmart ID,Product Type,Commission Rate,Buy Box Price ($),Sync Status,Pushed At\n');
+    
+    while (hasMore) {
+      const variants = await db.select()
+        .from(flxpointVariants)
+        .orderBy(flxpointVariants.parentSku)
+        .limit(BATCH_SIZE)
+        .offset(offset);
+      
+      if (variants.length === 0) {
+        hasMore = false;
+        break;
+      }
+      
+      for (const variant of variants) {
+        const flxData = variant.flxpointData as any || {};
+        const upc = flxData.upc || '';
+        const title = (flxData.title || '').replace(/"/g, '""').replace(/,/g, ' ');
+        const walmartId = variant.walmartId || '';
+        const productType = (variant.wmProductType || '').replace(/,/g, ' ');
+        const commissionRate = variant.wmCommissionRate ? variant.wmCommissionRate.toFixed(4) : '';
+        const buyBoxPrice = variant.wmBuyBoxPrice ? (variant.wmBuyBoxPrice / 100).toFixed(2) : '';
+        const syncStatus = variant.syncStatus || '';
+        const pushedAt = variant.lastPushedAt ? new Date(variant.lastPushedAt).toISOString().replace('T', ' ').substring(0, 19) : '';
+        
+        writeStream.write(`${variant.parentSku},${upc},"${title}",${walmartId},${productType},${commissionRate},${buyBoxPrice},${syncStatus},${pushedAt}\n`);
+        rowCount++;
+      }
+      
+      offset += BATCH_SIZE;
+      hasMore = variants.length === BATCH_SIZE;
+      console.log(`[Flxpoint] CSV progress: ${rowCount} rows written`);
+    }
+    
+    return new Promise((resolve, reject) => {
+      writeStream.end(() => {
+        console.log(`[Flxpoint] Verification CSV generated: ${rowCount} rows`);
+        resolve({ success: true, filePath, rowCount });
+      });
+      writeStream.on('error', reject);
+    });
+  }
+
+  async getWalmartActiveListingsStats(): Promise<{
+    totalActive: number;
+    withUpc: number;
+    syncedToFlxpoint: number;
+    withCommissionRate: number;
+    readyToPush: number;
+    pushed: number;
+  }> {
+    const [activeResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(marketplaceListings)
+      .where(
+        and(
+          eq(marketplaceListings.marketplace, 'walmart'),
+          eq(marketplaceListings.status, 'active')
+        )
+      );
+    
+    const [upcResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(marketplaceListings)
+      .where(
+        and(
+          eq(marketplaceListings.marketplace, 'walmart'),
+          eq(marketplaceListings.status, 'active'),
+          isNotNull(marketplaceListings.upc)
+        )
+      );
+    
+    const [syncedResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(isNotNull(flxpointVariants.walmartId));
+    
+    const [commissionResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(isNotNull(flxpointVariants.wmCommissionRate));
+    
+    const [pendingResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(
+        and(
+          eq(flxpointVariants.syncStatus, 'pending'),
+          isNotNull(flxpointVariants.wmCommissionRate)
+        )
+      );
+    
+    const [pushedResult] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(flxpointVariants)
+      .where(eq(flxpointVariants.syncStatus, 'synced'));
+    
+    return {
+      totalActive: activeResult.count,
+      withUpc: upcResult.count,
+      syncedToFlxpoint: syncedResult.count,
+      withCommissionRate: commissionResult.count,
+      readyToPush: pendingResult.count,
+      pushed: pushedResult.count,
     };
   }
 }

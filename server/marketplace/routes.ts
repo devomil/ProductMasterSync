@@ -4292,4 +4292,57 @@ router.get('/flxpoint/debug-api', async (req, res) => {
   }
 });
 
+/**
+ * POST /marketplace/flxpoint/sync-walmart-listings
+ * Sync all active Walmart listings to Flxpoint variants table
+ * This pulls from marketplace_listings and creates/updates flxpoint_variants
+ */
+router.post('/flxpoint/sync-walmart-listings', async (req, res) => {
+  try {
+    const jobId = await flxpointService.startWalmartListingsSyncJob();
+    return res.json({ 
+      success: true, 
+      jobId, 
+      message: 'Walmart listings sync started. Use GET /marketplace/flxpoint/sync-progress/:jobId to monitor progress.' 
+    });
+  } catch (error) {
+    console.error('[Flxpoint] Walmart sync error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/flxpoint/generate-verification-csv
+ * Generate a verification CSV file with all synced variant data
+ */
+router.post('/flxpoint/generate-verification-csv', async (req, res) => {
+  try {
+    const result = await flxpointService.generateVerificationCSV();
+    return res.json({ 
+      success: true, 
+      rowCount: result.rowCount,
+      filePath: result.filePath,
+      downloadUrl: '/api/downloads/flxpoint-verification',
+      message: `Generated verification CSV with ${result.rowCount} rows` 
+    });
+  } catch (error) {
+    console.error('[Flxpoint] CSV generation error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/flxpoint/walmart-stats
+ * Get statistics on Walmart active listings and their sync status
+ */
+router.get('/flxpoint/walmart-stats', async (req, res) => {
+  try {
+    const stats = await flxpointService.getWalmartActiveListingsStats();
+    return res.json(stats);
+  } catch (error) {
+    console.error('[Flxpoint] Walmart stats error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

@@ -26,6 +26,15 @@ interface FlxpointStats {
   lastEnrichRun?: any;
 }
 
+interface WalmartStats {
+  totalActive: number;
+  withUpc: number;
+  syncedToFlxpoint: number;
+  withCommissionRate: number;
+  readyToPush: number;
+  pushed: number;
+}
+
 interface FlxpointVariant {
   id: number;
   parentSku: string;
@@ -158,6 +167,39 @@ export default function FlxpointSync() {
     },
   });
 
+  const { data: walmartStats } = useQuery<WalmartStats>({
+    queryKey: ['/api/marketplace/flxpoint/walmart-stats'],
+    refetchInterval: 10000,
+  });
+
+  const syncWalmartMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/flxpoint/sync-walmart-listings');
+      return response.json();
+    },
+    onSuccess: (data: { jobId: number }) => {
+      setActiveJobId(data.jobId);
+      toast({ title: 'Walmart Sync Started', description: 'Syncing all active Walmart listings...' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Walmart Sync Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const generateCsvMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/flxpoint/generate-verification-csv');
+      return response.json();
+    },
+    onSuccess: (data: { rowCount: number }) => {
+      toast({ title: 'CSV Generated', description: `Generated verification CSV with ${data.rowCount?.toLocaleString()} rows` });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/stats'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'CSV Generation Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'synced':
@@ -267,26 +309,34 @@ export default function FlxpointSync() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Marketplace Coverage</CardTitle>
-              <CardDescription>Variants with marketplace IDs and enrichment data</CardDescription>
+              <CardTitle className="text-lg">Walmart Active Listings</CardTitle>
+              <CardDescription>Your Walmart Seller Center active product catalog</CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Total Active Listings</span>
+              <Badge variant="default" className="bg-blue-500 text-lg px-3">{walmartStats?.totalActive?.toLocaleString() || 0}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-sm">With UPC</span>
-              <Badge variant="secondary" data-testid="stat-with-upc">{stats?.withUpc?.toLocaleString() || 0}</Badge>
+              <Badge variant="secondary">{walmartStats?.withUpc?.toLocaleString() || 0}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">With ASIN (Amazon)</span>
-              <Badge variant="secondary" data-testid="stat-with-asin">{stats?.withAsin?.toLocaleString() || 0}</Badge>
+              <span className="text-sm">Synced to Variants Table</span>
+              <Badge variant="secondary">{walmartStats?.syncedToFlxpoint?.toLocaleString() || 0}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Matched to Walmart Listings</span>
-              <Badge variant="secondary" data-testid="stat-with-walmart">{stats?.withWalmartId?.toLocaleString() || 0}</Badge>
+              <span className="text-sm">With Commission Rates</span>
+              <Badge variant="default" className="bg-purple-500">{walmartStats?.withCommissionRate?.toLocaleString() || 0}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Enriched with Commission Rates</span>
-              <Badge variant="default" className="bg-purple-500" data-testid="stat-enriched">{stats?.matchedWalmart?.toLocaleString() || 0}</Badge>
+              <span className="text-sm">Ready to Push</span>
+              <Badge variant="secondary" className="bg-yellow-500 text-white">{walmartStats?.readyToPush?.toLocaleString() || 0}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Already Pushed to Flxpoint</span>
+              <Badge variant="default" className="bg-green-500">{walmartStats?.pushed?.toLocaleString() || 0}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -295,36 +345,58 @@ export default function FlxpointSync() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-lg">Sync Operations</CardTitle>
-              <CardDescription>Pull from or push to Flxpoint</CardDescription>
+              <CardDescription>Sync Walmart listings and push to Flxpoint</CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Button
+                onClick={() => syncWalmartMutation.mutate()}
+                disabled={isJobRunning || syncWalmartMutation.isPending}
+                variant="default"
+                className="bg-blue-600 hover:bg-blue-700"
+                data-testid="button-sync-walmart"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Sync Walmart Listings ({walmartStats?.totalActive?.toLocaleString() || 0})
+              </Button>
+              <Button
                 onClick={() => pullMutation.mutate()}
                 disabled={!isConnected || isJobRunning || pullMutation.isPending}
+                variant="outline"
                 data-testid="button-pull-variants"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Pull Variants
-              </Button>
-              <Button
-                onClick={() => pushMutation.mutate(false)}
-                disabled={!isConnected || isJobRunning || pushMutation.isPending || !stats?.pendingSync}
-                variant="default"
-                data-testid="button-push-data"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Push to Flxpoint
+                Pull from Flxpoint API
               </Button>
               <Button
                 onClick={() => enrichMutation.mutate()}
-                disabled={!isConnected || isJobRunning || enrichMutation.isPending || !stats?.totalVariants}
+                disabled={isJobRunning || enrichMutation.isPending || !stats?.totalVariants}
                 variant="outline"
                 data-testid="button-enrich-data"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${enrichMutation.isPending || isJobRunning ? 'animate-spin' : ''}`} />
                 Enrich from Marketplace
+              </Button>
+              <Button
+                onClick={() => pushMutation.mutate(false)}
+                disabled={!isConnected || isJobRunning || pushMutation.isPending || !walmartStats?.readyToPush}
+                variant="default"
+                data-testid="button-push-data"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Push to Flxpoint ({walmartStats?.readyToPush?.toLocaleString() || 0})
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
+              <Button
+                onClick={() => generateCsvMutation.mutate()}
+                disabled={generateCsvMutation.isPending || !stats?.totalVariants}
+                variant="secondary"
+                data-testid="button-generate-csv"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${generateCsvMutation.isPending ? 'animate-spin' : ''}`} />
+                Generate Verification CSV
               </Button>
               <Button
                 asChild
