@@ -66,6 +66,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSupplier(id: number): Promise<boolean> {
+    // Delete related records first to avoid foreign key constraint violations
+    // Delete supplier category mappings
+    await db.delete(schema.supplierCategoryMappings)
+      .where(eq(schema.supplierCategoryMappings.supplierId, id));
+    
+    // Delete product suppliers relationships
+    await db.delete(schema.productSuppliers)
+      .where(eq(schema.productSuppliers.supplierId, id));
+    
+    // Delete related imports (set supplierId to null or delete if required)
+    await db.update(schema.imports)
+      .set({ supplierId: null })
+      .where(eq(schema.imports.supplierId, id));
+    
+    // Delete data sources
+    await db.delete(schema.dataSources)
+      .where(eq(schema.dataSources.supplierId, id));
+    
+    // Delete supplier automations
+    await db.delete(schema.supplierAutomations)
+      .where(eq(schema.supplierAutomations.supplierId, id));
+    
+    // Now delete the supplier
     const [deletedSupplier] = await db
       .delete(schema.suppliers)
       .where(eq(schema.suppliers.id, id))
