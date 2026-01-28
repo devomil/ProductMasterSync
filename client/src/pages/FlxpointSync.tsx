@@ -118,12 +118,31 @@ export default function FlxpointSync() {
 
   useEffect(() => {
     if (progressData && (progressData.status === 'completed' || progressData.status === 'failed')) {
+      const wasSuccess = progressData.status === 'completed';
+      const processed = progressData.processedCount || 0;
+      const success = progressData.successCount || 0;
+      const errors = progressData.errorCount || 0;
+      
       setActiveJobId(null);
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/sync-runs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/variants'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/flxpoint/walmart-stats'] });
+      
+      if (wasSuccess) {
+        toast({ 
+          title: 'Sync Completed', 
+          description: `Successfully processed ${processed.toLocaleString()} items (${success.toLocaleString()} synced, ${errors.toLocaleString()} errors)` 
+        });
+      } else {
+        toast({ 
+          title: 'Sync Failed', 
+          description: `Processed ${processed.toLocaleString()} items before failure`,
+          variant: 'destructive'
+        });
+      }
     }
-  }, [progressData, queryClient]);
+  }, [progressData, queryClient, toast]);
 
   const pullMutation = useMutation({
     mutationFn: async () => {

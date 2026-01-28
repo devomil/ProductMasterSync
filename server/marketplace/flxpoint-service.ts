@@ -1119,7 +1119,7 @@ export class FlxpointService {
   }
 
   async generateVerificationCSV(): Promise<{ success: boolean; filePath: string; rowCount: number }> {
-    console.log('[Flxpoint] Generating verification CSV...');
+    console.log('[Flxpoint] Generating verification CSV for active Walmart listings only...');
     
     const BATCH_SIZE = 5000;
     let offset = 0;
@@ -1132,8 +1132,10 @@ export class FlxpointService {
     writeStream.write('Parent SKU,UPC,Product Name,Walmart ID,Product Type,Commission Rate,Buy Box Price ($),Sync Status,Pushed At\n');
     
     while (hasMore) {
+      // Only include variants that have a Walmart ID (i.e. synced from active Walmart listings)
       const variants = await db.select()
         .from(flxpointVariants)
+        .where(isNotNull(flxpointVariants.walmartId))
         .orderBy(flxpointVariants.parentSku)
         .limit(BATCH_SIZE)
         .offset(offset);
@@ -1165,7 +1167,7 @@ export class FlxpointService {
     
     return new Promise((resolve, reject) => {
       writeStream.end(() => {
-        console.log(`[Flxpoint] Verification CSV generated: ${rowCount} rows`);
+        console.log(`[Flxpoint] Verification CSV generated: ${rowCount} rows (active Walmart listings only)`);
         resolve({ success: true, filePath, rowCount });
       });
       writeStream.on('error', reject);
