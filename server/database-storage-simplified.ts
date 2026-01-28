@@ -85,8 +85,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.dataSources.supplierId, id));
     
     // Delete supplier automations
-    await db.delete(schema.supplierAutomations)
-      .where(eq(schema.supplierAutomations.supplierId, id));
+    await db.delete(schema.supplierAutomation)
+      .where(eq(schema.supplierAutomation.supplierId, id));
     
     // Now delete the supplier
     const [deletedSupplier] = await db
