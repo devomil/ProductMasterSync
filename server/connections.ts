@@ -9,6 +9,12 @@ import pg from 'pg';
 import path from 'path';
 import { parse as parseCsv } from 'csv-parse/sync';
 
+// Helper to strip protocol prefixes from hostnames
+const cleanHostname = (host: string): string => {
+  if (!host) return host;
+  return host.replace(/^(sftp|ftp|ftps):\/\//i, '');
+};
+
 // Helper function to properly parse CSV/TSV lines, handling quoted fields
 const parseCSVLine = (line: string, delimiter: string = ','): string[] => {
   const result: string[] = [];
@@ -120,7 +126,7 @@ const testSFTPConnection = async (credentials: any) => {
     
     // Prepare connection config with algorithm support for older servers
     const connectConfig: any = {
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 22,
       username: credentials.username,
       algorithms: {
@@ -281,7 +287,7 @@ const testFTPConnection = async (credentials: any) => {
     
     // Prepare connection config
     client.connect({
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 21,
       user: credentials.username,
       password: credentials.password,
@@ -754,7 +760,7 @@ const pullSampleDataFromSFTP = async (
     
     // Prepare connection config
     const connectConfig: any = {
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 22,
       username: credentials.username
     };
@@ -1380,7 +1386,7 @@ const pullSampleDataFromFTP = async (
     
     // Connect to FTP server
     client.connect({
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 21,
       user: credentials.username,
       password: credentials.password,

@@ -20,6 +20,12 @@ interface FTPCredentials {
   filePattern?: string; // For matching specific files, e.g., "*.csv"
 }
 
+// Helper to strip protocol prefixes from hostnames
+const cleanHostname = (host: string): string => {
+  if (!host) return host;
+  return host.replace(/^(sftp|ftp|ftps):\/\//i, '');
+};
+
 /**
  * Pull a sample from an SFTP file for preview/mapping
  */
@@ -146,7 +152,7 @@ export const pullSampleFromSFTP = async (
     
     // Connect to the SFTP server
     const connectOptions: any = {
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 22,
       username: credentials.username
     };
@@ -441,7 +447,7 @@ const pullFromFTP = async (
     
     // Connect to the FTP server
     client.connect({
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 21,
       user: credentials.username,
       password: credentials.password,
@@ -633,7 +639,7 @@ const pullFromSFTP = async (
     
     // Connection options with algorithm support for older servers
     const connectConfig: any = {
-      host: credentials.host,
+      host: cleanHostname(credentials.host),
       port: credentials.port || 22,
       username: credentials.username,
       algorithms: {
@@ -904,7 +910,7 @@ export const getRemotePaths = async (
       
       // Connect using the provided credentials
       const connectOptions: any = {
-        host: credentials.host,
+        host: cleanHostname(credentials.host),
         port: credentials.port || 22,
         username: credentials.username,
         readyTimeout: 20000, // 20 seconds timeout
@@ -923,7 +929,7 @@ export const getRemotePaths = async (
         connectOptions.password = process.env.SFTP_PASSWORD;
       }
       
-      console.log(`Connecting to SFTP server ${credentials.host}:${connectOptions.port} as ${credentials.username}`);
+      console.log(`Connecting to SFTP server ${cleanHostname(credentials.host)}:${connectOptions.port} as ${credentials.username}`);
       
       conn.connect(connectOptions);
     });
@@ -991,7 +997,7 @@ export const getRemotePaths = async (
       
       // Connect using the provided credentials
       client.connect({
-        host: credentials.host,
+        host: cleanHostname(credentials.host),
         port: credentials.port || 21,
         user: credentials.username,
         password: credentials.password,
