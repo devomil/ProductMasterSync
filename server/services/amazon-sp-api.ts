@@ -359,6 +359,48 @@ export class AmazonSPAPI {
     return results;
   }
 
+  async getOrders(daysBack: number = 30): Promise<any[]> {
+    try {
+      const createdAfter = new Date();
+      createdAfter.setDate(createdAfter.getDate() - daysBack);
+      
+      console.log(`[Amazon Orders] Fetching orders from last ${daysBack} days...`);
+      
+      const response = await this.makeRequest<any>(
+        'GET',
+        '/orders/v0/orders',
+        {
+          MarketplaceIds: this.config.marketplaceId,
+          CreatedAfter: createdAfter.toISOString(),
+          OrderStatuses: 'Unshipped,PartiallyShipped,Shipped,Pending'
+        }
+      );
+      
+      const orders = response?.Orders || [];
+      console.log(`[Amazon Orders] Found ${orders.length} orders`);
+      
+      return orders;
+    } catch (error) {
+      console.error('[Amazon Orders] Error fetching orders:', error);
+      throw error;
+    }
+  }
+
+  async getOrderItems(orderId: string): Promise<any[]> {
+    try {
+      const response = await this.makeRequest<any>(
+        'GET',
+        `/orders/v0/orders/${orderId}/orderItems`,
+        {}
+      );
+      
+      return response?.OrderItems || [];
+    } catch (error) {
+      console.error(`[Amazon Orders] Error fetching items for order ${orderId}:`, error);
+      return [];
+    }
+  }
+
   isConfigured(): boolean {
     return !!(this.config.clientId && this.config.clientSecret && this.config.refreshToken);
   }

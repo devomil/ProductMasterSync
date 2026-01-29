@@ -3931,6 +3931,124 @@ router.post('/orders/sync/walmart', async (req, res) => {
 });
 
 /**
+ * POST /marketplace/orders/sync/amazon
+ * Sync orders from Amazon SP-API
+ */
+router.post('/orders/sync/amazon', async (req, res) => {
+  try {
+    const { daysBack = 30 } = req.body;
+    const { amazonAPI } = await import('../services/amazon-sp-api');
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    console.log(`[Amazon Orders] Starting sync for last ${daysBack} days...`);
+    
+    const orders = await amazonAPI.getOrders(daysBack);
+    
+    let synced = 0;
+    let updated = 0;
+    let errors = 0;
+    
+    for (const order of orders) {
+      try {
+        const amazonOrderId = order.AmazonOrderId;
+        
+        // Check if order exists
+        const existingOrders = await db
+          .select()
+          .from(marketplaceOrders)
+          .where(eq(marketplaceOrders.marketplaceOrderId, amazonOrderId))
+          .limit(1);
+        
+        // Map Amazon order status to our status
+        const statusMap: Record<string, string> = {
+          'Pending': 'pending',
+          'Unshipped': 'unshipped',
+          'PartiallyShipped': 'unshipped',
+          'Shipped': 'shipped',
+          'Canceled': 'cancelled',
+          'Cancelled': 'cancelled',
+          'Unfulfillable': 'on_hold'
+        };
+        
+        const orderData = {
+          marketplace: 'amazon' as const,
+          marketplaceOrderId: amazonOrderId,
+          orderNumber: amazonOrderId,
+          status: (statusMap[order.OrderStatus] || 'pending') as any,
+          orderType: (order.OrderType === 'StandardOrder' ? 'standard' : 'standard') as any,
+          customerName: order.BuyerInfo?.BuyerName || null,
+          customerEmail: order.BuyerInfo?.BuyerEmail || null,
+          orderDate: new Date(order.PurchaseDate),
+          shipByDate: order.LatestShipDate ? new Date(order.LatestShipDate) : null,
+          promisedDeliveryDate: order.LatestDeliveryDate ? new Date(order.LatestDeliveryDate) : null,
+          lastModifiedDate: order.LastUpdateDate ? new Date(order.LastUpdateDate) : null,
+          totalInCents: order.OrderTotal?.Amount ? Math.round(parseFloat(order.OrderTotal.Amount) * 100) : null,
+          currencyCode: order.OrderTotal?.CurrencyCode || 'USD',
+          shippingService: order.ShipmentServiceLevelCategory || null,
+          isPremium: order.IsPrime || false,
+          isBusinessCustomer: order.IsBusinessOrder || false,
+          fulfillmentChannel: order.FulfillmentChannel || 'MFN',
+        };
+        
+        if (existingOrders.length > 0) {
+          // Update existing order
+          await db
+            .update(marketplaceOrders)
+            .set({ ...orderData, updatedAt: new Date() })
+            .where(eq(marketplaceOrders.id, existingOrders[0].id));
+          updated++;
+        } else {
+          // Insert new order
+          const [newOrder] = await db
+            .insert(marketplaceOrders)
+            .values(orderData)
+            .returning();
+          
+          // Fetch and save order items
+          const items = await amazonAPI.getOrderItems(amazonOrderId);
+          
+          for (const item of items) {
+            await db.insert(marketplaceOrderItems).values({
+              orderId: newOrder.id,
+              marketplaceSku: item.SellerSKU || item.ASIN,
+              title: item.Title || null,
+              quantity: item.QuantityOrdered || 1,
+              unitPriceInCents: item.ItemPrice?.Amount ? Math.round(parseFloat(item.ItemPrice.Amount) * 100 / (item.QuantityOrdered || 1)) : null,
+            });
+          }
+          
+          synced++;
+        }
+        
+        // Rate limit between orders
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (orderError) {
+        console.error(`[Amazon Orders] Error processing order:`, orderError);
+        errors++;
+      }
+    }
+    
+    console.log(`[Amazon Orders] Sync complete: ${synced} new, ${updated} updated, ${errors} errors`);
+    
+    return res.json({
+      success: true,
+      message: `Synced ${synced} new orders, updated ${updated} existing orders`,
+      synced,
+      updated,
+      errors,
+      total: orders.length
+    });
+    
+  } catch (error) {
+    console.error('[Amazon Orders] Error syncing orders:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * GET /marketplace/orders/stats/summary
  * Get order statistics summary
  */
