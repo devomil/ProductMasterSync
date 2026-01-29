@@ -2044,6 +2044,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Browse SFTP directory structure
+  app.post("/api/datasources/:id/browse", async (req, res) => {
+    try {
+      const dataSourceId = parseInt(req.params.id);
+      const { path = '/' } = req.body;
+      
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+        
+      if (!dataSource) {
+        return res.status(404).json({ error: "Data source not found" });
+      }
+
+      const config = dataSource.config as any;
+      
+      if (dataSource.type !== 'sftp') {
+        return res.status(400).json({ error: "Only SFTP data sources can be browsed" });
+      }
+
+      const SftpClient = (await import('ssh2-sftp-client')).default;
+      const sftp = new SftpClient();
+      
+      let password = config.password;
+      if (process.env.SFTP_PASSWORD && 
+          config.host === 'edi.cwrdistribution.com' && 
+          config.username === 'eco8') {
+        password = process.env.SFTP_PASSWORD;
+      }
+      if (process.env.INGRAM_SFTP_PASSWORD && 
+          config.host?.includes('ingrammicro.com')) {
+        password = process.env.INGRAM_SFTP_PASSWORD;
+      }
+      
+      const cleanHost = config.host?.replace(/^(sftp|ftp|ftps):\/\//i, '') || config.host;
+      
+      await sftp.connect({
+        host: cleanHost,
+        port: config.port || 22,
+        username: config.username,
+        password: password
+      });
+      
+      const fileList = await sftp.list(path);
+      await sftp.end();
+      
+      // Format the file list with relevant info
+      const files = fileList.map((f: any) => ({
+        name: f.name,
+        type: f.type === 'd' ? 'directory' : 'file',
+        size: f.size,
+        modifyTime: f.modifyTime,
+        path: path === '/' ? `/${f.name}` : `${path}/${f.name}`
+      }));
+      
+      res.json({ 
+        success: true, 
+        path,
+        files: files.sort((a: any, b: any) => {
+          // Directories first, then files
+          if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        })
+      });
+      
+    } catch (error) {
+      console.error("Error browsing SFTP:", error);
+      res.status(500).json({ 
+        error: "Failed to browse SFTP",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Download and preview ZIP file contents from SFTP
+  app.post("/api/datasources/:id/preview-zip", async (req, res) => {
+    try {
+      const dataSourceId = parseInt(req.params.id);
+      const { filePath } = req.body;
+      
+      if (!filePath) {
+        return res.status(400).json({ error: "filePath is required" });
+      }
+      
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+        
+      if (!dataSource) {
+        return res.status(404).json({ error: "Data source not found" });
+      }
+
+      const config = dataSource.config as any;
+      
+      if (dataSource.type !== 'sftp') {
+        return res.status(400).json({ error: "Only SFTP data sources supported" });
+      }
+
+      const SftpClient = (await import('ssh2-sftp-client')).default;
+      const AdmZip = (await import('adm-zip')).default;
+      const sftp = new SftpClient();
+      
+      let password = config.password;
+      if (process.env.SFTP_PASSWORD && 
+          config.host === 'edi.cwrdistribution.com' && 
+          config.username === 'eco8') {
+        password = process.env.SFTP_PASSWORD;
+      }
+      if (process.env.INGRAM_SFTP_PASSWORD && 
+          config.host?.includes('ingrammicro.com')) {
+        password = process.env.INGRAM_SFTP_PASSWORD;
+      }
+      
+      const cleanHost = config.host?.replace(/^(sftp|ftp|ftps):\/\//i, '') || config.host;
+      
+      console.log(`[Ingram] Connecting to ${cleanHost} to download ${filePath}`);
+      
+      await sftp.connect({
+        host: cleanHost,
+        port: config.port || 22,
+        username: config.username,
+        password: password
+      });
+      
+      // Download the file to a buffer
+      const fileBuffer = await sftp.get(filePath) as Buffer;
+      await sftp.end();
+      
+      console.log(`[Ingram] Downloaded ${fileBuffer.length} bytes`);
+      
+      // Extract and analyze the ZIP
+      const zip = new AdmZip(fileBuffer);
+      const zipEntries = zip.getEntries();
+      
+      const result: any = {
+        success: true,
+        zipInfo: {
+          entries: zipEntries.length,
+          files: zipEntries.map(e => ({
+            name: e.entryName,
+            size: e.header.size,
+            compressedSize: e.header.compressedSize
+          }))
+        },
+        preview: {} as any
+      };
+      
+      // Extract and preview each file
+      for (const entry of zipEntries) {
+        if (!entry.isDirectory) {
+          const content = entry.getData().toString('utf8');
+          const lines = content.split('\n').filter(l => l.trim());
+          
+          // Detect delimiter
+          const firstLine = lines[0] || '';
+          const tabCount = (firstLine.match(/\t/g) || []).length;
+          const commaCount = (firstLine.match(/,/g) || []).length;
+          const delimiter = tabCount > commaCount ? '\t' : ',';
+          
+          // Parse header and sample rows
+          const headers = firstLine.split(delimiter);
+          const sampleRows = lines.slice(1, 6).map(line => {
+            const values = line.split(delimiter);
+            const row: any = {};
+            headers.forEach((h, i) => {
+              row[h.trim()] = values[i]?.trim() || '';
+            });
+            return row;
+          });
+          
+          result.preview[entry.entryName] = {
+            totalRows: lines.length - 1,
+            delimiter: delimiter === '\t' ? 'TAB' : 'COMMA',
+            columns: headers.map(h => h.trim()),
+            sampleRows
+          };
+        }
+      }
+      
+      res.json(result);
+      
+    } catch (error) {
+      console.error("Error previewing ZIP:", error);
+      res.status(500).json({ 
+        error: "Failed to preview ZIP",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Get sample data from data source (for field mapping)
   app.get("/api/datasources/:id/sample-data", async (req, res) => {
     try {
