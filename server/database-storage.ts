@@ -261,11 +261,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDataSource(dataSource: InsertDataSource): Promise<DataSource> {
+    // Normalize hostname in config to remove protocol prefixes
+    if (dataSource.config && typeof dataSource.config === 'object') {
+      const config = dataSource.config as any;
+      if (config.host && typeof config.host === 'string') {
+        config.host = config.host.replace(/^(sftp|ftp|ftps):\/\//i, '');
+      }
+    }
     const [createdDataSource] = await db.insert(dataSources).values(dataSource).returning();
     return createdDataSource;
   }
 
   async updateDataSource(id: number, dataSource: Partial<InsertDataSource>): Promise<DataSource | undefined> {
+    // Normalize hostname in config to remove protocol prefixes
+    if (dataSource.config && typeof dataSource.config === 'object') {
+      const config = dataSource.config as any;
+      if (config.host && typeof config.host === 'string') {
+        config.host = config.host.replace(/^(sftp|ftp|ftps):\/\//i, '');
+      }
+    }
     const [updatedDataSource] = await db
       .update(dataSources)
       .set({...dataSource, updatedAt: new Date()})

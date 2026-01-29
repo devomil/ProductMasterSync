@@ -158,8 +158,21 @@ export const pullSampleFromSFTP = async (
     };
     
     // Add password or private key authentication
-    if (credentials.password) {
-      connectOptions.password = credentials.password;
+    // Check for Ingram Micro credentials from environment
+    let password = credentials.password;
+    if (process.env.INGRAM_SFTP_PASSWORD && 
+        credentials.host?.includes('ingrammicro.com')) {
+      password = process.env.INGRAM_SFTP_PASSWORD;
+    }
+    // CWR Distribution credentials
+    if (process.env.SFTP_PASSWORD && 
+        credentials.host === 'edi.cwrdistribution.com' && 
+        credentials.username === 'eco8') {
+      password = process.env.SFTP_PASSWORD;
+    }
+    
+    if (password) {
+      connectOptions.password = password;
     } else if (credentials.privateKey) {
       connectOptions.privateKey = credentials.privateKey;
       if (credentials.passphrase) {

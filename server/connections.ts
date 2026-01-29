@@ -58,15 +58,29 @@ const detectDelimiter = (content: string): string => {
 
 // Helper to apply environment credentials to server SFTP connections
 const applySFTPCredentials = (credentials: any, connectConfig: any) => {
-  // Use environment variable for password if available and credentials match our expected SFTP server
+  // Clean hostname of protocol prefix
+  if (connectConfig.host) {
+    connectConfig.host = cleanHostname(connectConfig.host);
+  }
+  
+  // Use environment variable for password based on host
+  let password = credentials.password;
+  
+  // Ingram Micro SFTP credentials
+  if (process.env.INGRAM_SFTP_PASSWORD && 
+      connectConfig.host?.includes('ingrammicro.com')) {
+    console.log('Using INGRAM_SFTP_PASSWORD from environment variables');
+    password = process.env.INGRAM_SFTP_PASSWORD;
+  }
+  // CWR Distribution credentials
   if (process.env.SFTP_PASSWORD && 
       connectConfig.host === 'edi.cwrdistribution.com' && 
       connectConfig.username === 'eco8') {
     console.log('Using SFTP_PASSWORD from environment variables');
-    connectConfig.password = process.env.SFTP_PASSWORD;
-  } else {
-    connectConfig.password = credentials.password;
+    password = process.env.SFTP_PASSWORD;
   }
+  
+  connectConfig.password = password;
   return connectConfig;
 };
 
@@ -172,6 +186,19 @@ const testSFTPConnection = async (credentials: any) => {
     };
     
     // Handle authentication
+    // Check for Ingram Micro credentials from environment
+    let password = credentials.password;
+    if (process.env.INGRAM_SFTP_PASSWORD && 
+        credentials.host?.includes('ingrammicro.com')) {
+      password = process.env.INGRAM_SFTP_PASSWORD;
+    }
+    // CWR Distribution credentials
+    if (process.env.SFTP_PASSWORD && 
+        credentials.host === 'edi.cwrdistribution.com' && 
+        credentials.username === 'eco8') {
+      password = process.env.SFTP_PASSWORD;
+    }
+    
     if (credentials.privateKey && credentials.requiresPrivateKey) {
       connectConfig.privateKey = credentials.privateKey;
       
@@ -179,7 +206,7 @@ const testSFTPConnection = async (credentials: any) => {
         connectConfig.passphrase = credentials.passphrase;
       }
     } else {
-      connectConfig.password = credentials.password;
+      connectConfig.password = password;
     }
     
     client.on('ready', () => {
@@ -766,6 +793,19 @@ const pullSampleDataFromSFTP = async (
     };
     
     // Handle authentication
+    // Check for Ingram Micro credentials from environment
+    let password = credentials.password;
+    if (process.env.INGRAM_SFTP_PASSWORD && 
+        credentials.host?.includes('ingrammicro.com')) {
+      password = process.env.INGRAM_SFTP_PASSWORD;
+    }
+    // CWR Distribution credentials
+    if (process.env.SFTP_PASSWORD && 
+        credentials.host === 'edi.cwrdistribution.com' && 
+        credentials.username === 'eco8') {
+      password = process.env.SFTP_PASSWORD;
+    }
+    
     if (credentials.privateKey && credentials.requiresPrivateKey) {
       connectConfig.privateKey = credentials.privateKey;
       
@@ -773,7 +813,7 @@ const pullSampleDataFromSFTP = async (
         connectConfig.passphrase = credentials.passphrase;
       }
     } else {
-      connectConfig.password = credentials.password;
+      connectConfig.password = password;
     }
     
     client.on('ready', () => {

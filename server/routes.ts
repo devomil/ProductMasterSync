@@ -1974,9 +1974,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('Using SFTP_PASSWORD from environment variables for test connection');
             password = process.env.SFTP_PASSWORD;
           }
+          // Ingram Micro SFTP credentials
+          if (process.env.INGRAM_SFTP_PASSWORD && 
+              config.host?.includes('ingrammicro.com')) {
+            console.log('Using INGRAM_SFTP_PASSWORD from environment variables for test connection');
+            password = process.env.INGRAM_SFTP_PASSWORD;
+          }
+          
+          // Strip protocol prefix if present
+          const cleanHost = config.host?.replace(/^(sftp|ftp|ftps):\/\//i, '') || config.host;
           
           await sftp.connect({
-            host: config.host,
+            host: cleanHost,
             port: config.port || 22,
             username: config.username,
             password: password
