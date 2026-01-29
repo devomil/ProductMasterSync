@@ -3937,14 +3937,54 @@ router.post('/orders/sync/walmart', async (req, res) => {
 router.post('/orders/sync/amazon', async (req, res) => {
   try {
     const { daysBack = 30 } = req.body;
-    const { amazonAPI } = await import('../services/amazon-sp-api');
+    const { getAmazonConfigFromDb } = await import('../utils/get-amazon-config-from-db');
+    const axios = (await import('axios')).default;
     const { db } = await import('../db');
     const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
     const { eq } = await import('drizzle-orm');
     
     console.log(`[Amazon Orders] Starting sync for last ${daysBack} days...`);
     
-    const orders = await amazonAPI.getOrders(daysBack);
+    // Get config from database (same as catalog API)
+    const config = await getAmazonConfigFromDb();
+    
+    // Get access token
+    const tokenParams = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: config.refreshToken,
+      client_id: config.clientId,
+      client_secret: config.clientSecret
+    });
+    
+    const tokenResponse = await axios.post(
+      'https://api.amazon.com/auth/o2/token',
+      tokenParams.toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    
+    const accessToken = tokenResponse.data.access_token;
+    
+    // Fetch orders
+    const createdAfter = new Date();
+    createdAfter.setDate(createdAfter.getDate() - daysBack);
+    
+    const ordersResponse = await axios.get(
+      `${config.endpoint || 'https://sellingpartnerapi-na.amazon.com'}/orders/v0/orders`,
+      {
+        params: {
+          MarketplaceIds: config.marketplaceId || 'ATVPDKIKX0DER',
+          CreatedAfter: createdAfter.toISOString(),
+          OrderStatuses: 'Unshipped,PartiallyShipped,Shipped,Pending'
+        },
+        headers: {
+          'x-amz-access-token': accessToken,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    const orders = ordersResponse.data?.Orders || [];
+    console.log(`[Amazon Orders] Found ${orders.length} orders`);
     
     let synced = 0;
     let updated = 0;
@@ -4007,16 +4047,30 @@ router.post('/orders/sync/amazon', async (req, res) => {
             .returning();
           
           // Fetch and save order items
-          const items = await amazonAPI.getOrderItems(amazonOrderId);
-          
-          for (const item of items) {
-            await db.insert(marketplaceOrderItems).values({
-              orderId: newOrder.id,
-              marketplaceSku: item.SellerSKU || item.ASIN,
-              title: item.Title || null,
-              quantity: item.QuantityOrdered || 1,
-              unitPriceInCents: item.ItemPrice?.Amount ? Math.round(parseFloat(item.ItemPrice.Amount) * 100 / (item.QuantityOrdered || 1)) : null,
-            });
+          try {
+            const itemsResponse = await axios.get(
+              `${config.endpoint || 'https://sellingpartnerapi-na.amazon.com'}/orders/v0/orders/${amazonOrderId}/orderItems`,
+              {
+                headers: {
+                  'x-amz-access-token': accessToken,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            const items = itemsResponse.data?.OrderItems || [];
+            
+            for (const item of items) {
+              await db.insert(marketplaceOrderItems).values({
+                orderId: newOrder.id,
+                marketplaceSku: item.SellerSKU || item.ASIN,
+                title: item.Title || null,
+                quantity: item.QuantityOrdered || 1,
+                unitPriceInCents: item.ItemPrice?.Amount ? Math.round(parseFloat(item.ItemPrice.Amount) * 100 / (item.QuantityOrdered || 1)) : null,
+              });
+            }
+          } catch (itemsError) {
+            console.error(`[Amazon Orders] Error fetching items for ${amazonOrderId}:`, itemsError);
           }
           
           synced++;
