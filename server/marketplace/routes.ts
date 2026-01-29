@@ -4096,9 +4096,21 @@ router.post('/orders/sync/amazon', async (req, res) => {
       total: orders.length
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Amazon Orders] Error syncing orders:', error);
-    return res.status(500).json({ error: (error as Error).message });
+    
+    // Extract detailed error info from Axios errors
+    let errorDetails = (error as Error).message;
+    if (error.response?.data) {
+      console.error('[Amazon Orders] Response data:', JSON.stringify(error.response.data, null, 2));
+      errorDetails = JSON.stringify(error.response.data);
+    }
+    
+    return res.status(500).json({ 
+      error: (error as Error).message,
+      details: error.response?.data,
+      status: error.response?.status 
+    });
   }
 });
 
