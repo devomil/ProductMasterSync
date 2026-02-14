@@ -257,6 +257,7 @@ export default function ProductDetails() {
   // State for warehouse detail modal
   const [warehouseModalOpen, setWarehouseModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  const [selectedSupplierSku, setSelectedSupplierSku] = useState<string>('');
   
   // State for tab management
   const [activeTab, setActiveTab] = useState("overview");
@@ -990,6 +991,7 @@ export default function ProductDetails() {
                           onClick={() => {
                             console.log(`Opening warehouse modal for: ${vendor.name}`);
                             setSelectedVendor(vendor.name);
+                            setSelectedSupplierSku(vendor.supplierSku || '');
                             setWarehouseModalOpen(true);
                           }}
                         >
@@ -1768,6 +1770,7 @@ export default function ProductDetails() {
         vendorName={selectedVendor}
         sku={product?.sku || ''}
         productId={product?.id?.toString()}
+        supplierSku={selectedSupplierSku}
       />
     </div>
   );

@@ -29,6 +29,7 @@ interface WarehouseDetailModalProps {
   vendorName: string;
   sku: string;
   productId?: string;
+  supplierSku?: string;
 }
 
 export default function WarehouseDetailModal({ 
@@ -36,26 +37,46 @@ export default function WarehouseDetailModal({
   onClose, 
   vendorName, 
   sku,
-  productId 
+  productId,
+  supplierSku 
 }: WarehouseDetailModalProps) {
   const [isValidatingUrls, setIsValidatingUrls] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: inventoryData, isLoading } = useQuery({
+  const isIngramMicro = vendorName?.toLowerCase().includes('ingram');
+
+  // Fetch Ingram Micro real-time data when vendor is Ingram Micro
+  const { data: ingramData, isLoading: isLoadingIngram } = useQuery({
+    queryKey: ['/api/marketplace/ingram-micro/warehouse-details', supplierSku],
+    enabled: isOpen && isIngramMicro && !!supplierSku,
+  }) as { data: any, isLoading: boolean };
+
+  const { data: inventoryData, isLoading: isLoadingInventory } = useQuery({
     queryKey: [`/api/inventory/${sku}`],
-    enabled: isOpen && !!sku,
+    enabled: isOpen && !!sku && !isIngramMicro,
   }) as { data: any, isLoading: boolean };
 
   // Get comprehensive product data for supplier-specific fields using warehouse-specific endpoint
   const { data: productData } = useQuery({
     queryKey: [`/api/products/${productId}/warehouse-details`],
-    enabled: isOpen && !!productId,
+    enabled: isOpen && !!productId && !isIngramMicro,
   }) as { data: any };
+
+  // For Ingram Micro, use the API data as both inventory and product data
+  const effectiveProductData = isIngramMicro ? ingramData : productData;
+  const effectiveInventoryData = isIngramMicro ? {
+    warehouses: ingramData?.warehouses || [],
+    totalStock: ingramData?.totalStock || 0,
+    reservedStock: ingramData?.reservedStock || 0,
+    supplierName: 'Ingram Micro',
+    source: 'Ingram Micro API (Real-time)',
+  } : inventoryData;
+  const isLoading = isIngramMicro ? isLoadingIngram : isLoadingInventory;
 
   // Get documentation health status
   const { data: documentationHealth, isLoading: isLoadingHealth } = useQuery({
     queryKey: [`/api/products/${productId}/documentation-health`],
-    enabled: isOpen && !!productId,
+    enabled: isOpen && !!productId && !isIngramMicro,
   }) as { data: any, isLoading: boolean };
 
   // Mutation for validating URLs
@@ -133,22 +154,22 @@ export default function WarehouseDetailModal({
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Available Quantity:</span>
                       <Badge variant="default" className="text-lg px-3 py-1">
-                        {productData?.quantityAvailableToShip || "0"}
+                        {effectiveProductData?.quantityAvailableToShip || "0"}
                       </Badge>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Backordered:</span>
-                      <Badge variant={productData?.quantityBackordered > 0 ? 'destructive' : 'secondary'}>
-                        {productData?.quantityBackordered || "0"}
+                      <Badge variant={effectiveProductData?.quantityBackordered > 0 ? 'destructive' : 'secondary'}>
+                        {effectiveProductData?.quantityBackordered || "0"}
                       </Badge>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Committed:</span>
-                      <span className="font-medium">{productData?.quantityCommitted || "0"}</span>
+                      <span className="font-medium">{effectiveProductData?.quantityCommitted || "0"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">On Hand:</span>
-                      <span className="font-medium">{productData?.quantityOnHand || "0"}</span>
+                      <span className="font-medium">{effectiveProductData?.quantityOnHand || "0"}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -161,44 +182,56 @@ export default function WarehouseDetailModal({
                   <CardContent className="space-y-4">
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Weight:</span>
-                      <span className="font-medium">{productData?.weight || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.weight || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Case Quantity:</span>
-                      <span className="font-medium">{productData?.caseQuantity || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.caseQuantity || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">UPC:</span>
-                      <span className="font-medium text-sm">{productData?.upc || "N/A"}</span>
+                      <span className="font-medium text-sm">{effectiveProductData?.upc || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Manufacturer:</span>
-                      <span className="font-medium">{productData?.manufacturer || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.manufacturer || "N/A"}</span>
                     </div>
+                    {isIngramMicro && effectiveProductData?.productClass && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600 font-medium">Product Class:</span>
+                        <Badge variant="outline">{effectiveProductData.productClass === 'A' ? 'Stock Item' : effectiveProductData.productClass === 'B' ? 'Special Order' : effectiveProductData.productClass}</Badge>
+                      </div>
+                    )}
+                    {isIngramMicro && effectiveProductData?.supplierSku && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600 font-medium">Ingram Part #:</span>
+                        <span className="font-mono font-medium">{effectiveProductData.supplierSku}</span>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
 
               {/* Dynamic Warehouse Locations from Supplier Feed */}
-              {inventoryData?.warehouses && inventoryData.warehouses.length > 0 && (
+              {effectiveInventoryData?.warehouses && effectiveInventoryData.warehouses.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <MapPin className="h-5 w-5 text-blue-600" />
-                      Supplier Warehouse Locations
-                      {inventoryData.source && (
+                      {isIngramMicro ? 'Ingram Micro Warehouse Locations' : 'Supplier Warehouse Locations'}
+                      {effectiveInventoryData.source && (
                         <Badge variant="outline" className="ml-2 text-xs">
-                          {inventoryData.source}
+                          {effectiveInventoryData.source}
                         </Badge>
                       )}
                     </CardTitle>
                     <div className="text-sm text-gray-600">
-                      Real-time inventory from {inventoryData.supplierName || 'supplier'} warehouse network
+                      Real-time inventory from {effectiveInventoryData.supplierName || 'supplier'} warehouse network
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {inventoryData.warehouses.map((warehouse: any, index: number) => (
+                      {effectiveInventoryData.warehouses.map((warehouse: any, index: number) => (
                         <div key={index} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                           <div className="flex items-center gap-2 mb-3">
                             <MapPin className="h-4 w-4 text-blue-500" />
@@ -223,6 +256,12 @@ export default function WarehouseDetailModal({
                                 {warehouse.quantity} units
                               </Badge>
                             </div>
+                            {warehouse.backOrderQuantity > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Backordered:</span>
+                                <Badge variant="destructive">{warehouse.backOrderQuantity} units</Badge>
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className="text-gray-600">Lead Time:</span>
                               <span className="text-green-600 font-medium">{warehouse.leadTime || 'N/A'}</span>
@@ -240,15 +279,15 @@ export default function WarehouseDetailModal({
                     <div className="mt-4 pt-4 border-t">
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <div className="text-2xl font-bold text-blue-600">{inventoryData.totalStock || 0}</div>
+                          <div className="text-2xl font-bold text-blue-600">{effectiveInventoryData.totalStock || 0}</div>
                           <div className="text-xs text-gray-600">Total Available</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-green-600">{inventoryData.warehouses.length}</div>
+                          <div className="text-2xl font-bold text-green-600">{effectiveInventoryData.warehouses.length}</div>
                           <div className="text-xs text-gray-600">Locations</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-purple-600">{inventoryData.reservedStock || 0}</div>
+                          <div className="text-2xl font-bold text-purple-600">{effectiveInventoryData.reservedStock || 0}</div>
                           <div className="text-xs text-gray-600">Reserved</div>
                         </div>
                       </div>
@@ -268,19 +307,19 @@ export default function WarehouseDetailModal({
                   <CardContent className="space-y-4">
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">List Price:</span>
-                      <span className="font-bold text-lg">${productData?.listPrice || "N/A"}</span>
+                      <span className="font-bold text-lg">${effectiveProductData?.listPrice || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Cost:</span>
-                      <span className="font-medium">${productData?.cost || "N/A"}</span>
+                      <span className="font-medium">${effectiveProductData?.cost || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Map Price:</span>
-                      <span className="font-medium">${productData?.mapPrice || "N/A"}</span>
+                      <span className="font-medium">${effectiveProductData?.mapPrice || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">MSRP:</span>
-                      <span className="font-medium">${productData?.msrp || "N/A"}</span>
+                      <span className="font-medium">${effectiveProductData?.msrp || "N/A"}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -290,21 +329,58 @@ export default function WarehouseDetailModal({
                     <CardTitle className="text-lg text-blue-600">Pricing Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {isIngramMicro && effectiveProductData?.specialBidPricingAvailable && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600 font-medium">Special Bid Pricing:</span>
+                        <Badge variant="default">Available</Badge>
+                      </div>
+                    )}
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Core Cost:</span>
-                      <span className="font-medium">${productData?.coreCost || "N/A"}</span>
+                      <span className="font-medium">${effectiveProductData?.coreCost || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Tariff Cost:</span>
-                      <span className="font-medium">${productData?.tariffCost || "N/A"}</span>
+                      <span className="font-medium">${effectiveProductData?.tariffCost || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Price Updated:</span>
-                      <span className="font-medium">{productData?.priceUpdateDate || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.priceUpdateDate || "N/A"}</span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Volume Discounts for Ingram Micro */}
+              {isIngramMicro && effectiveProductData?.discounts && effectiveProductData.discounts.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Volume Discounts</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 font-medium text-gray-600">Min Quantity</th>
+                            <th className="text-right py-2 font-medium text-gray-600">Unit Price</th>
+                            <th className="text-right py-2 font-medium text-gray-600">Expires</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {effectiveProductData.discounts.map((d: any, i: number) => (
+                            <tr key={i} className="border-b">
+                              <td className="py-2">{d.quantity}+</td>
+                              <td className="py-2 text-right font-bold text-green-700">${parseFloat(d.price || '0').toFixed(2)}</td>
+                              <td className="py-2 text-right text-xs text-gray-500">{d.expiryDate || 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Shipping Tab */}
@@ -317,20 +393,28 @@ export default function WarehouseDetailModal({
                   <CardContent className="space-y-4">
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Shipping Cost:</span>
-                      <span className="font-medium">${productData?.shippingCost || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.shippingCost || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Free Freight:</span>
-                      <Badge variant={productData?.freeFreight ? 'default' : 'secondary'}>
-                        {productData?.freeFreight ? 'Yes' : 'No'}
+                      <Badge variant={effectiveProductData?.freeFreight ? 'default' : 'secondary'}>
+                        {effectiveProductData?.freeFreight ? 'Yes' : 'No'}
                       </Badge>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Direct Ship:</span>
-                      <Badge variant={productData?.directShip ? 'default' : 'secondary'}>
-                        {productData?.directShip ? 'Yes' : 'No'}
+                      <Badge variant={effectiveProductData?.directShip ? 'default' : 'secondary'}>
+                        {effectiveProductData?.directShip ? 'Yes' : 'No'}
                       </Badge>
                     </div>
+                    {isIngramMicro && (
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600 font-medium">Heavy Weight:</span>
+                        <Badge variant={effectiveProductData?.isHeavyWeight ? 'destructive' : 'secondary'}>
+                          {effectiveProductData?.isHeavyWeight ? 'Yes' : 'No'}
+                        </Badge>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -341,33 +425,49 @@ export default function WarehouseDetailModal({
                   <CardContent className="space-y-4">
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Oversized:</span>
-                      <Badge variant={productData?.oversized ? 'destructive' : 'secondary'}>
-                        {productData?.oversized ? 'Yes' : 'No'}
+                      <Badge variant={effectiveProductData?.oversized ? 'destructive' : 'secondary'}>
+                        {effectiveProductData?.oversized ? 'Yes' : 'No'}
                       </Badge>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Exportable:</span>
-                      <Badge variant={productData?.exportable ? 'default' : 'secondary'}>
-                        {productData?.exportable ? 'Yes' : 'No'}
+                      <Badge variant={effectiveProductData?.exportable ? 'default' : 'secondary'}>
+                        {effectiveProductData?.exportable ? 'Yes' : 'No'}
                       </Badge>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Country of Origin:</span>
-                      <span className="font-medium">{productData?.countryOfOrigin || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.countryOfOrigin || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Dropship Available:</span>
-                      <Badge variant={productData?.dropship ? 'default' : 'secondary'}>
-                        {productData?.dropship ? 'Yes' : 'No'}
+                      <Badge variant={effectiveProductData?.dropship ? 'default' : 'secondary'}>
+                        {effectiveProductData?.dropship ? 'Yes' : 'No'}
                       </Badge>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Lead Time:</span>
-                      <span className="font-medium">{productData?.leadTime || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.leadTime || "N/A"}</span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Freight Estimate for Ingram Micro */}
+              {isIngramMicro && effectiveProductData?.freightEstimate && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Estimated Freight (to NYC 10001)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm text-gray-600">
+                      {typeof effectiveProductData.freightEstimate === 'object' 
+                        ? JSON.stringify(effectiveProductData.freightEstimate, null, 2).slice(0, 500)
+                        : effectiveProductData.freightEstimate}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               
               {/* Package Dimensions */}
               <Card>
@@ -378,19 +478,19 @@ export default function WarehouseDetailModal({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Height</div>
-                      <div className="font-semibold text-lg">{productData?.boxHeight || "N/A"}</div>
+                      <div className="font-semibold text-lg">{effectiveProductData?.boxHeight || "N/A"}</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Length</div>
-                      <div className="font-semibold text-lg">{productData?.boxLength || "N/A"}</div>
+                      <div className="font-semibold text-lg">{effectiveProductData?.boxLength || "N/A"}</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Width</div>
-                      <div className="font-semibold text-lg">{productData?.boxWidth || "N/A"}</div>
+                      <div className="font-semibold text-lg">{effectiveProductData?.boxWidth || "N/A"}</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Case Qty</div>
-                      <div className="font-semibold text-lg">{productData?.caseQuantity || "N/A"}</div>
+                      <div className="font-semibold text-lg">{effectiveProductData?.caseQuantity || "N/A"}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -405,28 +505,48 @@ export default function WarehouseDetailModal({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {isIngramMicro && (
+                      <>
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-gray-600 font-medium">End User Info Required:</span>
+                          <Badge variant={effectiveProductData?.endUserInfoRequired ? 'destructive' : 'secondary'}>
+                            {effectiveProductData?.endUserInfoRequired ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-gray-600 font-medium">Accept Back Order:</span>
+                          <Badge variant={effectiveProductData?.acceptBackOrder ? 'default' : 'secondary'}>
+                            {effectiveProductData?.acceptBackOrder ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-gray-600 font-medium">Product Status:</span>
+                          <span className="font-medium">{effectiveProductData?.productStatusCode || 'N/A'}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Prop 65 Warning:</span>
-                      <Badge variant={productData?.prop65 ? 'destructive' : 'secondary'}>
-                        {productData?.prop65 ? 'Yes' : 'No'}
+                      <Badge variant={effectiveProductData?.prop65 ? 'destructive' : 'secondary'}>
+                        {effectiveProductData?.prop65 ? 'Yes' : 'No'}
                       </Badge>
                     </div>
-                    {productData?.prop65Description && (
+                    {effectiveProductData?.prop65Description && (
                       <div className="p-3 bg-yellow-50 rounded-lg">
-                        <p className="text-sm text-yellow-800">{productData.prop65Description}</p>
+                        <p className="text-sm text-yellow-800">{effectiveProductData.prop65Description}</p>
                       </div>
                     )}
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">FCC ID:</span>
-                      <span className="font-medium">{productData?.fccId || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.fccId || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">3rd Party Marketplaces:</span>
-                      <span className="font-medium">{productData?.thirdPartyMarketplaces || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.thirdPartyMarketplaces || "N/A"}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-gray-600 font-medium">Google Merchant Category:</span>
-                      <span className="font-medium">{productData?.googleMerchantCategory || "N/A"}</span>
+                      <span className="font-medium">{effectiveProductData?.googleMerchantCategory || "N/A"}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -445,20 +565,26 @@ export default function WarehouseDetailModal({
                       <h4 className="font-semibold text-gray-900">Sale Information</h4>
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-gray-600 font-medium">On Sale:</span>
-                        <Badge variant={productData?.sale ? 'default' : 'secondary'}>
-                          {productData?.sale ? 'Yes' : 'No'}
+                        <Badge variant={effectiveProductData?.sale ? 'default' : 'secondary'}>
+                          {effectiveProductData?.sale ? 'Yes' : 'No'}
                         </Badge>
                       </div>
-                      {productData?.saleStartDate && (
+                      {effectiveProductData?.saleStartDate && (
                         <div className="flex justify-between py-2 border-b">
                           <span className="text-gray-600 font-medium">Sale Start:</span>
-                          <span className="font-medium">{productData.saleStartDate}</span>
+                          <span className="font-medium">{effectiveProductData.saleStartDate}</span>
                         </div>
                       )}
-                      {productData?.saleEndDate && (
+                      {effectiveProductData?.saleEndDate && (
                         <div className="flex justify-between py-2 border-b">
                           <span className="text-gray-600 font-medium">Sale End:</span>
-                          <span className="font-medium">{productData.saleEndDate}</span>
+                          <span className="font-medium">{effectiveProductData.saleEndDate}</span>
+                        </div>
+                      )}
+                      {isIngramMicro && effectiveProductData?.specialBidPricingAvailable && (
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-gray-600 font-medium">Special Bid Pricing:</span>
+                          <Badge variant="default">Available - Contact Rep</Badge>
                         </div>
                       )}
                     </div>
@@ -466,31 +592,69 @@ export default function WarehouseDetailModal({
                       <h4 className="font-semibold text-gray-900">Rebate Information</h4>
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-gray-600 font-medium">Rebate Available:</span>
-                        <Badge variant={productData?.rebate ? 'default' : 'secondary'}>
-                          {productData?.rebate ? 'Yes' : 'No'}
+                        <Badge variant={effectiveProductData?.rebate ? 'default' : 'secondary'}>
+                          {effectiveProductData?.rebate ? 'Yes' : 'No'}
                         </Badge>
                       </div>
-                      {productData?.rebateDescription && (
+                      {effectiveProductData?.rebateDescription && (
                         <div className="p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm text-green-800">{productData.rebateDescription}</p>
+                          <p className="text-sm text-green-800">{effectiveProductData.rebateDescription}</p>
                         </div>
                       )}
-                      {productData?.rebateStartDate && (
+                      {effectiveProductData?.rebateStartDate && (
                         <div className="flex justify-between py-2 border-b">
                           <span className="text-gray-600 font-medium">Rebate Start:</span>
-                          <span className="font-medium">{productData.rebateStartDate}</span>
+                          <span className="font-medium">{effectiveProductData.rebateStartDate}</span>
                         </div>
                       )}
-                      {productData?.rebateEndDate && (
+                      {effectiveProductData?.rebateEndDate && (
                         <div className="flex justify-between py-2 border-b">
                           <span className="text-gray-600 font-medium">Rebate End:</span>
-                          <span className="font-medium">{productData.rebateEndDate}</span>
+                          <span className="font-medium">{effectiveProductData.rebateEndDate}</span>
                         </div>
                       )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Volume Discounts for Ingram Micro in Promotions tab too */}
+              {isIngramMicro && effectiveProductData?.discounts && effectiveProductData.discounts.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-600">Volume Discount Tiers</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Min Qty</th>
+                            <th className="text-right py-2 px-3 font-medium text-gray-600">Unit Price</th>
+                            <th className="text-right py-2 px-3 font-medium text-gray-600">Savings vs List</th>
+                            <th className="text-right py-2 px-3 font-medium text-gray-600">Expires</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {effectiveProductData.discounts.map((d: any, i: number) => {
+                            const listPrice = parseFloat(effectiveProductData?.listPrice || '0');
+                            const discountPrice = parseFloat(d.price || '0');
+                            const savings = listPrice > 0 && discountPrice > 0 ? ((listPrice - discountPrice) / listPrice * 100).toFixed(1) : '0';
+                            return (
+                              <tr key={i} className="border-b hover:bg-gray-50">
+                                <td className="py-2 px-3 font-medium">{d.quantity}+</td>
+                                <td className="py-2 px-3 text-right font-bold text-green-700">${discountPrice.toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right text-green-600">{savings}%</td>
+                                <td className="py-2 px-3 text-right text-xs text-gray-500">{d.expiryDate || 'N/A'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Documentation Tab */}
@@ -502,11 +666,11 @@ export default function WarehouseDetailModal({
                     <CardTitle className="text-lg">Product Documentation</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {productData?.quickGuideLiteratureUrl && (
+                    {effectiveProductData?.quickGuideLiteratureUrl && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Quick Guide:</span>
                         <a 
-                          href={productData.quickGuideLiteratureUrl} 
+                          href={effectiveProductData.quickGuideLiteratureUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm"
@@ -515,11 +679,11 @@ export default function WarehouseDetailModal({
                         </a>
                       </div>
                     )}
-                    {productData?.ownersManualUrl && (
+                    {effectiveProductData?.ownersManualUrl && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Owner's Manual:</span>
                         <a 
-                          href={productData.ownersManualUrl} 
+                          href={effectiveProductData.ownersManualUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm"
@@ -528,11 +692,11 @@ export default function WarehouseDetailModal({
                         </a>
                       </div>
                     )}
-                    {productData?.brochureLiteratureUrl && (
+                    {effectiveProductData?.brochureLiteratureUrl && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Brochure:</span>
                         <a 
-                          href={productData.brochureLiteratureUrl} 
+                          href={effectiveProductData.brochureLiteratureUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm"
@@ -541,11 +705,11 @@ export default function WarehouseDetailModal({
                         </a>
                       </div>
                     )}
-                    {productData?.installationGuideUrl && (
+                    {effectiveProductData?.installationGuideUrl && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Installation Guide:</span>
                         <a 
-                          href={productData.installationGuideUrl} 
+                          href={effectiveProductData.installationGuideUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm"
@@ -563,11 +727,11 @@ export default function WarehouseDetailModal({
                     <CardTitle className="text-lg">Additional Content</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {productData?.videoUrls && (
+                    {effectiveProductData?.videoUrls && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Video Resources:</span>
                         <a 
-                          href={productData.videoUrls} 
+                          href={effectiveProductData.videoUrls} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm"
@@ -576,23 +740,23 @@ export default function WarehouseDetailModal({
                         </a>
                       </div>
                     )}
-                    {productData?.quickSpecs && (
+                    {effectiveProductData?.quickSpecs && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Quick Specs:</span>
-                        <span className="text-sm text-gray-700">{productData.quickSpecs}</span>
+                        <span className="text-sm text-gray-700">{effectiveProductData.quickSpecs}</span>
                       </div>
                     )}
-                    {productData?.listOfAccessoriesBySku && (
+                    {effectiveProductData?.listOfAccessoriesBySku && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Accessories (by SKU):</span>
-                        <span className="text-sm text-gray-700">{productData.listOfAccessoriesBySku}</span>
+                        <span className="text-sm text-gray-700">{effectiveProductData.listOfAccessoriesBySku}</span>
                       </div>
                     )}
-                    {productData?.imageAdditionalUrls && (
+                    {effectiveProductData?.imageAdditionalUrls && (
                       <div className="py-2 border-b">
                         <span className="text-gray-600 font-medium block mb-1">Additional Images:</span>
                         <a 
-                          href={productData.imageAdditionalUrls} 
+                          href={effectiveProductData.imageAdditionalUrls} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:text-blue-800 text-sm"

@@ -4770,6 +4770,104 @@ router.get('/ingram-micro/products/:ingramPartNumber/full', async (req, res) => 
   }
 });
 
+router.get('/ingram-micro/warehouse-details/:supplierSku', async (req, res) => {
+  try {
+    const supplierSku = req.params.supplierSku;
+    console.log(`[Ingram Micro] Fetching warehouse details for supplier SKU: ${supplierSku}`);
+
+    const [details, priceAvail] = await Promise.allSettled([
+      ingramMicroAPI.getProductDetails(supplierSku),
+      ingramMicroAPI.getPriceAndAvailability([{ ingramPartNumber: supplierSku }]),
+    ]);
+
+    const detailData = details.status === 'fulfilled' ? details.value : null;
+    const priceData = priceAvail.status === 'fulfilled' && Array.isArray(priceAvail.value) ? priceAvail.value[0] : null;
+
+    let freightData: any = null;
+    try {
+      const freightResult = await ingramMicroAPI.getFreightEstimate({
+        shipToAddress: { postalCode: '10001', countryCode: 'US' },
+        lines: [{ ingramPartNumber: supplierSku, quantity: 1 }],
+      });
+      freightData = freightResult;
+    } catch (e: any) {
+      console.log(`[Ingram Micro] Freight estimate not available: ${e.message}`);
+    }
+
+    const warehouses = (priceData?.availability?.availabilityByWarehouse || []).map((wh: any) => ({
+      code: wh.plantId || wh.warehouseId || 'IM-WH',
+      name: `Ingram Micro ${wh.location || wh.plantId || 'Warehouse'}`,
+      location: wh.location || wh.plantId || 'Unknown',
+      quantity: wh.quantityAvailable || 0,
+      backOrderQuantity: wh.quantityBackordered || wh.backOrderQuantity || 0,
+      cost: priceData?.pricing?.customerPrice || 0,
+      region: wh.location || '',
+      leadTime: '1-3 business days',
+    }));
+
+    const discounts = (priceData?.discounts || []).flatMap((d: any) => 
+      (d.quantityDiscounts || []).map((qd: any) => ({
+        quantity: qd.conditionQuantity || qd.quantity || 0,
+        price: qd.amount || qd.discountPrice || 0,
+        discount: qd.currencyType || '',
+        expiryDate: d.specialPricingExpirationDate || null,
+      }))
+    );
+
+    const indicators = detailData?.indicators || {};
+
+    return res.json({
+      source: 'ingram_micro_api',
+      supplierSku,
+      quantityAvailableToShip: priceData?.availability?.totalAvailability || 0,
+      quantityBackordered: warehouses.reduce((sum: number, w: any) => sum + (w.backOrderQuantity || 0), 0),
+      quantityOnHand: priceData?.availability?.totalAvailability || 0,
+      quantityCommitted: 0,
+      weight: detailData?.additionalInformation?.netWeight || 0,
+      caseQuantity: 1,
+      upc: detailData?.upc || priceData?.upc || '',
+      manufacturer: detailData?.vendorName || priceData?.vendorName || '',
+      listPrice: priceData?.pricing?.retailPrice || 0,
+      cost: priceData?.pricing?.customerPrice || 0,
+      mapPrice: priceData?.pricing?.mapPrice || 0,
+      msrp: priceData?.pricing?.retailPrice || 0,
+      coreCost: 0,
+      tariffCost: 0,
+      priceUpdateDate: new Date().toISOString().split('T')[0],
+      shippingCost: freightData ? 'See estimate below' : 'Contact for pricing',
+      freeFreight: false,
+      directShip: indicators.isDirectship || false,
+      oversized: indicators.isOversizeProduct || false,
+      isHeavyWeight: indicators.isHeavyWeight || false,
+      exportable: !(indicators.isExportableProduct === false),
+      countryOfOrigin: detailData?.additionalInformation?.countryOfOrigin || 'N/A',
+      dropship: indicators.isDirectship || false,
+      leadTime: '1-3 business days',
+      boxHeight: detailData?.additionalInformation?.height || 0,
+      boxLength: detailData?.additionalInformation?.length || 0,
+      boxWidth: detailData?.additionalInformation?.width || 0,
+      freightEstimate: freightData,
+      sale: indicators.isClearanceProduct || false,
+      saleStartDate: null,
+      saleEndDate: null,
+      rebate: false,
+      rebateDescription: null,
+      discounts,
+      specialBidPricingAvailable: priceData?.pricing?.specialBidPricingAvailable || false,
+      productClass: detailData?.productClass || '',
+      productStatusCode: detailData?.productStatusCode || priceData?.productStatusCode || '',
+      acceptBackOrder: priceData?.acceptBackOrder || false,
+      endUserInfoRequired: priceData?.endUserInfoRequired || indicators.isEnduserRequired || false,
+      warehouses,
+      totalStock: priceData?.availability?.totalAvailability || 0,
+      reservedStock: 0,
+    });
+  } catch (error) {
+    console.error('[Ingram Micro] Warehouse details error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 router.post('/ingram-micro/products/price-availability', async (req, res) => {
   try {
     const { products: productList } = req.body;
