@@ -2259,16 +2259,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const config = dataSource.config as any;
       
-      // Handle API data sources (like Flxpoint)
+      // Detect supplier for routing
+      let supplierNameForSample = '';
+      if (dataSource.supplierId) {
+        const [sup] = await db.select().from(suppliers).where(eq(suppliers.id, dataSource.supplierId));
+        supplierNameForSample = sup?.name?.toLowerCase() || '';
+      }
+      
+      // Handle API data sources
       if (dataSource.type === 'api') {
         try {
-          console.log('[Sample Data] Pulling sample data from API source');
+          console.log('[Sample Data] Pulling sample data from API source, supplier:', supplierNameForSample);
           
-          // Get API token from config or environment
+          const isIngramMicro = supplierNameForSample.includes('ingram') || config?.api_type === 'ingram_micro';
           const apiToken = config?.api_token || config?.token || config?.apiToken || process.env.FLXPOINT_API_TOKEN;
-          const apiType = config?.api_type || config?.apiType || 'flxpoint';
+          const apiType = isIngramMicro ? 'ingram_micro' : (config?.api_type || config?.apiType || 'flxpoint');
           
-          if (apiType === 'flxpoint' || !apiType) {
+          if (apiType === 'ingram_micro') {
+            console.log('[Sample Data] Using Ingram Micro API');
+            const { IngramMicroAPI } = await import('./services/ingram-micro-api');
+            const ingramApi = new IngramMicroAPI();
+            
+            const searchResult = await ingramApi.searchProducts({
+              keyword: '*',
+              pageSize: Math.min(requestedLimit, 100),
+              pageNumber: 1
+            });
+            
+            if (!searchResult.catalog || searchResult.catalog.length === 0) {
+              return res.status(400).json({ error: "No products found in Ingram Micro catalog" });
+            }
+            
+            let priceData: any[] = [];
+            try {
+              const productsToPrice = searchResult.catalog.slice(0, 25).map((p: any) => ({ ingramPartNumber: p.ingramPartNumber }));
+              priceData = await ingramApi.getPriceAndAvailability(productsToPrice);
+            } catch (priceErr) {
+              console.warn('[Sample Data] Could not fetch Ingram price data:', priceErr);
+            }
+            
+            const priceMap = new Map(priceData.map((p: any) => [p.ingramPartNumber, p]));
+            
+            const sampleData = searchResult.catalog.slice(0, requestedLimit).map((product: any) => {
+              const pricing = priceMap.get(product.ingramPartNumber);
+              return {
+                sku: product.ingramPartNumber || '',
+                parent_sku: '',
+                source_sku: product.vendorPartNumber || '',
+                title: product.description || '',
+                description: product.productType || product.subCategory || '',
+                brand: product.vendorName || '',
+                upc: product.upcCode || product.upc || '',
+                asin: '',
+                walmart_id: '',
+                cost: pricing?.pricing?.customerPrice || 0,
+                price: pricing?.pricing?.retailPrice || 0,
+                map_price: pricing?.pricing?.mapPrice || 0,
+                msrp: pricing?.pricing?.retailPrice || 0,
+                quantity: pricing?.availability?.totalAvailability || 0,
+                weight: 0,
+                weight_unit: 'lb',
+                length: 0,
+                width: 0,
+                height: 0,
+                category: product.category || '',
+                product_type: product.productType || '',
+                mpn: product.vendorPartNumber || '',
+                ean: '',
+                estimated_shipping_cost: 0,
+                images: '',
+                image_url: '',
+              };
+            });
+            
+            console.log(`[Sample Data] Retrieved ${sampleData.length} products from Ingram Micro API`);
+            
+            res.json({
+              success: true,
+              data: sampleData,
+              totalRecords: searchResult.recordsFound || sampleData.length,
+              source: 'ingram_micro_api'
+            });
+            return;
+          } else if (apiType === 'flxpoint' || !apiType) {
             if (!apiToken) {
               return res.status(400).json({ 
                 error: "Flxpoint API token not configured",
@@ -2337,7 +2410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           return res.status(400).json({ 
             error: `API type '${apiType}' is not supported`,
-            message: "Supported API types: flxpoint"
+            message: "Supported API types: flxpoint, ingram_micro"
           });
           
         } catch (apiError) {
@@ -2906,15 +2979,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const config = dataSource.config as any;
       
-      // Handle API data sources (like Flxpoint)
+      // Detect the supplier to route to the correct API
+      let supplierName = '';
+      if (dataSource.supplierId) {
+        const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, dataSource.supplierId));
+        supplierName = supplier?.name?.toLowerCase() || '';
+      }
+      
+      // Handle API data sources
       if (dataSource.type === 'api') {
         try {
-          console.log('[Sample Pull] Pulling data from API source');
+          console.log('[Sample Pull] Pulling data from API source, supplier:', supplierName);
           
+          // Detect API type from supplier name or config
+          const isIngramMicro = supplierName.includes('ingram') || config?.api_type === 'ingram_micro';
           const apiToken = config?.api_token || config?.token || config?.apiToken || config?.api_key || process.env.FLXPOINT_API_TOKEN;
-          const apiType = config?.api_type || config?.apiType || 'flxpoint';
+          const apiType = isIngramMicro ? 'ingram_micro' : (config?.api_type || config?.apiType || 'flxpoint');
           
-          if (apiType === 'flxpoint' || !apiType) {
+          if (apiType === 'ingram_micro') {
+            console.log('[Sample Pull] Using Ingram Micro API');
+            const { IngramMicroAPI } = await import('./services/ingram-micro-api');
+            const ingramApi = new IngramMicroAPI();
+            
+            const pageSize = Math.min(limit, 100);
+            const searchResult = await ingramApi.searchProducts({ 
+              keyword: '*',
+              pageSize,
+              pageNumber: 1
+            });
+            
+            if (!searchResult.catalog || searchResult.catalog.length === 0) {
+              return res.status(400).json({
+                success: false,
+                message: "No products found in Ingram Micro catalog"
+              });
+            }
+            
+            // Get price/availability for products to enrich with cost data
+            let priceData: any[] = [];
+            try {
+              const productsToPrice = searchResult.catalog.slice(0, 25).map((p: any) => ({ ingramPartNumber: p.ingramPartNumber }));
+              priceData = await ingramApi.getPriceAndAvailability(productsToPrice);
+            } catch (priceErr) {
+              console.warn('[Sample Pull] Could not fetch Ingram price data:', priceErr);
+            }
+            
+            const priceMap = new Map(priceData.map((p: any) => [p.ingramPartNumber, p]));
+            
+            const transformedData = searchResult.catalog.slice(0, limit).map((product: any) => {
+              const pricing = priceMap.get(product.ingramPartNumber);
+              return {
+                sku: product.ingramPartNumber || '',
+                parent_sku: '',
+                source_sku: product.vendorPartNumber || '',
+                title: product.description || '',
+                description: product.productType || product.subCategory || '',
+                brand: product.vendorName || '',
+                upc: product.upcCode || product.upc || '',
+                asin: '',
+                walmart_id: '',
+                cost: pricing?.pricing?.customerPrice || 0,
+                price: pricing?.pricing?.retailPrice || 0,
+                map_price: pricing?.pricing?.mapPrice || 0,
+                msrp: pricing?.pricing?.retailPrice || 0,
+                quantity: pricing?.availability?.totalAvailability || 0,
+                weight: 0,
+                weight_unit: 'lb',
+                length: 0,
+                width: 0,
+                height: 0,
+                category: product.category || '',
+                product_type: product.productType || '',
+                mpn: product.vendorPartNumber || '',
+                ean: '',
+                estimated_shipping_cost: 0,
+                images: '',
+                image_url: '',
+              };
+            });
+            
+            console.log(`[Sample Pull] Retrieved ${transformedData.length} products from Ingram Micro API`);
+            
+            sampleResult = {
+              success: true,
+              data: transformedData,
+              totalRecords: searchResult.recordsFound || transformedData.length
+            };
+          } else if (apiType === 'flxpoint' || !apiType) {
             if (!apiToken) {
               return res.status(400).json({ 
                 success: false,
