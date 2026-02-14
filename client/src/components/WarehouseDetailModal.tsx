@@ -47,7 +47,7 @@ export default function WarehouseDetailModal({
 
   // Fetch Ingram Micro real-time data when vendor is Ingram Micro
   const { data: ingramData, isLoading: isLoadingIngram } = useQuery({
-    queryKey: ['/api/marketplace/ingram-micro/warehouse-details', supplierSku],
+    queryKey: [`/api/marketplace/ingram-micro/warehouse-details/${supplierSku}`],
     enabled: isOpen && isIngramMicro && !!supplierSku,
   }) as { data: any, isLoading: boolean };
 
