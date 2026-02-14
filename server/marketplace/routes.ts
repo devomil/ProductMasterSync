@@ -4635,6 +4635,141 @@ router.get('/ingram-micro/products/:ingramPartNumber', async (req, res) => {
   }
 });
 
+router.get('/ingram-micro/products/:ingramPartNumber/full', async (req, res) => {
+  try {
+    const partNumber = req.params.ingramPartNumber;
+    const [details, priceAvail] = await Promise.allSettled([
+      ingramMicroAPI.getProductDetails(partNumber),
+      ingramMicroAPI.getPriceAndAvailability([{ ingramPartNumber: partNumber }]),
+    ]);
+
+    const detailData = details.status === 'fulfilled' ? details.value : null;
+    const priceData = priceAvail.status === 'fulfilled' && Array.isArray(priceAvail.value) ? priceAvail.value[0] : null;
+
+    let freightData: any = null;
+    try {
+      const freightResult = await ingramMicroAPI.getFreightEstimate({
+        shipToAddress: { postalCode: '10001', countryCode: 'US' },
+        lines: [{ ingramPartNumber: partNumber, quantity: 1 }],
+      });
+      freightData = freightResult;
+    } catch (e: any) {
+      console.log(`[Ingram Micro] Freight estimate not available for ${partNumber}: ${e.message}`);
+    }
+
+    const upc = detailData?.upc || priceData?.upc;
+    let catalogImages: any[] = [];
+    if (upc) {
+      try {
+        const { db } = await import('../db');
+        const { products: productsTable, productImages } = await import('../../shared/schema');
+        const { eq } = await import('drizzle-orm');
+        const matchedProducts = await db.select().from(productsTable).where(eq(productsTable.upc, upc)).limit(1);
+        if (matchedProducts.length > 0) {
+          const product = matchedProducts[0];
+          if (product.imageUrl) catalogImages.push({ url: product.imageUrl, type: 'primary', source: 'catalog' });
+          if (product.imageUrlLarge) catalogImages.push({ url: product.imageUrlLarge, type: 'large', source: 'catalog' });
+          if (product.primaryImage) catalogImages.push({ url: product.primaryImage, type: 'primary_1000', source: 'catalog' });
+          if (product.additionalImages) {
+            try {
+              const addl = JSON.parse(product.additionalImages);
+              if (Array.isArray(addl)) {
+                addl.forEach((url: string) => catalogImages.push({ url, type: 'additional', source: 'catalog' }));
+              }
+            } catch {}
+          }
+          const dbImages = await db.select().from(productImages).where(eq(productImages.productId, product.id)).limit(10);
+          dbImages.forEach((img: any) => catalogImages.push({ url: img.imageUrl, type: img.imageType || 'additional', source: img.source || 'catalog' }));
+        }
+      } catch (e: any) {
+        console.log(`[Ingram Micro] Could not fetch catalog images: ${e.message}`);
+      }
+    }
+
+    const fieldMapping = {
+      ingramFields: {
+        ingramPartNumber: partNumber,
+        vendorPartNumber: detailData?.vendorPartNumber || priceData?.vendorPartNumber || '',
+        upc: detailData?.upc || priceData?.upc || '',
+        vendorName: detailData?.vendorName || priceData?.vendorName || '',
+        description: detailData?.description || priceData?.description || '',
+        productCategory: detailData?.productCategory || '',
+        productSubCategory: detailData?.productSubCategory || '',
+        productClass: detailData?.productClass || '',
+        productStatusCode: detailData?.productStatusCode || priceData?.productStatusCode || '',
+        weight: detailData?.additionalInformation?.netWeight || '',
+        height: detailData?.additionalInformation?.height || '',
+        width: detailData?.additionalInformation?.width || '',
+        length: detailData?.additionalInformation?.length || '',
+        isBulkFreight: detailData?.additionalInformation?.isBulkFreight || false,
+        isHeavyWeight: detailData?.indicators?.isHeavyWeight || false,
+        isOversizeProduct: detailData?.indicators?.isOversizeProduct || false,
+        isDirectShip: detailData?.indicators?.isDirectship || false,
+        hasWarranty: detailData?.indicators?.hasWarranty || false,
+        isNewProduct: detailData?.indicators?.isNewProduct || false,
+        isDiscontinued: detailData?.indicators?.isDiscontinuedProduct || false,
+        isRefurbished: detailData?.indicators?.isRefurbished || false,
+        isReturnable: detailData?.indicators?.isReturnableProduct || false,
+        isClearanceProduct: detailData?.indicators?.isClearanceProduct || false,
+        customerPrice: priceData?.pricing?.customerPrice || null,
+        retailPrice: priceData?.pricing?.retailPrice || null,
+        mapPrice: priceData?.pricing?.mapPrice || null,
+        currencyCode: priceData?.pricing?.currencyCode || 'USD',
+        totalAvailability: priceData?.availability?.totalAvailability || 0,
+        availabilityByWarehouse: priceData?.availability?.availabilityByWarehouse || [],
+        discounts: priceData?.discounts || [],
+        acceptBackOrder: priceData?.acceptBackOrder || false,
+        endUserInfoRequired: priceData?.endUserInfoRequired || detailData?.indicators?.isEnduserRequired || false,
+        warrantySkus: detailData?.warrantyInformation || [],
+      },
+      masterCatalogMapping: [
+        { ingramField: 'vendorPartNumber', masterField: 'manufacturerPartNumber', label: 'Manufacturer Part Number' },
+        { ingramField: 'upc', masterField: 'upc', label: 'UPC Code' },
+        { ingramField: 'vendorName', masterField: 'manufacturerName', label: 'Manufacturer Name' },
+        { ingramField: 'description', masterField: 'name', label: 'Product Name' },
+        { ingramField: 'description (extended)', masterField: 'description', label: 'Description' },
+        { ingramField: 'productCategory', masterField: 'categoryId', label: 'Category' },
+        { ingramField: 'customerPrice', masterField: 'cost', label: 'Cost (Supplier Price)' },
+        { ingramField: 'retailPrice', masterField: 'price', label: 'Retail Price' },
+        { ingramField: 'weight', masterField: 'weight', label: 'Weight' },
+        { ingramField: 'height + width + length', masterField: 'dimensions', label: 'Dimensions' },
+        { ingramField: 'totalAvailability', masterField: 'inventoryQuantity', label: 'Inventory Quantity' },
+        { ingramField: 'isOversizeProduct', masterField: 'isOversized', label: 'Oversized Flag' },
+        { ingramField: 'isReturnable', masterField: 'isReturnable', label: 'Returnable' },
+        { ingramField: 'isClearanceProduct', masterField: 'isCloseout', label: 'Closeout/Clearance' },
+        { ingramField: 'isNewProduct', masterField: 'status', label: 'Product Status' },
+        { ingramField: 'isRefurbished', masterField: 'isRemanufactured', label: 'Remanufactured' },
+      ],
+      unmappedIngramFields: [
+        { field: 'ingramPartNumber', value: partNumber, description: 'Ingram Micro internal part number' },
+        { field: 'productClass', value: detailData?.productClass, description: 'Product classification code (A=Stock, B=Special Order)' },
+        { field: 'productStatusCode', value: detailData?.productStatusCode || priceData?.productStatusCode, description: 'Product lifecycle status' },
+        { field: 'acceptBackOrder', value: priceData?.acceptBackOrder, description: 'Whether backorders are accepted' },
+        { field: 'endUserInfoRequired', value: priceData?.endUserInfoRequired || detailData?.indicators?.isEnduserRequired, description: 'Requires end-user registration info' },
+        { field: 'isDirectShip', value: detailData?.indicators?.isDirectship, description: 'Ships direct from vendor' },
+        { field: 'isBulkFreight', value: detailData?.additionalInformation?.isBulkFreight, description: 'Requires bulk freight shipping' },
+        { field: 'isHeavyWeight', value: detailData?.indicators?.isHeavyWeight, description: 'Heavy weight item requiring special handling' },
+        { field: 'mapPrice', value: priceData?.pricing?.mapPrice, description: 'Minimum Advertised Price (MAP)' },
+        { field: 'discounts', value: priceData?.discounts, description: 'Volume/promo discount tiers' },
+        { field: 'warrantySkus', value: detailData?.warrantyInformation, description: 'Available warranty SKUs' },
+        { field: 'availabilityByWarehouse', value: priceData?.availability?.availabilityByWarehouse, description: 'Per-warehouse stock levels and locations' },
+        { field: 'specialBidPricingAvailable', value: priceData?.pricing?.specialBidPricingAvailable, description: 'Special bid pricing available' },
+      ],
+    };
+
+    return res.json({
+      details: detailData,
+      priceAvailability: priceData,
+      freightEstimate: freightData,
+      images: catalogImages,
+      fieldMapping,
+    });
+  } catch (error) {
+    console.error('[Ingram Micro] Full product details error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 router.post('/ingram-micro/products/price-availability', async (req, res) => {
   try {
     const { products: productList } = req.body;
