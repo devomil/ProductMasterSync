@@ -212,6 +212,81 @@ export default function WarehouseDetailModal({
                 </Card>
               </div>
 
+              {/* Pricing & Dimensions Summary (for Ingram Micro) */}
+              {isIngramMicro && effectiveProductData && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg text-green-600">Live Pricing</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <div className="text-xs text-gray-600">Customer Cost</div>
+                          <div className="font-bold text-xl text-green-700">${parseFloat(effectiveProductData.cost || '0').toFixed(2)}</div>
+                        </div>
+                        <div className="text-center p-3 bg-blue-50 rounded-lg">
+                          <div className="text-xs text-gray-600">MSRP / List</div>
+                          <div className="font-bold text-xl text-blue-700">${parseFloat(effectiveProductData.listPrice || effectiveProductData.msrp || '0').toFixed(2)}</div>
+                        </div>
+                      </div>
+                      {effectiveProductData.mapPrice > 0 && (
+                        <div className="mt-3 text-center p-2 bg-yellow-50 rounded-lg">
+                          <div className="text-xs text-gray-600">MAP Price</div>
+                          <div className="font-semibold text-yellow-700">${parseFloat(effectiveProductData.mapPrice).toFixed(2)}</div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg text-purple-600">Package Dimensions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xs text-gray-600">Height</div>
+                          <div className="font-semibold">{effectiveProductData.boxHeight || 'N/A'}</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xs text-gray-600">Length</div>
+                          <div className="font-semibold">{effectiveProductData.boxLength || 'N/A'}</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xs text-gray-600">Width</div>
+                          <div className="font-semibold">{effectiveProductData.boxWidth || 'N/A'}</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xs text-gray-600">Weight</div>
+                          <div className="font-semibold">{effectiveProductData.weight || 'N/A'}</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* No stock warning when warehouses are empty (only show when API data was fetched) */}
+              {effectiveInventoryData?.warehouses && effectiveInventoryData.warehouses.length === 0 && isIngramMicro && ingramData && (
+                <Card className="border-yellow-200 bg-yellow-50">
+                  <CardContent className="py-4">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="h-5 w-5 text-yellow-600" />
+                      <div>
+                        <div className="font-medium text-yellow-800">No Warehouse Stock Available</div>
+                        <div className="text-sm text-yellow-700">
+                          This product currently has 0 units across all Ingram Micro warehouses.
+                          {effectiveProductData?.productClass === 'X' && ' Product class "X" indicates this item may be discontinued or withdrawn.'}
+                          {effectiveProductData?.productStatusCode === 'W' && ' Status "W" indicates withdrawn status.'}
+                          {effectiveProductData?.acceptBackOrder && ' Back orders are accepted.'}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Dynamic Warehouse Locations from Supplier Feed */}
               {effectiveInventoryData?.warehouses && effectiveInventoryData.warehouses.length > 0 && (
                 <Card>

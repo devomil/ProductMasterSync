@@ -92,7 +92,7 @@ const calculateShippingCost = async (supplierId: number, cost: number, weight: n
 };
 
 // Build vendor stock data from actual supplier links
-const getVendorStockData = (product: any, supplierData?: any[], inventoryData?: any, shippingCosts?: any) => {
+const getVendorStockData = (product: any, supplierData?: any[], inventoryData?: any, shippingCosts?: any, ingramLiveData?: any) => {
   if (!product) return [];
   
   const vendors = [];
@@ -100,9 +100,16 @@ const getVendorStockData = (product: any, supplierData?: any[], inventoryData?: 
   // Use actual supplier data if available
   if (supplierData && supplierData.length > 0) {
     for (const supplier of supplierData) {
-      // Calculate quantity from inventory data if available
+      const isIngram = supplier.name?.toLowerCase().includes('ingram');
+      
+      // For Ingram Micro, use live API data if available
       let quantity = supplier.quantity || product.inventoryQuantity || 0;
-      if (inventoryData?.warehouses) {
+      let cost = supplier.cost || parseFloat(product.cost) || 0;
+      
+      if (isIngram && ingramLiveData) {
+        quantity = ingramLiveData.totalStock || ingramLiveData.quantityAvailableToShip || 0;
+        cost = ingramLiveData.cost || cost;
+      } else if (inventoryData?.warehouses) {
         quantity = inventoryData.warehouses.reduce((total: number, warehouse: any) => {
           return total + (warehouse.quantity || 0);
         }, 0);
@@ -123,11 +130,11 @@ const getVendorStockData = (product: any, supplierData?: any[], inventoryData?: 
       
       vendors.push({
         name: supplier.name,
-        stock: "Live Inventory",
-        cost: supplier.cost || parseFloat(product.cost) || 0,
+        stock: isIngram ? "Ingram Micro API" : "Live Inventory",
+        cost: cost,
         quantity: stockDisplay,
         type: supplier.isPrimary ? "primary" : "secondary",
-        shippingCost: shippingCosts?.[supplier.name] || null,
+        shippingCost: isIngram ? (ingramLiveData?.freeFreight ? 0 : null) : (shippingCosts?.[supplier.name] || null),
         supplierSku: supplier.supplierSku
       });
     }
@@ -159,6 +166,14 @@ export default function ProductDetails() {
   const { data: shippingTemplates } = useQuery({
     queryKey: [`/api/suppliers/2/shipping-templates`], // CWR Distribution ID
     enabled: !!product,
+  }) as { data: any };
+
+  // Detect if this is an Ingram Micro product and fetch real-time data
+  const isIngramProduct = supplierResponse?.suppliers?.some((s: any) => s.name?.toLowerCase().includes('ingram'));
+  const ingramSupplier = supplierResponse?.suppliers?.find((s: any) => s.name?.toLowerCase().includes('ingram'));
+  const { data: ingramLiveData } = useQuery({
+    queryKey: [`/api/marketplace/ingram-micro/warehouse-details/${ingramSupplier?.supplierSku}`],
+    enabled: !!isIngramProduct && !!ingramSupplier?.supplierSku,
   }) as { data: any };
 
   // Calculate shipping costs for vendors
@@ -203,8 +218,8 @@ export default function ProductDetails() {
   const { mappingTemplates, isLoading: templatesLoading } = useMappingTemplates();
   const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
   
-  // Use actual supplier data from API
-  const vendorStockData = getVendorStockData(product, supplierResponse?.suppliers, inventoryData, shippingCosts);
+  // Use actual supplier data from API, enriched with Ingram live data
+  const vendorStockData = getVendorStockData(product, supplierResponse?.suppliers, inventoryData, shippingCosts, ingramLiveData);
   
   // Helper function to get product field value with proper mapping
   const getProductFieldValue = (fieldName: string): string => {
@@ -560,10 +575,10 @@ export default function ProductDetails() {
                             <span className="font-medium">{product.manufacturerName}</span>
                           </div>
                         )}
-                        {product.weight && (
+                        {(product.weight || ingramLiveData?.weight) && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">Weight:</span>
-                            <span className="font-medium">{product.weight} lbs</span>
+                            <span className="font-medium">{ingramLiveData?.weight || `${product.weight} lbs`}</span>
                           </div>
                         )}
                         {product.countryOfOrigin && (
@@ -584,16 +599,16 @@ export default function ProductDetails() {
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-3">Pricing & Status</h3>
                       <div className="space-y-2">
-                        {product.price && (
+                        {(product.price || ingramLiveData?.msrp) && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">MSRP:</span>
-                            <span className="font-bold text-green-600">${product.price}</span>
+                            <span className="font-bold text-green-600">${ingramLiveData?.msrp || product.price}</span>
                           </div>
                         )}
-                        {product.cost && (
+                        {(product.cost || ingramLiveData?.cost) && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">Cost:</span>
-                            <span className="font-medium">${product.cost}</span>
+                            <span className="font-medium">${ingramLiveData?.cost || product.cost}</span>
                           </div>
                         )}
                         <div className="flex justify-between py-1">
@@ -612,22 +627,22 @@ export default function ProductDetails() {
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-3">Packaging & Shipping</h3>
                       <div className="space-y-2">
-                        {product.boxHeight && (
+                        {(product.boxHeight || ingramLiveData?.boxHeight) && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">Box Height:</span>
-                            <span className="font-medium">{product.boxHeight}"</span>
+                            <span className="font-medium">{ingramLiveData?.boxHeight || `${product.boxHeight}"`}</span>
                           </div>
                         )}
-                        {product.boxLength && (
+                        {(product.boxLength || ingramLiveData?.boxLength) && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">Box Length:</span>
-                            <span className="font-medium">{product.boxLength}"</span>
+                            <span className="font-medium">{ingramLiveData?.boxLength || `${product.boxLength}"`}</span>
                           </div>
                         )}
-                        {product.boxWidth && (
+                        {(product.boxWidth || ingramLiveData?.boxWidth) && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">Box Width:</span>
-                            <span className="font-medium">{product.boxWidth}"</span>
+                            <span className="font-medium">{ingramLiveData?.boxWidth || `${product.boxWidth}"`}</span>
                           </div>
                         )}
 
@@ -759,7 +774,7 @@ export default function ProductDetails() {
                       <div className="space-y-2">
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600 text-sm font-medium">Weight:</span>
-                          <span className="text-gray-900">{product.weight ? `${product.weight} lbs` : "N/A"}</span>
+                          <span className="text-gray-900">{ingramLiveData?.weight || (product.weight ? `${product.weight} lbs` : "N/A")}</span>
                         </div>
                         <div className="flex justify-between py-1">
                           <span className="text-gray-600 text-sm font-medium">Length:</span>

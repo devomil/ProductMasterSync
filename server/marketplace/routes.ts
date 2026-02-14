@@ -4783,6 +4783,12 @@ router.get('/ingram-micro/warehouse-details/:supplierSku', async (req, res) => {
     const detailData = details.status === 'fulfilled' ? details.value : null;
     const priceData = priceAvail.status === 'fulfilled' && Array.isArray(priceAvail.value) ? priceAvail.value[0] : null;
 
+    console.log(`[Ingram Micro] Raw detail data keys:`, detailData ? Object.keys(detailData) : 'null');
+    console.log(`[Ingram Micro] Raw detail additionalInfo:`, JSON.stringify(detailData?.additionalInformation || {}).slice(0, 500));
+    console.log(`[Ingram Micro] Raw priceData keys:`, priceData ? Object.keys(priceData) : 'null');
+    console.log(`[Ingram Micro] Raw priceData availability:`, JSON.stringify(priceData?.availability || {}).slice(0, 500));
+    console.log(`[Ingram Micro] Raw priceData pricing:`, JSON.stringify(priceData?.pricing || {}).slice(0, 300));
+
     let freightData: any = null;
     try {
       const freightResult = await ingramMicroAPI.getFreightEstimate({
