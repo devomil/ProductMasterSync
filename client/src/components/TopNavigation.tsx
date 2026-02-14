@@ -149,6 +149,12 @@ const TopNavigation = () => {
                     Inventory Management
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/marketplaces/ingram-micro" className="flex items-center gap-2 w-full">
+                    <Package className="h-4 w-4" />
+                    Ingram Micro API
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Link to="/data-sources" className="flex items-center gap-2 w-full">

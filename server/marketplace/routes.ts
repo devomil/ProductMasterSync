@@ -4574,4 +4574,149 @@ router.post('/flxpoint/sync-commission-from-orders', async (req, res) => {
   }
 });
 
+// ==========================================
+// Ingram Micro API Routes
+// ==========================================
+
+import { ingramMicroAPI } from '../services/ingram-micro-api';
+
+router.get('/ingram-micro/test-connection', async (req, res) => {
+  try {
+    const result = await ingramMicroAPI.testConnection();
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/config-status', async (req, res) => {
+  try {
+    const configured = ingramMicroAPI.isConfigured();
+    const hasClientId = !!process.env.INGRAM_MICRO_CLIENT_ID;
+    const hasClientSecret = !!process.env.INGRAM_MICRO_CLIENT_SECRET;
+    const hasCustomerNumber = !!process.env.INGRAM_MICRO_CUSTOMER_NUMBER;
+    return res.json({
+      configured,
+      hasClientId,
+      hasClientSecret,
+      hasCustomerNumber,
+      customerNumber: hasCustomerNumber ? process.env.INGRAM_MICRO_CUSTOMER_NUMBER!.replace(/./g, (c, i) => i < 3 ? c : '*') : null,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/products/search', async (req, res) => {
+  try {
+    const { keyword, vendorPartNumber, vendor, category, pageNumber, pageSize } = req.query;
+    const result = await ingramMicroAPI.searchProducts({
+      keyword: keyword as string,
+      vendorPartNumber: vendorPartNumber as string,
+      vendor: vendor as string,
+      category: category as string,
+      pageNumber: pageNumber ? parseInt(pageNumber as string) : undefined,
+      pageSize: pageSize ? parseInt(pageSize as string) : undefined,
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Product search error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/products/:ingramPartNumber', async (req, res) => {
+  try {
+    const result = await ingramMicroAPI.getProductDetails(req.params.ingramPartNumber);
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Product details error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.post('/ingram-micro/products/price-availability', async (req, res) => {
+  try {
+    const { products: productList } = req.body;
+    if (!productList || !Array.isArray(productList)) {
+      return res.status(400).json({ error: 'products array is required' });
+    }
+    const result = await ingramMicroAPI.getPriceAndAvailability(productList);
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Price/availability error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/orders/search', async (req, res) => {
+  try {
+    const { ingramOrderNumber, customerOrderNumber, orderStatus, orderFromDate, orderToDate, pageNumber, pageSize } = req.query;
+    const result = await ingramMicroAPI.searchOrders({
+      ingramOrderNumber: ingramOrderNumber as string,
+      customerOrderNumber: customerOrderNumber as string,
+      orderStatus: orderStatus as string,
+      orderFromDate: orderFromDate as string,
+      orderToDate: orderToDate as string,
+      pageNumber: pageNumber ? parseInt(pageNumber as string) : undefined,
+      pageSize: pageSize ? parseInt(pageSize as string) : undefined,
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Order search error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/orders/:orderNumber', async (req, res) => {
+  try {
+    const result = await ingramMicroAPI.getOrderDetails(req.params.orderNumber);
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Order details error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/invoices/search', async (req, res) => {
+  try {
+    const { invoiceNumber, invoiceStatus, invoiceType, invoiceFromDate, invoiceToDate } = req.query;
+    const result = await ingramMicroAPI.searchInvoices({
+      invoiceNumber: invoiceNumber as string,
+      invoiceStatus: invoiceStatus as string,
+      invoiceType: invoiceType as string,
+      invoiceFromDate: invoiceFromDate as string,
+      invoiceToDate: invoiceToDate as string,
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Invoice search error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/invoices/:invoiceNumber', async (req, res) => {
+  try {
+    const result = await ingramMicroAPI.getInvoiceDetails(req.params.invoiceNumber);
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Invoice details error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.post('/ingram-micro/freight-estimate', async (req, res) => {
+  try {
+    const { shipToAddress, lines } = req.body;
+    if (!shipToAddress || !lines) {
+      return res.status(400).json({ error: 'shipToAddress and lines are required' });
+    }
+    const result = await ingramMicroAPI.getFreightEstimate({ shipToAddress, lines });
+    return res.json(result);
+  } catch (error) {
+    console.error('[Ingram Micro] Freight estimate error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

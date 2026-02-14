@@ -52,6 +52,7 @@ import ShippingTemplates from "@/pages/ShippingTemplates";
 import InventoryManagement from "@/pages/InventoryManagement";
 import FieldMappingDocs from "@/pages/FieldMappingDocs";
 import FlxpointSync from "@/pages/FlxpointSync";
+import IngramMicroIntegration from "@/pages/IngramMicroIntegration";
 import BrandPartners from "@/pages/BrandPartners";
 import BrandPartnerDetails from "@/pages/BrandPartnerDetails";
 
@@ -158,6 +159,9 @@ function Router() {
       {/* Flxpoint Integration - Sync products and commission data */}
       <Route path="/marketplaces/flxpoint" component={FlxpointSync} />
       <Route path="/flxpoint-sync" component={FlxpointSync} />
+      
+      {/* Ingram Micro Integration */}
+      <Route path="/marketplaces/ingram-micro" component={IngramMicroIntegration} />
       
       <Route path="/marketplaces/walmart/product-sync" component={() => (
         <div className="container mx-auto p-6">
