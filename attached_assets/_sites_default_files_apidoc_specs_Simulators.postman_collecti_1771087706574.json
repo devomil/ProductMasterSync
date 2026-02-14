@@ -1,0 +1,1588 @@
+{
+	"info": {
+		"_postman_id": "636bcacc-3496-4a3e-bb22-e36ed656b72b",
+		"name": "Simulators",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "28891737"
+	},
+	"item": [
+		{
+			"name": "Product Search v6",
+			"item": [
+				{
+					"name": "Product Search v6",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog?keyword=Dell",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog"
+							],
+							"query": [
+								{
+									"key": "vendorPartNumber",
+									"value": "C36TD",
+									"disabled": true
+								},
+								{
+									"key": "category",
+									"value": "Computer Systems",
+									"disabled": true
+								},
+								{
+									"key": "vendor",
+									"value": "Dell",
+									"disabled": true
+								},
+								{
+									"key": "keyword",
+									"value": "08JM16",
+									"disabled": true
+								},
+								{
+									"key": "hasDiscounts",
+									"value": "FALSE",
+									"disabled": true
+								},
+								{
+									"key": "keyword",
+									"value": "Dell"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Product Details v6",
+			"item": [
+				{
+					"name": "Product Details v6 - RG7922",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/RG7922",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"RG7922"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 01RW16",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/01RW16",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"01RW16"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 02KM64",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/02KM64",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"02KM64"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 08JM16",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/08JM16",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"08JM16"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - TC2966",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/TC2966",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"TC2966"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 9AC656",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/9AC656",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"9AC656"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 12GH81",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/12GH81",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"12GH81"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 8UM781",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/8UM781",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"8UM781"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - HB8123",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/HB8123",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"HB8123"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Product Details v6 - 4J2233",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/details/4J2233",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"details",
+								"4J2233"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Price And Availability v6",
+			"item": [
+				{
+					"name": "PnA v6 - vendorPartNumber - 7YN8G",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"showAvailableDiscounts\": true,\r\n    \"showReserveInventoryDetails\": true,\r\n    \"products\": [\r\n        {\r\n            \"vendorPartNumber\": \"7YN8G\"\r\n        }\r\n    ]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/priceandavailability?includePricing=true&includeAvailability=true",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"priceandavailability"
+							],
+							"query": [
+								{
+									"key": "includePricing",
+									"value": "true"
+								},
+								{
+									"key": "includeAvailability",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "PnA v6 - ingramPartNumber - TC2966",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"showAvailableDiscounts\": true,\r\n    \"showReserveInventoryDetails\": true,\r\n    \"products\": [\r\n        {\r\n            \"ingramPartNumber\": \"TC2966\"\r\n        }\r\n    ]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/catalog/priceandavailability?includePricing=true&includeAvailability=true&includeProductAttributes=false",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"catalog",
+								"priceandavailability"
+							],
+							"query": [
+								{
+									"key": "includePricing",
+									"value": "true"
+								},
+								{
+									"key": "includeAvailability",
+									"value": "true"
+								},
+								{
+									"key": "includeProductAttributes",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Quote Search v6",
+			"item": [
+				{
+					"name": "Quote Search v6",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							},
+							{
+								"key": "IM-CustomerContact",
+								"value": "test@mail.com"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/quotes/search?specialBidNumber=76495973&endUserContact=Example INC&status=Ready to Order",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"quotes",
+								"search"
+							],
+							"query": [
+								{
+									"key": "specialBidNumber",
+									"value": "76495973"
+								},
+								{
+									"key": "endUserContact",
+									"value": "Example INC"
+								},
+								{
+									"key": "status",
+									"value": "Ready to Order"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Quote Details v6",
+			"item": [
+				{
+					"name": "Quote Details v6 - QUO-19318453-V4B4S4",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/quotes/QUO-19318453-V4B4S4",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"quotes",
+								"QUO-19318453-V4B4S4"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Quote Details v6 - QUO-18839805-S2L0X6",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/quotes/QUO-18839805-S2L0X6",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"quotes",
+								"QUO-18839805-S2L0X6"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Quote Details v6 - QUO-19318561-S7M8L1",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/quotes/QUO-19318561-S7M8L1",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"quotes",
+								"QUO-19318561-S7M8L1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Order Create v6",
+			"item": [
+				{
+					"name": "Order Create v6 - Apple_warrantyLink",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"customerOrderNumber\": \"CustomerPO3\",\r\n    \"endCustomerOrderNumber\": \"EndUserPO3\",\r\n\t\"endUserInfo\": {\r\n        \"contact\": \"John Doe\",\r\n        \"companyName\": \"Example Inc\",\r\n        \"addressLine1\": \"100 Main ST\",\r\n        \"addressLine2\": \"Suite 101\",\r\n        \"city\": \"MURRIETA\",\r\n        \"state\": \"CA\",\r\n        \"postalCode\": \"92563\",\r\n        \"countryCode\": \"US\",\r\n        \"phoneNumber\": \"3101234567\",\r\n        \"email\": \"john@doe.com\"\r\n    },\r\n    \"shipToInfo\": {\r\n        \"contact\": \"Happy Customer\",\r\n        \"companyName\": \"Happy Customer Inc\",\r\n        \"addressLine1\": \"123 Example Dr\",\r\n        \"addressLine2\": \"\",\r\n        \"city\": \"Irvine\",\r\n        \"state\": \"CA\",\r\n        \"postalCode\": \"92612\",\r\n        \"countryCode\": \"US\",\r\n        \"phoneNumber\": \"7141234567\",\r\n        \"email\": \"happy@customer.com\"\r\n    },\r\n    \"lines\": [\r\n        {\r\n            \"customerLineNumber\": 1,\r\n            \"ingramPartNumber\": \"02NX60\",\r\n            \"quantity\": 1\r\n        },\r\n        {\r\n            \"customerLineNumber\": 2,\r\n            \"ingramPartNumber\": \"06NY04\",\r\n            \"quantity\": 1,\r\n            \"endUserInfo\": [\r\n                {\r\n                    \"contact\": \"John Doe\",\r\n                    \"phoneNumber\": \"9491234567\",\r\n                    \"email\": \"john@doe.com\"\r\n                }\r\n            ],\r\n            \"warrantyInfo\": [\r\n                {\r\n                    \"hardwareLineLink\": \"002\"\r\n                }\r\n            ]\r\n        }\r\n    ],\r\n    \"shipmentDetails\": {\r\n        \"carrierCode\": \"HD\",\r\n        \"signatureRequired\": \"false\",\r\n        \"shippingInstructions\": \"Signature required\"\r\n    },\r\n    \"additionalAttributes\": [\r\n        {\r\n            \"attributeName\": \"allowOrderOnCustomerHold\",\r\n            \"attributeValue\": \"false\"\r\n        },\r\n        {\r\n            \"attributeName\": \"allowDuplicateCustomerOrderNumber\",\r\n            \"attributeValue\": \"false\"\r\n        }\r\n    ]\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/orders",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Create v6 - Lenovo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n   \"customerOrderNumber\":\"CustomerPO-1\",\r\n   \"endCustomerOrderNumber\":\"EndUserPO-1\",\r\n   \"shipToInfo\":{\r\n      \"contact\":\"John Doe\",\r\n      \"companyName\":\"Example Inc\",\r\n      \"addressLine1\":\"100 VOLCANO HIGHWAY \",\r\n      \"addressLine2\":\"\",\r\n      \"city\":\"Mountain View\",\r\n      \"state\":\"HI\",\r\n      \"postalCode\":\"96771\",\r\n      \"countryCode\":\"US\",\r\n      \"phoneNumber\":\"7141234567\",\r\n      \"email\":\"JD@IM.com\"\r\n   },\r\n   \"lines\":[\r\n      {\r\n         \"customerLineNumber\":1,\r\n         \"ingramPartNumber\":\"13GH00\",\r\n         \"quantity\":1\r\n      }\r\n   ],\r\n   \"shipmentDetails\":{\r\n      \"carrierCode\":\"F1\",\r\n      \"signatureRequired\":\"false\",\r\n      \"shippingInstructions\":\"Leave at Front Door\"\r\n    },\r\n    \"additionalAttributes\": [\r\n        {\r\n            \"attributeName\": \"allowOrderOnCustomerHold\",\r\n            \"attributeValue\": \"false\"\r\n        },\r\n        {\r\n            \"attributeName\": \"allowDuplicateCustomerOrderNumber\",\r\n            \"attributeValue\": \"false\"\r\n        }\r\n    ]\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/orders",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Create v6 - Logitech",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n   \"customerOrderNumber\":\"CustomerPO1\",\r\n   \"endCustomerOrderNumber\":\"EndUserPO1\",\r\n   \"shipToInfo\":{\r\n      \"contact\":\"Happy Customer\",\r\n      \"companyName\":\"Happy Customer Inc\",\r\n      \"addressLine1\":\"123 Example Dr\",\r\n      \"addressLine2\":\"\",\r\n      \"city\":\"Irvine\",\r\n      \"state\":\"CA\",\r\n      \"postalCode\":\"92612\",\r\n      \"countryCode\":\"US\",\r\n      \"phoneNumber\":\"7141234567\",\r\n      \"email\":\"happy@customer.com\"\r\n   },\r\n   \"lines\":[\r\n      {\r\n         \"customerLineNumber\":1,\r\n         \"ingramPartNumber\":\"VV3340\",\r\n         \"quantity\": 20\r\n      }\r\n   ],\r\n   \"shipmentDetails\":{\r\n      \"carrierCode\":\"RG\",\r\n      \"signatureRequired\":\"false\",\r\n      \"shippingInstructions\":\"Leave at Front Door\"\r\n    },\r\n    \"additionalAttributes\": [\r\n        {\r\n            \"attributeName\": \"allowOrderOnCustomerHold\",\r\n            \"attributeValue\": \"false\"\r\n        },\r\n        {\r\n            \"attributeName\": \"allowDuplicateCustomerOrderNumber\",\r\n            \"attributeValue\": \"false\"\r\n        }\r\n    ]\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/orders",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Order Search v6",
+			"item": [
+				{
+					"name": "Order Search v6",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							},
+							{
+								"key": "IM-CustomerContact",
+								"value": "test@mail.com"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/orders/search?ingramOrderNumber=20-GZTBJ&ingramOrderDate=2024-05-15",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"orders",
+								"search"
+							],
+							"query": [
+								{
+									"key": "orderStatus",
+									"value": "SHIPPED",
+									"disabled": true
+								},
+								{
+									"key": "vendorName",
+									"value": "AXIS COMMUNICATION INC",
+									"disabled": true
+								},
+								{
+									"key": "ingramOrderNumber",
+									"value": "20-GZTBJ"
+								},
+								{
+									"key": "ingramOrderDate",
+									"value": "2024-05-15"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Order Details v6.1",
+			"item": [
+				{
+					"name": "Order Details v6.1 - 20-VRNWP",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/orders/20-VRNWP",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"orders",
+								"20-VRNWP"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Details v6.1 - 20-VRPH0",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/orders/20-VRPH0",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"orders",
+								"20-VRPH0"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Order Details v6.1 - 20-VRPH4",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/orders/20-VRPH4",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"orders",
+								"20-VRPH4"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Invoice Search v6",
+			"item": [
+				{
+					"name": "Invoice Search v6",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6/invoices?invoiceType=CRMEMO",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6",
+								"invoices"
+							],
+							"query": [
+								{
+									"key": "invoiceStatus",
+									"value": "paid",
+									"disabled": true
+								},
+								{
+									"key": "invoiceType",
+									"value": "CRMEMO"
+								},
+								{
+									"key": "invoiceFromDate",
+									"value": "2024-02-01",
+									"disabled": true
+								},
+								{
+									"key": "invoiceToDate",
+									"value": "2024-02-28",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Invoice Details v6.1",
+			"item": [
+				{
+					"name": "Invoice Details v6.1 - 20-XY1JK-11",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/invoices/20-XY1JK-11?customerType=invoice&includeSerialNumbers=false",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"invoices",
+								"20-XY1JK-11"
+							],
+							"query": [
+								{
+									"key": "customerType",
+									"value": "invoice"
+								},
+								{
+									"key": "includeSerialNumbers",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invoice Details v6.1 - 20-VRPH4-11",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/invoices/20-VRPH4-11",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"invoices",
+								"20-VRPH4-11"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invoice Details v6.1 - 20-VRPH4-21",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/invoices/20-VRPH4-21",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"invoices",
+								"20-VRPH4-21"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invoice Details v6.1 - 20-VRPH0-11",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/invoices/20-VRPH0-11",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"invoices",
+								"20-VRPH0-11"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invoice Details v6.1 - 20-VRNWP-11",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "text/plain"
+							},
+							{
+								"key": "IM-CustomerNumber",
+								"value": "20-222222"
+							},
+							{
+								"key": "IM-CountryCode",
+								"value": "US"
+							},
+							{
+								"key": "IM-CorrelationID",
+								"value": "TestRequest"
+							},
+							{
+								"key": "IM-ApplicationID",
+								"value": "MyCompany"
+							}
+						],
+						"url": {
+							"raw": "https://api-beta.ingrammicro.com:443/simulators/resellers/v6.1/invoices/20-VRNWP-11",
+							"protocol": "https",
+							"host": [
+								"api-beta",
+								"ingrammicro",
+								"com"
+							],
+							"path": [
+								"simulators",
+								"resellers",
+								"v6.1",
+								"invoices",
+								"20-VRNWP-11"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
