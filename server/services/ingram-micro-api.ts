@@ -263,14 +263,33 @@ export class IngramMicroAPI {
       products: products.map(p => ({ ingramPartNumber: p.ingramPartNumber })),
     };
 
-    const response = await this.makeRequest<any>(
-      'POST',
-      '/resellers/v6/catalog/priceandavailability',
-      {},
-      body
-    );
+    const accessToken = await this.getAccessToken();
+    const url = `${this.getBaseUrl()}/resellers/v6/catalog/priceandavailability?includeAvailability=true&includePricing=true&includeProductAttributes=true`;
+    const headers = {
+      ...this.getHeaders(),
+      'Authorization': `Bearer ${accessToken}`,
+    };
 
-    return Array.isArray(response) ? response : [];
+    try {
+      console.log(`[Ingram Micro] POST /resellers/v6/catalog/priceandavailability`);
+      const response = await this.client({
+        method: 'POST',
+        url,
+        headers,
+        data: body,
+        validateStatus: () => true,
+      });
+
+      if (response.status >= 400) {
+        console.error(`[Ingram Micro] Error ${response.status}:`, JSON.stringify(response.data).slice(0, 500));
+        throw new Error(`Ingram Micro API returned ${response.status}: ${JSON.stringify(response.data)}`);
+      }
+
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      if (error.message?.includes('Ingram Micro API returned')) throw error;
+      throw new Error(`Ingram Micro price check failed: ${error.message}`);
+    }
   }
 
   async searchOrders(opts: {
