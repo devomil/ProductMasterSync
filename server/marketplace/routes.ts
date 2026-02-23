@@ -3568,7 +3568,12 @@ router.get('/orders', async (req, res) => {
     let conditions: any[] = [];
 
     if (status && status !== 'all') {
-      conditions.push(eq(marketplaceOrders.status, status as string));
+      const statuses = (status as string).split(',');
+      if (statuses.length > 1) {
+        conditions.push(inArray(marketplaceOrders.status, statuses as any));
+      } else {
+        conditions.push(eq(marketplaceOrders.status, status as string));
+      }
     }
     
     if (marketplace) {
@@ -3587,17 +3592,32 @@ router.get('/orders', async (req, res) => {
       conditions.push(lte(marketplaceOrders.shipByDate, tomorrow));
     }
 
-    let dateFilter = new Date();
-    if (dateRange === 'today') {
-      dateFilter.setHours(0, 0, 0, 0);
-    } else if (dateRange === '7days') {
-      dateFilter.setDate(dateFilter.getDate() - 7);
-    } else if (dateRange === '30days') {
-      dateFilter.setDate(dateFilter.getDate() - 30);
-    } else if (dateRange === '90days') {
-      dateFilter.setDate(dateFilter.getDate() - 90);
+    if (dateRange && dateRange !== 'all') {
+      let dateFilter = new Date();
+      if (dateRange === 'today') {
+        dateFilter.setHours(0, 0, 0, 0);
+      } else if (dateRange === '7days') {
+        dateFilter.setDate(dateFilter.getDate() - 7);
+      } else if (dateRange === '30days') {
+        dateFilter.setDate(dateFilter.getDate() - 30);
+      } else if (dateRange === '90days') {
+        dateFilter.setDate(dateFilter.getDate() - 90);
+      }
+      conditions.push(gte(marketplaceOrders.orderDate, dateFilter));
     }
-    conditions.push(gte(marketplaceOrders.orderDate, dateFilter));
+
+    const { search } = req.query;
+    if (search && (search as string).trim()) {
+      const searchTerm = `%${(search as string).trim()}%`;
+      conditions.push(
+        or(
+          sql`${marketplaceOrders.orderNumber} ILIKE ${searchTerm}`,
+          sql`${marketplaceOrders.marketplaceOrderId} ILIKE ${searchTerm}`,
+          sql`${marketplaceOrders.customerName} ILIKE ${searchTerm}`,
+          sql`${marketplaceOrders.customerEmail} ILIKE ${searchTerm}`
+        )
+      );
+    }
 
     if (needsAttention === 'cancellation') {
       conditions.push(eq(marketplaceOrders.vergeOfCancellation, true));
@@ -3662,9 +3682,9 @@ router.get('/orders', async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'pending') as "pending",
         COUNT(*) FILTER (WHERE status = 'unshipped') as "unshipped",
         COUNT(*) FILTER (WHERE status = 'shipped') as "shipped",
-        COUNT(*) FILTER (WHERE status = 'cancelled') as "cancelled"
+        COUNT(*) FILTER (WHERE status = 'cancelled') as "cancelled",
+        COUNT(*) FILTER (WHERE status = 'delivered') as "delivered"
       FROM marketplace_orders
-      WHERE order_date >= ${dateFilter}
     `);
 
     const stats = statsResult.rows[0] || {

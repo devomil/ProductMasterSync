@@ -1,17 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -23,15 +19,19 @@ import {
   Loader2,
   Package,
   ExternalLink,
-  Filter,
-  X,
-  CheckCircle,
-  AlertTriangle,
+  Edit3,
   DollarSign,
   TrendingUp,
   TrendingDown,
   Truck,
   AlertCircle,
+  AlertTriangle,
+  Search,
+  ShoppingBag,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  BarChart3,
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 
@@ -43,6 +43,7 @@ interface Order {
   status: 'pending' | 'unshipped' | 'shipped' | 'delivered' | 'cancelled' | 'on_hold';
   orderType: 'standard' | 'subscription' | 'preorder';
   customerName?: string;
+  customerEmail?: string;
   shippingTrackingNumber?: string;
   shippingCarrier?: string;
   orderDate: string;
@@ -61,19 +62,17 @@ interface Order {
 interface OrdersResponse {
   orders: Order[];
   total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
   stats: {
     totalOrders: number;
     pending: number;
     unshipped: number;
     shipped: number;
     cancelled: number;
+    delivered: number;
   };
-}
-
-interface QuickFilter {
-  id: string;
-  label: string;
-  count?: number;
 }
 
 interface SupplierOption {
@@ -126,61 +125,59 @@ interface OrderDetails extends Order {
   currencyCode?: string;
 }
 
-export default function ManageOrders() {
-  const [statusTab, setStatusTab] = useState<string>('all');
-  const [activeQuickFilters, setActiveQuickFilters] = useState<string[]>([]);
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  
-  const [needsAttention, setNeedsAttention] = useState<string>('all');
-  const [shipByDate, setShipByDate] = useState<string>('all');
-  const [salesChannels, setSalesChannels] = useState<string[]>([]);
-  const [shippingService, setShippingService] = useState<string[]>([]);
-  const [orderTypes, setOrderTypes] = useState<string[]>([]);
-  const [pendingActions, setPendingActions] = useState<string[]>([]);
-  const [shippingSettingsType, setShippingSettingsType] = useState<string>('all');
-  const [deliveryRecommendation, setDeliveryRecommendation] = useState<string[]>([]);
-  
-  const [dateRange, setDateRange] = useState<string>('7days');
-  const [sortBy, setSortBy] = useState<string>('date_desc');
-  const [resultsPerPage, setResultsPerPage] = useState<string>('15');
-  const [page, setPage] = useState(1);
+interface MarketplaceStat {
+  marketplace: string;
+  totalOrders: string;
+  pending: string;
+  unshipped: string;
+  shipped: string;
+  cancelled: string;
+  totalRevenue: string;
+}
 
-  // Build query params for API call
+type SubTab = 'orders' | 'sync_jobs' | 'inventory_rules' | 'access_control';
+
+const STATUS_FILTERS = [
+  { id: 'all', label: 'All Orders', icon: ShoppingBag },
+  { id: 'pending', label: 'Pending Fulfillment', icon: Clock },
+  { id: 'shipped', label: 'Shipped', icon: Truck },
+  { id: 'delivered', label: 'Completed', icon: CheckCircle2 },
+  { id: 'cancelled', label: 'Cancelled', icon: XCircle },
+  { id: 'on_hold', label: 'On Hold', icon: AlertCircle },
+];
+
+export default function ManageOrders() {
+  const [activeTab, setActiveTab] = useState<SubTab>('orders');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateRange, setDateRange] = useState('all');
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const resultsPerPage = 25;
+
+  const { toast } = useToast();
+
   const buildQueryParams = () => {
     const params = new URLSearchParams();
-    if (statusTab && statusTab !== 'all') params.append('status', statusTab);
-    if (salesChannels.length > 0) params.append('marketplace', salesChannels.join(','));
-    if (shipByDate && shipByDate !== 'all') params.append('shipByDate', shipByDate);
-    if (dateRange) params.append('dateRange', dateRange);
-    if (needsAttention && needsAttention !== 'all') params.append('needsAttention', needsAttention);
-    if (orderTypes.length > 0) params.append('orderType', orderTypes.join(','));
-    if (shippingSettingsType && shippingSettingsType !== 'all') params.append('shippingSettingsType', shippingSettingsType);
-    if (shippingService.includes('premium')) params.append('isPremium', 'true');
-    if (pendingActions.includes('buyer_cancel')) params.append('buyerRequestedCancel', 'true');
-    if (deliveryRecommendation.includes('signature')) params.append('requiresSignature', 'true');
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'pending') {
+        params.append('status', 'pending,unshipped');
+      } else {
+        params.append('status', statusFilter);
+      }
+    }
+    if (channelFilter !== 'all') params.append('marketplace', channelFilter);
+    params.append('dateRange', dateRange);
+    if (searchQuery.trim()) params.append('search', searchQuery.trim());
     params.append('page', page.toString());
-    params.append('limit', resultsPerPage);
-    params.append('sortBy', sortBy.includes('asc') ? 'asc' : 'desc');
+    params.append('limit', resultsPerPage.toString());
+    params.append('sortOrder', 'desc');
     return params.toString();
   };
 
   const { data: ordersData, isLoading, refetch } = useQuery<OrdersResponse>({
-    queryKey: [
-      '/api/marketplace/orders', 
-      statusTab, 
-      salesChannels.join(','), 
-      shipByDate, 
-      dateRange,
-      needsAttention,
-      orderTypes.join(','),
-      shippingSettingsType,
-      shippingService.join(','),
-      pendingActions.join(','),
-      deliveryRecommendation.join(','),
-      page, 
-      resultsPerPage,
-      sortBy
-    ],
+    queryKey: ['/api/marketplace/orders', statusFilter, channelFilter, dateRange, searchQuery, page],
     queryFn: async () => {
       const response = await fetch(`/api/marketplace/orders?${buildQueryParams()}`);
       if (!response.ok) throw new Error('Failed to fetch orders');
@@ -188,36 +185,10 @@ export default function ManageOrders() {
     }
   });
 
-  // Fetch marketplace connection status
-  const { data: marketplaceStatus } = useQuery({
-    queryKey: ['/api/marketplace/credentials/status'],
+  const { data: summaryData } = useQuery<{ byMarketplace: MarketplaceStat[] }>({
+    queryKey: ['/api/marketplace/orders/stats/summary'],
   });
 
-  const { toast } = useToast();
-
-  // Sync Walmart orders mutation
-  const syncWalmartOrdersMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/marketplace/orders/sync/walmart', { daysBack: 60 });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: 'Walmart Orders Synced',
-        description: `Synced ${data.synced} new orders, updated ${data.updated} existing orders.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Sync Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Fetch order details when an order is selected
   const { data: orderDetails, isLoading: isLoadingDetails } = useQuery<OrderDetails>({
     queryKey: ['/api/marketplace/orders', selectedOrderId],
     queryFn: async () => {
@@ -228,61 +199,95 @@ export default function ManageOrders() {
     enabled: !!selectedOrderId,
   });
 
-  const quickFilters: QuickFilter[] = [
-    { id: 'ship_today', label: 'Ship by today', count: 0 },
-    { id: 'premium_unshipped', label: 'Premium unshipped', count: 0 },
-    { id: 'business_unshipped', label: 'Business customer unshipped', count: 0 },
-    { id: 'late_shipment', label: 'Verge of Late Shipment', count: 0 },
-    { id: 'cancellation', label: 'Verge of Cancellation', count: 0 },
-  ];
+  const syncAmazonMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/orders/sync/amazon', { daysBack: 60 });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: 'Amazon Orders Synced', description: `Synced ${data.synced} new, updated ${data.updated} existing orders.` });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
+    },
+  });
 
-  const toggleQuickFilter = (filterId: string) => {
-    setActiveQuickFilters(prev =>
-      prev.includes(filterId) ? prev.filter(f => f !== filterId) : [...prev, filterId]
-    );
-  };
+  const syncWalmartMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/marketplace/orders/sync/walmart', { daysBack: 60 });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: 'Walmart Orders Synced', description: `Synced ${data.synced} new, updated ${data.updated} existing orders.` });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
+    },
+  });
 
-  const toggleSalesChannel = (channel: string) => {
-    setSalesChannels(prev =>
-      prev.includes(channel) ? prev.filter(c => c !== channel) : [...prev, channel]
-    );
-  };
+  const marketplaceStats = useMemo(() => {
+    const stats = summaryData?.byMarketplace || [];
+    const walmartData = stats.find(s => s.marketplace === 'walmart');
+    const amazonData = stats.find(s => s.marketplace === 'amazon');
 
-  const toggleOrderType = (type: string) => {
-    setOrderTypes(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-  };
+    const toNum = (v: string | undefined) => parseInt(v || '0') || 0;
+    const toCents = (v: string | undefined) => parseInt(v || '0') || 0;
 
-  const clearAllFilters = () => {
-    setActiveQuickFilters([]);
-    setNeedsAttention('all');
-    setShipByDate('all');
-    setSalesChannels([]);
-    setShippingService([]);
-    setOrderTypes([]);
-    setPendingActions([]);
-    setShippingSettingsType('all');
-    setDeliveryRecommendation([]);
-  };
+    const walmart = {
+      orders: toNum(walmartData?.totalOrders),
+      revenue: toCents(walmartData?.totalRevenue),
+      pending: toNum(walmartData?.pending) + toNum(walmartData?.unshipped),
+      shipped: toNum(walmartData?.shipped),
+    };
+    const amazon = {
+      orders: toNum(amazonData?.totalOrders),
+      revenue: toCents(amazonData?.totalRevenue),
+      pending: toNum(amazonData?.pending) + toNum(amazonData?.unshipped),
+      shipped: toNum(amazonData?.shipped),
+    };
+    const allChannels = {
+      orders: walmart.orders + amazon.orders,
+      revenue: walmart.revenue + amazon.revenue,
+      pending: walmart.pending + amazon.pending,
+      shipped: walmart.shipped + amazon.shipped,
+    };
 
-  const hasActiveFilters = activeQuickFilters.length > 0 || salesChannels.length > 0 || 
-    needsAttention !== 'all' || shipByDate !== 'all' || orderTypes.length > 0;
-
-  const statusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'unshipped': return 'bg-orange-100 text-orange-800';
-      case 'shipped': return 'bg-blue-100 text-blue-800';
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+    return { walmart, amazon, allChannels };
+  }, [summaryData]);
 
   const formatCurrency = (cents: number | null | undefined) => {
     if (cents === null || cents === undefined) return '-';
-    return `$${(cents / 100).toFixed(2)}`;
+    return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatRevenue = (cents: number) => {
+    return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const statusBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'unshipped': return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 'shipped': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'delivered': return 'bg-green-50 text-green-700 border-green-200';
+      case 'cancelled': return 'bg-red-50 text-red-700 border-red-200';
+      case 'on_hold': return 'bg-purple-50 text-purple-700 border-purple-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Pending';
+      case 'unshipped': return 'Incomplete';
+      case 'shipped': return 'Shipped';
+      case 'delivered': return 'Completed';
+      case 'cancelled': return 'Cancelled';
+      case 'on_hold': return 'On Hold';
+      default: return status;
+    }
   };
 
   const getProfitColor = (margin: number) => {
@@ -292,453 +297,412 @@ export default function ManageOrders() {
     return 'text-red-600';
   };
 
+  const needsFulfillment = (status: string) => {
+    return status === 'pending' || status === 'unshipped' || status === 'on_hold';
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Status Tabs */}
-      <div className="flex items-center justify-between border-b">
-        <div className="flex">
-          {['pending', 'unshipped', 'cancelled', 'shipped'].map(status => (
+    <div className="space-y-6">
+      {/* Overview Section */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wide">Overview</h2>
+        <span className="text-xs text-slate-400">All Time</span>
+      </div>
+
+      {/* Marketplace Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Walmart Card */}
+        <Card className="border border-slate-200 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <SiWalmart className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-lg font-semibold text-slate-900">Walmart</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Orders</div>
+                <div className="text-2xl font-bold text-slate-900">{marketplaceStats.walmart.orders.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Revenue</div>
+                <div className="text-2xl font-bold text-emerald-600">{formatRevenue(marketplaceStats.walmart.revenue)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Pending</div>
+                <div className="text-sm font-semibold text-amber-600">{marketplaceStats.walmart.pending.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Shipped</div>
+                <div className="text-sm font-semibold text-emerald-600">{marketplaceStats.walmart.shipped.toLocaleString()}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Amazon Card */}
+        <Card className="border border-slate-200 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-lg bg-orange-500 flex items-center justify-center">
+                  <SiAmazon className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-lg font-semibold text-slate-900">Amazon</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Orders</div>
+                <div className="text-2xl font-bold text-slate-900">{marketplaceStats.amazon.orders.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Revenue</div>
+                <div className="text-2xl font-bold text-emerald-600">{formatRevenue(marketplaceStats.amazon.revenue)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Pending</div>
+                <div className="text-sm font-semibold text-amber-600">{marketplaceStats.amazon.pending.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Shipped</div>
+                <div className="text-sm font-semibold text-emerald-600">{marketplaceStats.amazon.shipped.toLocaleString()}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* All Channels Card */}
+        <Card className="border-2 border-emerald-200 bg-emerald-50/30 hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-lg font-semibold text-slate-900">All Channels</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Total Orders</div>
+                <div className="text-2xl font-bold text-slate-900">{marketplaceStats.allChannels.orders.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Total Revenue</div>
+                <div className="text-2xl font-bold text-emerald-600">{formatRevenue(marketplaceStats.allChannels.revenue)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Pending</div>
+                <div className="text-sm font-semibold text-amber-600">{marketplaceStats.allChannels.pending.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Shipped</div>
+                <div className="text-sm font-semibold text-emerald-600">{marketplaceStats.allChannels.shipped.toLocaleString()}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sub-Navigation Tabs */}
+      <div className="border-b border-slate-200">
+        <div className="flex gap-6">
+          {[
+            { id: 'orders' as SubTab, label: 'Orders', icon: ShoppingBag },
+            { id: 'sync_jobs' as SubTab, label: 'Sync Jobs', icon: RefreshCw },
+            { id: 'inventory_rules' as SubTab, label: 'Inventory Rules', icon: Package },
+            { id: 'access_control' as SubTab, label: 'Access Control', icon: AlertCircle },
+          ].map(tab => (
             <button
-              key={status}
-              onClick={() => setStatusTab(status)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                statusTab === status
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-emerald-600 text-emerald-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
-              data-testid={`tab-${status}`}
             >
-              {ordersData?.stats?.[status as keyof typeof ordersData.stats] || 0} {status.charAt(0).toUpperCase() + status.slice(1)}
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
             </button>
           ))}
         </div>
-        <a href="#" className="text-blue-600 hover:underline text-sm flex items-center gap-1" data-testid="link-fba-orders">
-          View FBA orders <ExternalLink className="h-3 w-3" />
-        </a>
       </div>
 
-      {/* Quick Filters Row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-muted-foreground">Quick Filters:</span>
-        {quickFilters.map(filter => (
-          <Button
-            key={filter.id}
-            variant={activeQuickFilters.includes(filter.id) ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => toggleQuickFilter(filter.id)}
-            className="text-xs"
-            data-testid={`quick-filter-${filter.id}`}
-          >
-            {filter.count !== undefined && `${filter.count} `}{filter.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="secondary" className="flex items-center gap-1">
-            All dates
-            <X className="h-3 w-3 cursor-pointer" onClick={() => setShipByDate('all')} />
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-xs text-blue-600">
-            Clear all
-          </Button>
-          <Button variant="ghost" size="sm" className="text-xs text-blue-600">
-            Save as quick filter
-          </Button>
-        </div>
-      )}
-
-      {/* Main Content with Sidebar */}
-      <div className="flex gap-6">
-        {/* Left Sidebar - Filters */}
-        <div className="w-64 flex-shrink-0">
-          <Card>
-            <CardHeader className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Refine by:</CardTitle>
-                <Button variant="outline" size="sm" className="text-xs h-7" data-testid="button-hide-filters">
-                  <Filter className="h-3 w-3 mr-1" />
-                  Hide Filters
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <ScrollArea className="h-[calc(100vh-350px)]">
-                <div className="space-y-6">
-                  {/* Needs Attention */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Needs Attention</h4>
-                    <RadioGroup value={needsAttention} onValueChange={setNeedsAttention}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="cancellation" id="att-cancellation" />
-                        <Label htmlFor="att-cancellation" className="text-sm">Verge of Cancellation</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="late" id="att-late" />
-                        <Label htmlFor="att-late" className="text-sm">Verge of Late Shipment</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  <Separator />
-
-                  {/* Ship by date */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Ship by date</h4>
-                    <RadioGroup value={shipByDate} onValueChange={setShipByDate}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="all" id="ship-all" />
-                        <Label htmlFor="ship-all" className="text-sm">All dates</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="today" id="ship-today" />
-                        <Label htmlFor="ship-today" className="text-sm">Ship by today</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="tomorrow" id="ship-tomorrow" />
-                        <Label htmlFor="ship-tomorrow" className="text-sm">Ship by tomorrow</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  <Separator />
-
-                  {/* Sales channel */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Sales channel</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="channel-walmart" 
-                          checked={salesChannels.includes('walmart')}
-                          onCheckedChange={() => toggleSalesChannel('walmart')}
-                          data-testid="checkbox-channel-walmart"
-                        />
-                        <Label htmlFor="channel-walmart" className="text-sm flex items-center gap-1">
-                          <SiWalmart className="h-3 w-3" /> Walmart
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="channel-amazon" 
-                          checked={salesChannels.includes('amazon')}
-                          onCheckedChange={() => toggleSalesChannel('amazon')}
-                          data-testid="checkbox-channel-amazon"
-                        />
-                        <Label htmlFor="channel-amazon" className="text-sm flex items-center gap-1">
-                          <SiAmazon className="h-3 w-3" /> Amazon
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="channel-newegg" 
-                          checked={salesChannels.includes('newegg')}
-                          onCheckedChange={() => toggleSalesChannel('newegg')}
-                          data-testid="checkbox-channel-newegg"
-                        />
-                        <Label htmlFor="channel-newegg" className="text-sm">NewEgg</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="channel-ebay" 
-                          checked={salesChannels.includes('ebay')}
-                          onCheckedChange={() => toggleSalesChannel('ebay')}
-                          data-testid="checkbox-channel-ebay"
-                        />
-                        <Label htmlFor="channel-ebay" className="text-sm">eBay</Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Shipping service */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Shipping service</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="shipping-premium" 
-                          checked={shippingService.includes('premium')}
-                          onCheckedChange={() => setShippingService(prev => 
-                            prev.includes('premium') ? prev.filter(s => s !== 'premium') : [...prev, 'premium']
-                          )}
-                        />
-                        <Label htmlFor="shipping-premium" className="text-sm">Premium</Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Order type */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Order type</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="type-subscription" 
-                          checked={orderTypes.includes('subscription')}
-                          onCheckedChange={() => toggleOrderType('subscription')}
-                        />
-                        <Label htmlFor="type-subscription" className="text-sm">Subscribe & Save</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="type-business" 
-                          checked={orderTypes.includes('business')}
-                          onCheckedChange={() => toggleOrderType('business')}
-                        />
-                        <Label htmlFor="type-business" className="text-sm">Business customer</Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Pending actions */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Pending actions</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="action-cancel" 
-                          checked={pendingActions.includes('buyer_cancel')}
-                          onCheckedChange={() => setPendingActions(prev => 
-                            prev.includes('buyer_cancel') ? prev.filter(a => a !== 'buyer_cancel') : [...prev, 'buyer_cancel']
-                          )}
-                        />
-                        <Label htmlFor="action-cancel" className="text-sm">Buyer requested cancel</Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Shipping Settings Type */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Shipping Settings Type</h4>
-                    <RadioGroup value={shippingSettingsType} onValueChange={setShippingSettingsType}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="automated" id="settings-auto" />
-                        <Label htmlFor="settings-auto" className="text-sm">Automated</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="manual" id="settings-manual" />
-                        <Label htmlFor="settings-manual" className="text-sm">Manual</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  <Separator />
-
-                  {/* Delivery Recommendation */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Delivery Recommendation</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="delivery-signature" 
-                          checked={deliveryRecommendation.includes('signature')}
-                          onCheckedChange={() => setDeliveryRecommendation(prev => 
-                            prev.includes('signature') ? prev.filter(d => d !== 'signature') : [...prev, 'signature']
-                          )}
-                        />
-                        <Label htmlFor="delivery-signature" className="text-sm">Signature Confirmation</Label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1">
-          {/* Table Controls */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold">{ordersData?.total || 0} orders</span>
-              <span className="text-sm text-muted-foreground">Last 7 days</span>
+      {activeTab === 'orders' && (
+        <>
+          {/* Orders Section Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Marketplace Orders</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Orders synced from connected marketplaces ready for fulfillment</p>
             </div>
             <div className="flex items-center gap-2">
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-40" data-testid="select-date-range">
-                  <SelectValue placeholder="Date Range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="7days">Last 7 days</SelectItem>
-                  <SelectItem value="30days">Last 30 days</SelectItem>
-                  <SelectItem value="90days">Last 90 days</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-44" data-testid="select-sort">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date_desc">Ship by date (ascending)</SelectItem>
-                  <SelectItem value="date_asc">Ship by date (descending)</SelectItem>
-                  <SelectItem value="order_date">Order date</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={resultsPerPage} onValueChange={setResultsPerPage}>
-                <SelectTrigger className="w-36" data-testid="select-per-page">
-                  <SelectValue placeholder="Results per page" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 per page</SelectItem>
-                  <SelectItem value="25">25 per page</SelectItem>
-                  <SelectItem value="50">50 per page</SelectItem>
-                  <SelectItem value="100">100 per page</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" data-testid="button-table-preferences">
-                Set Table Preferences
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={() => syncWalmartOrdersMutation.mutate()}
-                disabled={syncWalmartOrdersMutation.isPending}
-                data-testid="button-sync-walmart"
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncAmazonMutation.mutate()}
+                disabled={syncAmazonMutation.isPending}
+                className="text-sm"
               >
-                {syncWalmartOrdersMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                {syncAmazonMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4 mr-1" />
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
                 )}
-                Sync Walmart Orders
+                Sync Amazon
               </Button>
-              <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh">
-                <RefreshCw className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncWalmartMutation.mutate()}
+                disabled={syncWalmartMutation.isPending}
+                className="text-sm"
+              >
+                {syncWalmartMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
+                )}
+                Sync Walmart
               </Button>
             </div>
           </div>
 
-          {/* Marketplace Connection Status */}
-          <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-            <span className="text-sm font-medium">Connected Marketplaces:</span>
-            <div className="flex items-center gap-1">
-              {(marketplaceStatus as any)?.walmart?.connected ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              )}
-              <SiWalmart className="h-4 w-4" />
-              <span className="text-sm">Walmart{!(marketplaceStatus as any)?.walmart?.connected && ' (Not Connected)'}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {(marketplaceStatus as any)?.amazon?.connected ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              )}
-              <SiAmazon className="h-4 w-4" />
-              <span className="text-sm">Amazon{!(marketplaceStatus as any)?.amazon?.connected && ' (Not Connected)'}</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm">NewEgg (Not Connected)</span>
-            </div>
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {STATUS_FILTERS.map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => { setStatusFilter(filter.id); setPage(1); }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  statusFilter === filter.id
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                <filter.icon className="h-3.5 w-3.5" />
+                {filter.label}
+              </button>
+            ))}
           </div>
 
-          {/* Orders Table */}
-          <Card>
-            <CardContent className="p-0">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : !ordersData?.orders?.length ? (
-                <div className="text-center py-12">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-lg font-medium">No orders found</p>
-                  <p className="text-muted-foreground mt-1">Orders from your connected marketplaces will appear here</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8">
-                        <Checkbox data-testid="checkbox-select-all" />
-                      </TableHead>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Marketplace</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Order Date</TableHead>
-                      <TableHead>Ship By</TableHead>
-                      <TableHead>Tracking</TableHead>
-                      <TableHead>Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ordersData.orders.map(order => (
-                      <TableRow 
-                        key={order.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedOrderId(order.id)}
-                        data-testid={`row-order-${order.id}`}
-                      >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Checkbox data-testid={`checkbox-order-${order.id}`} />
-                        </TableCell>
-                        <TableCell className="font-medium text-blue-600 hover:underline" data-testid={`text-order-${order.id}`}>
-                          {order.orderNumber}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {order.marketplace === 'walmart' && <SiWalmart className="h-4 w-4" />}
-                            {order.marketplace === 'amazon' && <SiAmazon className="h-4 w-4" />}
-                            <span className="capitalize">{order.marketplace}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={statusBadgeColor(order.status)}>
-                            {order.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{order.customerName || 'N/A'}</TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(order.orderDate).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {order.shipByDate ? new Date(order.shipByDate).toLocaleDateString() : '-'}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {order.shippingTrackingNumber || '-'}
-                        </TableCell>
-                        <TableCell>
-                          ${((order.totalInCents || 0) / 100).toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-end mt-4">
-            <Select value={resultsPerPage} onValueChange={setResultsPerPage}>
+          {/* Search & Filters Row */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search by order number or customer..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                className="pl-10 bg-white"
+              />
+            </div>
+            <Select value={dateRange} onValueChange={(v) => { setDateRange(v); setPage(1); }}>
               <SelectTrigger className="w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="15">Results per page: 15</SelectItem>
-                <SelectItem value="25">Results per page: 25</SelectItem>
-                <SelectItem value="50">Results per page: 50</SelectItem>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="7days">Last 7 days</SelectItem>
+                <SelectItem value="30days">Last 30 days</SelectItem>
+                <SelectItem value="90days">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Channels</SelectItem>
+                <SelectItem value="amazon">Amazon</SelectItem>
+                <SelectItem value="walmart">Walmart</SelectItem>
+                <SelectItem value="ebay">eBay</SelectItem>
+                <SelectItem value="newegg">Newegg</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </div>
+
+          {/* Orders Table */}
+          <Card className="border border-slate-200">
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  <span className="ml-2 text-sm text-slate-500">Loading orders...</span>
+                </div>
+              ) : !ordersData?.orders?.length ? (
+                <div className="text-center py-16">
+                  <Package className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-slate-600">No orders found</p>
+                  <p className="text-sm text-slate-400 mt-1">Orders from your connected marketplaces will appear here</p>
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <Button variant="outline" size="sm" onClick={() => syncAmazonMutation.mutate()}>
+                      <RefreshCw className="h-4 w-4 mr-1" /> Sync Amazon
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => syncWalmartMutation.mutate()}>
+                      <RefreshCw className="h-4 w-4 mr-1" /> Sync Walmart
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/80">
+                        <TableHead className="font-semibold text-slate-700">Order #</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Channel</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Customer</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Date</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Status</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Total</TableHead>
+                        <TableHead className="font-semibold text-slate-700 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ordersData.orders.map(order => (
+                        <TableRow
+                          key={order.id}
+                          className="hover:bg-slate-50/50 cursor-pointer group"
+                          onClick={() => setSelectedOrderId(order.id)}
+                        >
+                          <TableCell className="font-medium text-slate-900">
+                            {order.orderNumber}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {order.marketplace === 'walmart' && (
+                                <span className="text-sm text-slate-700">Walmart</span>
+                              )}
+                              {order.marketplace === 'amazon' && (
+                                <span className="text-sm text-slate-700">Amazon</span>
+                              )}
+                              {order.marketplace === 'ebay' && (
+                                <span className="text-sm text-slate-700">eBay</span>
+                              )}
+                              {order.marketplace === 'newegg' && (
+                                <span className="text-sm text-slate-700">Newegg</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="text-sm font-medium text-slate-900">
+                                {order.customerName || 'Amazon Customer'}
+                              </div>
+                              {order.customerEmail && (
+                                <div className="text-xs text-slate-400">{order.customerEmail}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">
+                            {new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`${statusBadgeStyle(order.status)} text-xs font-medium`}>
+                              {statusLabel(order.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm font-medium text-slate-900">
+                            USD {formatCurrency(order.totalInCents)}
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
+                              {needsFulfillment(order.status) && (
+                                <Button size="sm" className="h-7 bg-red-500 hover:bg-red-600 text-white text-xs px-3">
+                                  Fulfill
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                                onClick={() => setSelectedOrderId(order.id)}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  {ordersData.totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+                      <div className="text-sm text-slate-500">
+                        Showing {((page - 1) * resultsPerPage) + 1}-{Math.min(page * resultsPerPage, ordersData.total)} of {ordersData.total} orders
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          disabled={page <= 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-slate-600">Page {page} of {ordersData.totalPages}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.min(ordersData.totalPages, p + 1))}
+                          disabled={page >= ordersData.totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {activeTab === 'sync_jobs' && (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <RefreshCw className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-600">Sync Jobs</h3>
+            <p className="text-sm text-slate-400 mt-1">View and manage marketplace order sync history</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'inventory_rules' && (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Package className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-600">Inventory Rules</h3>
+            <p className="text-sm text-slate-400 mt-1">Configure inventory allocation and routing rules</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'access_control' && (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-600">Access Control</h3>
+            <p className="text-sm text-slate-400 mt-1">Manage user permissions for order management</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Order Details Dialog */}
       <Dialog open={!!selectedOrderId} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
@@ -748,42 +712,43 @@ export default function ManageOrders() {
               {orderDetails?.marketplace === 'walmart' && <SiWalmart className="h-5 w-5" />}
               {orderDetails?.marketplace === 'amazon' && <SiAmazon className="h-5 w-5" />}
               Order #{orderDetails?.orderNumber}
-              <Badge className={statusBadgeColor(orderDetails?.status || '')}>
-                {orderDetails?.status}
+              <Badge variant="outline" className={statusBadgeStyle(orderDetails?.status || '')}>
+                {statusLabel(orderDetails?.status || '')}
               </Badge>
             </DialogTitle>
           </DialogHeader>
 
           {isLoadingDetails ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
           ) : orderDetails ? (
             <div className="space-y-6">
-              {/* Order Summary */}
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="pt-4">
-                    <div className="text-sm text-muted-foreground">Customer</div>
+                    <div className="text-sm text-slate-500">Customer</div>
                     <div className="font-medium">{orderDetails.customerName || 'N/A'}</div>
+                    {orderDetails.customerEmail && (
+                      <div className="text-xs text-slate-400 mt-0.5">{orderDetails.customerEmail}</div>
+                    )}
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <div className="text-sm text-muted-foreground">Order Date</div>
+                    <div className="text-sm text-slate-500">Order Date</div>
                     <div className="font-medium">{new Date(orderDetails.orderDate).toLocaleDateString()}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <div className="text-sm text-muted-foreground">Ship By</div>
+                    <div className="text-sm text-slate-500">Ship By</div>
                     <div className="font-medium">{orderDetails.shipByDate ? new Date(orderDetails.shipByDate).toLocaleDateString() : '-'}</div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Profitability Summary */}
-              <Card className="border-2 border-blue-200">
+              <Card className="border-2 border-emerald-200">
                 <CardHeader className="py-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-green-600" />
@@ -793,36 +758,33 @@ export default function ManageOrders() {
                 <CardContent>
                   <div className="grid grid-cols-5 gap-4">
                     <div>
-                      <div className="text-sm text-muted-foreground">Revenue</div>
+                      <div className="text-sm text-slate-500">Revenue</div>
                       <div className="text-lg font-semibold">{formatCurrency(orderDetails.profitability.totalRevenue)}</div>
                     </div>
                     <div>
-                      <div className="text-sm text-muted-foreground">Cost</div>
+                      <div className="text-sm text-slate-500">Cost</div>
                       <div className="text-lg font-semibold">
                         {orderDetails.profitability.hasMissingCosts ? (
                           <span className="text-yellow-600 flex items-center gap-1">
-                            <AlertCircle className="h-4 w-4" />
-                            Incomplete
+                            <AlertCircle className="h-4 w-4" /> Incomplete
                           </span>
                         ) : formatCurrency(orderDetails.profitability.totalCost)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-muted-foreground">Referral Fees</div>
+                      <div className="text-sm text-slate-500">Referral Fees</div>
                       <div className="text-lg font-semibold text-orange-600">{formatCurrency(orderDetails.profitability.totalReferralFees)}</div>
                     </div>
                     <div>
-                      <div className="text-sm text-muted-foreground">Profit</div>
+                      <div className="text-sm text-slate-500">Profit</div>
                       <div className={`text-lg font-semibold ${getProfitColor(orderDetails.profitability.marginPercentage)}`}>
                         {orderDetails.profitability.hasMissingCosts ? '-' : formatCurrency(orderDetails.profitability.totalProfit)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-muted-foreground">Margin</div>
+                      <div className="text-sm text-slate-500">Margin</div>
                       <div className={`text-lg font-semibold flex items-center gap-1 ${getProfitColor(orderDetails.profitability.marginPercentage)}`}>
-                        {orderDetails.profitability.hasMissingCosts ? (
-                          '-'
-                        ) : (
+                        {orderDetails.profitability.hasMissingCosts ? '-' : (
                           <>
                             {orderDetails.profitability.marginPercentage >= 0 ? (
                               <TrendingUp className="h-4 w-4" />
@@ -844,7 +806,6 @@ export default function ManageOrders() {
                 </CardContent>
               </Card>
 
-              {/* Order Items */}
               <Card>
                 <CardHeader className="py-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -877,7 +838,7 @@ export default function ManageOrders() {
                                 {item.title || 'Unknown Product'}
                               </div>
                               {item.contractCategory && (
-                                <div className="text-xs text-muted-foreground mt-1">
+                                <div className="text-xs text-slate-400 mt-1">
                                   {item.contractCategory} ({item.referralFeePercentage.toFixed(1)}%)
                                 </div>
                               )}
@@ -885,21 +846,16 @@ export default function ManageOrders() {
                             <TableCell>{item.quantity}</TableCell>
                             <TableCell>{formatCurrency(item.unitPriceInCents)}</TableCell>
                             <TableCell>
-                              {item.costInCents !== null ? (
-                                formatCurrency(item.costInCents)
-                              ) : (
+                              {item.costInCents !== null ? formatCurrency(item.costInCents) : (
                                 <span className="text-yellow-600 flex items-center gap-1">
-                                  <AlertCircle className="h-3 w-3" />
-                                  N/A
+                                  <AlertCircle className="h-3 w-3" /> N/A
                                 </span>
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="text-orange-600">
-                                {formatCurrency(item.referralFeeInCents)}
-                              </div>
+                              <div className="text-orange-600">{formatCurrency(item.referralFeeInCents)}</div>
                               {item.flxpointCommissionRate !== null && (
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-slate-400">
                                   Flx: {item.flxpointCommissionRate.toFixed(1)}%
                                   {Math.abs(item.referralFeePercentage - item.flxpointCommissionRate) > 1 && (
                                     <span className="text-yellow-600 ml-1">(diff!)</span>
@@ -913,14 +869,12 @@ export default function ManageOrders() {
                                   {formatCurrency(profit.profitInCents)}
                                   <span className="text-xs ml-1">({profit.marginPercentage}%)</span>
                                 </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
+                              ) : <span className="text-slate-400">-</span>}
                             </TableCell>
                             <TableCell>
                               {item.supplierOptions.length > 0 ? (
                                 <Select defaultValue={item.supplierOptions[0].supplierName}>
-                                  <SelectTrigger className="h-8 text-xs w-32" data-testid={`select-supplier-${item.id}`}>
+                                  <SelectTrigger className="h-8 text-xs w-32">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -931,9 +885,7 @@ export default function ManageOrders() {
                                     ))}
                                   </SelectContent>
                                 </Select>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">No suppliers</span>
-                              )}
+                              ) : <span className="text-slate-400 text-sm">No suppliers</span>}
                             </TableCell>
                           </TableRow>
                         );
@@ -943,12 +895,9 @@ export default function ManageOrders() {
                 </CardContent>
               </Card>
 
-              {/* Actions */}
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setSelectedOrderId(null)} data-testid="button-close-details">
-                  Close
-                </Button>
-                <Button variant="default" className="flex items-center gap-2" data-testid="button-fulfill-order">
+                <Button variant="outline" onClick={() => setSelectedOrderId(null)}>Close</Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
                   <Truck className="h-4 w-4" />
                   Fulfill Order
                 </Button>
