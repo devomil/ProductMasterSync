@@ -14,7 +14,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with emerald/teal accent theme.
 - **State Management**: TanStack Query for server state.
 - **Navigation Structure**: Collapsible sidebar navigation (AppSidebar component) with grouped sections: Dashboard, Catalog, Supply Chain, Marketplaces, Data Management, AI & Analytics, System. Replaced previous top navigation tabs.
-- **Dashboard**: Monthly Business Intelligence dashboard with hero KPI cards (Month-to-Date Performance, Today's Revenue, Projected Month-End), quick stat cards, COGS analysis section, and detailed P&L panel. Revenue data sourced from Amazon SP-API orders.
+- **Dashboard**: Monthly Business Intelligence dashboard with hero KPI cards (Month-to-Date Performance, Today's Revenue, Projected Month-End), quick stat cards, COGS analysis section, and detailed P&L panel. Revenue data sourced from database (marketplace_orders table) covering all channels (Amazon + Walmart).
 - **Design Principles**: Responsive design, professional styling, sidebar-first layout, cutting-edge BI dashboard patterns, F-pattern information hierarchy, and production-ready gradients/theming.
 
 ## Technical Implementations
@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
     - **AI-Powered Category Mapping**: Automated category mapping using Claude AI with an approval workflow.
     - **Purchasing AI**: Multi-select fulfillment preferences, bulk analysis triggering with progress monitoring, and production-ready rate limiting with deduplication.
     - **24/7 Automated Analysis System**: Infrastructure for continuous purchasing opportunity analysis with a job scheduler, database schema for tracking jobs and runs, business logic for comprehensive product analysis, and a monitoring UI.
+    - **Automated Order Sync**: Scheduler (server/marketplace/order-sync-scheduler.ts) that syncs Amazon + Walmart orders every 4 hours. Runs initial sync on server start. Amazon sync uses SP-API with NextToken pagination. Walmart sync delegates to existing syncWalmartOrders(). Both store orders in marketplace_orders table. Dashboard and orders page both query from database for accurate multi-channel reporting.
     - **Flxpoint Integration**: Bridge for pushing product listings to Amazon, Walmart, eBay until native listing module is complete. Features include:
       - Rate-limited API client (2 req/sec, 40-request pool with Leaky Bucket algorithm)
       - Pull variants from Flxpoint catalog

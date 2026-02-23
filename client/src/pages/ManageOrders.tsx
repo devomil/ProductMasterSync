@@ -185,7 +185,7 @@ export default function ManageOrders() {
     }
   });
 
-  const { data: summaryData } = useQuery<{ byMarketplace: MarketplaceStat[] }>({
+  const { data: summaryData } = useQuery<{ byMarketplace: MarketplaceStat[]; syncStatus?: { active: boolean; isRunning: boolean; lastAmazonSync: string | null; lastWalmartSync: string | null; intervalHours: number } }>({
     queryKey: ['/api/marketplace/orders/stats/summary'],
   });
 
@@ -207,6 +207,7 @@ export default function ManageOrders() {
     onSuccess: (data) => {
       toast({ title: 'Amazon Orders Synced', description: `Synced ${data.synced} new, updated ${data.updated} existing orders.` });
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders/stats/summary'] });
     },
     onError: (error: Error) => {
       toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
@@ -221,6 +222,7 @@ export default function ManageOrders() {
     onSuccess: (data) => {
       toast({ title: 'Walmart Orders Synced', description: `Synced ${data.synced} new, updated ${data.updated} existing orders.` });
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders/stats/summary'] });
     },
     onError: (error: Error) => {
       toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
@@ -306,7 +308,15 @@ export default function ManageOrders() {
       {/* Overview Section */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wide">Overview</h2>
-        <span className="text-xs text-slate-400">All Time</span>
+        <div className="flex items-center gap-3">
+          {summaryData?.syncStatus?.active && (
+            <span className="text-xs text-emerald-600 flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Auto-sync every {summaryData.syncStatus.intervalHours}h
+            </span>
+          )}
+          <span className="text-xs text-slate-400">All Time</span>
+        </div>
       </div>
 
       {/* Marketplace Summary Cards */}
@@ -340,6 +350,11 @@ export default function ManageOrders() {
                 <div className="text-sm font-semibold text-emerald-600">{marketplaceStats.walmart.shipped.toLocaleString()}</div>
               </div>
             </div>
+            {summaryData?.syncStatus?.lastWalmartSync && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <span className="text-[11px] text-slate-400">Last synced: {new Date(summaryData.syncStatus.lastWalmartSync).toLocaleString()}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -372,6 +387,11 @@ export default function ManageOrders() {
                 <div className="text-sm font-semibold text-emerald-600">{marketplaceStats.amazon.shipped.toLocaleString()}</div>
               </div>
             </div>
+            {summaryData?.syncStatus?.lastAmazonSync && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <span className="text-[11px] text-slate-400">Last synced: {new Date(summaryData.syncStatus.lastAmazonSync).toLocaleString()}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

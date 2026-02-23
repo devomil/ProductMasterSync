@@ -4159,6 +4159,12 @@ router.get('/orders/stats/summary', async (req, res) => {
       GROUP BY marketplace
     `);
 
+    let syncStatus = null;
+    try {
+      const { getOrderSyncStatus } = await import('./order-sync-scheduler');
+      syncStatus = getOrderSyncStatus();
+    } catch {}
+
     return res.json({
       byMarketplace: result.rows,
       connected: {
@@ -4166,10 +4172,20 @@ router.get('/orders/stats/summary', async (req, res) => {
         amazon: true,
         newegg: false,
         ebay: false
-      }
+      },
+      syncStatus
     });
   } catch (error) {
     console.error('[Orders API] Error fetching order stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/orders/sync/status', async (req, res) => {
+  try {
+    const { getOrderSyncStatus } = await import('./order-sync-scheduler');
+    return res.json(getOrderSyncStatus());
+  } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
 });
