@@ -371,12 +371,11 @@ export class AmazonSPAPI {
         '/orders/v0/orders',
         {
           MarketplaceIds: this.config.marketplaceId,
-          CreatedAfter: createdAfter.toISOString(),
-          OrderStatuses: 'Unshipped,PartiallyShipped,Shipped,Pending'
+          CreatedAfter: createdAfter.toISOString()
         }
       );
       
-      const orders = response?.Orders || [];
+      const orders = response?.payload?.Orders || response?.Orders || [];
       console.log(`[Amazon Orders] Found ${orders.length} orders`);
       
       return orders;
@@ -394,7 +393,7 @@ export class AmazonSPAPI {
         {}
       );
       
-      return response?.OrderItems || [];
+      return response?.payload?.OrderItems || response?.OrderItems || [];
     } catch (error) {
       console.error(`[Amazon Orders] Error fetching items for order ${orderId}:`, error);
       return [];
