@@ -1,134 +1,433 @@
-import { useState, useEffect } from "react";
-import { Package2, Building2, Upload, CheckSquare, Plus, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import MetricCard from "@/components/dashboard/MetricCard";
+import { useQuery } from "@tanstack/react-query";
+import {
+  TrendingUp,
+  DollarSign,
+  Target,
+  ArrowUpRight,
+  Package,
+  Users,
+  BarChart3,
+  Warehouse,
+  Calendar,
+  Clock,
+  ChevronRight,
+  Loader2,
+  ShoppingCart,
+  AlertCircle,
+} from "lucide-react";
+import { Link } from "wouter";
 
-import DataQuality from "@/components/dashboard/DataQuality";
-import PendingApprovals from "@/components/dashboard/PendingApprovals";
-import QuickActions from "@/components/dashboard/QuickActions";
-import ProcessFlow from "@/components/dashboard/ProcessFlow";
-import ImportModal from "@/components/imports/ImportModal";
-// import { useOnboarding } from "@/components/onboarding/OnboardingManager";
-import { InventorySyncTester } from "@/components/InventorySyncTester";
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+}
 
-// Data quality metrics
-const dataQualityMetrics = [
-  { name: "Completeness", percentage: 91, color: "success" },
-  { name: "Consistency", percentage: 82, color: "primary" },
-  { name: "Accuracy", percentage: 79, color: "warning" },
-  { name: "Timeliness", percentage: 95, color: "success" },
-];
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value);
+}
 
-const Dashboard = () => {
-  const [showImportModal, setShowImportModal] = useState(false);
-  // const { triggerOnboarding } = useOnboarding();
-  const [statistics, setStatistics] = useState({
-    totalProducts: 23456,
-    activeSuppliers: 156,
-    successfulImports30d: 248,
-    pendingApprovals: 42,
-    dataQuality: {
-      overall: 86
-    }
+export default function Dashboard() {
+  const { data: intelligence, isLoading: loadingIntel } = useQuery<any>({
+    queryKey: ['/api/dashboard/intelligence'],
+    refetchInterval: 60000,
   });
 
-  useEffect(() => {
-    // Fetch dashboard statistics
-    const fetchStatistics = async () => {
-      try {
-        const response = await fetch("/api/statistics");
-        if (response.ok) {
-          const data = await response.json();
-          setStatistics(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch statistics:", error);
-      }
-    };
+  const { data: statistics, isLoading: loadingStats } = useQuery<any>({
+    queryKey: ['/api/statistics'],
+  });
 
-    fetchStatistics();
-  }, []);
+  const mi = intelligence?.monthlyIntelligence;
+  const now = new Date();
+  const monthYear = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+  const dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
 
   return (
-    <>
-      <div className="pb-5 border-b border-neutral-200 sm:flex sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-neutral-900">Dashboard</h1>
-        <div className="mt-3 sm:mt-0 sm:ml-4 flex gap-3">
-          <Button 
-            variant="outline" 
-            onClick={() => console.log('Onboarding trigger')}
-            className="gap-2"
-          >
-            <Sparkles className="h-4 w-4" />
-            View Tour
-          </Button>
-          <Button onClick={() => setShowImportModal(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Import
-          </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Monthly Business Intelligence &ndash; {monthYear}
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Comprehensive monthly performance insights and analytics
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+            <Clock className="h-3 w-3 mr-1.5" />
+            Updated {dateStr}
+          </span>
+          <Link to="/marketplaces/orders">
+            <button className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">
+              View Full Accounting
+            </button>
+          </Link>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="mt-6">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            title="Total Products"
-            value={statistics.totalProducts.toLocaleString()}
-            icon={Package2}
-            color="primary"
-            linkUrl="/products"
-            linkText="View all"
+      {loadingIntel ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-44 rounded-xl bg-slate-100 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 shadow-lg">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <span className="text-sm font-medium text-slate-300">Month-to-Date Performance</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-3">Monthly Revenue</p>
+              <p className="text-3xl font-bold tracking-tight">
+                {formatCurrency(mi?.monthToDateRevenue || 0)}
+              </p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-slate-400">Days elapsed</span>
+                </div>
+                <span className="font-semibold">{mi?.daysElapsed || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-1">
+                <span className="text-slate-400">Daily average</span>
+                <span className="font-semibold">{formatCurrency(mi?.dailyAverage || 0)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-teal-600 to-teal-700 text-white p-6 shadow-lg">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-teal-200" />
+                <span className="text-sm font-medium text-teal-100">Today's Revenue</span>
+              </div>
+              <p className="text-xs text-teal-200 mb-3">Live Sales Today</p>
+              <p className="text-3xl font-bold tracking-tight">
+                {formatCurrency(mi?.todayRevenue || 0)}
+              </p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-teal-200">Days elapsed</span>
+                <span className="font-semibold">{mi?.daysElapsed || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-1">
+                <span className="text-teal-200">Monthly avg/day</span>
+                <span className="font-semibold">{formatCurrency(mi?.dailyAverage || 0)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-xl bg-white border border-slate-200 p-6 shadow-sm">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full -mr-10 -mt-10" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="h-4 w-4 text-orange-500" />
+                <span className="text-sm font-medium text-slate-600">Projected Month-End</span>
+              </div>
+              <p className="text-3xl font-bold tracking-tight text-orange-600 mt-3">
+                {formatCurrency(mi?.projectedMonthEnd || 0)}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">projected revenue</p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-slate-500">Confidence:</span>
+                <span className="font-semibold text-orange-600">{mi?.projectionConfidence || 0}%</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-1">
+                <span className="text-slate-500">Days remaining</span>
+                <span className="font-semibold text-slate-700">{mi?.daysRemaining || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loadingStats ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <QuickStatCard
+            label="Revenue"
+            value={formatCurrency(mi?.todayRevenue || 0)}
+            sub="Today"
+            icon={TrendingUp}
+            href="/marketplaces/orders"
           />
-          
-          <MetricCard
-            title="Active Suppliers"
-            value={statistics.activeSuppliers.toLocaleString()}
-            icon={Building2}
-            color="accent"
-            linkUrl="/suppliers"
-            linkText="View all"
+          <QuickStatCard
+            label="COGS"
+            value="--"
+            sub="Today"
+            icon={DollarSign}
+            muted
           />
-          
-          <MetricCard
-            title="Successful Imports (30d)"
-            value={statistics.successfulImports30d.toLocaleString()}
-            icon={Upload}
-            color="success"
-            linkUrl="/data-imports"
-            linkText="View logs"
+          <QuickStatCard
+            label="Gross Profit"
+            value="--"
+            sub="Today"
+            icon={BarChart3}
+            muted
           />
-          
-          <MetricCard
-            title="Pending Approvals"
-            value={statistics.pendingApprovals.toLocaleString()}
-            icon={CheckSquare}
-            color="warning"
-            linkUrl="/approvals"
-            linkText="Review"
+          <QuickStatCard
+            label="Active Accounts"
+            value={formatNumber(statistics?.activeSuppliers || 0)}
+            sub={`${formatNumber(statistics?.totalProducts || 0)} products`}
+            icon={Users}
+            href="/suppliers"
           />
+        </div>
+      )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-slate-600" />
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Cost of Goods Sold Analysis &ndash; Today</h2>
+              <p className="text-xs text-slate-500">Product cost tracking and profit margin insights</p>
+            </div>
+          </div>
+          <Link to="/inventory-management">
+            <button className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors">
+              <Warehouse className="h-4 w-4 mr-2" />
+              Manage Inventory
+            </button>
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Total Cost of Goods Sold</p>
+            <p className="text-2xl font-bold text-emerald-700">--</p>
+            <p className="text-xs text-slate-400 mt-0.5">Materials + Labor</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Labor Costs</p>
+            <p className="text-2xl font-bold text-slate-800">--</p>
+            <p className="text-xs text-slate-400 mt-0.5">% of COGS</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Material Costs</p>
+            <p className="text-2xl font-bold text-slate-800">--</p>
+            <p className="text-xs text-slate-400 mt-0.5">% of COGS</p>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
+          <p className="text-xs text-slate-400">Cost Period: Current</p>
+          <p className="text-xs text-slate-400">Data source: Connect accounting system to populate</p>
         </div>
       </div>
 
-      {/* Data Management Overview */}
-      <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <PendingApprovals />
-        <DataQuality overallScore={statistics.dataQuality.overall} metrics={dataQualityMetrics} />
-        <QuickActions />
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Monthly Business Intelligence &ndash; {monthYear}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">Comprehensive monthly performance insights and analytics</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Updated: {dateStr}
+              </span>
+              <button className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors">
+                <Target className="h-3 w-3 mr-1.5" />
+                Dream View
+              </button>
+              <button className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors">
+                <Calendar className="h-3 w-3 mr-1.5" />
+                Set Monthly Goals
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <h3 className="text-sm font-semibold text-emerald-700">Month-to-Date Performance</h3>
+            </div>
+            {loadingIntel ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <PnlRow label="Revenue:" value={formatCurrency(mi?.monthToDateRevenue || 0)} color="text-emerald-700" bold />
+                <PnlRow label="Cost of Goods:" value="--" color="text-slate-400" />
+                <PnlRow label="Payroll:" value="--" color="text-slate-400" />
+                <PnlRow label="Operating Expenses:" value="--" color="text-slate-400" />
+                <div className="border-t border-slate-200 pt-2.5 mt-3">
+                  <PnlRow label="Total Expenses:" value="--" color="text-slate-400" />
+                </div>
+                <div className="border-t border-slate-200 pt-2.5 mt-3 space-y-2">
+                  <PnlRow label="Gross Profit:" value="--" color="text-emerald-600" bold />
+                  <PnlRow label="Gross Margin:" value="--" color="text-emerald-600" />
+                  <PnlRow label="Net Income:" value="--" color="text-emerald-600" bold />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 flex flex-col items-center justify-center text-center">
+            <div className="flex items-center gap-2 mb-4 self-start">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <h3 className="text-sm font-semibold text-blue-700">Daily Average Revenue</h3>
+            </div>
+            <p className="text-4xl font-bold text-slate-900 mt-2">
+              {formatCurrency(mi?.dailyAverage || 0)}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">per day this month</p>
+            <div className="mt-6 w-full space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Days elapsed:</span>
+                <span className="font-medium text-slate-700">{mi?.daysElapsed || 0}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Today:</span>
+                <span className="font-medium text-slate-700">{formatCurrency(mi?.todayRevenue || 0)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 flex flex-col items-center justify-center text-center">
+            <div className="flex items-center gap-2 mb-4 self-start">
+              <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+              <h3 className="text-sm font-semibold text-orange-700">Projected Month-End</h3>
+            </div>
+            <p className="text-4xl font-bold text-orange-600 mt-2">
+              {formatCurrency(mi?.projectedMonthEnd || 0)}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">projected revenue</p>
+            <div className="mt-6 w-full space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Confidence:</span>
+                <span className="font-medium text-orange-600">{mi?.projectionConfidence || 0}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Days remaining:</span>
+                <span className="font-medium text-slate-700">{mi?.daysRemaining || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Inventory Synchronization Testing */}
-      <div className="mt-10 flex justify-center">
-        <InventorySyncTester />
-      </div>
+      {intelligence?.recentOrders?.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-slate-600" />
+              <h2 className="text-base font-semibold text-slate-900">Recent Orders</h2>
+            </div>
+            <Link to="/marketplaces/orders">
+              <span className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer">
+                View all <ChevronRight className="h-4 w-4" />
+              </span>
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Order ID</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                  <th className="text-left py-2.5 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="text-right py-2.5 px-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {intelligence.recentOrders.slice(0, 10).map((order: any) => (
+                  <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="py-2.5 px-3 font-mono text-xs text-slate-700">{order.id}</td>
+                    <td className="py-2.5 px-3 text-slate-600">
+                      {new Date(order.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <OrderStatusBadge status={order.status} />
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-medium text-slate-900">
+                      {formatCurrency(order.total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-      {/* Process Visualization */}
-      <ProcessFlow />
-
-      {/* Import Modal */}
-      <ImportModal open={showImportModal} onOpenChange={setShowImportModal} />
-    </>
+      {!intelligence?.amazonConnected && !loadingIntel && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-amber-800">Connect Your Marketplaces</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Revenue data will be populated automatically once your marketplace API connections are configured. 
+                Visit the <Link to="/api-configuration"><span className="underline cursor-pointer font-medium">API Configuration</span></Link> page to get started.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-};
+}
 
-export default Dashboard;
+function QuickStatCard({ label, value, sub, icon: Icon, href, muted }: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: any;
+  href?: string;
+  muted?: boolean;
+}) {
+  const content = (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</span>
+        <Icon className={`h-4 w-4 ${muted ? 'text-slate-300' : 'text-slate-400'}`} />
+      </div>
+      <p className={`text-2xl font-bold ${muted ? 'text-slate-300' : 'text-slate-900'}`}>{value}</p>
+      <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
+    </div>
+  );
+
+  if (href) {
+    return <Link to={href}>{content}</Link>;
+  }
+  return content;
+}
+
+function PnlRow({ label, value, color = 'text-slate-700', bold }: {
+  label: string;
+  value: string;
+  color?: string;
+  bold?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-slate-600">{label}</span>
+      <span className={`text-sm ${bold ? 'font-semibold' : 'font-medium'} ${color}`}>{value}</span>
+    </div>
+  );
+}
+
+function OrderStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    Shipped: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Unshipped: 'bg-blue-50 text-blue-700 border-blue-200',
+    Canceled: 'bg-red-50 text-red-600 border-red-200',
+    Pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${styles[status] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+      {status}
+    </span>
+  );
+}

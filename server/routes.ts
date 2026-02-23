@@ -1721,7 +1721,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Amazon Bulk Processing Status Endpoints removed - handled by marketplace module
+  app.get("/api/dashboard/intelligence", async (req, res) => {
+    try {
+      const { amazonAPI } = await import('./services/amazon-sp-api');
+      
+      let amazonOrders: any[] = [];
+      let orderRevenue = { total30d: 0, today: 0, orders: [] as any[] };
+      
+      if (amazonAPI.isConfigured()) {
+        try {
+          amazonOrders = await amazonAPI.getOrders(30);
+          const now = new Date();
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          
+          orderRevenue.total30d = amazonOrders
+            .filter((o: any) => o.OrderStatus !== 'Canceled')
+            .reduce((sum: number, o: any) => sum + (parseFloat(o.OrderTotal?.Amount || '0')), 0);
+          
+          orderRevenue.today = amazonOrders
+            .filter((o: any) => {
+              const orderDate = new Date(o.PurchaseDate);
+              return orderDate >= todayStart && o.OrderStatus !== 'Canceled';
+            })
+            .reduce((sum: number, o: any) => sum + (parseFloat(o.OrderTotal?.Amount || '0')), 0);
+          
+          orderRevenue.orders = amazonOrders.map((o: any) => ({
+            id: o.AmazonOrderId,
+            status: o.OrderStatus,
+            date: o.PurchaseDate,
+            total: parseFloat(o.OrderTotal?.Amount || '0'),
+            currency: o.OrderTotal?.CurrencyCode || 'USD',
+          }));
+        } catch (err) {
+          console.error('[Dashboard] Amazon orders fetch failed:', err);
+        }
+      }
+      
+      const now = new Date();
+      const daysElapsed = now.getDate();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysRemaining = daysInMonth - daysElapsed;
+      const dailyAverage = daysElapsed > 0 ? orderRevenue.total30d / daysElapsed : 0;
+      const projectedMonthEnd = dailyAverage * daysInMonth;
+      
+      res.json({
+        monthlyIntelligence: {
+          month: now.toLocaleString('default', { month: 'long' }),
+          year: now.getFullYear(),
+          daysElapsed,
+          daysRemaining,
+          daysInMonth,
+          monthToDateRevenue: orderRevenue.total30d,
+          todayRevenue: orderRevenue.today,
+          dailyAverage,
+          projectedMonthEnd,
+          projectionConfidence: Math.min(95, Math.round((daysElapsed / daysInMonth) * 100)),
+        },
+        recentOrders: orderRevenue.orders.slice(0, 20),
+        amazonConnected: amazonAPI.isConfigured(),
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
 
   // Register marketplace routes (static import - works in both dev and production)
   app.use("/api/marketplace", marketplaceRoutes);

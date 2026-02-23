@@ -1,6 +1,6 @@
 # Overview
 
-This project is an MDM/PIM (Master Data Management/Product Information Management) platform designed to streamline supplier interactions, manage extensive product catalogs, and facilitate marketplace integrations. Its core purpose is to ingest product data from various suppliers and synchronize this information with major marketplaces like Amazon. The platform aims to enhance data quality, automate workflows, and provide market intelligence for improved purchasing decisions and expanded market reach.
+**MultiChannelOS** (Multi-Channel Operating System) is a multi-channel business operating system providing key insights, operational transparency, AI-driven decision-making, and marketplace integrations. Previously known as MDM/PIM, the platform manages extensive product catalogs across multiple marketplaces (Amazon, Walmart, eBay, Newegg), supplier relationships, and provides business intelligence dashboards with real-time revenue tracking.
 
 # User Preferences
 
@@ -11,10 +11,11 @@ Preferred communication style: Simple, everyday language.
 ## UI/UX
 - **Frontend Framework**: React with TypeScript.
 - **UI Library**: Shadcn/ui components built on Radix UI.
-- **Styling**: Tailwind CSS.
+- **Styling**: Tailwind CSS with emerald/teal accent theme.
 - **State Management**: TanStack Query for server state.
-- **Navigation Structure**: Marketplace-organized navigation with nested dropdown submenus for Amazon, Walmart, eBay, Newegg, and Purchasing AI.
-- **Design Principles**: Responsive design, professional styling, intuitive navigation, and dynamic content presentation with features like optimized table layouts, multi-select fulfillment preferences, and interactive documentation.
+- **Navigation Structure**: Collapsible sidebar navigation (AppSidebar component) with grouped sections: Dashboard, Catalog, Supply Chain, Marketplaces, Data Management, AI & Analytics, System. Replaced previous top navigation tabs.
+- **Dashboard**: Monthly Business Intelligence dashboard with hero KPI cards (Month-to-Date Performance, Today's Revenue, Projected Month-End), quick stat cards, COGS analysis section, and detailed P&L panel. Revenue data sourced from Amazon SP-API orders.
+- **Design Principles**: Responsive design, professional styling, sidebar-first layout, cutting-edge BI dashboard patterns, F-pattern information hierarchy, and production-ready gradients/theming.
 
 ## Technical Implementations
 - **Backend API**: Node.js with Express and TypeScript (primary); FastAPI (Python) for supplier management and data connectors (secondary).

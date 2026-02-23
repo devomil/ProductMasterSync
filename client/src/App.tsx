@@ -59,7 +59,7 @@ import BrandPartnerDetails from "@/pages/BrandPartnerDetails";
 // Lazy load AmazonScalingProgress
 const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
 import NotFound from "@/pages/not-found";
-import TopNavigation from "@/components/TopNavigation";
+import AppSidebar from "@/components/AppSidebar";
 
 function Router() {
   return (
@@ -278,10 +278,12 @@ function App() {
       <TooltipProvider>
         <OnboardingManager>
           <Toaster />
-          <div className="min-h-screen bg-background">
-            <TopNavigation />
-            <main className="container mx-auto px-4 py-6">
-              <Router />
+          <div className="min-h-screen bg-slate-50 flex">
+            <AppSidebar />
+            <main className="flex-1 overflow-auto">
+              <div className="p-6 md:p-8 max-w-[1600px]">
+                <Router />
+              </div>
             </main>
           </div>
         </OnboardingManager>
