@@ -49,7 +49,8 @@ import {
   partnerContacts,
   partnerDocuments,
   partnerCommunications,
-  marketplaceOrders
+  marketplaceOrders,
+  marketplaceOrderItems
 } from "@shared/schema";
 import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
 import multer from "multer";
@@ -1790,6 +1791,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncStatus = getOrderSyncStatus();
       } catch {}
 
+      let cogsData = { totalCogs: 0, materialCosts: 0, shippingCosts: 0, fulfilledOrders: 0, ordersWithCogs: 0 };
+      try {
+        const cogsResult = await db
+          .select({
+            vendorCost: marketplaceOrderItems.vendorCostInCents,
+            vendorShipping: marketplaceOrderItems.vendorShippingCostInCents,
+            quantity: marketplaceOrderItems.quantity,
+            fulfilledAt: marketplaceOrderItems.fulfilledAt,
+            orderDate: marketplaceOrders.orderDate,
+          })
+          .from(marketplaceOrderItems)
+          .innerJoin(marketplaceOrders, eq(marketplaceOrderItems.orderId, marketplaceOrders.id))
+          .where(
+            and(
+              sql`${marketplaceOrders.orderDate} >= ${monthStart.toISOString()}`,
+              sql`${marketplaceOrderItems.vendorCostInCents} IS NOT NULL`
+            )
+          );
+
+        const materialCosts = cogsResult.reduce((sum, r) => sum + ((r.vendorCost || 0) * (r.quantity || 1)), 0);
+        const shippingCosts = cogsResult.reduce((sum, r) => sum + (r.vendorShipping || 0), 0);
+        const uniqueOrders = new Set(cogsResult.map(r => r.orderDate?.toISOString())).size;
+        cogsData = {
+          totalCogs: (materialCosts + shippingCosts) / 100,
+          materialCosts: materialCosts / 100,
+          shippingCosts: shippingCosts / 100,
+          fulfilledOrders: cogsResult.filter(r => r.fulfilledAt).length,
+          ordersWithCogs: uniqueOrders,
+        };
+      } catch (e) {
+        console.log('[Dashboard] COGS calculation error:', (e as Error).message);
+      }
+
       res.json({
         monthlyIntelligence: {
           month: now.toLocaleString('default', { month: 'long' }),
@@ -1805,6 +1839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders: monthOrders.length,
           revenueByMarketplace,
         },
+        cogsAnalysis: cogsData,
         recentOrders,
         amazonConnected: true,
         walmartConnected: true,

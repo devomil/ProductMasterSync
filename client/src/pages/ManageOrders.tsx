@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -6,6 +6,9 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -32,6 +35,15 @@ import {
   CheckCircle2,
   XCircle,
   BarChart3,
+  MapPin,
+  CreditCard,
+  FileText,
+  Star,
+  RotateCcw,
+  Tag,
+  Phone,
+  Mail,
+  Globe,
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 
@@ -135,6 +147,80 @@ interface MarketplaceStat {
   totalRevenue: string;
 }
 
+interface FinancialsResponse {
+  orderId: number;
+  marketplace: string;
+  orderNumber: string;
+  status: string;
+  orderDate: string;
+  shipByDate: string | null;
+  shippingService: string;
+  shippingAddress: {
+    name?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    stateOrRegion?: string;
+    postalCode?: string;
+    countryCode?: string;
+    phone?: string;
+  } | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  financials: {
+    itemsTotal: number;
+    taxTotal: number;
+    grandTotal: number;
+    referralFees: number;
+    estimatedPayout: number;
+    vendorCost: number;
+    vendorShipping: number;
+    totalVendorCost: number;
+    estimatedNetProceeds: number;
+    margin: number;
+    hasFulfillmentData: boolean;
+  };
+  rawData: any;
+}
+
+interface VendorAllocationItem {
+  vendorName: string;
+  vendorId: string;
+  vendorSku: string;
+  upc: string;
+  available: number;
+  costInCents: number | null;
+  shippingCostInCents: number;
+  hasPromotion: boolean;
+  margin: number;
+  proceeds: number;
+  source: string;
+}
+
+interface VendorAllocationGroup {
+  orderItemId: number;
+  marketplaceSku: string;
+  title: string | null;
+  quantity: number;
+  unitPriceInCents: number | null;
+  allocations: VendorAllocationItem[];
+}
+
+interface VendorLookupResponse {
+  vendorAllocations: VendorAllocationGroup[];
+}
+
+interface SelectedVendor {
+  orderItemId: number;
+  vendorName: string;
+  vendorSku: string;
+  vendorId: string;
+  costInCents: number | null;
+  shippingCostInCents: number;
+  margin: number;
+  proceeds: number;
+}
+
 type SubTab = 'orders' | 'sync_jobs' | 'inventory_rules' | 'access_control';
 
 const STATUS_FILTERS = [
@@ -153,6 +239,9 @@ export default function ManageOrders() {
   const [dateRange, setDateRange] = useState('all');
   const [channelFilter, setChannelFilter] = useState('all');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [fulfillOrderId, setFulfillOrderId] = useState<number | null>(null);
+  const [selectedVendors, setSelectedVendors] = useState<SelectedVendor[]>([]);
+  const [sellerNotes, setSellerNotes] = useState('');
   const [page, setPage] = useState(1);
   const resultsPerPage = 25;
 
@@ -198,6 +287,112 @@ export default function ManageOrders() {
     },
     enabled: !!selectedOrderId,
   });
+
+  const { data: financialsData, isLoading: isLoadingFinancials } = useQuery<FinancialsResponse>({
+    queryKey: ['/api/marketplace/orders', fulfillOrderId, 'financials'],
+    queryFn: async () => {
+      const response = await fetch(`/api/marketplace/orders/${fulfillOrderId}/financials`);
+      if (!response.ok) throw new Error('Failed to fetch financials');
+      return response.json();
+    },
+    enabled: !!fulfillOrderId,
+  });
+
+  const { data: vendorData, isLoading: isLoadingVendors, refetch: refetchVendors } = useQuery<VendorLookupResponse>({
+    queryKey: ['/api/marketplace/orders', fulfillOrderId, 'vendor-lookup'],
+    queryFn: async () => {
+      const response = await apiRequest('POST', `/api/marketplace/orders/${fulfillOrderId}/vendor-lookup`, {});
+      return response.json();
+    },
+    enabled: !!fulfillOrderId,
+  });
+
+  const fulfillMutation = useMutation({
+    mutationFn: async (data: { items: any[]; fulfillmentMethod: string; sellerNotes: string }) => {
+      const response = await apiRequest('POST', `/api/marketplace/orders/${fulfillOrderId}/fulfill`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Order Fulfilled', description: 'Order has been fulfilled successfully.' });
+      setFulfillOrderId(null);
+      setSelectedVendors([]);
+      setSellerNotes('');
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders/stats/summary'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Fulfillment Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const openFulfillModal = useCallback((orderId: number) => {
+    setFulfillOrderId(orderId);
+    setSelectedVendors([]);
+    setSellerNotes('');
+  }, []);
+
+  const closeFulfillModal = useCallback(() => {
+    setFulfillOrderId(null);
+    setSelectedVendors([]);
+    setSellerNotes('');
+  }, []);
+
+  const toggleVendorSelection = useCallback((orderItemId: number, vendor: VendorAllocationItem) => {
+    setSelectedVendors(prev => {
+      const existing = prev.find(v => v.orderItemId === orderItemId);
+      if (existing && existing.vendorId === vendor.vendorId && existing.vendorName === vendor.vendorName) {
+        return prev.filter(v => v.orderItemId !== orderItemId);
+      }
+      return [
+        ...prev.filter(v => v.orderItemId !== orderItemId),
+        {
+          orderItemId,
+          vendorName: vendor.vendorName,
+          vendorSku: vendor.vendorSku,
+          vendorId: vendor.vendorId,
+          costInCents: vendor.costInCents,
+          shippingCostInCents: vendor.shippingCostInCents,
+          margin: vendor.margin,
+          proceeds: vendor.proceeds,
+        },
+      ];
+    });
+  }, []);
+
+  const dynamicFinancials = useMemo(() => {
+    if (!financialsData) return null;
+    const f = financialsData.financials;
+    if (selectedVendors.length === 0) return f;
+    const vendorCost = selectedVendors.reduce((sum, v) => sum + (v.costInCents || 0), 0);
+    const vendorShipping = selectedVendors.reduce((sum, v) => sum + v.shippingCostInCents, 0);
+    const totalVendorCost = vendorCost + vendorShipping;
+    const estimatedNetProceeds = f.estimatedPayout - totalVendorCost;
+    const margin = f.estimatedPayout > 0 ? Math.round((estimatedNetProceeds / f.estimatedPayout) * 10000) / 100 : 0;
+    return {
+      ...f,
+      vendorCost,
+      vendorShipping,
+      totalVendorCost,
+      estimatedNetProceeds,
+      margin,
+      hasFulfillmentData: true,
+    };
+  }, [financialsData, selectedVendors]);
+
+  const handleFulfillOrder = useCallback(() => {
+    if (!fulfillOrderId || selectedVendors.length === 0) return;
+    fulfillMutation.mutate({
+      items: selectedVendors.map(v => ({
+        orderItemId: v.orderItemId,
+        vendorCostInCents: v.costInCents,
+        vendorShippingCostInCents: v.shippingCostInCents,
+        vendorName: v.vendorName,
+        vendorSku: v.vendorSku,
+      })),
+      fulfillmentMethod: 'dropship',
+      sellerNotes,
+    });
+  }, [fulfillOrderId, selectedVendors, sellerNotes, fulfillMutation]);
 
   const syncAmazonMutation = useMutation({
     mutationFn: async () => {
@@ -634,7 +829,11 @@ export default function ManageOrders() {
                           <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               {needsFulfillment(order.status) && (
-                                <Button size="sm" className="h-7 bg-red-500 hover:bg-red-600 text-white text-xs px-3">
+                                <Button
+                                  size="sm"
+                                  className="h-7 bg-red-500 hover:bg-red-600 text-white text-xs px-3"
+                                  onClick={() => openFulfillModal(order.id)}
+                                >
                                   Fulfill
                                 </Button>
                               )}
@@ -724,8 +923,435 @@ export default function ManageOrders() {
         </Card>
       )}
 
-      {/* Order Details Dialog */}
-      <Dialog open={!!selectedOrderId} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
+      {/* Fulfillment Modal */}
+      <Dialog open={!!fulfillOrderId} onOpenChange={(open) => !open && closeFulfillModal()}>
+        <DialogContent className="max-w-[95vw] w-[1400px] max-h-[95vh] overflow-y-auto p-0">
+          {(isLoadingFinancials || isLoadingVendors) && !financialsData ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <span className="ml-3 text-slate-500">Loading order details...</span>
+            </div>
+          ) : financialsData ? (
+            <>
+              <div className="sticky top-0 z-10 bg-white border-b px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {financialsData.marketplace === 'walmart' && <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center"><SiWalmart className="h-4 w-4 text-white" /></div>}
+                    {financialsData.marketplace === 'amazon' && <div className="h-8 w-8 rounded bg-orange-500 flex items-center justify-center"><SiAmazon className="h-4 w-4 text-white" /></div>}
+                    <div>
+                      <DialogTitle className="text-lg font-semibold">Order #{financialsData.orderNumber}</DialogTitle>
+                      <div className="text-xs text-slate-500 mt-0.5">{financialsData.marketplace?.charAt(0).toUpperCase()}{financialsData.marketplace?.slice(1)} Order</div>
+                    </div>
+                    <Badge variant="outline" className={`ml-2 ${statusBadgeStyle(financialsData.status)}`}>
+                      {statusLabel(financialsData.status)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Refund Order
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Star className="h-3.5 w-3.5 mr-1.5" /> Request a Review
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-0">
+                <div className="col-span-2 p-6 space-y-6 border-r">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="border border-slate-200">
+                      <CardHeader className="py-3 px-4">
+                        <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-slate-500" /> Order Summary
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-4 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Ship By</span>
+                          <span className={`font-medium ${financialsData.shipByDate && new Date(financialsData.shipByDate) < new Date() ? 'text-red-600' : 'text-slate-900'}`}>
+                            {financialsData.shipByDate ? new Date(financialsData.shipByDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Shipping Service</span>
+                          <span className="font-medium text-slate-900">{financialsData.shippingService || 'Standard'}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Order Date</span>
+                          <span className="font-medium text-slate-900">{new Date(financialsData.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border border-slate-200">
+                      <CardHeader className="py-3 px-4">
+                        <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-slate-500" /> Ship To
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-4">
+                        {financialsData.shippingAddress ? (
+                          <div className="text-sm space-y-1">
+                            <div className="font-medium text-slate-900">{financialsData.shippingAddress.name || financialsData.customerName || 'N/A'}</div>
+                            {financialsData.shippingAddress.addressLine1 && <div className="text-slate-600">{financialsData.shippingAddress.addressLine1}</div>}
+                            {financialsData.shippingAddress.addressLine2 && <div className="text-slate-600">{financialsData.shippingAddress.addressLine2}</div>}
+                            <div className="text-slate-600">
+                              {[financialsData.shippingAddress.city, financialsData.shippingAddress.stateOrRegion, financialsData.shippingAddress.postalCode].filter(Boolean).join(', ')}
+                            </div>
+                            {financialsData.shippingAddress.countryCode && <div className="text-slate-500 text-xs">{financialsData.shippingAddress.countryCode}</div>}
+                            {financialsData.shippingAddress.phone && (
+                              <div className="text-slate-500 text-xs flex items-center gap-1 mt-1"><Phone className="h-3 w-3" />{financialsData.shippingAddress.phone}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-400">No shipping address available</div>
+                        )}
+                        <Separator className="my-2" />
+                        <div className="text-xs text-slate-500">
+                          <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> Contact Buyer</span>
+                          <div className="text-slate-600 mt-0.5">{financialsData.customerEmail || 'No email available'}</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="border border-slate-200">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-slate-500" /> More Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Tax Collection Model</span>
+                          <span className="font-medium text-slate-900">MarketplaceFacilitator</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Tax Collection Responsible Party</span>
+                          <span className="font-medium text-slate-900">{financialsData.marketplace === 'amazon' ? 'Amazon Services, Inc.' : 'Walmart Marketplace'}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border border-slate-200">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                        <Package className="h-4 w-4 text-slate-500" /> Order Contents
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/80 text-xs">
+                            <TableHead className="text-xs font-semibold">Status</TableHead>
+                            <TableHead className="text-xs font-semibold">Product</TableHead>
+                            <TableHead className="text-xs font-semibold">More Info</TableHead>
+                            <TableHead className="text-xs font-semibold text-center">Qty</TableHead>
+                            <TableHead className="text-xs font-semibold text-right">Unit Price</TableHead>
+                            <TableHead className="text-xs font-semibold text-right">Proceeds</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orderDetails?.items?.map(item => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                <Badge variant="outline" className={`text-[10px] ${statusBadgeStyle(financialsData.status)}`}>
+                                  {statusLabel(financialsData.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="max-w-xs">
+                                  <div className="text-sm font-medium text-slate-900 truncate">{item.title || 'Unknown Product'}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5 space-x-2">
+                                    <span>SKU: {item.marketplaceSku}</span>
+                                    {item.upc && <span>UPC: {item.upc}</span>}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {item.contractCategory && (
+                                  <div className="text-xs text-slate-500">{item.contractCategory}</div>
+                                )}
+                                {item.productType && (
+                                  <div className="text-xs text-slate-400">{item.productType}</div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center font-medium">{item.quantity}</TableCell>
+                              <TableCell className="text-right font-medium">{formatCurrency(item.unitPriceInCents)}</TableCell>
+                              <TableCell className="text-right font-medium">
+                                {formatCurrency((item.unitPriceInCents || 0) * (item.quantity || 1))}
+                              </TableCell>
+                            </TableRow>
+                          )) || (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center text-sm text-slate-400 py-8">
+                                {isLoadingDetails ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'No items found'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-blue-200">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium text-slate-700 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Tag className="h-4 w-4 text-blue-500" /> Vendors Allocation
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => refetchVendors()} disabled={isLoadingVendors} className="h-7 text-xs">
+                          {isLoadingVendors ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                          Refresh Pricing
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {isLoadingVendors ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+                          <span className="ml-2 text-sm text-slate-500">Looking up vendor pricing...</span>
+                        </div>
+                      ) : vendorData?.vendorAllocations?.length ? (
+                        <div className="divide-y">
+                          {vendorData.vendorAllocations.map(group => (
+                            <div key={group.orderItemId} className="p-4">
+                              <div className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-2">
+                                <Package className="h-3 w-3" />
+                                {group.title || group.marketplaceSku} × {group.quantity}
+                                <span className="text-slate-400">({formatCurrency(group.unitPriceInCents)} ea)</span>
+                              </div>
+                              {group.allocations.length > 0 ? (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="text-[10px]">
+                                      <TableHead className="text-[10px] w-8"></TableHead>
+                                      <TableHead className="text-[10px]">Vendor</TableHead>
+                                      <TableHead className="text-[10px]">Vendor ID</TableHead>
+                                      <TableHead className="text-[10px]">Vendor SKU</TableHead>
+                                      <TableHead className="text-[10px]">UPC</TableHead>
+                                      <TableHead className="text-[10px] text-center">Available</TableHead>
+                                      <TableHead className="text-[10px] text-right">Cost</TableHead>
+                                      <TableHead className="text-[10px] text-right">Shipping</TableHead>
+                                      <TableHead className="text-[10px] text-center">Promo</TableHead>
+                                      <TableHead className="text-[10px] text-right">Margin</TableHead>
+                                      <TableHead className="text-[10px] text-right">Proceeds</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {group.allocations.map((alloc, idx) => {
+                                      const isSelected = selectedVendors.some(
+                                        v => v.orderItemId === group.orderItemId && v.vendorId === alloc.vendorId && v.vendorName === alloc.vendorName
+                                      );
+                                      return (
+                                        <TableRow
+                                          key={idx}
+                                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-slate-50'}`}
+                                          onClick={() => toggleVendorSelection(group.orderItemId, alloc)}
+                                        >
+                                          <TableCell className="w-8 pr-0">
+                                            <Checkbox checked={isSelected} className="h-4 w-4" />
+                                          </TableCell>
+                                          <TableCell className="text-xs font-medium">
+                                            {alloc.vendorName}
+                                            {alloc.source === 'ingram_micro' && (
+                                              <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-purple-100 text-purple-600">API</span>
+                                            )}
+                                          </TableCell>
+                                          <TableCell className="text-xs font-mono text-slate-500">{alloc.vendorId}</TableCell>
+                                          <TableCell className="text-xs font-mono">{alloc.vendorSku}</TableCell>
+                                          <TableCell className="text-xs font-mono text-slate-500">{alloc.upc || '-'}</TableCell>
+                                          <TableCell className="text-center">
+                                            <span className={`text-xs font-semibold ${alloc.available > 10 ? 'text-green-600' : alloc.available > 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                                              {alloc.available}
+                                            </span>
+                                          </TableCell>
+                                          <TableCell className="text-right text-xs font-medium">{formatCurrency(alloc.costInCents)}</TableCell>
+                                          <TableCell className="text-right text-xs">{formatCurrency(alloc.shippingCostInCents)}</TableCell>
+                                          <TableCell className="text-center">
+                                            {alloc.hasPromotion ? (
+                                              <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200">Promo</Badge>
+                                            ) : <span className="text-slate-300 text-xs">—</span>}
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <span className={`text-xs font-semibold ${getProfitColor(alloc.margin)}`}>
+                                              {alloc.margin}%
+                                            </span>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <span className={`text-xs font-semibold ${alloc.proceeds >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {formatCurrency(alloc.proceeds)}
+                                            </span>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              ) : (
+                                <div className="text-sm text-slate-400 py-2 pl-5">No vendor pricing found for this item</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <AlertCircle className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-500">No vendor allocations available</p>
+                          <p className="text-xs text-slate-400 mt-1">Products may not have matching vendor catalog entries</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="col-span-1 p-6 space-y-5 bg-slate-50/50">
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5" /> Billing Info
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Billing Country</span>
+                        <span className="font-medium">{financialsData.shippingAddress?.countryCode || 'US'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Payment Methods</span>
+                        <span className="font-medium flex items-center gap-1"><CreditCard className="h-3 w-3" /> Other</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Payment Status</span>
+                        <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">Paid</Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5" /> Financial Breakdown
+                    </h3>
+                    {dynamicFinancials && (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Items Total</span>
+                          <span className="font-medium">{formatCurrency(dynamicFinancials.itemsTotal)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Tax Total</span>
+                          <span className="font-medium">{formatCurrency(dynamicFinancials.taxTotal)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2">
+                          <span className="text-slate-700 font-medium">Grand Total</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(dynamicFinancials.grandTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-orange-600">
+                          <span>Marketplace Referral Fee</span>
+                          <span className="font-medium">-{formatCurrency(dynamicFinancials.referralFees)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2">
+                          <span className="text-slate-700 font-medium">Estimated Payout</span>
+                          <span className="font-semibold text-emerald-700">{formatCurrency(dynamicFinancials.estimatedPayout)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Truck className="h-3.5 w-3.5" /> Vendor Costs
+                    </h3>
+                    {dynamicFinancials && (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Vendor Cost</span>
+                          <span className="font-medium">{dynamicFinancials.vendorCost > 0 ? formatCurrency(dynamicFinancials.vendorCost) : '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Shipping Cost</span>
+                          <span className="font-medium">{dynamicFinancials.vendorShipping > 0 ? formatCurrency(dynamicFinancials.vendorShipping) : '--'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Margin</span>
+                          <span className={`font-semibold flex items-center gap-1 ${selectedVendors.length > 0 ? getProfitColor(dynamicFinancials.margin) : 'text-slate-400'}`}>
+                            {selectedVendors.length > 0 ? (
+                              <>
+                                {dynamicFinancials.margin >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                                {dynamicFinancials.margin}%
+                              </>
+                            ) : '--'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2 border-dashed">
+                          <span className="text-slate-700 font-medium">Est. Net Proceeds</span>
+                          <span className={`font-bold text-lg ${selectedVendors.length > 0 ? (dynamicFinancials.estimatedNetProceeds >= 0 ? 'text-green-600' : 'text-red-600') : 'text-slate-400'}`}>
+                            {selectedVendors.length > 0 ? formatCurrency(dynamicFinancials.estimatedNetProceeds) : '--'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Seller Notes</h3>
+                    <Textarea
+                      value={sellerNotes}
+                      onChange={(e) => setSellerNotes(e.target.value)}
+                      placeholder="Add notes for this order..."
+                      className="text-sm min-h-[80px] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <Button variant="outline" size="sm" className="w-full text-xs">
+                      <Star className="h-3.5 w-3.5 mr-1.5" /> Manage Feedback
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex items-center justify-between">
+                <div className="text-sm text-slate-500">
+                  {selectedVendors.length > 0 ? (
+                    <span className="text-blue-600 font-medium">{selectedVendors.length} vendor(s) selected</span>
+                  ) : (
+                    'Select vendors from the allocation table to fulfill'
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" onClick={closeFulfillModal}>Cancel</Button>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4" /> Get Shipstation Label
+                  </Button>
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
+                    disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
+                    onClick={handleFulfillOrder}
+                  >
+                    {fulfillMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Truck className="h-4 w-4" />
+                    )}
+                    Dropship from Selected Vendor
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Simple Order Details Dialog (for non-fulfill clicks) */}
+      <Dialog open={!!selectedOrderId && !fulfillOrderId} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -768,64 +1394,6 @@ export default function ManageOrders() {
                 </Card>
               </div>
 
-              <Card className="border-2 border-emerald-200">
-                <CardHeader className="py-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
-                    Order Profitability
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-4">
-                    <div>
-                      <div className="text-sm text-slate-500">Revenue</div>
-                      <div className="text-lg font-semibold">{formatCurrency(orderDetails.profitability.totalRevenue)}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-slate-500">Cost</div>
-                      <div className="text-lg font-semibold">
-                        {orderDetails.profitability.hasMissingCosts ? (
-                          <span className="text-yellow-600 flex items-center gap-1">
-                            <AlertCircle className="h-4 w-4" /> Incomplete
-                          </span>
-                        ) : formatCurrency(orderDetails.profitability.totalCost)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-slate-500">Referral Fees</div>
-                      <div className="text-lg font-semibold text-orange-600">{formatCurrency(orderDetails.profitability.totalReferralFees)}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-slate-500">Profit</div>
-                      <div className={`text-lg font-semibold ${getProfitColor(orderDetails.profitability.marginPercentage)}`}>
-                        {orderDetails.profitability.hasMissingCosts ? '-' : formatCurrency(orderDetails.profitability.totalProfit)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-slate-500">Margin</div>
-                      <div className={`text-lg font-semibold flex items-center gap-1 ${getProfitColor(orderDetails.profitability.marginPercentage)}`}>
-                        {orderDetails.profitability.hasMissingCosts ? '-' : (
-                          <>
-                            {orderDetails.profitability.marginPercentage >= 0 ? (
-                              <TrendingUp className="h-4 w-4" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4" />
-                            )}
-                            {orderDetails.profitability.marginPercentage}%
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {orderDetails.profitability.hasMissingCosts && (
-                    <div className="mt-3 p-2 bg-yellow-50 rounded-md text-sm text-yellow-800 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Some items are missing supplier cost data. Profitability calculation may be incomplete.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardHeader className="py-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -843,73 +1411,29 @@ export default function ManageOrders() {
                         <TableHead>Price</TableHead>
                         <TableHead>Cost</TableHead>
                         <TableHead>Fee</TableHead>
-                        <TableHead>Profit</TableHead>
-                        <TableHead>Supplier</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {orderDetails.items.map(item => {
-                        const profit = item.profitability?.bestOption;
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-mono text-sm">{item.marketplaceSku}</TableCell>
-                            <TableCell className="max-w-xs">
-                              <div className="truncate" title={item.title || ''}>
-                                {item.title || 'Unknown Product'}
-                              </div>
-                              {item.contractCategory && (
-                                <div className="text-xs text-slate-400 mt-1">
-                                  {item.contractCategory} ({item.referralFeePercentage.toFixed(1)}%)
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{formatCurrency(item.unitPriceInCents)}</TableCell>
-                            <TableCell>
-                              {item.costInCents !== null ? formatCurrency(item.costInCents) : (
-                                <span className="text-yellow-600 flex items-center gap-1">
-                                  <AlertCircle className="h-3 w-3" /> N/A
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-orange-600">{formatCurrency(item.referralFeeInCents)}</div>
-                              {item.flxpointCommissionRate !== null && (
-                                <div className="text-xs text-slate-400">
-                                  Flx: {item.flxpointCommissionRate.toFixed(1)}%
-                                  {Math.abs(item.referralFeePercentage - item.flxpointCommissionRate) > 1 && (
-                                    <span className="text-yellow-600 ml-1">(diff!)</span>
-                                  )}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {profit ? (
-                                <div className={getProfitColor(profit.marginPercentage)}>
-                                  {formatCurrency(profit.profitInCents)}
-                                  <span className="text-xs ml-1">({profit.marginPercentage}%)</span>
-                                </div>
-                              ) : <span className="text-slate-400">-</span>}
-                            </TableCell>
-                            <TableCell>
-                              {item.supplierOptions.length > 0 ? (
-                                <Select defaultValue={item.supplierOptions[0].supplierName}>
-                                  <SelectTrigger className="h-8 text-xs w-32">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {item.supplierOptions.map((supplier, idx) => (
-                                      <SelectItem key={idx} value={supplier.supplierName}>
-                                        {supplier.supplierName}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : <span className="text-slate-400 text-sm">No suppliers</span>}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {orderDetails.items.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-mono text-sm">{item.marketplaceSku}</TableCell>
+                          <TableCell className="max-w-xs">
+                            <div className="truncate" title={item.title || ''}>
+                              {item.title || 'Unknown Product'}
+                            </div>
+                          </TableCell>
+                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>{formatCurrency(item.unitPriceInCents)}</TableCell>
+                          <TableCell>
+                            {item.costInCents !== null ? formatCurrency(item.costInCents) : (
+                              <span className="text-yellow-600 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" /> N/A
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-orange-600">{formatCurrency(item.referralFeeInCents)}</TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -917,10 +1441,15 @@ export default function ManageOrders() {
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setSelectedOrderId(null)}>Close</Button>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
-                  <Truck className="h-4 w-4" />
-                  Fulfill Order
-                </Button>
+                {needsFulfillment(orderDetails.status) && (
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
+                    onClick={() => { setSelectedOrderId(null); openFulfillModal(orderDetails.id); }}
+                  >
+                    <Truck className="h-4 w-4" />
+                    Fulfill Order
+                  </Button>
+                )}
               </div>
             </div>
           ) : null}

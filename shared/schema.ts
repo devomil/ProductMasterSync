@@ -2665,6 +2665,13 @@ export const marketplaceOrderItems = pgTable("marketplace_order_items", {
   // Product categorization (for fee verification)
   productType: text("product_type"),
   contractCategory: text("contract_category"),
+
+  vendorCostInCents: integer("vendor_cost_in_cents"),
+  vendorShippingCostInCents: integer("vendor_shipping_cost_in_cents"),
+  vendorName: text("vendor_name"),
+  vendorSku: text("vendor_sku"),
+  fulfilledAt: timestamp("fulfilled_at"),
+  fulfillmentMethod: text("fulfillment_method"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

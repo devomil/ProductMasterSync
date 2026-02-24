@@ -36,6 +36,7 @@ export default function Dashboard() {
   });
 
   const mi = intelligence?.monthlyIntelligence;
+  const cogs = intelligence?.cogsAnalysis;
   const now = new Date();
   const monthYear = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
   const dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
@@ -159,17 +160,17 @@ export default function Dashboard() {
           />
           <QuickStatCard
             label="COGS"
-            value="--"
-            sub="Today"
+            value={cogs?.totalCogs > 0 ? formatCurrency(cogs.totalCogs) : '--'}
+            sub={cogs?.ordersWithCogs > 0 ? `${cogs.ordersWithCogs} orders` : 'Today'}
             icon={DollarSign}
-            muted
+            muted={!cogs?.totalCogs}
           />
           <QuickStatCard
             label="Gross Profit"
-            value="--"
-            sub="Today"
+            value={cogs?.totalCogs > 0 && mi?.monthToDateRevenue ? formatCurrency(mi.monthToDateRevenue - cogs.totalCogs) : '--'}
+            sub={cogs?.totalCogs > 0 && mi?.monthToDateRevenue ? `${Math.round(((mi.monthToDateRevenue - cogs.totalCogs) / mi.monthToDateRevenue) * 100)}% margin` : 'Today'}
             icon={BarChart3}
-            muted
+            muted={!cogs?.totalCogs}
           />
           <QuickStatCard
             label="Active Accounts"
@@ -200,23 +201,23 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
             <p className="text-xs text-slate-500 mb-1">Total Cost of Goods Sold</p>
-            <p className="text-2xl font-bold text-emerald-700">--</p>
-            <p className="text-xs text-slate-400 mt-0.5">Materials + Labor</p>
+            <p className="text-2xl font-bold text-emerald-700">{cogs?.totalCogs > 0 ? formatCurrency(cogs.totalCogs) : '--'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Materials + Shipping</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 mb-1">Labor Costs</p>
-            <p className="text-2xl font-bold text-slate-800">--</p>
-            <p className="text-xs text-slate-400 mt-0.5">% of COGS</p>
+            <p className="text-xs text-slate-500 mb-1">Shipping Costs</p>
+            <p className="text-2xl font-bold text-slate-800">{cogs?.shippingCosts > 0 ? formatCurrency(cogs.shippingCosts) : '--'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{cogs?.totalCogs > 0 ? `${Math.round((cogs.shippingCosts / cogs.totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
           </div>
           <div>
             <p className="text-xs text-slate-500 mb-1">Material Costs</p>
-            <p className="text-2xl font-bold text-slate-800">--</p>
-            <p className="text-xs text-slate-400 mt-0.5">% of COGS</p>
+            <p className="text-2xl font-bold text-slate-800">{cogs?.materialCosts > 0 ? formatCurrency(cogs.materialCosts) : '--'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{cogs?.totalCogs > 0 ? `${Math.round((cogs.materialCosts / cogs.totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
           </div>
         </div>
         <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
           <p className="text-xs text-slate-400">Cost Period: Current</p>
-          <p className="text-xs text-slate-400">Data source: Connect accounting system to populate</p>
+          <p className="text-xs text-slate-400">{cogs?.ordersWithCogs > 0 ? `Data from ${cogs.ordersWithCogs} fulfilled orders` : 'Fulfill orders to populate COGS data'}</p>
         </div>
       </div>
 

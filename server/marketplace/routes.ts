@@ -3927,6 +3927,305 @@ router.patch('/orders/:orderId/tracking', async (req, res) => {
 });
 
 /**
+ * POST /marketplace/orders/:orderId/vendor-lookup
+ * Look up vendor pricing and availability for order items via Ingram Micro API
+ */
+router.post('/orders/:orderId/vendor-lookup', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems, marketplaceListings, products, supplierProducts, suppliers } = await import('@shared/schema');
+    const { eq, inArray, or, and, sql: sqlOp } = await import('drizzle-orm');
+    const { ingramMicroAPI } = await import('../services/ingram-micro-api');
+
+    const order = await db.select().from(marketplaceOrders).where(eq(marketplaceOrders.id, parseInt(orderId))).limit(1);
+    if (!order.length) return res.status(404).json({ error: 'Order not found' });
+
+    const items = await db.select().from(marketplaceOrderItems).where(eq(marketplaceOrderItems.orderId, parseInt(orderId)));
+    if (!items.length) return res.json({ vendorAllocations: [] });
+
+    const skus = items.map(i => i.marketplaceSku).filter(Boolean);
+    let listings: any[] = [];
+    if (skus.length > 0) {
+      try {
+        listings = await db.select({
+          marketplaceSku: marketplaceListings.marketplaceSku,
+          upc: marketplaceListings.upc,
+          productType: marketplaceListings.productType,
+        }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, skus));
+      } catch (e) {}
+    }
+
+    const upcs = listings.map(l => l.upc).filter(Boolean);
+    const mpns: string[] = [];
+
+    let matchedProducts: any[] = [];
+    if (upcs.length > 0) {
+      try {
+        matchedProducts = await db.select({
+          id: products.id,
+          upc: products.upc,
+          manufacturerPartNumber: products.manufacturerPartNumber,
+          name: products.name,
+        }).from(products).where(inArray(products.upc, upcs));
+        mpns.push(...matchedProducts.map(p => p.manufacturerPartNumber).filter(Boolean));
+      } catch (e) {}
+    }
+
+    let existingSupplierData: any[] = [];
+    const productIds = matchedProducts.map(p => p.id);
+    if (productIds.length > 0) {
+      try {
+        existingSupplierData = await db.select({
+          productId: supplierProducts.productId,
+          supplierId: supplierProducts.supplierId,
+          supplierSku: supplierProducts.supplierSku,
+          supplierPartNumber: supplierProducts.supplierPartNumber,
+          cost: supplierProducts.cost,
+          availableQuantity: supplierProducts.availableQuantity,
+          supplierName: supplierProducts.supplierName,
+        }).from(supplierProducts).where(inArray(supplierProducts.productId, productIds));
+      } catch (e) {}
+    }
+
+    const shipToRaw = order[0].rawData as any;
+    const shipToZip = shipToRaw?.shippingAddress?.postalCode || shipToRaw?.orderLines?.orderLine?.[0]?.shippingInfo?.postalAddress?.postalCode || '90001';
+
+    const vendorAllocations: any[] = [];
+
+    for (const item of items) {
+      const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku);
+      const upc = listing?.upc || item.upc;
+      const matchedProduct = upc ? matchedProducts.find(p => p.upc === upc) : null;
+      const mpn = matchedProduct?.manufacturerPartNumber;
+
+      const itemAllocations: any[] = [];
+
+      if (ingramMicroAPI.isConfigured() && mpn) {
+        try {
+          const searchResult = await ingramMicroAPI.searchProducts({ vendorPartNumber: mpn, pageSize: 5 });
+          if (searchResult.catalog.length > 0) {
+            const ingramPartNumbers = searchResult.catalog.map(p => ({ ingramPartNumber: p.ingramPartNumber }));
+            const priceAvail = await ingramMicroAPI.getPriceAndAvailability(ingramPartNumbers);
+
+            let freightEstimate: any = null;
+            try {
+              freightEstimate = await ingramMicroAPI.getFreightEstimate({
+                shipToAddress: { postalCode: shipToZip, countryCode: 'US' },
+                lines: searchResult.catalog.map(p => ({ ingramPartNumber: p.ingramPartNumber, quantity: item.quantity || 1 })),
+              });
+            } catch (e) {
+              console.log('[Vendor Lookup] Freight estimate failed:', (e as Error).message);
+            }
+
+            for (const catalogItem of searchResult.catalog) {
+              const pricing = priceAvail.find(p => p.ingramPartNumber === catalogItem.ingramPartNumber);
+              const costInCents = pricing?.pricing?.customerPrice ? Math.round(pricing.pricing.customerPrice * 100) : null;
+              const available = pricing?.availability?.totalAvailability || 0;
+
+              let shippingCostInCents = 0;
+              if (freightEstimate?.freightEstimateResponse) {
+                const lineEstimate = freightEstimate.freightEstimateResponse.find((f: any) =>
+                  f.ingramPartNumber === catalogItem.ingramPartNumber
+                );
+                if (lineEstimate?.freightChargeAmount) {
+                  shippingCostInCents = Math.round(parseFloat(lineEstimate.freightChargeAmount) * 100);
+                }
+              }
+
+              const revenue = (item.unitPriceInCents || 0) * (item.quantity || 1);
+              const totalCost = (costInCents || 0) * (item.quantity || 1) + shippingCostInCents;
+              const proceeds = revenue - totalCost;
+              const margin = revenue > 0 ? Math.round((proceeds / revenue) * 10000) / 100 : 0;
+
+              itemAllocations.push({
+                vendorName: 'Ingram Micro',
+                vendorId: catalogItem.ingramPartNumber,
+                vendorSku: catalogItem.vendorPartNumber,
+                upc: catalogItem.upcCode || upc,
+                available,
+                costInCents,
+                shippingCostInCents,
+                hasPromotion: catalogItem.hasDiscounts === 'true',
+                margin,
+                proceeds,
+                source: 'ingram_micro',
+              });
+            }
+          }
+        } catch (e) {
+          console.error('[Vendor Lookup] Ingram Micro lookup failed for MPN:', mpn, (e as Error).message);
+        }
+      }
+
+      if (matchedProduct && existingSupplierData.length > 0) {
+        const supplierEntries = existingSupplierData.filter(s => s.productId === matchedProduct.id);
+        for (const sp of supplierEntries) {
+          if (sp.supplierName === 'Ingram Micro') continue;
+          const costInCents = sp.cost ? Math.round(sp.cost * 100) : null;
+          const revenue = (item.unitPriceInCents || 0) * (item.quantity || 1);
+          const totalCost = (costInCents || 0) * (item.quantity || 1);
+          const proceeds = revenue - totalCost;
+          const margin = revenue > 0 ? Math.round((proceeds / revenue) * 10000) / 100 : 0;
+
+          itemAllocations.push({
+            vendorName: sp.supplierName || 'Unknown Supplier',
+            vendorId: sp.supplierId?.toString() || '',
+            vendorSku: sp.supplierSku || sp.supplierPartNumber || '',
+            upc: upc || '',
+            available: sp.availableQuantity || 0,
+            costInCents,
+            shippingCostInCents: 0,
+            hasPromotion: false,
+            margin,
+            proceeds,
+            source: 'catalog',
+          });
+        }
+      }
+
+      vendorAllocations.push({
+        orderItemId: item.id,
+        marketplaceSku: item.marketplaceSku,
+        title: item.title,
+        quantity: item.quantity,
+        unitPriceInCents: item.unitPriceInCents,
+        allocations: itemAllocations,
+      });
+    }
+
+    return res.json({ vendorAllocations });
+  } catch (error) {
+    console.error('[Orders API] Vendor lookup error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/orders/:orderId/financials
+ * Get financial summary for an order including all cost breakdowns
+ */
+router.get('/orders/:orderId/financials', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const order = await db.select().from(marketplaceOrders).where(eq(marketplaceOrders.id, parseInt(orderId))).limit(1);
+    if (!order.length) return res.status(404).json({ error: 'Order not found' });
+
+    const items = await db.select().from(marketplaceOrderItems).where(eq(marketplaceOrderItems.orderId, parseInt(orderId)));
+
+    const rawData = order[0].rawData as any;
+
+    let shippingAddress: any = null;
+    if (order[0].marketplace === 'amazon') {
+      shippingAddress = rawData?.ShippingAddress || rawData?.shippingAddress || null;
+    } else if (order[0].marketplace === 'walmart') {
+      const orderLine = rawData?.orderLines?.orderLine?.[0] || rawData?.orderLine?.[0];
+      const postalAddr = orderLine?.shippingInfo?.postalAddress;
+      if (postalAddr) {
+        shippingAddress = {
+          name: postalAddr.name,
+          addressLine1: postalAddr.address1,
+          addressLine2: postalAddr.address2,
+          city: postalAddr.city,
+          stateOrRegion: postalAddr.state,
+          postalCode: postalAddr.postalCode,
+          countryCode: postalAddr.country || 'US',
+          phone: orderLine?.shippingInfo?.phone,
+        };
+      }
+    }
+
+    const itemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
+    const taxTotal = items.reduce((sum, i) => sum + (i.taxInCents || 0), 0);
+    const grandTotal = order[0].totalInCents || itemsTotal + taxTotal;
+    const referralFees = items.reduce((sum, i) => sum + (i.commissionInCents || 0), 0);
+    const estimatedPayout = grandTotal - referralFees;
+
+    const vendorCost = items.reduce((sum, i) => sum + ((i.vendorCostInCents || 0) * (i.quantity || 1)), 0);
+    const vendorShipping = items.reduce((sum, i) => sum + (i.vendorShippingCostInCents || 0), 0);
+    const totalVendorCost = vendorCost + vendorShipping;
+    const estimatedNetProceeds = estimatedPayout - totalVendorCost;
+    const margin = estimatedPayout > 0 ? Math.round((estimatedNetProceeds / estimatedPayout) * 10000) / 100 : 0;
+
+    const hasFulfillmentData = items.some(i => i.vendorCostInCents !== null);
+
+    return res.json({
+      orderId: order[0].id,
+      marketplace: order[0].marketplace,
+      orderNumber: order[0].orderNumber,
+      status: order[0].status,
+      orderDate: order[0].orderDate,
+      shipByDate: order[0].shipByDate,
+      shippingService: order[0].shippingService || rawData?.ShipmentServiceLevelCategory || rawData?.shippingInfo?.methodCode || 'Standard',
+      shippingAddress,
+      customerName: order[0].customerName,
+      customerEmail: order[0].customerEmail,
+      financials: {
+        itemsTotal,
+        taxTotal,
+        grandTotal,
+        referralFees,
+        estimatedPayout,
+        vendorCost,
+        vendorShipping,
+        totalVendorCost,
+        estimatedNetProceeds,
+        margin,
+        hasFulfillmentData,
+      },
+      rawData: order[0].rawData,
+    });
+  } catch (error) {
+    console.error('[Orders API] Financials error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/orders/:orderId/fulfill
+ * Save fulfillment data (vendor cost, shipping cost) for an order
+ */
+router.post('/orders/:orderId/fulfill', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { items, fulfillmentMethod, sellerNotes } = req.body;
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const order = await db.select().from(marketplaceOrders).where(eq(marketplaceOrders.id, parseInt(orderId))).limit(1);
+    if (!order.length) return res.status(404).json({ error: 'Order not found' });
+
+    for (const itemData of items) {
+      await db.update(marketplaceOrderItems)
+        .set({
+          vendorCostInCents: itemData.vendorCostInCents,
+          vendorShippingCostInCents: itemData.vendorShippingCostInCents,
+          vendorName: itemData.vendorName,
+          vendorSku: itemData.vendorSku,
+          fulfilledAt: new Date(),
+          fulfillmentMethod: fulfillmentMethod || 'dropship',
+          updatedAt: new Date(),
+        })
+        .where(eq(marketplaceOrderItems.id, itemData.orderItemId));
+    }
+
+    await db.update(marketplaceOrders)
+      .set({ status: 'shipped', updatedAt: new Date() })
+      .where(eq(marketplaceOrders.id, parseInt(orderId)));
+
+    return res.json({ success: true, message: 'Order fulfilled successfully' });
+  } catch (error) {
+    console.error('[Orders API] Fulfill error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * POST /marketplace/orders/sync/walmart
  * Sync orders from Walmart
  */
