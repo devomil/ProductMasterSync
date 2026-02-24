@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -374,6 +374,30 @@ export default function ManageOrders() {
       ];
     });
   }, []);
+
+  useEffect(() => {
+    if (vendorData?.vendorAllocations && selectedVendors.length === 0) {
+      const autoSelected: SelectedVendor[] = [];
+      for (const group of vendorData.vendorAllocations) {
+        if (group.allocations.length > 0) {
+          const best = group.allocations.reduce((a, b) => (a.margin > b.margin ? a : b));
+          autoSelected.push({
+            orderItemId: group.orderItemId,
+            vendorName: best.vendorName,
+            vendorSku: best.vendorSku,
+            vendorId: best.vendorId,
+            costInCents: best.costInCents,
+            shippingCostInCents: best.shippingCostInCents,
+            margin: best.margin,
+            proceeds: best.proceeds,
+          });
+        }
+      }
+      if (autoSelected.length > 0) {
+        setSelectedVendors(autoSelected);
+      }
+    }
+  }, [vendorData]);
 
   const dynamicFinancials = useMemo(() => {
     if (!financialsData) return null;
@@ -1287,16 +1311,30 @@ export default function ManageOrders() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-slate-500">Vendor Cost</span>
-                          <span className="font-medium">{dynamicFinancials.vendorCost > 0 ? formatCurrency(dynamicFinancials.vendorCost) : '--'}</span>
+                          <span className="font-medium">
+                            {isLoadingVendors ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
+                            ) : selectedVendors.length > 0 ? (
+                              formatCurrency(dynamicFinancials.vendorCost)
+                            ) : '--'}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-500">Shipping Cost</span>
-                          <span className="font-medium">{dynamicFinancials.vendorShipping > 0 ? formatCurrency(dynamicFinancials.vendorShipping) : '--'}</span>
+                          <span className="font-medium">
+                            {isLoadingVendors ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
+                            ) : selectedVendors.length > 0 ? (
+                              formatCurrency(dynamicFinancials.vendorShipping)
+                            ) : '--'}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-500">Margin</span>
                           <span className={`font-semibold flex items-center gap-1 ${selectedVendors.length > 0 ? getProfitColor(dynamicFinancials.margin) : 'text-slate-400'}`}>
-                            {selectedVendors.length > 0 ? (
+                            {isLoadingVendors ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
+                            ) : selectedVendors.length > 0 ? (
                               <>
                                 {dynamicFinancials.margin >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                                 {dynamicFinancials.margin}%
@@ -1307,7 +1345,11 @@ export default function ManageOrders() {
                         <div className="flex justify-between border-t pt-2 border-dashed">
                           <span className="text-slate-700 font-medium">Est. Net Proceeds</span>
                           <span className={`font-bold text-lg ${selectedVendors.length > 0 ? (dynamicFinancials.estimatedNetProceeds >= 0 ? 'text-green-600' : 'text-red-600') : 'text-slate-400'}`}>
-                            {selectedVendors.length > 0 ? formatCurrency(dynamicFinancials.estimatedNetProceeds) : '--'}
+                            {isLoadingVendors ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
+                            ) : selectedVendors.length > 0 ? (
+                              formatCurrency(dynamicFinancials.estimatedNetProceeds)
+                            ) : '--'}
                           </span>
                         </div>
                       </div>
