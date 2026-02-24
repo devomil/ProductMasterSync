@@ -4123,8 +4123,7 @@ router.get('/orders/:orderId/financials', async (req, res) => {
     if (order[0].marketplace === 'amazon') {
       shippingAddress = rawData?.ShippingAddress || rawData?.shippingAddress || null;
     } else if (order[0].marketplace === 'walmart') {
-      const orderLine = rawData?.orderLines?.orderLine?.[0] || rawData?.orderLine?.[0];
-      const postalAddr = orderLine?.shippingInfo?.postalAddress;
+      const postalAddr = rawData?.shippingInfo?.postalAddress;
       if (postalAddr) {
         shippingAddress = {
           name: postalAddr.name,
@@ -4134,15 +4133,50 @@ router.get('/orders/:orderId/financials', async (req, res) => {
           stateOrRegion: postalAddr.state,
           postalCode: postalAddr.postalCode,
           countryCode: postalAddr.country || 'US',
-          phone: orderLine?.shippingInfo?.phone,
+          phone: rawData?.shippingInfo?.phone,
         };
       }
     }
 
+    let shipByDate = order[0].shipByDate;
+    if (!shipByDate && rawData?.shippingInfo?.estimatedShipDate) {
+      shipByDate = new Date(rawData.shippingInfo.estimatedShipDate);
+    }
+    if (!shipByDate && rawData?.EarliestShipDate) {
+      shipByDate = new Date(rawData.EarliestShipDate);
+    }
+
+    const skus = items.map(i => i.marketplaceSku).filter(Boolean);
+    let referralFeeTotal = 0;
+    if (order[0].marketplace === 'walmart' && skus.length > 0) {
+      try {
+        const { marketplaceListings } = await import('@shared/schema');
+        const { inArray } = await import('drizzle-orm');
+        const { calculateReferralFee } = await import('./walmart-referral-fees');
+        const listings = await db.select({
+          marketplaceSku: marketplaceListings.marketplaceSku,
+          productType: marketplaceListings.productType,
+          categoryPath: marketplaceListings.categoryPath,
+        }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, skus));
+
+        for (const item of items) {
+          const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku);
+          if (listing && item.unitPriceInCents) {
+            const feeResult = calculateReferralFee(item.unitPriceInCents, listing.categoryPath as string[] | null, listing.productType);
+            referralFeeTotal += feeResult.feeInCents * (item.quantity || 1);
+          }
+        }
+      } catch (e) {
+        console.log('[Financials] Referral fee calculation error:', (e as Error).message);
+      }
+    }
+
+    const storedCommissions = items.reduce((sum, i) => sum + (i.commissionInCents || 0), 0);
+
     const itemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
     const taxTotal = items.reduce((sum, i) => sum + (i.taxInCents || 0), 0);
     const grandTotal = order[0].totalInCents || itemsTotal + taxTotal;
-    const referralFees = items.reduce((sum, i) => sum + (i.commissionInCents || 0), 0);
+    const referralFees = storedCommissions > 0 ? storedCommissions : referralFeeTotal;
     const estimatedPayout = grandTotal - referralFees;
 
     const vendorCost = items.reduce((sum, i) => sum + ((i.vendorCostInCents || 0) * (i.quantity || 1)), 0);
@@ -4159,7 +4193,7 @@ router.get('/orders/:orderId/financials', async (req, res) => {
       orderNumber: order[0].orderNumber,
       status: order[0].status,
       orderDate: order[0].orderDate,
-      shipByDate: order[0].shipByDate,
+      shipByDate: shipByDate,
       shippingService: order[0].shippingService || rawData?.ShipmentServiceLevelCategory || rawData?.shippingInfo?.methodCode || 'Standard',
       shippingAddress,
       customerName: order[0].customerName,
@@ -4177,6 +4211,22 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         margin,
         hasFulfillmentData,
       },
+      items: items.map(item => ({
+        id: item.id,
+        orderId: item.orderId,
+        marketplaceSku: item.marketplaceSku,
+        title: item.title,
+        quantity: item.quantity,
+        unitPriceInCents: item.unitPriceInCents,
+        upc: item.upc,
+        taxInCents: item.taxInCents,
+        commissionInCents: item.commissionInCents,
+        vendorCostInCents: item.vendorCostInCents,
+        vendorShippingCostInCents: item.vendorShippingCostInCents,
+        vendorName: item.vendorName,
+        vendorSku: item.vendorSku,
+        fulfilledAt: item.fulfilledAt,
+      })),
       rawData: order[0].rawData,
     });
   } catch (error) {

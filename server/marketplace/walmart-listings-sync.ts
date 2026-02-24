@@ -880,7 +880,7 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
     shippingCarrier: shipmentInfo.carrier,
     shippedAt: shipmentInfo.shippedAt,
     orderDate: new Date(order.orderDate),
-    shipByDate: order.estimatedShipDate ? new Date(order.estimatedShipDate) : undefined,
+    shipByDate: order.shippingInfo?.estimatedShipDate ? new Date(order.shippingInfo.estimatedShipDate) : undefined,
     promisedDeliveryDate: order.shippingInfo?.estimatedDeliveryDate ? new Date(order.shippingInfo.estimatedDeliveryDate) : undefined,
     totalInCents,
     currencyCode: 'USD',
@@ -901,12 +901,18 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
         
         if (chargeType === 'PRODUCT') {
           unitPriceInCents = amount;
+          if (charge.tax?.taxAmount?.amount) {
+            taxInCents += Math.round(charge.tax.taxAmount.amount * 100);
+          }
         } else if (chargeType === 'COMMISSION' || chargeName.includes('COMMISSION') || chargeName.includes('REFERRAL')) {
           commissionInCents = amount;
         } else if (chargeType === 'SHIPPING' || chargeName.includes('SHIPPING')) {
           shippingChargeInCents = amount;
+          if (charge.tax?.taxAmount?.amount) {
+            taxInCents += Math.round(charge.tax.taxAmount.amount * 100);
+          }
         } else if (chargeType === 'TAX' || chargeName.includes('TAX')) {
-          taxInCents = amount;
+          taxInCents += amount;
         }
       }
     }
@@ -1007,6 +1013,40 @@ export async function syncWalmartOrders(
             updatedAt: new Date()
           })
           .where(eq(marketplaceOrders.id, existing[0].id));
+
+        for (const item of items) {
+          const existingItem = await db
+            .select()
+            .from(marketplaceOrderItems)
+            .where(
+              and(
+                eq(marketplaceOrderItems.orderId, existing[0].id),
+                eq(marketplaceOrderItems.marketplaceSku, item.marketplaceSku)
+              )
+            )
+            .limit(1);
+          
+          if (existingItem.length > 0) {
+            await db
+              .update(marketplaceOrderItems)
+              .set({
+                title: item.title,
+                quantity: item.quantity,
+                unitPriceInCents: item.unitPriceInCents,
+                taxInCents: item.taxInCents,
+                commissionInCents: item.commissionInCents,
+                commissionRate: item.commissionRate,
+                shippingChargeInCents: item.shippingChargeInCents,
+                updatedAt: new Date(),
+              })
+              .where(eq(marketplaceOrderItems.id, existingItem[0].id));
+          } else {
+            await db.insert(marketplaceOrderItems).values({
+              ...item,
+              orderId: existing[0].id,
+            });
+          }
+        }
         updated++;
       } else {
         const [insertedOrder] = await db

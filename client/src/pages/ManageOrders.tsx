@@ -180,6 +180,22 @@ interface FinancialsResponse {
     margin: number;
     hasFulfillmentData: boolean;
   };
+  items: {
+    id: number;
+    orderId: number;
+    marketplaceSku: string;
+    title: string | null;
+    quantity: number | null;
+    unitPriceInCents: number | null;
+    upc: string | null;
+    taxInCents: number | null;
+    commissionInCents: number | null;
+    vendorCostInCents: number | null;
+    vendorShippingCostInCents: number | null;
+    vendorName: string | null;
+    vendorSku: string | null;
+    fulfilledAt: string | null;
+  }[];
   rawData: any;
 }
 
@@ -1055,11 +1071,11 @@ export default function ManageOrders() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {orderDetails?.items?.map(item => (
+                          {financialsData.items?.length > 0 ? financialsData.items.map(item => (
                             <TableRow key={item.id}>
                               <TableCell>
-                                <Badge variant="outline" className={`text-[10px] ${statusBadgeStyle(financialsData.status)}`}>
-                                  {statusLabel(financialsData.status)}
+                                <Badge variant="outline" className={`text-[10px] ${item.fulfilledAt ? 'bg-green-50 text-green-700 border-green-200' : statusBadgeStyle(financialsData.status)}`}>
+                                  {item.fulfilledAt ? 'Fulfilled' : statusLabel(financialsData.status)}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -1072,11 +1088,11 @@ export default function ManageOrders() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                {item.contractCategory && (
-                                  <div className="text-xs text-slate-500">{item.contractCategory}</div>
+                                {item.vendorName && (
+                                  <div className="text-xs text-slate-500">Vendor: {item.vendorName}</div>
                                 )}
-                                {item.productType && (
-                                  <div className="text-xs text-slate-400">{item.productType}</div>
+                                {item.vendorSku && (
+                                  <div className="text-xs text-slate-400">V-SKU: {item.vendorSku}</div>
                                 )}
                               </TableCell>
                               <TableCell className="text-center font-medium">{item.quantity}</TableCell>
@@ -1085,10 +1101,10 @@ export default function ManageOrders() {
                                 {formatCurrency((item.unitPriceInCents || 0) * (item.quantity || 1))}
                               </TableCell>
                             </TableRow>
-                          )) || (
+                          )) : (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center text-sm text-slate-400 py-8">
-                                {isLoadingDetails ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'No items found'}
+                                {isLoadingFinancials ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'No items found'}
                               </TableCell>
                             </TableRow>
                           )}
