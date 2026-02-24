@@ -3989,7 +3989,7 @@ router.post('/orders/:orderId/vendor-lookup', async (req, res) => {
     }
 
     const shipToRaw = order[0].rawData as any;
-    const shipToZip = shipToRaw?.shippingAddress?.postalCode || shipToRaw?.orderLines?.orderLine?.[0]?.shippingInfo?.postalAddress?.postalCode || '90001';
+    const shipToZip = shipToRaw?.shippingInfo?.postalAddress?.postalCode || shipToRaw?.shippingAddress?.postalCode || shipToRaw?.ShippingAddress?.PostalCode || '90001';
 
     const vendorAllocations: any[] = [];
 
@@ -4001,12 +4001,46 @@ router.post('/orders/:orderId/vendor-lookup', async (req, res) => {
 
       const itemAllocations: any[] = [];
 
-      if (ingramMicroAPI.isConfigured() && mpn) {
+      if (ingramMicroAPI.isConfigured()) {
         try {
-          const searchResult = await ingramMicroAPI.searchProducts({ vendorPartNumber: mpn, pageSize: 5 });
+          let searchResult = { catalog: [] as any[], recordsFound: 0 };
+
+          const searchStrategies: { type: string; params: any }[] = [];
+          if (mpn) {
+            searchStrategies.push({ type: 'MPN', params: { vendorPartNumber: mpn, pageSize: 5 } });
+          }
+          if (item.marketplaceSku) {
+            searchStrategies.push({ type: 'SKU', params: { vendorPartNumber: item.marketplaceSku, pageSize: 5 } });
+          }
+          if (upc) {
+            searchStrategies.push({ type: 'UPC', params: { keyword: upc, pageSize: 5 } });
+          }
+          if (item.title) {
+            const keywords = item.title.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).slice(0, 5).join(' ');
+            searchStrategies.push({ type: 'Keyword', params: { keyword: keywords, pageSize: 5 } });
+          }
+
+          for (const strategy of searchStrategies) {
+            try {
+              console.log(`[Vendor Lookup] Trying ${strategy.type} search for item ${item.marketplaceSku}:`, JSON.stringify(strategy.params));
+              searchResult = await ingramMicroAPI.searchProducts(strategy.params);
+              if (searchResult.catalog.length > 0) {
+                console.log(`[Vendor Lookup] Found ${searchResult.catalog.length} results via ${strategy.type} search`);
+                break;
+              }
+            } catch (searchErr) {
+              console.log(`[Vendor Lookup] ${strategy.type} search failed:`, (searchErr as Error).message);
+            }
+          }
+
           if (searchResult.catalog.length > 0) {
             const ingramPartNumbers = searchResult.catalog.map(p => ({ ingramPartNumber: p.ingramPartNumber }));
-            const priceAvail = await ingramMicroAPI.getPriceAndAvailability(ingramPartNumbers);
+            let priceAvail: any[] = [];
+            try {
+              priceAvail = await ingramMicroAPI.getPriceAndAvailability(ingramPartNumbers);
+            } catch (e) {
+              console.log('[Vendor Lookup] Price & availability failed:', (e as Error).message);
+            }
 
             let freightEstimate: any = null;
             try {
@@ -4052,9 +4086,11 @@ router.post('/orders/:orderId/vendor-lookup', async (req, res) => {
                 source: 'ingram_micro',
               });
             }
+          } else {
+            console.log(`[Vendor Lookup] No Ingram Micro results found for item ${item.marketplaceSku} after all search strategies`);
           }
         } catch (e) {
-          console.error('[Vendor Lookup] Ingram Micro lookup failed for MPN:', mpn, (e as Error).message);
+          console.error('[Vendor Lookup] Ingram Micro lookup failed:', (e as Error).message);
         }
       }
 
@@ -4153,18 +4189,24 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         const { marketplaceListings } = await import('@shared/schema');
         const { inArray } = await import('drizzle-orm');
         const { calculateReferralFee } = await import('./walmart-referral-fees');
-        const listings = await db.select({
-          marketplaceSku: marketplaceListings.marketplaceSku,
-          productType: marketplaceListings.productType,
-          categoryPath: marketplaceListings.categoryPath,
-        }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, skus));
+        let listings: any[] = [];
+        try {
+          listings = await db.select({
+            marketplaceSku: marketplaceListings.marketplaceSku,
+            productType: marketplaceListings.productType,
+            categoryPath: marketplaceListings.categoryPath,
+          }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, skus));
+        } catch (e) {}
 
         for (const item of items) {
+          if (!item.unitPriceInCents) continue;
           const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku);
-          if (listing && item.unitPriceInCents) {
-            const feeResult = calculateReferralFee(item.unitPriceInCents, listing.categoryPath as string[] | null, listing.productType);
-            referralFeeTotal += feeResult.feeInCents * (item.quantity || 1);
-          }
+          const feeResult = calculateReferralFee(
+            item.unitPriceInCents,
+            listing?.categoryPath as string[] | null || null,
+            listing?.productType || null
+          );
+          referralFeeTotal += feeResult.feeInCents * (item.quantity || 1);
         }
       } catch (e) {
         console.log('[Financials] Referral fee calculation error:', (e as Error).message);

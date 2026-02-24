@@ -172,7 +172,7 @@ export class IngramMicroAPI {
       'IM-CountryCode': this.config.countryCode,
       'IM-CorrelationID': correlationId || `MDM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       'IM-ApplicationID': 'MDM-PIM-Platform',
-      'IM-CustomerContact': 'MultiChannelOS',
+      'IM-CustomerContact': process.env.INGRAM_MICRO_CONTACT_EMAIL || 'support@multichannelos.com',
     };
   }
 
@@ -355,7 +355,10 @@ export class IngramMicroAPI {
   }): Promise<any> {
     const requestBody = {
       shipToAddressId: '',
-      shipToAddress: [body.shipToAddress],
+      shipToAddress: {
+        postalCode: body.shipToAddress.postalCode,
+        countryCode: body.shipToAddress.countryCode,
+      },
       lines: body.lines.map((l, i) => ({
         ingramPartNumber: l.ingramPartNumber,
         quantity: l.quantity.toString(),
