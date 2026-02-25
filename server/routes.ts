@@ -1791,7 +1791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncStatus = getOrderSyncStatus();
       } catch {}
 
-      let cogsData = { totalCogs: 0, materialCosts: 0, shippingCosts: 0, fulfilledOrders: 0, ordersWithCogs: 0 };
+      let cogsData = { totalCogs: 0, materialCosts: 0, shippingCosts: 0, referralFees: 0, fulfilledOrders: 0, ordersWithCogs: 0 };
       try {
         const cogsResult = await db
           .select({
@@ -1813,10 +1813,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const materialCosts = cogsResult.reduce((sum, r) => sum + ((r.vendorCost || 0) * (r.quantity || 1)), 0);
         const shippingCosts = cogsResult.reduce((sum, r) => sum + (r.vendorShipping || 0), 0);
         const uniqueOrders = new Set(cogsResult.map(r => r.orderDate?.toISOString())).size;
+
+        let referralFeesTotal = 0;
+        try {
+          const { calculateReferralFee } = await import('./marketplace/walmart-referral-fees');
+          const { marketplaceListings } = await import('@shared/schema');
+          const { inArray, like, or } = await import('drizzle-orm');
+
+          const monthItems = await db.select({
+            marketplaceSku: marketplaceOrderItems.marketplaceSku,
+            unitPriceInCents: marketplaceOrderItems.unitPriceInCents,
+            quantity: marketplaceOrderItems.quantity,
+            commissionInCents: marketplaceOrderItems.commissionInCents,
+            marketplace: marketplaceOrders.marketplace,
+          }).from(marketplaceOrderItems)
+            .innerJoin(marketplaceOrders, eq(marketplaceOrderItems.orderId, marketplaceOrders.id))
+            .where(sql`${marketplaceOrders.orderDate} >= ${monthStart.toISOString()}`);
+
+          const walmartSkus = [...new Set(monthItems.filter(i => i.marketplace === 'walmart').map(i => i.marketplaceSku).filter(Boolean))];
+          let walmartListings: any[] = [];
+          if (walmartSkus.length > 0) {
+            const allVariants = [...walmartSkus, ...walmartSkus.map(s => `ING-${s}`)];
+            walmartListings = await db.select({
+              marketplaceSku: marketplaceListings.marketplaceSku,
+              productType: marketplaceListings.productType,
+              categoryPath: marketplaceListings.categoryPath,
+            }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, allVariants));
+
+            const matchedSkus = new Set(walmartListings.map(l => l.marketplaceSku));
+            const unmatched = walmartSkus.filter(s => !matchedSkus.has(s) && !matchedSkus.has(`ING-${s}`));
+            if (unmatched.length > 0) {
+              const fuzzyPatterns = unmatched.filter(s => s.length >= 4).map(s => `ING-${s.slice(0, -2)}%`);
+              if (fuzzyPatterns.length > 0) {
+                const fuzzy = await db.select({
+                  marketplaceSku: marketplaceListings.marketplaceSku,
+                  productType: marketplaceListings.productType,
+                  categoryPath: marketplaceListings.categoryPath,
+                }).from(marketplaceListings).where(or(...fuzzyPatterns.map(p => like(marketplaceListings.marketplaceSku, p)))).limit(unmatched.length * 3);
+                walmartListings.push(...fuzzy);
+              }
+            }
+          }
+
+          for (const item of monthItems) {
+            if (!item.unitPriceInCents) continue;
+            const qty = item.quantity || 1;
+            if (item.commissionInCents) {
+              referralFeesTotal += item.commissionInCents * qty;
+            } else if (item.marketplace === 'walmart') {
+              let listing = walmartListings.find(l => l.marketplaceSku === item.marketplaceSku || l.marketplaceSku === `ING-${item.marketplaceSku}`);
+              if (!listing && item.marketplaceSku && item.marketplaceSku.length >= 4) {
+                listing = walmartListings.find(l => l.marketplaceSku.startsWith(`ING-${item.marketplaceSku.slice(0, -2)}`));
+              }
+              const fee = calculateReferralFee(item.unitPriceInCents, listing?.categoryPath as string[] | null || null, listing?.productType || null);
+              referralFeesTotal += fee.feeInCents * qty;
+            } else if (item.marketplace === 'amazon') {
+              referralFeesTotal += Math.round(item.unitPriceInCents * 0.15) * qty;
+            }
+          }
+        } catch (e) {
+          console.log('[Dashboard] Referral fee calculation error:', (e as Error).message);
+        }
+
         cogsData = {
           totalCogs: (materialCosts + shippingCosts) / 100,
           materialCosts: materialCosts / 100,
           shippingCosts: shippingCosts / 100,
+          referralFees: referralFeesTotal / 100,
           fulfilledOrders: cogsResult.filter(r => r.fulfilledAt).length,
           ordersWithCogs: uniqueOrders,
         };

@@ -160,17 +160,17 @@ export default function Dashboard() {
           />
           <QuickStatCard
             label="COGS"
-            value={cogs?.totalCogs > 0 ? formatCurrency(cogs.totalCogs) : '--'}
-            sub={cogs?.ordersWithCogs > 0 ? `${cogs.ordersWithCogs} orders` : 'Today'}
+            value={(cogs?.totalCogs > 0 || cogs?.referralFees > 0) ? formatCurrency((cogs.totalCogs || 0) + (cogs.referralFees || 0)) : '--'}
+            sub={(cogs?.totalCogs > 0 || cogs?.referralFees > 0) ? 'Fees + Vendor Costs' : 'Today'}
             icon={DollarSign}
-            muted={!cogs?.totalCogs}
+            muted={!cogs?.totalCogs && !cogs?.referralFees}
           />
           <QuickStatCard
             label="Gross Profit"
-            value={cogs?.totalCogs > 0 && mi?.monthToDateRevenue ? formatCurrency(mi.monthToDateRevenue - cogs.totalCogs) : '--'}
-            sub={cogs?.totalCogs > 0 && mi?.monthToDateRevenue ? `${Math.round(((mi.monthToDateRevenue - cogs.totalCogs) / mi.monthToDateRevenue) * 100)}% margin` : 'Today'}
+            value={(cogs?.referralFees > 0 || cogs?.totalCogs > 0) && mi?.monthToDateRevenue ? formatCurrency(mi.monthToDateRevenue - (cogs.totalCogs || 0) - (cogs.referralFees || 0)) : '--'}
+            sub={(cogs?.referralFees > 0 || cogs?.totalCogs > 0) && mi?.monthToDateRevenue ? `${Math.round(((mi.monthToDateRevenue - (cogs.totalCogs || 0) - (cogs.referralFees || 0)) / mi.monthToDateRevenue) * 100)}% margin` : 'Today'}
             icon={BarChart3}
-            muted={!cogs?.totalCogs}
+            muted={!cogs?.totalCogs && !cogs?.referralFees}
           />
           <QuickStatCard
             label="Active Accounts"
@@ -198,27 +198,35 @@ export default function Dashboard() {
             </button>
           </Link>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div>
-            <p className="text-xs text-slate-500 mb-1">Total Cost of Goods Sold</p>
-            <p className="text-2xl font-bold text-emerald-700">{cogs?.totalCogs > 0 ? formatCurrency(cogs.totalCogs) : '--'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">Materials + Shipping</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 mb-1">Shipping Costs</p>
-            <p className="text-2xl font-bold text-slate-800">{cogs?.shippingCosts > 0 ? formatCurrency(cogs.shippingCosts) : '--'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{cogs?.totalCogs > 0 ? `${Math.round((cogs.shippingCosts / cogs.totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 mb-1">Material Costs</p>
-            <p className="text-2xl font-bold text-slate-800">{cogs?.materialCosts > 0 ? formatCurrency(cogs.materialCosts) : '--'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{cogs?.totalCogs > 0 ? `${Math.round((cogs.materialCosts / cogs.totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
-          </div>
-        </div>
-        <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
-          <p className="text-xs text-slate-400">Cost Period: Current</p>
-          <p className="text-xs text-slate-400">{cogs?.ordersWithCogs > 0 ? `Data from ${cogs.ordersWithCogs} fulfilled orders` : 'Fulfill orders to populate COGS data'}</p>
-        </div>
+        {(() => {
+          const totalCogs = (cogs?.totalCogs || 0) + (cogs?.referralFees || 0);
+          const hasData = totalCogs > 0;
+          return (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Total Cost of Goods Sold</p>
+                  <p className="text-2xl font-bold text-emerald-700">{hasData ? formatCurrency(totalCogs) : '--'}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Referral Fees + Vendor Costs</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Marketplace Referral Fees</p>
+                  <p className="text-2xl font-bold text-slate-800">{cogs?.referralFees > 0 ? formatCurrency(cogs.referralFees) : '--'}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{hasData ? `${Math.round((cogs.referralFees / totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Vendor / Material Costs</p>
+                  <p className="text-2xl font-bold text-slate-800">{cogs?.totalCogs > 0 ? formatCurrency(cogs.totalCogs) : '--'}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{cogs?.totalCogs > 0 && hasData ? `${Math.round((cogs.totalCogs / totalCogs) * 100)}% of COGS` : 'Fulfill orders to track'}</p>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
+                <p className="text-xs text-slate-400">Cost Period: {mi?.month} {mi?.year}</p>
+                <p className="text-xs text-slate-400">{hasData ? `${cogs?.referralFees > 0 ? 'Referral fees calculated' : ''}${cogs?.ordersWithCogs > 0 ? ` + ${cogs.ordersWithCogs} fulfilled orders` : ''}` : 'Fulfill orders to populate COGS data'}</p>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">

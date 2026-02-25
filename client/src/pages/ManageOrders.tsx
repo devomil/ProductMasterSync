@@ -655,6 +655,31 @@ export default function ManageOrders() {
                 <div className="text-2xl font-bold text-emerald-600">{formatRevenue(marketplaceStats.allChannels.revenue)}</div>
               </div>
               <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">COGS</div>
+                <div className="text-sm font-semibold text-orange-600">
+                  {summaryData?.cogs?.totalReferralFees > 0 
+                    ? formatRevenue(summaryData.cogs.totalReferralFees + (summaryData.cogs.totalVendorCosts || 0) + (summaryData.cogs.totalVendorShipping || 0))
+                    : '--'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">Gross Profit</div>
+                <div className={`text-sm font-semibold ${(() => {
+                  if (!summaryData?.cogs?.totalReferralFees) return 'text-slate-400';
+                  const totalCogs = summaryData.cogs.totalReferralFees + (summaryData.cogs.totalVendorCosts || 0) + (summaryData.cogs.totalVendorShipping || 0);
+                  const gp = marketplaceStats.allChannels.revenue - totalCogs;
+                  return gp >= 0 ? 'text-emerald-600' : 'text-red-600';
+                })()}`}>
+                  {(() => {
+                    if (!summaryData?.cogs?.totalReferralFees) return '--';
+                    const totalCogs = summaryData.cogs.totalReferralFees + (summaryData.cogs.totalVendorCosts || 0) + (summaryData.cogs.totalVendorShipping || 0);
+                    const gp = marketplaceStats.allChannels.revenue - totalCogs;
+                    const margin = marketplaceStats.allChannels.revenue > 0 ? Math.round((gp / marketplaceStats.allChannels.revenue) * 100) : 0;
+                    return `${formatRevenue(gp)} (${margin}%)`;
+                  })()}
+                </div>
+              </div>
+              <div>
                 <div className="text-xs text-slate-500">Pending</div>
                 <div className="text-sm font-semibold text-amber-600">{marketplaceStats.allChannels.pending.toLocaleString()}</div>
               </div>
