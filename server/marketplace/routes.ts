@@ -4191,7 +4191,7 @@ router.get('/orders/:orderId/financials', async (req, res) => {
     if (order[0].marketplace === 'walmart' && skus.length > 0) {
       try {
         const { marketplaceListings } = await import('@shared/schema');
-        const { inArray } = await import('drizzle-orm');
+        const { inArray, like, or } = await import('drizzle-orm');
         const { calculateReferralFee } = await import('./walmart-referral-fees');
         const prefixedSkus = skus.map(s => `ING-${s}`);
         const allSkuVariants = [...skus, ...prefixedSkus];
@@ -4204,9 +4204,34 @@ router.get('/orders/:orderId/financials', async (req, res) => {
           }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, allSkuVariants));
         } catch (e) {}
 
+        const unmatchedSkus = skus.filter(s => 
+          !listings.some(l => l.marketplaceSku === s || l.marketplaceSku === `ING-${s}`)
+        );
+        if (unmatchedSkus.length > 0) {
+          try {
+            const fuzzyPatterns = unmatchedSkus
+              .filter(s => s.length >= 4)
+              .map(s => `ING-${s.slice(0, -2)}%`);
+            if (fuzzyPatterns.length > 0) {
+              const fuzzyResults = await db.select({
+                marketplaceSku: marketplaceListings.marketplaceSku,
+                productType: marketplaceListings.productType,
+                categoryPath: marketplaceListings.categoryPath,
+              }).from(marketplaceListings).where(
+                or(...fuzzyPatterns.map(p => like(marketplaceListings.marketplaceSku, p)))
+              ).limit(unmatchedSkus.length * 3);
+              listings.push(...fuzzyResults);
+            }
+          } catch (e) {}
+        }
+
         for (const item of items) {
           if (!item.unitPriceInCents) continue;
-          const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku || l.marketplaceSku === `ING-${item.marketplaceSku}`);
+          let listing = listings.find(l => l.marketplaceSku === item.marketplaceSku || l.marketplaceSku === `ING-${item.marketplaceSku}`);
+          if (!listing && item.marketplaceSku && item.marketplaceSku.length >= 4) {
+            const basePrefix = `ING-${item.marketplaceSku.slice(0, -2)}`;
+            listing = listings.find(l => l.marketplaceSku.startsWith(basePrefix));
+          }
           const feeResult = calculateReferralFee(
             item.unitPriceInCents,
             listing?.categoryPath as string[] | null || null,
