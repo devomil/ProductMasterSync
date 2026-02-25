@@ -4193,18 +4193,20 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         const { marketplaceListings } = await import('@shared/schema');
         const { inArray } = await import('drizzle-orm');
         const { calculateReferralFee } = await import('./walmart-referral-fees');
+        const prefixedSkus = skus.map(s => `ING-${s}`);
+        const allSkuVariants = [...skus, ...prefixedSkus];
         let listings: any[] = [];
         try {
           listings = await db.select({
             marketplaceSku: marketplaceListings.marketplaceSku,
             productType: marketplaceListings.productType,
             categoryPath: marketplaceListings.categoryPath,
-          }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, skus));
+          }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, allSkuVariants));
         } catch (e) {}
 
         for (const item of items) {
           if (!item.unitPriceInCents) continue;
-          const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku);
+          const listing = listings.find(l => l.marketplaceSku === item.marketplaceSku || l.marketplaceSku === `ING-${item.marketplaceSku}`);
           const feeResult = calculateReferralFee(
             item.unitPriceInCents,
             listing?.categoryPath as string[] | null || null,
