@@ -4184,6 +4184,10 @@ router.get('/orders/:orderId/financials', async (req, res) => {
 
     const skus = items.map(i => i.marketplaceSku).filter(Boolean);
     let referralFeeTotal = 0;
+    let referralFeeRate = 0;
+    let referralFeeCategory = '';
+    const itemFees: Map<number, { feeInCents: number; rate: number; category: string }> = new Map();
+
     if (order[0].marketplace === 'walmart' && skus.length > 0) {
       try {
         const { marketplaceListings } = await import('@shared/schema');
@@ -4206,18 +4210,40 @@ router.get('/orders/:orderId/financials', async (req, res) => {
             listing?.categoryPath as string[] | null || null,
             listing?.productType || null
           );
-          referralFeeTotal += feeResult.feeInCents * (item.quantity || 1);
+          const itemFee = feeResult.feeInCents * (item.quantity || 1);
+          referralFeeTotal += itemFee;
+          itemFees.set(item.id, {
+            feeInCents: feeResult.feeInCents,
+            rate: feeResult.feePercentageEffective,
+            category: feeResult.contractCategoryName,
+          });
+          referralFeeRate = feeResult.feePercentageEffective;
+          referralFeeCategory = feeResult.contractCategoryName;
         }
       } catch (e) {
         console.log('[Financials] Referral fee calculation error:', (e as Error).message);
       }
+    } else if (order[0].marketplace === 'amazon') {
+      for (const item of items) {
+        if (!item.unitPriceInCents) continue;
+        const feeInCents = Math.round(item.unitPriceInCents * 0.15);
+        const itemFee = feeInCents * (item.quantity || 1);
+        referralFeeTotal += itemFee;
+        itemFees.set(item.id, {
+          feeInCents,
+          rate: 15,
+          category: 'Amazon Default (15%)',
+        });
+      }
+      referralFeeRate = 15;
+      referralFeeCategory = 'Amazon Default (15%)';
     }
 
     const storedCommissions = items.reduce((sum, i) => sum + (i.commissionInCents || 0), 0);
 
     const itemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
     const taxTotal = items.reduce((sum, i) => sum + (i.taxInCents || 0), 0);
-    const grandTotal = order[0].totalInCents || itemsTotal + taxTotal;
+    const grandTotal = order[0].totalInCents || itemsTotal;
     const referralFees = storedCommissions > 0 ? storedCommissions : referralFeeTotal;
     const estimatedPayout = grandTotal - referralFees;
 
@@ -4245,6 +4271,8 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         taxTotal,
         grandTotal,
         referralFees,
+        referralFeeRate,
+        referralFeeCategory,
         estimatedPayout,
         vendorCost,
         vendorShipping,
@@ -4253,7 +4281,9 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         margin,
         hasFulfillmentData,
       },
-      items: items.map(item => ({
+      items: items.map(item => {
+        const fee = itemFees.get(item.id);
+        return {
         id: item.id,
         orderId: item.orderId,
         marketplaceSku: item.marketplaceSku,
@@ -4262,13 +4292,16 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         unitPriceInCents: item.unitPriceInCents,
         upc: item.upc,
         taxInCents: item.taxInCents,
-        commissionInCents: item.commissionInCents,
+        commissionInCents: item.commissionInCents || fee?.feeInCents || null,
+        commissionRate: item.commissionRate || fee?.rate || null,
+        commissionCategory: fee?.category || null,
         vendorCostInCents: item.vendorCostInCents,
         vendorShippingCostInCents: item.vendorShippingCostInCents,
         vendorName: item.vendorName,
         vendorSku: item.vendorSku,
         fulfilledAt: item.fulfilledAt,
-      })),
+      };
+      }),
       rawData: order[0].rawData,
     });
   } catch (error) {
@@ -4394,41 +4427,72 @@ router.post('/orders/sync/amazon', async (req, res) => {
       }
     );
     
-    const orders = ordersResponse.data?.Orders || [];
-    console.log(`[Amazon Orders] Found ${orders.length} orders`);
+    let allOrders: any[] = [];
+    let nextToken: string | undefined;
+
+    do {
+      const params: any = {
+        MarketplaceIds: config.marketplaceId || 'ATVPDKIKX0DER',
+        CreatedAfter: createdAfter.toISOString(),
+      };
+      if (nextToken) {
+        params.NextToken = nextToken;
+      } else {
+        params.OrderStatuses = 'Unshipped,PartiallyShipped,Shipped,Pending,Canceled';
+      }
+
+      const ordersResponse = await axios.get(
+        `${config.endpoint || 'https://sellingpartnerapi-na.amazon.com'}/orders/v0/orders`,
+        {
+          params,
+          headers: {
+            'x-amz-access-token': accessToken,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const orders = ordersResponse.data?.payload?.Orders || ordersResponse.data?.Orders || [];
+      allOrders = allOrders.concat(orders);
+      nextToken = ordersResponse.data?.payload?.NextToken || ordersResponse.data?.NextToken;
+
+      if (nextToken) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } while (nextToken);
+
+    console.log(`[Amazon Orders] Found ${allOrders.length} orders`);
     
     let synced = 0;
     let updated = 0;
     let errors = 0;
     
-    for (const order of orders) {
+    const statusMap: Record<string, string> = {
+      'Pending': 'pending',
+      'Unshipped': 'unshipped',
+      'PartiallyShipped': 'unshipped',
+      'Shipped': 'shipped',
+      'Canceled': 'cancelled',
+      'Cancelled': 'cancelled',
+      'Unfulfillable': 'on_hold'
+    };
+
+    for (const order of allOrders) {
       try {
         const amazonOrderId = order.AmazonOrderId;
         
-        // Check if order exists
         const existingOrders = await db
           .select()
           .from(marketplaceOrders)
           .where(eq(marketplaceOrders.marketplaceOrderId, amazonOrderId))
           .limit(1);
         
-        // Map Amazon order status to our status
-        const statusMap: Record<string, string> = {
-          'Pending': 'pending',
-          'Unshipped': 'unshipped',
-          'PartiallyShipped': 'unshipped',
-          'Shipped': 'shipped',
-          'Canceled': 'cancelled',
-          'Cancelled': 'cancelled',
-          'Unfulfillable': 'on_hold'
-        };
-        
         const orderData = {
           marketplace: 'amazon' as const,
           marketplaceOrderId: amazonOrderId,
           orderNumber: amazonOrderId,
           status: (statusMap[order.OrderStatus] || 'pending') as any,
-          orderType: (order.OrderType === 'StandardOrder' ? 'standard' : 'standard') as any,
+          orderType: 'standard' as any,
           customerName: order.BuyerInfo?.BuyerName || null,
           customerEmail: order.BuyerInfo?.BuyerEmail || null,
           orderDate: new Date(order.PurchaseDate),
@@ -4441,23 +4505,21 @@ router.post('/orders/sync/amazon', async (req, res) => {
           isPremium: order.IsPrime || false,
           isBusinessCustomer: order.IsBusinessOrder || false,
           fulfillmentChannel: order.FulfillmentChannel || 'MFN',
+          rawData: order,
         };
         
         if (existingOrders.length > 0) {
-          // Update existing order
           await db
             .update(marketplaceOrders)
-            .set({ ...orderData, updatedAt: new Date() })
+            .set({ ...orderData, lastSyncedAt: new Date(), updatedAt: new Date() })
             .where(eq(marketplaceOrders.id, existingOrders[0].id));
           updated++;
         } else {
-          // Insert new order
           const [newOrder] = await db
             .insert(marketplaceOrders)
-            .values(orderData)
+            .values({ ...orderData, lastSyncedAt: new Date() })
             .returning();
           
-          // Fetch and save order items
           try {
             const itemsResponse = await axios.get(
               `${config.endpoint || 'https://sellingpartnerapi-na.amazon.com'}/orders/v0/orders/${amazonOrderId}/orderItems`,
@@ -4469,7 +4531,7 @@ router.post('/orders/sync/amazon', async (req, res) => {
               }
             );
             
-            const items = itemsResponse.data?.OrderItems || [];
+            const items = itemsResponse.data?.payload?.OrderItems || itemsResponse.data?.OrderItems || [];
             
             for (const item of items) {
               await db.insert(marketplaceOrderItems).values({
@@ -4478,6 +4540,8 @@ router.post('/orders/sync/amazon', async (req, res) => {
                 title: item.Title || null,
                 quantity: item.QuantityOrdered || 1,
                 unitPriceInCents: item.ItemPrice?.Amount ? Math.round(parseFloat(item.ItemPrice.Amount) * 100 / (item.QuantityOrdered || 1)) : null,
+                taxInCents: item.ItemTax?.Amount ? Math.round(parseFloat(item.ItemTax.Amount) * 100) : null,
+                shippingChargeInCents: item.ShippingPrice?.Amount ? Math.round(parseFloat(item.ShippingPrice.Amount) * 100) : null,
               });
             }
           } catch (itemsError) {
@@ -4487,7 +4551,6 @@ router.post('/orders/sync/amazon', async (req, res) => {
           synced++;
         }
         
-        // Rate limit between orders
         await new Promise(resolve => setTimeout(resolve, 200));
         
       } catch (orderError) {
@@ -4504,7 +4567,7 @@ router.post('/orders/sync/amazon', async (req, res) => {
       synced,
       updated,
       errors,
-      total: orders.length
+      total: allOrders.length
     });
     
   } catch (error: any) {

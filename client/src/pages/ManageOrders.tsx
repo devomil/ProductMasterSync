@@ -172,6 +172,8 @@ interface FinancialsResponse {
     taxTotal: number;
     grandTotal: number;
     referralFees: number;
+    referralFeeRate: number;
+    referralFeeCategory: string;
     estimatedPayout: number;
     vendorCost: number;
     vendorShipping: number;
@@ -190,6 +192,8 @@ interface FinancialsResponse {
     upc: string | null;
     taxInCents: number | null;
     commissionInCents: number | null;
+    commissionRate: number | null;
+    commissionCategory: string | null;
     vendorCostInCents: number | null;
     vendorShippingCostInCents: number | null;
     vendorName: string | null;
@@ -1290,7 +1294,12 @@ export default function ManageOrders() {
                           <span className="font-semibold text-slate-900">{formatCurrency(dynamicFinancials.grandTotal)}</span>
                         </div>
                         <div className="flex justify-between text-orange-600">
-                          <span>Marketplace Referral Fee</span>
+                          <div className="flex flex-col">
+                            <span>Marketplace Referral Fee</span>
+                            {dynamicFinancials.referralFeeRate > 0 && (
+                              <span className="text-xs text-orange-400">{dynamicFinancials.referralFeeRate}% — {dynamicFinancials.referralFeeCategory}</span>
+                            )}
+                          </div>
                           <span className="font-medium">-{formatCurrency(dynamicFinancials.referralFees)}</span>
                         </div>
                         <div className="flex justify-between border-t pt-2">
