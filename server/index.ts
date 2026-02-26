@@ -122,4 +122,15 @@ app.use((req, res, next) => {
   } catch (error) {
     log(`⚠️ Failed to start Purchasing AI scheduler: ${error}`);
   }
+
+  // Pre-load Walmart price incentives cache in the background
+  setTimeout(async () => {
+    try {
+      const { fetchAllWalmartIncentives } = await import("./utils/walmart-api");
+      await fetchAllWalmartIncentives();
+      log('✅ Walmart price incentives cache pre-loaded');
+    } catch (e) {
+      log(`⚠️ Failed to pre-load Walmart incentives cache: ${(e as Error).message}`);
+    }
+  }, 5000);
 })();

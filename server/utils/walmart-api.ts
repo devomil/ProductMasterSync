@@ -794,7 +794,7 @@ interface IncentiveCache {
 let incentiveCache: IncentiveCache | null = null;
 const INCENTIVE_CACHE_TTL = 30 * 60 * 1000;
 
-async function fetchAllWalmartIncentives(): Promise<Map<string, WalmartPriceIncentiveItem>> {
+export async function fetchAllWalmartIncentives(): Promise<Map<string, WalmartPriceIncentiveItem>> {
   if (incentiveCache && (Date.now() - incentiveCache.fetchedAt) < INCENTIVE_CACHE_TTL) {
     console.log(`[Walmart API] Using cached price incentives (${incentiveCache.map.size} items)`);
     return incentiveCache.map;

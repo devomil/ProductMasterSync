@@ -1330,7 +1330,7 @@ export default function ManageOrders() {
                                 <span className="flex items-center gap-1">
                                   <Gift className="h-3 w-3" /> Walmart Funded Incentive
                                 </span>
-                                <span className="text-xs text-blue-400">Walmart covers this — you receive full price</span>
+                                <span className="text-xs text-blue-400">Walmart covers this — based on current listing price</span>
                               </div>
                               <span className="font-medium">-{formatCurrency(dynamicFinancials.walmartFundedIncentiveTotal)}</span>
                             </div>
