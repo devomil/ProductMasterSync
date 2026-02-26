@@ -770,3 +770,105 @@ export async function getWalmartPricingInsightsBySKUs(
   console.log(`[Walmart API] ✅ Found pricing insights for ${allItems.length} items`);
   return allItems;
 }
+
+export interface WalmartPriceIncentiveItem {
+  itemId?: string;
+  offerId?: string;
+  productName?: string;
+  productUrl?: string;
+  productImageUrl?: string;
+  skuId: string;
+  currentPrice?: number;
+  incentiveType: string;
+  baseReferralFee?: number;
+  shippingPrice?: number;
+  inventoryCount?: number;
+  incentiveStatus?: string;
+}
+
+interface IncentiveCache {
+  map: Map<string, WalmartPriceIncentiveItem>;
+  fetchedAt: number;
+}
+
+let incentiveCache: IncentiveCache | null = null;
+const INCENTIVE_CACHE_TTL = 30 * 60 * 1000;
+
+async function fetchAllWalmartIncentives(): Promise<Map<string, WalmartPriceIncentiveItem>> {
+  if (incentiveCache && (Date.now() - incentiveCache.fetchedAt) < INCENTIVE_CACHE_TTL) {
+    console.log(`[Walmart API] Using cached price incentives (${incentiveCache.map.size} items)`);
+    return incentiveCache.map;
+  }
+
+  const config = await getWalmartConfig();
+  const accessToken = await getAccessToken(config);
+  const allItems = new Map<string, WalmartPriceIncentiveItem>();
+  let offset = 0;
+  const limit = 200;
+  let totalCount = 0;
+
+  console.log(`[Walmart API] Fetching all Walmart-funded price incentives...`);
+
+  do {
+    const response = await axios.get(
+      `${config.apiUrl}/price/incentives`,
+      {
+        headers: {
+          'WM_SEC.ACCESS_TOKEN': accessToken,
+          'WM_SVC.NAME': config.serviceName,
+          'WM_QOS.CORRELATION_ID': generateCorrelationId(),
+          'Accept': 'application/json'
+        },
+        params: { incentiveType: 'WALMART_FUNDED', incentiveStatus: 'ACTIVE', offset, limit }
+      }
+    );
+
+    const data = response.data;
+    const items: WalmartPriceIncentiveItem[] = data?.items || [];
+    const pageContext = data?.pageContext || {};
+    totalCount = pageContext.totalCount || 0;
+
+    for (const item of items) {
+      if (item.skuId) {
+        const normalizedSku = item.skuId.replace(/^ING-/, '');
+        allItems.set(normalizedSku, item);
+        allItems.set(item.skuId, item);
+      }
+    }
+
+    console.log(`[Walmart API] Price Incentives offset ${offset}: ${items.length} items (total: ${totalCount})`);
+    offset += limit;
+
+    if (offset < totalCount) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } while (offset < totalCount);
+
+  console.log(`[Walmart API] ✅ Cached ${allItems.size} price incentive entries (${totalCount} total items)`);
+  incentiveCache = { map: allItems, fetchedAt: Date.now() };
+  return allItems;
+}
+
+export async function getWalmartPriceIncentivesBySkus(
+  skus: string[]
+): Promise<Map<string, WalmartPriceIncentiveItem>> {
+  const result = new Map<string, WalmartPriceIncentiveItem>();
+
+  try {
+    const allIncentives = await fetchAllWalmartIncentives();
+
+    for (const sku of skus) {
+      const normalizedSku = sku.replace(/^ING-/, '');
+      const match = allIncentives.get(normalizedSku) || allIncentives.get(sku) || allIncentives.get(`ING-${normalizedSku}`);
+      if (match) {
+        result.set(normalizedSku, match);
+      }
+    }
+
+    console.log(`[Walmart API] ✅ Found price incentives for ${result.size}/${skus.length} SKUs`);
+  } catch (error) {
+    console.error(`[Walmart API] Error fetching price incentives by SKUs:`, (error as Error).message);
+  }
+
+  return result;
+}

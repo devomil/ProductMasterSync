@@ -4268,10 +4268,71 @@ router.get('/orders/:orderId/financials', async (req, res) => {
 
     const storedCommissions = items.reduce((sum, i) => sum + (i.commissionInCents || 0), 0);
 
-    const itemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
+    let walmartIncentives: { sku: string; sellerPriceInCents: number; customerPriceInCents: number; incentiveAmountInCents: number; incentiveType: string; incentiveStatus: string }[] = [];
+    let walmartFundedIncentiveTotal = 0;
+
+    if (order[0].marketplace === 'walmart' && skus.length > 0) {
+      try {
+        const { getWalmartPriceIncentivesBySkus } = await import('../utils/walmart-api');
+        const { marketplaceListings } = await import('@shared/schema');
+        const { inArray } = await import('drizzle-orm');
+        const incentiveMap = await getWalmartPriceIncentivesBySkus(skus as string[]);
+
+        const prefixedSkus = (skus as string[]).map(s => `ING-${s}`);
+        const allSkus = [...(skus as string[]), ...prefixedSkus];
+        let listingPrices: { marketplaceSku: string; priceInCents: number | null }[] = [];
+        try {
+          listingPrices = await db.select({
+            marketplaceSku: marketplaceListings.marketplaceSku,
+            priceInCents: marketplaceListings.priceInCents,
+          }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, allSkus));
+        } catch (e) {}
+
+        for (const item of items) {
+          const sku = item.marketplaceSku;
+          if (!sku) continue;
+          const normalizedSku = sku.replace(/^ING-/, '');
+          const incentive = incentiveMap.get(normalizedSku);
+          if (incentive && incentive.incentiveType === 'WALMART_FUNDED') {
+            const listing = listingPrices.find(l => l.marketplaceSku === sku || l.marketplaceSku === `ING-${sku}` || l.marketplaceSku === normalizedSku);
+            const sellerPriceInCents = listing?.priceInCents || 0;
+            const customerPriceInCents = item.unitPriceInCents || 0;
+            const incentiveAmountInCents = sellerPriceInCents > customerPriceInCents ? sellerPriceInCents - customerPriceInCents : 0;
+
+            if (incentiveAmountInCents > 0) {
+              walmartIncentives.push({
+                sku: normalizedSku,
+                sellerPriceInCents,
+                customerPriceInCents,
+                incentiveAmountInCents,
+                incentiveType: incentive.incentiveType,
+                incentiveStatus: incentive.incentiveStatus || 'ACTIVE',
+              });
+              walmartFundedIncentiveTotal += incentiveAmountInCents * (item.quantity || 1);
+            } else if (sellerPriceInCents === 0) {
+              walmartIncentives.push({
+                sku: normalizedSku,
+                sellerPriceInCents: customerPriceInCents,
+                customerPriceInCents,
+                incentiveAmountInCents: 0,
+                incentiveType: incentive.incentiveType,
+                incentiveStatus: incentive.incentiveStatus || 'ACTIVE',
+              });
+            }
+          }
+        }
+        console.log(`[Financials] Walmart incentives found: ${walmartIncentives.length} items, total: $${(walmartFundedIncentiveTotal / 100).toFixed(2)}`);
+      } catch (e) {
+        console.log('[Financials] Walmart price incentives lookup error:', (e as Error).message);
+      }
+    }
+
+    const customerItemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
+    const sellerItemsTotal = customerItemsTotal + walmartFundedIncentiveTotal;
+    const itemsTotal = sellerItemsTotal;
     const taxTotal = items.reduce((sum, i) => sum + (i.taxInCents || 0), 0);
     const shippingTotal = items.reduce((sum, i) => sum + (i.shippingChargeInCents || 0), 0);
-    const grandTotal = order[0].totalInCents || (itemsTotal + taxTotal + shippingTotal);
+    const grandTotal = order[0].totalInCents || (customerItemsTotal + taxTotal + shippingTotal);
     const referralFees = storedCommissions > 0 ? storedCommissions : referralFeeTotal;
     const estimatedPayout = itemsTotal - referralFees;
 
@@ -4296,6 +4357,7 @@ router.get('/orders/:orderId/financials', async (req, res) => {
       customerEmail: order[0].customerEmail,
       financials: {
         itemsTotal,
+        customerItemsTotal,
         taxTotal,
         grandTotal,
         referralFees,
@@ -4308,9 +4370,13 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         estimatedNetProceeds,
         margin,
         hasFulfillmentData,
+        walmartFundedIncentiveTotal,
       },
+      walmartIncentives,
       items: items.map(item => {
         const fee = itemFees.get(item.id);
+        const normalizedSku = (item.marketplaceSku || '').replace(/^ING-/, '');
+        const incentive = walmartIncentives.find(i => i.sku === normalizedSku);
         return {
         id: item.id,
         orderId: item.orderId,
@@ -4318,6 +4384,8 @@ router.get('/orders/:orderId/financials', async (req, res) => {
         title: item.title,
         quantity: item.quantity,
         unitPriceInCents: item.unitPriceInCents,
+        sellerPriceInCents: incentive?.sellerPriceInCents || null,
+        incentiveAmountInCents: incentive?.incentiveAmountInCents || null,
         upc: item.upc,
         taxInCents: item.taxInCents,
         commissionInCents: item.commissionInCents || fee?.feeInCents || null,

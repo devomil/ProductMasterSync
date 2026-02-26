@@ -44,6 +44,7 @@ import {
   Phone,
   Mail,
   Globe,
+  Gift,
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 
@@ -169,6 +170,7 @@ interface FinancialsResponse {
   customerEmail: string | null;
   financials: {
     itemsTotal: number;
+    customerItemsTotal: number;
     taxTotal: number;
     grandTotal: number;
     referralFees: number;
@@ -181,7 +183,16 @@ interface FinancialsResponse {
     estimatedNetProceeds: number;
     margin: number;
     hasFulfillmentData: boolean;
+    walmartFundedIncentiveTotal: number;
   };
+  walmartIncentives: {
+    sku: string;
+    sellerPriceInCents: number;
+    customerPriceInCents: number;
+    incentiveAmountInCents: number;
+    incentiveType: string;
+    incentiveStatus: string;
+  }[];
   items: {
     id: number;
     orderId: number;
@@ -189,6 +200,8 @@ interface FinancialsResponse {
     title: string | null;
     quantity: number | null;
     unitPriceInCents: number | null;
+    sellerPriceInCents: number | null;
+    incentiveAmountInCents: number | null;
     upc: string | null;
     taxInCents: number | null;
     commissionInCents: number | null;
@@ -1306,10 +1319,32 @@ export default function ManageOrders() {
                     </h3>
                     {dynamicFinancials && (
                       <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Items Total</span>
-                          <span className="font-medium">{formatCurrency(dynamicFinancials.itemsTotal)}</span>
-                        </div>
+                        {dynamicFinancials.walmartFundedIncentiveTotal > 0 ? (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Subtotal (Seller Price)</span>
+                              <span className="font-medium">{formatCurrency(dynamicFinancials.itemsTotal)}</span>
+                            </div>
+                            <div className="flex justify-between text-blue-600">
+                              <div className="flex flex-col">
+                                <span className="flex items-center gap-1">
+                                  <Gift className="h-3 w-3" /> Walmart Funded Incentive
+                                </span>
+                                <span className="text-xs text-blue-400">Walmart covers this — you receive full price</span>
+                              </div>
+                              <span className="font-medium">-{formatCurrency(dynamicFinancials.walmartFundedIncentiveTotal)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Customer Paid</span>
+                              <span className="font-medium">{formatCurrency(dynamicFinancials.customerItemsTotal)}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Items Total</span>
+                            <span className="font-medium">{formatCurrency(dynamicFinancials.itemsTotal)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-slate-500">Tax Total</span>
                           <span className="font-medium">{formatCurrency(dynamicFinancials.taxTotal)}</span>
