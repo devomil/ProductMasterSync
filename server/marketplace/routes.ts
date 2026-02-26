@@ -4270,9 +4270,9 @@ router.get('/orders/:orderId/financials', async (req, res) => {
 
     const itemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
     const taxTotal = items.reduce((sum, i) => sum + (i.taxInCents || 0), 0);
-    const grandTotal = order[0].totalInCents || itemsTotal;
+    const grandTotal = itemsTotal + taxTotal;
     const referralFees = storedCommissions > 0 ? storedCommissions : referralFeeTotal;
-    const estimatedPayout = grandTotal - referralFees;
+    const estimatedPayout = itemsTotal - referralFees;
 
     const vendorCost = items.reduce((sum, i) => sum + ((i.vendorCostInCents || 0) * (i.quantity || 1)), 0);
     const vendorShipping = items.reduce((sum, i) => sum + (i.vendorShippingCostInCents || 0), 0);

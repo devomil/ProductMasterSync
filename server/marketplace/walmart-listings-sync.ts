@@ -767,7 +767,8 @@ async function fetchWalmartOrders(
   createdStartDate?: string,
   createdEndDate?: string,
   status?: string,
-  nextCursor?: string
+  nextCursor?: string,
+  lastModifiedStartDate?: string
 ): Promise<{ orders: WalmartOrderResponse[]; nextCursor?: string; totalCount?: number }> {
   const config = await getWalmartConfig();
   const accessToken = await getAccessToken();
@@ -778,6 +779,7 @@ async function fetchWalmartOrders(
   
   if (createdStartDate) params.createdStartDate = createdStartDate;
   if (createdEndDate) params.createdEndDate = createdEndDate;
+  if (lastModifiedStartDate) params.lastModifiedStartDate = lastModifiedStartDate;
   if (status) params.status = status;
   if (nextCursor) params.nextCursor = nextCursor;
   
@@ -815,7 +817,9 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
 } {
   const orderLines = order.orderLines?.orderLine || [];
   
-  let totalInCents = 0;
+  let productTotalInCents = 0;
+  let taxTotalInCents = 0;
+  let shippingTotalInCents = 0;
   let overallStatus: string | null = null;
   
   const statusPriority: Record<string, number> = {
@@ -832,7 +836,15 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
     if (line.charges?.charge) {
       for (const charge of line.charges.charge) {
         if (charge.chargeType === 'PRODUCT' && charge.chargeAmount?.amount) {
-          totalInCents += Math.round(charge.chargeAmount.amount * 100);
+          productTotalInCents += Math.round(charge.chargeAmount.amount * 100);
+          if (charge.tax?.taxAmount?.amount) {
+            taxTotalInCents += Math.round(charge.tax.taxAmount.amount * 100);
+          }
+        } else if (charge.chargeType?.toUpperCase() === 'SHIPPING' && charge.chargeAmount?.amount) {
+          shippingTotalInCents += Math.round(charge.chargeAmount.amount * 100);
+          if (charge.tax?.taxAmount?.amount) {
+            taxTotalInCents += Math.round(charge.tax.taxAmount.amount * 100);
+          }
         }
       }
     }
@@ -882,7 +894,7 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
     orderDate: new Date(order.orderDate),
     shipByDate: order.shippingInfo?.estimatedShipDate ? new Date(order.shippingInfo.estimatedShipDate) : undefined,
     promisedDeliveryDate: order.shippingInfo?.estimatedDeliveryDate ? new Date(order.shippingInfo.estimatedDeliveryDate) : undefined,
-    totalInCents,
+    totalInCents: productTotalInCents,
     currencyCode: 'USD',
     rawData: order
   };
@@ -983,7 +995,39 @@ export async function syncWalmartOrders(
     }
   } while (nextCursor && pageCount < maxPages);
   
-  console.log(`[Walmart Orders] Fetched ${allOrders.length} total orders`);
+  const recentModifiedStart = new Date();
+  recentModifiedStart.setHours(recentModifiedStart.getHours() - 12);
+  let modCursor: string | undefined;
+  let modPageCount = 0;
+  
+  do {
+    try {
+      const result = await fetchWalmartOrders(
+        undefined,
+        undefined,
+        undefined,
+        modCursor,
+        formatDate(recentModifiedStart)
+      );
+      
+      for (const order of result.orders) {
+        if (!allOrders.some(o => o.purchaseOrderId === order.purchaseOrderId)) {
+          allOrders.push(order);
+        }
+      }
+      modCursor = result.nextCursor;
+      modPageCount++;
+      
+      console.log(`[Walmart Orders] Modified page ${modPageCount}: ${result.orders.length} recently modified orders`);
+      
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (error: any) {
+      console.log(`[Walmart Orders] Modified orders fetch error:`, (error as Error).message);
+      break;
+    }
+  } while (modCursor && modPageCount < 10);
+  
+  console.log(`[Walmart Orders] Fetched ${allOrders.length} total orders (including recently modified)`);
   
   let synced = 0;
   let updated = 0;
