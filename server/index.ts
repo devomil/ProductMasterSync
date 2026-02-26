@@ -4,6 +4,31 @@ import { setupVite, serveStatic, log } from "./vite";
 import { healthCheck } from "./health-check";
 import { startSupplierAutomationScheduler } from "./utils/supplier-automation-scheduler";
 
+const originalExit = process.exit.bind(process);
+(process as any).exit = (code?: number) => {
+  const fs = require('fs');
+  const msg = `[PROCESS EXIT] code=${code} at ${new Date().toISOString()}\n${new Error().stack}\n`;
+  fs.appendFileSync('/tmp/process-exit.log', msg);
+  console.log(msg);
+  return originalExit(code);
+};
+
+process.on('exit', (code) => {
+  console.error(`[PROCESS] Exit with code: ${code}`);
+});
+process.on('SIGTERM', () => {
+  console.error('[PROCESS] Received SIGTERM');
+});
+process.on('SIGINT', () => {
+  console.error('[PROCESS] Received SIGINT');
+});
+process.on('uncaughtException', (err) => {
+  console.error('[PROCESS] Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[PROCESS] Unhandled rejection:', reason);
+});
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

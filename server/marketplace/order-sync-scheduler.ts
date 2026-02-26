@@ -242,10 +242,7 @@ export async function initOrderSyncScheduler(): Promise<void> {
   state.active = true;
   state.intervalId = setInterval(runScheduledSync, state.intervalMs);
 
-  log('Scheduler started - running initial sync in 10 seconds');
-  setTimeout(() => {
-    runScheduledSync().catch(err => log(`Initial sync error: ${err.message}`));
-  }, 10000);
+  log('Scheduler started - next sync in 4 hours (initial sync skipped to reduce memory usage)');
 }
 
 export function stopOrderSyncScheduler(): void {

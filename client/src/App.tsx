@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OnboardingManager } from "@/components/onboarding/OnboardingManager";
-import { lazy, Suspense } from "react";
 import Dashboard from "@/pages/Dashboard";
 import SimpleTest from "@/pages/SimpleTest";
 import Products from "@/pages/Products";
@@ -56,8 +55,6 @@ import IngramMicroIntegration from "@/pages/IngramMicroIntegration";
 import BrandPartners from "@/pages/BrandPartners";
 import BrandPartnerDetails from "@/pages/BrandPartnerDetails";
 
-// Lazy load AmazonScalingProgress
-const AmazonScalingProgress = lazy(() => import('./pages/AmazonScalingProgress'));
 import NotFound from "@/pages/not-found";
 import AppSidebar from "@/components/AppSidebar";
 
@@ -110,25 +107,13 @@ function Router() {
       <Route path="/marketplaces/amazon/multi-asin" component={MultiASINSearch} />
       
       {/* Purchasing AI Analysis Progress */}
-      <Route path="/purchasing-ai/analysis-progress" component={() => (
-        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Analysis Progress...</span></div></div>}>
-          <AmazonScalingProgress />
-        </Suspense>
-      )} />
+      <Route path="/purchasing-ai/analysis-progress" component={PurchasingAI} />
       
       {/* Legacy route redirects for backwards compatibility */}
       <Route path="/amazon-integration" component={AmazonIntegration} />
       <Route path="/multi-asin" component={MultiASINSearch} />
-      <Route path="/amazon-scaling-progress" component={() => (
-        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Analysis Progress...</span></div></div>}>
-          <AmazonScalingProgress />
-        </Suspense>
-      )} />
-      <Route path="/marketplaces/amazon/sync-progress" component={() => (
-        <Suspense fallback={<div className="container mx-auto py-8"><div className="flex items-center justify-center space-x-2 py-12"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div><span>Loading Analysis Progress...</span></div></div>}>
-          <AmazonScalingProgress />
-        </Suspense>
-      )} />
+      <Route path="/amazon-scaling-progress" component={PurchasingAI} />
+      <Route path="/marketplaces/amazon/sync-progress" component={PurchasingAI} />
       
       {/* Walmart Marketplace Routes */}
       <Route path="/marketplaces/walmart" component={MarketplaceWalmart} />

@@ -13,7 +13,6 @@ import { Search, Package, ExternalLink, TrendingUp, AlertTriangle, Upload, FileT
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import BulkProgressMonitor from '@/components/BulkProgressMonitor';
-import BulkASINResults from './BulkASINResults';
 import SupplierManifestAnalysis from '@/components/SupplierManifestAnalysis';
 
 interface ASIN {
