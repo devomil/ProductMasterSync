@@ -4270,7 +4270,8 @@ router.get('/orders/:orderId/financials', async (req, res) => {
 
     const itemsTotal = items.reduce((sum, i) => sum + ((i.unitPriceInCents || 0) * (i.quantity || 1)), 0);
     const taxTotal = items.reduce((sum, i) => sum + (i.taxInCents || 0), 0);
-    const grandTotal = itemsTotal + taxTotal;
+    const shippingTotal = items.reduce((sum, i) => sum + (i.shippingChargeInCents || 0), 0);
+    const grandTotal = order[0].totalInCents || (itemsTotal + taxTotal + shippingTotal);
     const referralFees = storedCommissions > 0 ? storedCommissions : referralFeeTotal;
     const estimatedPayout = itemsTotal - referralFees;
 
@@ -4626,18 +4627,19 @@ router.get('/orders/stats/summary', async (req, res) => {
 
     const result = await db.execute(sql`
       SELECT 
-        marketplace,
-        COUNT(*) as "totalOrders",
-        COUNT(*) FILTER (WHERE status = 'pending') as "pending",
-        COUNT(*) FILTER (WHERE status = 'unshipped') as "unshipped",
-        COUNT(*) FILTER (WHERE status = 'shipped') as "shipped",
-        COUNT(*) FILTER (WHERE status = 'cancelled') as "cancelled",
-        COUNT(*) FILTER (WHERE verge_of_late_shipment = true) as "vergeOfLateShipment",
-        COUNT(*) FILTER (WHERE verge_of_cancellation = true) as "vergeOfCancellation",
-        COUNT(*) FILTER (WHERE buyer_requested_cancel = true) as "buyerRequestedCancel",
-        SUM(total_in_cents) as "totalRevenue"
-      FROM marketplace_orders
-      GROUP BY marketplace
+        o.marketplace,
+        COUNT(DISTINCT o.id) as "totalOrders",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'pending') as "pending",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'unshipped') as "unshipped",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'shipped') as "shipped",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'cancelled') as "cancelled",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.verge_of_late_shipment = true) as "vergeOfLateShipment",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.verge_of_cancellation = true) as "vergeOfCancellation",
+        COUNT(DISTINCT o.id) FILTER (WHERE o.buyer_requested_cancel = true) as "buyerRequestedCancel",
+        COALESCE(SUM(i.unit_price_in_cents * COALESCE(i.quantity, 1)), 0) as "totalRevenue"
+      FROM marketplace_orders o
+      LEFT JOIN marketplace_order_items i ON i.order_id = o.id
+      GROUP BY o.marketplace
     `);
 
     const { marketplaceOrderItems, marketplaceOrders, marketplaceListings } = await import('@shared/schema');

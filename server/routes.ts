@@ -52,7 +52,7 @@ import {
   marketplaceOrders,
   marketplaceOrderItems
 } from "@shared/schema";
-import { eq, and, isNull, sql, desc, not } from "drizzle-orm";
+import { eq, and, isNull, sql, desc, not, inArray } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1748,13 +1748,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         );
 
+      const monthOrderIds = monthOrders.map(o => o.id);
+      let orderItemsMap: Map<number, number> = new Map();
+      if (monthOrderIds.length > 0) {
+        const itemRevenues = await db
+          .select({
+            orderId: marketplaceOrderItems.orderId,
+            revenue: sql<number>`SUM(${marketplaceOrderItems.unitPriceInCents} * COALESCE(${marketplaceOrderItems.quantity}, 1))`,
+          })
+          .from(marketplaceOrderItems)
+          .where(inArray(marketplaceOrderItems.orderId, monthOrderIds))
+          .groupBy(marketplaceOrderItems.orderId);
+        for (const row of itemRevenues) {
+          orderItemsMap.set(row.orderId, Number(row.revenue) || 0);
+        }
+      }
+
+      const getOrderRevenue = (o: typeof monthOrders[0]) => {
+        const itemRevenue = orderItemsMap.get(o.id);
+        return itemRevenue !== undefined ? itemRevenue : (o.totalInCents || 0);
+      };
+
       const monthToDateRevenue = monthOrders.reduce(
-        (sum, o) => sum + (o.totalInCents || 0), 0
+        (sum, o) => sum + getOrderRevenue(o), 0
       ) / 100;
 
       const todayRevenue = monthOrders
         .filter(o => o.orderDate && new Date(o.orderDate) >= todayStart)
-        .reduce((sum, o) => sum + (o.totalInCents || 0), 0) / 100;
+        .reduce((sum, o) => sum + getOrderRevenue(o), 0) / 100;
 
       const recentOrders = monthOrders
         .sort((a, b) => {
@@ -1775,7 +1796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const revenueByMarketplace = monthOrders.reduce((acc, o) => {
         const mp = o.marketplace || 'unknown';
         if (!acc[mp]) acc[mp] = 0;
-        acc[mp] += (o.totalInCents || 0) / 100;
+        acc[mp] += getOrderRevenue(o) / 100;
         return acc;
       }, {} as Record<string, number>);
 

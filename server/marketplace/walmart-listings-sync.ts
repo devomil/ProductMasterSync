@@ -894,7 +894,7 @@ function transformWalmartOrder(order: WalmartOrderResponse): {
     orderDate: new Date(order.orderDate),
     shipByDate: order.shippingInfo?.estimatedShipDate ? new Date(order.shippingInfo.estimatedShipDate) : undefined,
     promisedDeliveryDate: order.shippingInfo?.estimatedDeliveryDate ? new Date(order.shippingInfo.estimatedDeliveryDate) : undefined,
-    totalInCents: productTotalInCents,
+    totalInCents: productTotalInCents + taxTotalInCents + shippingTotalInCents,
     currencyCode: 'USD',
     rawData: order
   };
