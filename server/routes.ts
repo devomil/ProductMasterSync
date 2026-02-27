@@ -1989,7 +1989,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/datasources", async (req, res) => {
     try {
       const dataSources = await storage.getDataSources();
-      console.log("Raw dataSources from database:", JSON.stringify(dataSources, null, 2));
       res.json(dataSources);
     } catch (error) {
       handleError(res, error);

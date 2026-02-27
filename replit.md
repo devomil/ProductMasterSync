@@ -72,13 +72,14 @@ Preferred communication style: Simple, everyday language.
 
 ## APIs and Services
 - **Amazon SP-API**: Product catalog search and marketplace intelligence (OAuth2, Product Pricing API v0, Catalog Items API, Listings Restrictions API).
+- **Ingram Micro Resellers API v6**: OAuth2 via `/oauth/oauth30/token` endpoint. Product catalog search, price & availability, freight estimates. Used for order fulfillment vendor lookup and as a data source type.
 - **Anthropic AI**: AI-powered data processing.
-- **SFTP/FTP Servers**: Supplier data connections.
+- **SFTP/FTP Servers**: Supplier data connections (credentials via env vars: SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD, INGRAM_SFTP_PASSWORD). No hardcoded credentials — multi-tenant ready.
 - **Neon**: Serverless PostgreSQL hosting.
 
 ## Key Libraries
 - **Database**: `drizzle-orm`, `@neondatabase/serverless`, `pg`.
-- **File Processing**: `csv-parse`, `xlsx`, `ssh2-sftp-client`.
+- **File Processing**: `csv-parse`, `xlsx`, `ssh2-sftp-client`, `adm-zip`.
 - **HTTP Clients**: `axios`.
 - **UI Components**: Radix UI, Shadcn/ui.
 - **Validation**: `zod`.
