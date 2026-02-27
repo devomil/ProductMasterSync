@@ -400,6 +400,17 @@ const testIngramMicroAPIConnection = async (credentials: any) => {
     const clientId = credentials.clientId || process.env.INGRAM_MICRO_CLIENT_ID;
     const clientSecret = credentials.clientSecret || process.env.INGRAM_MICRO_CLIENT_SECRET;
     const customerNumber = credentials.customerNumber || process.env.INGRAM_MICRO_CUSTOMER_NUMBER;
+    const apiUrl = credentials.url || 'https://api.ingrammicro.com';
+    
+    console.log('[Ingram Test] Credentials received:', {
+      hasFormClientId: !!credentials.clientId,
+      hasEnvClientId: !!process.env.INGRAM_MICRO_CLIENT_ID,
+      hasFormSecret: !!credentials.clientSecret,
+      hasEnvSecret: !!process.env.INGRAM_MICRO_CLIENT_SECRET,
+      clientIdLength: clientId?.length,
+      customerNumber: customerNumber ? '***' : 'missing',
+      apiUrl
+    });
     
     if (!clientId || !clientSecret) {
       return { success: false, message: 'Client ID and Client Secret are required' };
@@ -408,7 +419,10 @@ const testIngramMicroAPIConnection = async (credentials: any) => {
       return { success: false, message: 'Customer Number is required' };
     }
     
-    const tokenUrl = `https://api.ingrammicro.com:443/oauth/oauth20/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+    const baseUrl = apiUrl.replace(/\/+$/, '');
+    const normalizedBase = baseUrl.includes(':443') ? baseUrl : `${baseUrl}:443`;
+    const tokenUrl = `${normalizedBase}/oauth/oauth20/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+    console.log('[Ingram Test] Token URL:', tokenUrl.replace(clientSecret, '***').replace(clientId, clientId.substring(0, 4) + '***'));
     const tokenResponse = await fetch(tokenUrl);
     
     if (!tokenResponse.ok) {
@@ -424,7 +438,7 @@ const testIngramMicroAPIConnection = async (credentials: any) => {
     return {
       success: true,
       message: `Ingram Micro API connection successful. OAuth2 authentication verified.`,
-      details: { customerNumber, tokenType: tokenData.token_type }
+      details: { customerNumber, tokenType: tokenData.token_type, apiUrl: baseUrl }
     };
   } catch (error) {
     return {
