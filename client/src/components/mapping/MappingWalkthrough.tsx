@@ -751,6 +751,16 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
         }
       }
       const mappingArray = Object.values(mappings);
+      for (const field of selectedCustomFields) {
+        mappingArray.push({
+          id: `custom_${field.fieldName}`,
+          sourceField: field.fieldName,
+          targetField: `customFields.${field.fieldName}`,
+          required: false,
+          category: 'catalog_extensions',
+          description: field.displayName,
+        });
+      }
       await onComplete(mappingArray);
       setIsComplete(true);
     }
