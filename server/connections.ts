@@ -421,7 +421,7 @@ const testIngramMicroAPIConnection = async (credentials: any) => {
     
     const baseUrl = apiUrl.replace(/\/+$/, '');
     const normalizedBase = baseUrl.includes(':443') ? baseUrl : `${baseUrl}:443`;
-    const tokenUrl = `${normalizedBase}/oauth/oauth20/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+    const tokenUrl = `${normalizedBase}/oauth/oauth30/token?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
     console.log('[Ingram Test] Token URL:', tokenUrl.replace(clientSecret, '***').replace(clientId, clientId.substring(0, 4) + '***'));
     const tokenResponse = await fetch(tokenUrl);
     

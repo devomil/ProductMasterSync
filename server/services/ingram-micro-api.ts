@@ -144,7 +144,7 @@ export class IngramMicroAPI {
     try {
       console.log('[Ingram Micro] Requesting access token...');
       const response = await this.client.get<TokenResponse>(
-        `${this.config.baseUrl}/oauth/oauth20/token`,
+        `${this.config.baseUrl}/oauth/oauth30/token`,
         {
           params: {
             grant_type: 'client_credentials',
