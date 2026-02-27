@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle, ChevronDown, ChevronUp, Puzzle } from "lucide-react";
 import { SiAmazon, SiWalmart } from "react-icons/si";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
@@ -325,6 +325,30 @@ export default function ProductDetails() {
     enabled: !!id && activeTab === 'markets' && !!walmartData?.mappings?.length,
     retry: 1
   });
+
+  const { data: customCatalogFields } = useQuery<Array<{
+    id: number;
+    fieldName: string;
+    displayName: string;
+    fieldType: string;
+    category: string;
+    sourceSupplier: string | null;
+    description: string | null;
+  }>>({
+    queryKey: ['/api/catalog/custom-fields'],
+  });
+
+  const getCustomFieldsByCategory = (category: string) => {
+    if (!customCatalogFields?.length) return [];
+    return customCatalogFields.filter(f => f.category === category);
+  };
+
+  const getCustomFieldValue = (fieldName: string): string | null => {
+    const attrs = product?.attributes as any;
+    const val = attrs?.customFields?.[fieldName];
+    if (val === null || val === undefined || val === '') return null;
+    return String(val);
+  };
 
   // Note: mappingTemplates already declared above via useMappingTemplates hook
 
@@ -687,6 +711,39 @@ export default function ProductDetails() {
                     </>
                   )}
                   
+                  {(() => {
+                    const overviewFields = getCustomFieldsByCategory('overview');
+                    const complianceFields = getCustomFieldsByCategory('compliance');
+                    const allFields = [...overviewFields, ...complianceFields];
+                    if (!allFields.length) return null;
+                    const fieldsWithValues = allFields.filter(f => getCustomFieldValue(f.fieldName) !== null);
+                    if (!fieldsWithValues.length) return null;
+                    return (
+                      <>
+                        <Separator />
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <Puzzle className="h-4 w-4 text-purple-600" />
+                            Additional Information
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                            {fieldsWithValues.map(field => (
+                              <div key={field.id} className="flex justify-between py-1">
+                                <span className="text-gray-600">{field.displayName}:</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{getCustomFieldValue(field.fieldName)}</span>
+                                  {field.sourceSupplier && (
+                                    <span className="text-xs text-gray-400">via {field.sourceSupplier}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+
                   {/* California Proposition 65 Warning if present in description */}
                   {product.description?.toLowerCase().includes('warning') && product.description?.toLowerCase().includes('california') && (
                     <>
@@ -796,6 +853,34 @@ export default function ProductDetails() {
                     </div>
                   </div>
                   
+                  {(() => {
+                    const specFields = getCustomFieldsByCategory('specifications');
+                    if (!specFields.length) return null;
+                    const fieldsWithValues = specFields.filter(f => getCustomFieldValue(f.fieldName) !== null);
+                    if (!fieldsWithValues.length) return null;
+                    return (
+                      <div className="border-t pt-4 mt-6">
+                        <h4 className="font-semibold text-lg text-gray-900 border-b pb-2 mb-3 flex items-center gap-2">
+                          <Puzzle className="h-4 w-4 text-purple-600" />
+                          Extended Specifications
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                          {fieldsWithValues.map(field => (
+                            <div key={field.id} className="flex justify-between py-1">
+                              <span className="text-gray-600 text-sm font-medium">{field.displayName}:</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-900">{getCustomFieldValue(field.fieldName)}</span>
+                                {field.sourceSupplier && (
+                                  <span className="text-xs text-gray-400">via {field.sourceSupplier}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Documentation URLs Section - Only show if any URLs are mapped */}
                   {(product.installationGuideUrl || product.ownersManualUrl || product.brochureUrl || product.quickGuideUrl || product.videoUrls) && (
                     <>
@@ -1039,6 +1124,37 @@ export default function ProductDetails() {
                   </div>
                 </CardContent>
               </Card>
+              {(() => {
+                const supplierFields = getCustomFieldsByCategory('supplier_info');
+                if (!supplierFields.length) return null;
+                const fieldsWithValues = supplierFields.filter(f => getCustomFieldValue(f.fieldName) !== null);
+                if (!fieldsWithValues.length) return null;
+                return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Puzzle className="h-4 w-4 text-purple-600" />
+                        Extended Supplier Data
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                        {fieldsWithValues.map(field => (
+                          <div key={field.id} className="flex justify-between py-2 px-3 bg-gray-50 rounded">
+                            <span className="text-gray-600 text-sm font-medium">{field.displayName}:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-900 text-sm">{getCustomFieldValue(field.fieldName)}</span>
+                              {field.sourceSupplier && (
+                                <span className="text-xs text-gray-400">via {field.sourceSupplier}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </TabsContent>
             
             {/* Markets Tab */}
@@ -1087,6 +1203,38 @@ export default function ProductDetails() {
                   </Button>
                 </div>
               </div>
+
+              {(() => {
+                const marketFields = getCustomFieldsByCategory('markets');
+                if (!marketFields.length) return null;
+                const fieldsWithValues = marketFields.filter(f => getCustomFieldValue(f.fieldName) !== null);
+                if (!fieldsWithValues.length) return null;
+                return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Puzzle className="h-4 w-4 text-purple-600" />
+                        Supplier Marketplace Identifiers
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {fieldsWithValues.map(field => (
+                          <div key={field.id} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">{field.displayName}</span>
+                              {field.sourceSupplier && (
+                                <Badge variant="outline" className="ml-2 text-xs text-gray-500">via {field.sourceSupplier}</Badge>
+                              )}
+                            </div>
+                            <span className="font-mono text-sm text-gray-900">{getCustomFieldValue(field.fieldName)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {/* Amazon Section */}
               <Collapsible open={amazonOpen} onOpenChange={setAmazonOpen}>

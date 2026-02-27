@@ -19,7 +19,8 @@ import type {
   DataLineage, InsertDataLineage,
   DataMergingConfig, InsertDataMergingConfig,
   Workflow, InsertWorkflow,
-  WorkflowExecution, InsertWorkflowExecution
+  WorkflowExecution, InsertWorkflowExecution,
+  CustomCatalogField, InsertCustomCatalogField
 } from "@shared/schema";
 
 import { IStorage } from './storage';
@@ -1019,6 +1020,21 @@ export class DatabaseStorage implements IStorage {
       lowStockThreshold: product.reorderThreshold || 10,
       isLowStock: (product.inventoryQuantity || 0) <= (product.reorderThreshold || 10)
     };
+  }
+
+  // Custom catalog fields
+  async getCustomCatalogFields(): Promise<CustomCatalogField[]> {
+    return await db.select().from(schema.customCatalogFields).orderBy(asc(schema.customCatalogFields.createdAt));
+  }
+
+  async createCustomCatalogField(field: InsertCustomCatalogField): Promise<CustomCatalogField> {
+    const [created] = await db.insert(schema.customCatalogFields).values(field).returning();
+    return created;
+  }
+
+  async deleteCustomCatalogField(id: number): Promise<boolean> {
+    const result = await db.delete(schema.customCatalogFields).where(eq(schema.customCatalogFields.id, id));
+    return true;
   }
 
   // Shipping template management

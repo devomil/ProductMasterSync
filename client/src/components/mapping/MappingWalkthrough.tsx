@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { 
   CheckCircle, 
   AlertCircle, 
@@ -23,7 +24,8 @@ import {
   Sparkles,
   Brain,
   Zap,
-  Download
+  Download,
+  Puzzle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -33,7 +35,7 @@ interface MappingField {
   sourceField: string;
   targetField: string;
   required: boolean;
-  category: 'master_catalog' | 'inventory' | 'pricing' | 'shipping' | 'compliance' | 'promotions' | 'documentation';
+  category: 'master_catalog' | 'inventory' | 'pricing' | 'shipping' | 'compliance' | 'promotions' | 'documentation' | 'catalog_extensions';
   description: string;
   example?: string;
 }
@@ -494,25 +496,53 @@ const REQUIRED_MAPPINGS = {
   ]
 };
 
-const CATEGORY_ICONS = {
+const CATEGORY_ICONS: Record<string, any> = {
   master_catalog: Package,
   inventory: Database,
   pricing: DollarSign,
   shipping: Target,
   compliance: CheckCircle,
   promotions: ArrowRight,
-  documentation: FileText
+  documentation: FileText,
+  catalog_extensions: Puzzle
 };
 
-const CATEGORY_LABELS = {
+const CATEGORY_LABELS: Record<string, string> = {
   master_catalog: 'Master Catalog',
   inventory: 'Inventory Tab Fields',
   pricing: 'Pricing Tab Fields',
   shipping: 'Shipping Tab Fields', 
   compliance: 'Compliance Tab Fields',
   promotions: 'Promotions Tab Fields',
-  documentation: 'Documentation Tab Fields'
+  documentation: 'Documentation Tab Fields',
+  catalog_extensions: 'Catalog Extensions'
 };
+
+function humanizeFieldName(field: string): string {
+  return field
+    .replace(/[_-]/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function suggestCategory(fieldName: string): string {
+  const lower = fieldName.toLowerCase();
+  if (/asin|walmart|ebay|newegg|marketplace|listing/.test(lower)) return 'markets';
+  if (/weight|height|length|width|dimension|size|color|material|spec/.test(lower)) return 'specifications';
+  if (/hazard|compliance|cert|fcc|prop65|export/.test(lower)) return 'compliance';
+  if (/supplier|vendor|warehouse|stock/.test(lower)) return 'supplier_info';
+  return 'overview';
+}
+
+interface CustomFieldSelection {
+  fieldName: string;
+  displayName: string;
+  fieldType: string;
+  category: string;
+  selected: boolean;
+}
 
 export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, onComplete, onCancel }: MappingWalkthroughProps) {
   const { toast } = useToast();
@@ -525,10 +555,19 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
   const [isComplete, setIsComplete] = useState(false);
   const [isSamplePulling, setIsSamplePulling] = useState(false);
   const [samplePullResult, setSamplePullResult] = useState<any>(null);
+  const [showAllSourceFields, setShowAllSourceFields] = useState(false);
+  const [customFieldSelections, setCustomFieldSelections] = useState<Record<string, CustomFieldSelection>>({});
 
-  const categories = Object.keys(REQUIRED_MAPPINGS) as Array<keyof typeof REQUIRED_MAPPINGS>;
-  const currentCategory = categories[currentStep] as keyof typeof REQUIRED_MAPPINGS;
-  const currentFields = REQUIRED_MAPPINGS[currentCategory];
+  const mappingCategories = Object.keys(REQUIRED_MAPPINGS) as Array<keyof typeof REQUIRED_MAPPINGS>;
+  const categories = [...mappingCategories, 'catalog_extensions' as const];
+  const isExtensionStep = currentStep === mappingCategories.length;
+  const currentCategory = isExtensionStep ? 'catalog_extensions' : mappingCategories[currentStep] as keyof typeof REQUIRED_MAPPINGS;
+  const currentFields = isExtensionStep ? [] : REQUIRED_MAPPINGS[currentCategory as keyof typeof REQUIRED_MAPPINGS] || [];
+
+  const getUnmappedFields = () => {
+    const mappedSourceFields = new Set(Object.values(mappings).map(m => m.sourceField).filter(Boolean));
+    return sourceFields.filter(f => !mappedSourceFields.has(f));
+  };
 
   useEffect(() => {
     // Extract field names from sample data
@@ -667,15 +706,50 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
   };
 
   const canProceedToNext = () => {
+    if (isExtensionStep) return true;
     const stats = getCurrentCategoryStats();
     return stats.mappedRequired === stats.required;
   };
 
+  const initializeCustomFieldSelections = () => {
+    const unmapped = getUnmappedFields();
+    const existing = { ...customFieldSelections };
+    unmapped.forEach(field => {
+      if (!existing[field]) {
+        existing[field] = {
+          fieldName: field,
+          displayName: humanizeFieldName(field),
+          fieldType: 'text',
+          category: suggestCategory(field),
+          selected: false
+        };
+      }
+    });
+    setCustomFieldSelections(existing);
+  };
+
   const handleNext = async () => {
     if (currentStep < categories.length - 1) {
+      if (currentStep === mappingCategories.length - 1) {
+        initializeCustomFieldSelections();
+      }
       setCurrentStep(prev => prev + 1);
     } else {
-      // Complete the mapping process
+      const selectedCustomFields = Object.values(customFieldSelections).filter(f => f.selected);
+      for (const field of selectedCustomFields) {
+        try {
+          await apiRequest('POST', '/api/catalog/custom-fields', {
+            fieldName: field.fieldName,
+            displayName: field.displayName,
+            fieldType: field.fieldType,
+            category: field.category,
+            sourceSupplier: dataSourceName || 'Unknown',
+            description: `Custom field from ${dataSourceName || 'supplier'} data`
+          });
+        } catch (error) {
+          console.error('Failed to save custom field:', field.fieldName, error);
+        }
+      }
       const mappingArray = Object.values(mappings);
       await onComplete(mappingArray);
       setIsComplete(true);
@@ -847,20 +921,27 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
             {/* Show available source fields */}
             {sourceFields.length > 0 && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-sm font-medium text-blue-800 mb-2">
-                  Source fields from {dataSourceName || 'your supplier'} ({sourceFields.length} fields):
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-blue-800">
+                    Source fields from {dataSourceName || 'your supplier'} ({sourceFields.length} fields):
+                  </div>
+                  {sourceFields.length > 10 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllSourceFields(!showAllSourceFields)}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-100 h-6 px-2"
+                    >
+                      {showAllSourceFields ? 'Show Less' : `Show All (${sourceFields.length})`}
+                    </Button>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1 text-xs">
-                  {sourceFields.slice(0, 10).map((field) => (
+                  {(showAllSourceFields ? sourceFields : sourceFields.slice(0, 10)).map((field) => (
                     <span key={field} className="px-2 py-1 bg-white border border-blue-200 rounded text-blue-700 font-mono">
                       {field}
                     </span>
                   ))}
-                  {sourceFields.length > 10 && (
-                    <span className="px-2 py-1 text-blue-600">
-                      +{sourceFields.length - 10} more
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -920,6 +1001,139 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
       </div>
 
       {/* Current Category */}
+      {isExtensionStep ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Puzzle className="h-5 w-5" />
+              Catalog Extensions
+              <Badge variant="secondary">
+                {Object.values(customFieldSelections).filter(f => f.selected).length} selected
+              </Badge>
+            </CardTitle>
+            <p className="text-sm text-gray-600 mt-1">
+              These supplier fields were not mapped to any standard catalog field. Select any you'd like to add as custom fields in your master catalog.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {getUnmappedFields().length === 0 ? (
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  All source fields have been mapped. No unmapped fields to extend.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              getUnmappedFields().map(field => {
+                const selection = customFieldSelections[field] || {
+                  fieldName: field,
+                  displayName: humanizeFieldName(field),
+                  fieldType: 'text',
+                  category: suggestCategory(field),
+                  selected: false
+                };
+
+                return (
+                  <div key={field} className={`border rounded-lg p-4 space-y-3 ${selection.selected ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selection.selected}
+                        onCheckedChange={(checked) => {
+                          setCustomFieldSelections(prev => ({
+                            ...prev,
+                            [field]: { ...selection, selected: !!checked }
+                          }));
+                        }}
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-mono text-sm font-medium">{field}</h4>
+                      </div>
+                      {selection.selected && (
+                        <Badge className="bg-purple-100 text-purple-800">Adding to Catalog</Badge>
+                      )}
+                    </div>
+
+                    {sampleData.length > 0 && (
+                      <div className="bg-white border border-gray-200 p-2 rounded text-xs">
+                        <span className="font-medium text-gray-600">Sample values: </span>
+                        <span className="font-mono text-gray-700">
+                          {sampleData.slice(0, 4)
+                            .map(row => row[field])
+                            .filter(val => val !== undefined && val !== null && val !== '')
+                            .map(val => String(val).substring(0, 40) + (String(val).length > 40 ? '...' : ''))
+                            .join(' • ') || 'No values'}
+                        </span>
+                      </div>
+                    )}
+
+                    {selection.selected && (
+                      <div className="grid grid-cols-3 gap-3 pt-2 border-t border-purple-200">
+                        <div>
+                          <Label className="text-xs font-medium">Display Name</Label>
+                          <Input
+                            value={selection.displayName}
+                            onChange={(e) => {
+                              setCustomFieldSelections(prev => ({
+                                ...prev,
+                                [field]: { ...selection, displayName: e.target.value }
+                              }));
+                            }}
+                            className="mt-1 h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium">Tab Placement</Label>
+                          <Select
+                            value={selection.category}
+                            onValueChange={(value) => {
+                              setCustomFieldSelections(prev => ({
+                                ...prev,
+                                [field]: { ...selection, category: value }
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className="mt-1 h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="overview">Overview</SelectItem>
+                              <SelectItem value="markets">Markets</SelectItem>
+                              <SelectItem value="specifications">Specifications</SelectItem>
+                              <SelectItem value="supplier_info">Supplier Info</SelectItem>
+                              <SelectItem value="compliance">Compliance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium">Field Type</Label>
+                          <Select
+                            value={selection.fieldType}
+                            onValueChange={(value) => {
+                              setCustomFieldSelections(prev => ({
+                                ...prev,
+                                [field]: { ...selection, fieldType: value }
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className="mt-1 h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="number">Number</SelectItem>
+                              <SelectItem value="boolean">Boolean</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -1013,7 +1227,6 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
                   </Select>
                 </div>
                 
-                {/* Show sample data preview */}
                 {currentMapping?.sourceField && sampleData.length > 0 && (
                   <div className="bg-blue-50 border border-blue-200 p-3 rounded text-sm">
                     <div className="font-medium text-blue-800 mb-1">Sample values from your data:</div>
@@ -1040,9 +1253,10 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* AI Suggestions */}
-      {aiMappings.length > 0 && (
+      {aiMappings.length > 0 && !isExtensionStep && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

@@ -3103,3 +3103,22 @@ export type PartnerDocument = typeof partnerDocuments.$inferSelect;
 export type InsertPartnerDocument = z.infer<typeof insertPartnerDocumentSchema>;
 export type PartnerCommunication = typeof partnerCommunications.$inferSelect;
 export type InsertPartnerCommunication = z.infer<typeof insertPartnerCommunicationSchema>;
+
+export const customCatalogFields = pgTable("custom_catalog_fields", {
+  id: serial("id").primaryKey(),
+  fieldName: text("field_name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  fieldType: text("field_type").notNull().default("text"),
+  category: text("category").notNull().default("overview"),
+  sourceSupplier: text("source_supplier"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCustomCatalogFieldSchema = createInsertSchema(customCatalogFields).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type CustomCatalogField = typeof customCatalogFields.$inferSelect;
+export type InsertCustomCatalogField = z.infer<typeof insertCustomCatalogFieldSchema>;

@@ -3054,6 +3054,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Custom Catalog Fields endpoints
+  const suggestFieldCategory = (fieldName: string): string => {
+    const name = fieldName.toLowerCase();
+    if (/asin|walmart|ebay|newegg|marketplace|listing|amazon/.test(name)) return 'markets';
+    if (/weight|height|length|width|dimension|size|color|material|spec|density|volume/.test(name)) return 'specifications';
+    if (/hazard|compliance|cert|fcc|prop65|export|safety|regulation/.test(name)) return 'compliance';
+    if (/supplier|vendor|warehouse|stock|inventory|fulfillment/.test(name)) return 'supplier_info';
+    return 'overview';
+  };
+
+  const humanizeFieldName = (fieldName: string): string => {
+    return fieldName
+      .replace(/[_-]/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  app.get("/api/catalog/custom-fields", async (req, res) => {
+    try {
+      const fields = await storage.getCustomCatalogFields();
+      res.json(fields);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/catalog/custom-fields", async (req, res) => {
+    try {
+      const { fieldName, displayName, fieldType, category, sourceSupplier, description } = req.body;
+      if (!fieldName) {
+        return res.status(400).json({ success: false, message: 'fieldName is required' });
+      }
+      const suggestedCategory = category || suggestFieldCategory(fieldName);
+      const field = await storage.createCustomCatalogField({
+        fieldName,
+        displayName: displayName || humanizeFieldName(fieldName),
+        fieldType: fieldType || 'text',
+        category: suggestedCategory,
+        sourceSupplier: sourceSupplier || null,
+        description: description || null,
+      });
+      res.json(field);
+    } catch (error: any) {
+      if (error.message?.includes('unique') || error.code === '23505') {
+        return res.status(409).json({ success: false, message: `Field "${req.body.fieldName}" already exists in the catalog` });
+      }
+      handleError(res, error);
+    }
+  });
+
+  app.delete("/api/catalog/custom-fields/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCustomCatalogField(id);
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/catalog/suggest-category", async (req, res) => {
+    try {
+      const { fieldName } = req.body;
+      res.json({
+        fieldName,
+        suggestedCategory: suggestFieldCategory(fieldName || ''),
+        displayName: humanizeFieldName(fieldName || ''),
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Mapping Templates endpoints
   app.get("/api/mapping-templates", async (req, res) => {
     try {
@@ -3612,45 +3687,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Generated unique EDC SKU: ${edcSKU}`);
         
         // Apply field mappings
+        const customFieldsData: Record<string, any> = {};
+        
         Object.entries(fieldMappings as Record<string, string>).forEach(([targetField, sourceField]) => {
-          // Fix common field name mismatches between mapping template and database schema
+          if (targetField.startsWith('customFields.')) {
+            const customFieldName = targetField.replace('customFields.', '');
+            const value = sourceRecord[sourceField];
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+              customFieldsData[customFieldName] = value;
+            }
+            return;
+          }
+          
           const fieldNameMap: Record<string, string> = {
-            'image300x300': 'imageUrl',           // Map old field name to correct DB field
-            'image1000x1000': 'imageUrlLarge',    // Map old field name to correct DB field
-            'image_300x300': 'imageUrl',          // Alternative naming
-            'image_1000x1000': 'imageUrlLarge',   // Alternative naming
+            'image300x300': 'imageUrl',
+            'image1000x1000': 'imageUrlLarge',
+            'image_300x300': 'imageUrl',
+            'image_1000x1000': 'imageUrlLarge',
           };
           
-          // Translate field name if needed
           const actualTargetField = fieldNameMap[targetField] || targetField;
-          
-          if (actualTargetField !== targetField) {
-            console.log(`Field name translation: ${targetField} → ${actualTargetField}`);
-          }
           
           if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
             let value = sourceRecord[sourceField];
             
-            // Debug USIN mapping (now stores supplier part number, doesn't affect SKU)
-            if (actualTargetField === 'usin') {
-              console.log(`Mapping USIN (supplier part number): ${sourceField} = "${value}" -> stored separately from SKU`);
-            }
-            
-            // Type conversions based on target field with proper null handling
             if (actualTargetField === 'yourCost' || actualTargetField === 'listPrice' || actualTargetField === 'mapPrice' || actualTargetField === 'mrpPrice') {
-              // Handle empty strings and invalid numbers for price fields
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
             } else if (actualTargetField === 'shippingWeight' || actualTargetField === 'caseQuantity') {
-              // Handle empty strings and invalid numbers for numeric fields
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
             } else if (typeof value === 'string') {
-              // Handle empty strings by converting to null for optional fields
               if (value.trim() === '') {
                 value = null;
               } else {
-                // Clean HTML tags from descriptions
                 if (actualTargetField === 'description' || actualTargetField === 'fullDescription') {
                   value = value.replace(/<[^>]*>/g, '').trim();
                 }
@@ -3660,6 +3730,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             transformedRecord[actualTargetField] = value;
           }
         });
+        
+        if (Object.keys(customFieldsData).length > 0) {
+          const existingAttrs = (transformedRecord.attributes as any) || {};
+          transformedRecord.attributes = {
+            ...existingAttrs,
+            customFields: {
+              ...(existingAttrs.customFields || {}),
+              ...customFieldsData
+            }
+          };
+        }
         
         // Ensure required fields are populated (SKU is already set to unique EDC number above)
         if (!transformedRecord.name) {

@@ -15,7 +15,8 @@ import {
   dataLineage, DataLineage, InsertDataLineage,
   dataMergingConfig, DataMergingConfig, InsertDataMergingConfig,
   workflows, Workflow, InsertWorkflow,
-  workflowExecutions, WorkflowExecution, InsertWorkflowExecution
+  workflowExecutions, WorkflowExecution, InsertWorkflowExecution,
+  customCatalogFields, CustomCatalogField, InsertCustomCatalogField
 } from "@shared/schema";
 
 // Storage interface for MDM application
@@ -99,6 +100,11 @@ export interface IStorage {
   updateScheduleLastRun(id: number, lastRun: Date): Promise<Schedule | undefined>;
   updateScheduleNextRun(id: number, nextRun: Date): Promise<Schedule | undefined>;
   
+  // Custom catalog fields
+  getCustomCatalogFields(): Promise<CustomCatalogField[]>;
+  createCustomCatalogField(field: InsertCustomCatalogField): Promise<CustomCatalogField>;
+  deleteCustomCatalogField(id: number): Promise<boolean>;
+
   // Mapping template management
   getMappingTemplates(): Promise<MappingTemplate[]>;
   getMappingTemplate(id: number): Promise<MappingTemplate | undefined>;

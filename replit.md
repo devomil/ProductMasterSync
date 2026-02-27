@@ -54,6 +54,7 @@ Preferred communication style: Simple, everyday language.
       - Sync tracking with job history and progress monitoring
       - Database tables: `flxpoint_variants`, `flxpoint_sync_runs`
       - UI page at /marketplaces/flxpoint
+    - **Dynamic Catalog Extension**: Self-extending master catalog via the field mapping walkthrough. After mapping supplier fields to standard catalog fields, an 8th "Catalog Extensions" step shows all unmapped supplier fields. Users can select fields (e.g., `asin`, `walmart_id` from Ingram Micro) to add to the master catalog with intelligent tab placement suggestions (marketplace identifiers → Markets tab, dimensions → Specifications, etc.). Custom fields stored in `custom_catalog_fields` registry table; values stored in `products.attributes.customFields` JSON. Custom fields render on the appropriate product detail tabs with "via [Supplier]" attribution. Data import pipeline supports `customFields.` prefix mappings for automatic population.
     - **Performance Optimization**: Intelligent caching and optimized queries.
 
 ## System Design
