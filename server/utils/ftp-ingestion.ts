@@ -872,7 +872,9 @@ export const getRemotePaths = async (
                   item.filename.endsWith('.xls') || 
                   item.filename.endsWith('.json') || 
                   item.filename.endsWith('.xml') ||
-                  item.filename.endsWith('.txt')
+                  item.filename.endsWith('.txt') ||
+                  item.filename.endsWith('.zip') ||
+                  item.filename.endsWith('.ZIP')
                 )
               );
               

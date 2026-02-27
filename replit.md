@@ -23,7 +23,7 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL 16 (Neon serverless).
 - **Key Features**:
     - **Supplier Management**: Onboarding, data source configuration, and status tracking.
-    - **Data Ingestion Engine**: Handles various formats (CSV, Excel, JSON, XML, EDI) via SFTP, FTP, API, direct DB.
+    - **Data Ingestion Engine**: Handles various formats (CSV, Excel, JSON, XML, EDI, ZIP) via SFTP, FTP, API, direct DB. ZIP files are automatically downloaded and extracted to find data files inside (uses adm-zip).
     - **Product Catalog Management**: Comprehensive product schema, hierarchical categories, inventory tracking.
     - **Amazon Marketplace Integration**: ASIN discovery via SP-API, pricing intelligence, market opportunity analysis, UPC to ASIN mapping, including bulk processing with dynamic rate limiting and automated scheduling for sync jobs. Features credential management and rate-limited market data fetching (buy box, fees, restrictions) with retry logic.
     - **Walmart Marketplace Integration**: UPC-based product matching, taxonomy mapping, and Pricing Insights API integration. Features Buy Box pricing, competitor prices, price competitiveness scores (0-100), demand indicators, traffic levels, and GMV (30-day) data. Supports cursor-based pagination for full catalog sync with rate limiting.

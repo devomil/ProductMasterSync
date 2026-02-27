@@ -871,6 +871,128 @@ const pullSampleDataFromSFTP = async (
           try {
             console.log(`Processing file: ${filePath}, type: ${fileType}`);
             
+            // For ZIP files, download entire file, extract, and process first data file inside
+            if (fileType === 'zip') {
+              console.log(`Downloading ZIP file: ${filePath}`);
+              const chunks: Buffer[] = [];
+              const stream = sftp.createReadStream(filePath);
+              
+              stream.on('data', (chunk: Buffer) => {
+                chunks.push(chunk);
+              });
+              
+              stream.on('end', async () => {
+                try {
+                  const zipBuffer = Buffer.concat(chunks);
+                  console.log(`ZIP downloaded: ${zipBuffer.length} bytes`);
+                  
+                  const AdmZip = (await import('adm-zip')).default;
+                  const zip = new AdmZip(zipBuffer);
+                  const zipEntries = zip.getEntries();
+                  
+                  const dataEntry = zipEntries.find(e => {
+                    if (e.isDirectory) return false;
+                    const name = e.entryName.toLowerCase();
+                    return name.endsWith('.csv') || name.endsWith('.tsv') || 
+                           name.endsWith('.xlsx') || name.endsWith('.xls') || 
+                           name.endsWith('.json') || name.endsWith('.txt');
+                  });
+                  
+                  if (!dataEntry) {
+                    client.end();
+                    resolve({
+                      success: false,
+                      message: `ZIP file "${filename}" contains no supported data files (csv, tsv, xlsx, xls, json, txt). Found: ${zipEntries.map(e => e.entryName).join(', ')}`,
+                      filename,
+                      remote_path: filePath
+                    });
+                    return;
+                  }
+                  
+                  const content = dataEntry.getData().toString('utf8');
+                  const entryName = dataEntry.entryName;
+                  const entryExt = entryName.split('.').pop()?.toLowerCase() || '';
+                  console.log(`Extracting ${entryName} from ZIP (${content.length} chars)`);
+                  
+                  if (entryExt === 'json') {
+                    const jsonData = JSON.parse(content);
+                    const parsedData = Array.isArray(jsonData) ? jsonData.slice(0, limit) : [jsonData];
+                    const total = Array.isArray(jsonData) ? jsonData.length : 1;
+                    client.end();
+                    resolve({
+                      success: true,
+                      message: `Successfully pulled sample data from ${entryName} (inside ${filename})`,
+                      data: parsedData,
+                      filename: entryName,
+                      fileType: 'json',
+                      remote_path: filePath,
+                      total_records: total,
+                      zip_source: filename
+                    });
+                    return;
+                  }
+                  
+                  const lines = content.split(/\r?\n/).filter(l => l.trim());
+                  if (lines.length === 0) {
+                    client.end();
+                    resolve({ success: false, message: `File ${entryName} inside ZIP is empty`, filename: entryName, remote_path: filePath });
+                    return;
+                  }
+                  
+                  const headerLine = lines[0];
+                  const tabCount = (headerLine.match(/\t/g) || []).length;
+                  const commaCount = (headerLine.match(/,/g) || []).length;
+                  const pipeCount = (headerLine.match(/\|/g) || []).length;
+                  let detectedDelimiter = ',';
+                  if (tabCount > commaCount && tabCount > pipeCount) detectedDelimiter = '\t';
+                  else if (pipeCount > commaCount && pipeCount > tabCount) detectedDelimiter = '|';
+                  
+                  const headers = headerLine.split(detectedDelimiter).map(h => h.trim().replace(/^["']|["']$/g, ''));
+                  const dataRows = lines.slice(1, limit + 1);
+                  
+                  const parsedData = dataRows.map(row => {
+                    const values = row.split(detectedDelimiter);
+                    const obj: any = {};
+                    headers.forEach((h, i) => {
+                      obj[h] = (values[i] || '').trim().replace(/^["']|["']$/g, '');
+                    });
+                    return obj;
+                  });
+                  
+                  client.end();
+                  resolve({
+                    success: true,
+                    message: `Successfully pulled sample data from ${entryName} (inside ${filename})`,
+                    data: parsedData,
+                    filename: entryName,
+                    fileType: 'csv',
+                    remote_path: filePath,
+                    total_records: lines.length - 1,
+                    zip_source: filename
+                  });
+                } catch (parseError: any) {
+                  client.end();
+                  resolve({
+                    success: false,
+                    message: `Error processing ZIP contents: ${parseError.message}`,
+                    filename,
+                    remote_path: filePath
+                  });
+                }
+              });
+              
+              stream.on('error', (streamErr) => {
+                client.end();
+                resolve({
+                  success: false,
+                  message: `Error downloading ZIP file: ${streamErr.message}`,
+                  filename,
+                  remote_path: filePath
+                });
+              });
+              return;
+            }
+            
             // For CSV/TSV files, use a streaming approach with limits
             if (fileType === 'csv') {
               // Auto-detect delimiter based on file extension
@@ -1129,9 +1251,9 @@ const pullSampleDataFromSFTP = async (
               const filename = currentPath.split('/').pop() || '';
               const fileExt = filename.split('.').pop()?.toLowerCase() || '';
               
-              // Check if it's a supported file type (including TSV)
-              if (['csv', 'tsv', 'xlsx', 'xls', 'json'].includes(fileExt)) {
-                const fileType = (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
+              if (['csv', 'tsv', 'xlsx', 'xls', 'json', 'zip'].includes(fileExt)) {
+                const fileType = fileExt === 'zip' ? 'zip' :
+                              (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
                               fileExt === 'json' ? 'json' : 'excel';
                               
                 processFile(currentPath, fileType, filename);
@@ -1154,14 +1276,14 @@ const pullSampleDataFromSFTP = async (
                 return;
               }
               
-              // Filter for CSV, TSV, Excel or JSON files
               const files = list.filter(item => {
                 const filename = item.filename.toLowerCase();
                 return filename.endsWith('.csv') || 
                        filename.endsWith('.tsv') ||
                        filename.endsWith('.xlsx') || 
                        filename.endsWith('.xls') || 
-                       filename.endsWith('.json');
+                       filename.endsWith('.json') ||
+                       filename.endsWith('.zip');
               });
               
               // We're looking at a directory listing now
@@ -1185,7 +1307,8 @@ const pullSampleDataFromSFTP = async (
                   console.log(`Found specific file ${targetFile.filename} in directory ${dirPath}`);
                   const fullPath = `${dirPath === '/' ? '' : dirPath}/${targetFile.filename}`;
                   const fileExt = targetFile.filename.split('.').pop()?.toLowerCase() || '';
-                  const fileType = (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
+                  const fileType = fileExt === 'zip' ? 'zip' :
+                                (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
                                 fileExt === 'json' ? 'json' : 'excel';
                                 
                   processFile(fullPath, fileType, targetFile.filename);
@@ -1210,10 +1333,10 @@ const pullSampleDataFromSFTP = async (
               // Get remote file path
               const remoteFilePath = `${dirPath === '/' ? '' : dirPath}/${targetFile.filename}`;
               const fileExt = targetFile.filename.split('.').pop()?.toLowerCase() || '';
-              const fileType = fileExt === 'csv' ? 'csv' : 
+              const fileType = fileExt === 'zip' ? 'zip' :
+                             (fileExt === 'csv' || fileExt === 'tsv') ? 'csv' : 
                              fileExt === 'json' ? 'json' : 'excel';
               
-              // Process the file
               processFile(remoteFilePath, fileType, targetFile.filename);
             });
           });
