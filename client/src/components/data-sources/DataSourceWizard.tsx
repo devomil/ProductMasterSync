@@ -76,6 +76,11 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
     url: "",
     apiKey: "",
     headers: "{}",
+    apiProvider: "",
+    clientId: "",
+    clientSecret: "",
+    customerNumber: "",
+    countryCode: "US",
     // File upload
     fileFormat: "csv",
     hasHeader: true,
@@ -155,11 +160,21 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
           is_sftp: true
         };
       } else if (formData.type === 'api') {
-        credentials = {
-          url: formData.url,
-          api_key: formData.apiKey,
-          headers: JSON.parse(formData.headers || '{}')
-        };
+        if (formData.apiProvider === 'ingram_micro') {
+          credentials = {
+            provider: 'ingram_micro',
+            clientId: formData.clientId,
+            clientSecret: formData.clientSecret,
+            customerNumber: formData.customerNumber,
+            countryCode: formData.countryCode || 'US'
+          };
+        } else {
+          credentials = {
+            url: formData.url,
+            api_key: formData.apiKey,
+            headers: JSON.parse(formData.headers || '{}')
+          };
+        }
       }
 
       const response = await fetch('/api/connections/test', {
@@ -216,11 +231,21 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
           is_sftp: true
         };
       } else if (formData.type === 'api') {
-        credentials = {
-          url: formData.url,
-          api_key: formData.apiKey,
-          headers: JSON.parse(formData.headers || '{}')
-        };
+        if (formData.apiProvider === 'ingram_micro') {
+          credentials = {
+            provider: 'ingram_micro',
+            clientId: formData.clientId,
+            clientSecret: formData.clientSecret,
+            customerNumber: formData.customerNumber,
+            countryCode: formData.countryCode || 'US'
+          };
+        } else {
+          credentials = {
+            url: formData.url,
+            api_key: formData.apiKey,
+            headers: JSON.parse(formData.headers || '{}')
+          };
+        }
       }
 
       const response = await fetch('/api/connections/sample-data', {
@@ -283,11 +308,21 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
           is_sftp: true
         };
       } else if (formData.type === 'api') {
-        config = {
-          url: formData.url,
-          api_key: formData.apiKey,
-          headers: JSON.parse(formData.headers || '{}')
-        };
+        if (formData.apiProvider === 'ingram_micro') {
+          config = {
+            provider: 'ingram_micro',
+            clientId: formData.clientId,
+            clientSecret: formData.clientSecret,
+            customerNumber: formData.customerNumber,
+            countryCode: formData.countryCode || 'US'
+          };
+        } else {
+          config = {
+            url: formData.url,
+            api_key: formData.apiKey,
+            headers: JSON.parse(formData.headers || '{}')
+          };
+        }
       } else if (formData.type === 'csv') {
         config = {
           file_format: formData.fileFormat,
@@ -336,7 +371,8 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
       case 0: return formData.type && formData.supplierId;
       case 1: return formData.name && (
         (formData.type === 'sftp' && formData.host && formData.username && formData.password) ||
-        (formData.type === 'api' && formData.url) ||
+        (formData.type === 'api' && formData.apiProvider === 'ingram_micro' && formData.clientId && formData.clientSecret && formData.customerNumber) ||
+        (formData.type === 'api' && formData.apiProvider === 'generic' && formData.url) ||
         (formData.type === 'csv')
       );
       case 2: return connectionStatus.tested && connectionStatus.success;
@@ -526,34 +562,101 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
             {formData.type === 'api' && (
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="url">API URL</Label>
-                  <Input
-                    id="url"
-                    value={formData.url}
-                    onChange={(e) => handleInputChange('url', e.target.value)}
-                    placeholder="https://api.supplier.com/products"
-                  />
+                  <Label htmlFor="apiProvider">API Provider</Label>
+                  <Select value={formData.apiProvider} onValueChange={(value) => handleInputChange('apiProvider', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select API provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ingram_micro">Ingram Micro</SelectItem>
+                      <SelectItem value="generic">Other / Custom API</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <Label htmlFor="apiKey">API Key</Label>
-                  <Input
-                    id="apiKey"
-                    type="password"
-                    value={formData.apiKey}
-                    onChange={(e) => handleInputChange('apiKey', e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="headers">Headers (JSON)</Label>
-                  <Textarea
-                    id="headers"
-                    value={formData.headers}
-                    onChange={(e) => handleInputChange('headers', e.target.value)}
-                    placeholder='{"Content-Type": "application/json"}'
-                    rows={3}
-                  />
-                </div>
+
+                {formData.apiProvider === 'ingram_micro' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="clientId">Client ID</Label>
+                        <Input
+                          id="clientId"
+                          value={formData.clientId}
+                          onChange={(e) => handleInputChange('clientId', e.target.value)}
+                          placeholder="Your Ingram Micro Client ID"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="clientSecret">Client Secret</Label>
+                        <Input
+                          id="clientSecret"
+                          type="password"
+                          value={formData.clientSecret}
+                          onChange={(e) => handleInputChange('clientSecret', e.target.value)}
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="customerNumber">Customer Number</Label>
+                        <Input
+                          id="customerNumber"
+                          value={formData.customerNumber}
+                          onChange={(e) => handleInputChange('customerNumber', e.target.value)}
+                          placeholder="e.g. 20-222222"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="countryCode">Country Code</Label>
+                        <Input
+                          id="countryCode"
+                          value={formData.countryCode}
+                          onChange={(e) => handleInputChange('countryCode', e.target.value)}
+                          placeholder="US"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Uses Ingram Micro's Resellers API v6 for catalog, pricing, and availability data.
+                      Credentials can also be configured via environment variables (INGRAM_MICRO_CLIENT_ID, etc.).
+                    </p>
+                  </>
+                )}
+
+                {formData.apiProvider === 'generic' && (
+                  <>
+                    <div>
+                      <Label htmlFor="url">API URL</Label>
+                      <Input
+                        id="url"
+                        value={formData.url}
+                        onChange={(e) => handleInputChange('url', e.target.value)}
+                        placeholder="https://api.supplier.com/products"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="apiKey">API Key</Label>
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        value={formData.apiKey}
+                        onChange={(e) => handleInputChange('apiKey', e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="headers">Headers (JSON)</Label>
+                      <Textarea
+                        id="headers"
+                        value={formData.headers}
+                        onChange={(e) => handleInputChange('headers', e.target.value)}
+                        placeholder='{"Content-Type": "application/json"}'
+                        rows={3}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
