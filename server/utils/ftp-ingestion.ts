@@ -164,10 +164,7 @@ export const pullSampleFromSFTP = async (
         credentials.host?.includes('ingrammicro.com')) {
       password = process.env.INGRAM_SFTP_PASSWORD;
     }
-    // CWR Distribution credentials
-    if (process.env.SFTP_PASSWORD && 
-        credentials.host === 'edi.cwrdistribution.com' && 
-        credentials.username === 'eco8') {
+    if (process.env.SFTP_PASSWORD && !password) {
       password = process.env.SFTP_PASSWORD;
     }
     

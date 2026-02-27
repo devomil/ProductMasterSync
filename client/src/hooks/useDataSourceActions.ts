@@ -195,8 +195,8 @@ export function useDataSourceActions() {
         else if (credentials.remote_paths && credentials.remote_paths.length > 0) {
           requestBody = {
             ...requestBody,
-            remote_path: credentials.remote_paths[0].path || '/eco8/out/catalog.csv',
-            specific_path: credentials.remote_paths[0].path || '/eco8/out/catalog.csv'
+            remote_path: credentials.remote_paths[0].path || '',
+            specific_path: credentials.remote_paths[0].path || ''
           };
           
           // Create a RemotePathItem from the first path
@@ -209,14 +209,14 @@ export function useDataSourceActions() {
           // Otherwise use a default path
           requestBody = {
             ...requestBody,
-            remote_path: '/eco8/out/catalog.csv',
-            specific_path: '/eco8/out/catalog.csv'
+            remote_path: '',
+            specific_path: ''
           };
           
           setSelectedFilePath({
             id: 'default-path',
             label: 'Default Path',
-            path: '/eco8/out/catalog.csv'
+            path: ''
           });
         }
       }

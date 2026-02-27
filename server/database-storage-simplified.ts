@@ -1081,12 +1081,12 @@ export class DatabaseStorage implements IStorage {
         dataSourceId: 10,
         isActive: true,
         catalogEnabled: true,
-        catalogFilePath: "/eco8/out/catalog.csv",
+        catalogFilePath: "/data/catalog.csv",
         catalogFrequency: "daily",
         catalogTimesPerDay: 2,
         catalogScheduleTimes: ["02:00", "14:00"],
         inventoryEnabled: true,
-        inventoryFilePath: "/eco8/out/inventory.csv",
+        inventoryFilePath: "/data/inventory.csv",
         inventoryFrequency: "hourly",
         inventoryTimesPerDay: 12,
         inventoryStartTime: "06:00",
@@ -1120,8 +1120,8 @@ export class DatabaseStorage implements IStorage {
       name: "CWR Distribution Automation",
       supplierId: 2,
       dataSourceId: 10,
-      catalogFilePath: "/eco8/out/catalog.csv",
-      inventoryFilePath: "/eco8/out/inventory.csv"
+      catalogFilePath: "/data/catalog.csv",
+      inventoryFilePath: "/data/inventory.csv"
     };
   }
 
@@ -1163,9 +1163,9 @@ export class DatabaseStorage implements IStorage {
         supplierId: 2,
         dataSourceId: 10,
         jobType: "catalog",
-        filePath: "/eco8/out/catalog.csv",
+        filePath: "/data/catalog.csv",
         status: "completed",
-        scheduledAt: new Date(Date.now() - 86400000), // Yesterday
+        scheduledAt: new Date(Date.now() - 86400000),
         recordsProcessed: 28453,
         recordsInserted: 156,
         recordsUpdated: 28297
@@ -1175,9 +1175,9 @@ export class DatabaseStorage implements IStorage {
         supplierId: 2,
         dataSourceId: 10,
         jobType: "inventory",
-        filePath: "/eco8/out/inventory.csv",
+        filePath: "/data/inventory.csv",
         status: "completed",
-        scheduledAt: new Date(Date.now() - 7200000), // 2 hours ago
+        scheduledAt: new Date(Date.now() - 7200000),
         recordsProcessed: 28453,
         recordsUpdated: 28453
       },
@@ -1186,7 +1186,7 @@ export class DatabaseStorage implements IStorage {
         supplierId: 2,
         dataSourceId: 10,
         jobType: "inventory",
-        filePath: "/eco8/out/inventory.csv",
+        filePath: "/data/inventory.csv",
         status: "running",
         scheduledAt: new Date(),
         recordsProcessed: 12000

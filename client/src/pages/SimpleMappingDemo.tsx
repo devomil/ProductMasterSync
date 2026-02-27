@@ -223,8 +223,8 @@ export default function SimpleMappingDemo() {
     } catch (error) {
       console.error("Failed to load files:", error);
       // Set actual available file paths if API fails
-      setAvailableFiles(["/eco8/out/catalog.csv", "/eco8/out/inventory.csv"]);
-      setSelectedFile("/eco8/out/catalog.csv");
+      setAvailableFiles(["/data/catalog.csv", "/data/inventory.csv"]);
+      setSelectedFile("/data/catalog.csv");
     }
   };
 
@@ -483,7 +483,7 @@ export default function SimpleMappingDemo() {
                       <Input
                         value={selectedFile}
                         onChange={(e) => setSelectedFile(e.target.value)}
-                        placeholder="Enter full path (e.g., /eco8/out/catalog.csv)"
+                        placeholder="Enter full path (e.g., /data/catalog.csv)"
                         className="w-full"
                       />
                       <div className="flex gap-2 flex-wrap">

@@ -2179,17 +2179,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Use environment variable for password if available (production environment)
           // This matches the logic used by the automation scheduler
           let password = config.password;
-          if (process.env.SFTP_PASSWORD && 
-              config.host === 'edi.cwrdistribution.com' && 
-              config.username === 'eco8') {
-            console.log('Using SFTP_PASSWORD from environment variables for test connection');
-            password = process.env.SFTP_PASSWORD;
-          }
-          // Ingram Micro SFTP credentials
-          if (process.env.INGRAM_SFTP_PASSWORD && 
-              config.host?.includes('ingrammicro.com')) {
-            console.log('Using INGRAM_SFTP_PASSWORD from environment variables for test connection');
+          if (process.env.INGRAM_SFTP_PASSWORD && config.host?.includes('ingrammicro.com')) {
             password = process.env.INGRAM_SFTP_PASSWORD;
+          } else if (process.env.SFTP_PASSWORD && !password) {
+            password = process.env.SFTP_PASSWORD;
           }
           
           // Strip protocol prefix if present
@@ -2280,14 +2273,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sftp = new SftpClient();
       
       let password = config.password;
-      if (process.env.SFTP_PASSWORD && 
-          config.host === 'edi.cwrdistribution.com' && 
-          config.username === 'eco8') {
-        password = process.env.SFTP_PASSWORD;
-      }
-      if (process.env.INGRAM_SFTP_PASSWORD && 
-          config.host?.includes('ingrammicro.com')) {
+      if (process.env.INGRAM_SFTP_PASSWORD && config.host?.includes('ingrammicro.com')) {
         password = process.env.INGRAM_SFTP_PASSWORD;
+      } else if (process.env.SFTP_PASSWORD && !password) {
+        password = process.env.SFTP_PASSWORD;
       }
       
       const cleanHost = config.host?.replace(/^(sftp|ftp|ftps):\/\//i, '') || config.host;
@@ -2360,14 +2349,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sftp = new SftpClient();
       
       let password = config.password;
-      if (process.env.SFTP_PASSWORD && 
-          config.host === 'edi.cwrdistribution.com' && 
-          config.username === 'eco8') {
-        password = process.env.SFTP_PASSWORD;
-      }
-      if (process.env.INGRAM_SFTP_PASSWORD && 
-          config.host?.includes('ingrammicro.com')) {
+      if (process.env.INGRAM_SFTP_PASSWORD && config.host?.includes('ingrammicro.com')) {
         password = process.env.INGRAM_SFTP_PASSWORD;
+      } else if (process.env.SFTP_PASSWORD && !password) {
+        password = process.env.SFTP_PASSWORD;
       }
       
       const cleanHost = config.host?.replace(/^(sftp|ftp|ftps):\/\//i, '') || config.host;
@@ -2647,10 +2632,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Use environment variable for password if available (production environment)
           let password = config.password;
-          if (process.env.SFTP_PASSWORD && 
-              config.host === 'edi.cwrdistribution.com' && 
-              config.username === 'eco8') {
-            console.log('Using SFTP_PASSWORD from environment variables');
+          if (process.env.INGRAM_SFTP_PASSWORD && config.host?.includes('ingrammicro.com')) {
+            password = process.env.INGRAM_SFTP_PASSWORD;
+          } else if (process.env.SFTP_PASSWORD && !password) {
             password = process.env.SFTP_PASSWORD;
           }
           
@@ -3396,10 +3380,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Use environment variable for password if available (production environment)
           let password = sftpConfig.password;
-          if (process.env.SFTP_PASSWORD && 
-              sftpConfig.host === 'edi.cwrdistribution.com' && 
-              sftpConfig.username === 'eco8') {
-            console.log('Using SFTP_PASSWORD from environment variables for sample pull');
+          if (process.env.INGRAM_SFTP_PASSWORD && sftpConfig.host?.includes('ingrammicro.com')) {
+            password = process.env.INGRAM_SFTP_PASSWORD;
+          } else if (process.env.SFTP_PASSWORD && !password) {
             password = process.env.SFTP_PASSWORD;
           }
           

@@ -92,7 +92,7 @@ export default function InventoryScheduleModal({
                 </Badge>
               </div>
               <p className="text-sm text-gray-600 mt-1">
-                SFTP: datafeed.cwrmarine.com/eco8/out/inventory.csv
+                SFTP: Connected to supplier data feed
               </p>
             </CardContent>
           </Card>

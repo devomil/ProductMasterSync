@@ -38,7 +38,7 @@ export function NewAutomationDialog({ open, onClose, suppliers, onSubmit }: NewA
     {
       id: '1',
       label: 'Main Catalog',
-      filePath: '/eco8/out/catalog.csv',
+      filePath: '',
       fileType: 'catalog',
       isEnabled: true,
       frequency: 'daily',
@@ -50,7 +50,7 @@ export function NewAutomationDialog({ open, onClose, suppliers, onSubmit }: NewA
     {
       id: '2',
       label: 'Inventory Updates',
-      filePath: '/eco8/out/inventory.csv',
+      filePath: '',
       fileType: 'inventory',
       isEnabled: true,
       frequency: 'hourly',
@@ -211,7 +211,7 @@ export function NewAutomationDialog({ open, onClose, suppliers, onSubmit }: NewA
                         <Input
                           value={filePath.filePath}
                           onChange={(e) => updateFilePath(filePath.id, { filePath: e.target.value })}
-                          placeholder="e.g., /eco8/out/catalog.csv"
+                          placeholder="e.g., /data/catalog.csv"
                         />
                       </div>
                     </div>

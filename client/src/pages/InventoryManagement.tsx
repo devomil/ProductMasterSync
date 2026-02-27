@@ -864,7 +864,7 @@ function CreateAutomationDialog({ suppliers, dataSources }: { suppliers: any[], 
                     <FormItem>
                       <FormLabel>Catalog File Path</FormLabel>
                       <FormControl>
-                        <Input placeholder="/eco8/out/catalog.csv" {...field} />
+                        <Input placeholder="/data/catalog.csv" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -908,7 +908,7 @@ function CreateAutomationDialog({ suppliers, dataSources }: { suppliers: any[], 
                     <FormItem>
                       <FormLabel>Inventory File Path</FormLabel>
                       <FormControl>
-                        <Input placeholder="/eco8/out/inventory.csv" {...field} />
+                        <Input placeholder="/data/inventory.csv" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1261,7 +1261,7 @@ function EditAutomationDialog({ schedule, suppliers, dataSources }: { schedule: 
                         <Input
                           value={filePath.filePath}
                           onChange={(e) => updateFilePath(filePath.id, { filePath: e.target.value })}
-                          placeholder="e.g., /eco8/out/catalog.csv"
+                          placeholder="e.g., /data/catalog.csv"
                         />
                       </div>
                     </div>

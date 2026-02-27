@@ -19,9 +19,6 @@ interface InventorySyncResult {
 
 export class InventorySync {
   
-  /**
-   * Sync all inventory from CWR SFTP /eco8/out/inventory.csv
-   */
   async syncFromCWR(): Promise<InventorySyncResult> {
     const result: InventorySyncResult = {
       success: false,
@@ -39,15 +36,19 @@ export class InventorySync {
       const { default: Client } = await import('ssh2-sftp-client');
       const sftp = new Client();
       
+      const sftpHost = process.env.SFTP_HOST || '';
+      const sftpUser = process.env.SFTP_USERNAME || '';
+      const sftpPass = process.env.SFTP_PASSWORD || '';
+      const inventoryPath = process.env.SFTP_INVENTORY_PATH || '/inventory.csv';
+      
       await sftp.connect({
-        host: 'edi.cwrdistribution.com',
+        host: sftpHost,
         port: 22,
-        username: 'eco8',
-        password: 'jwS3~eIy'
+        username: sftpUser,
+        password: sftpPass
       });
       
-      // Download complete inventory file
-      const csvContent = await sftp.get('/eco8/out/inventory.csv');
+      const csvContent = await sftp.get(inventoryPath);
       await sftp.end();
       
       // Parse all inventory records
@@ -161,13 +162,14 @@ export class InventorySync {
       const sftp = new Client();
       
       await sftp.connect({
-        host: 'edi.cwrdistribution.com',
+        host: process.env.SFTP_HOST || '',
         port: 22,
-        username: 'eco8',
-        password: 'jwS3~eIy'
+        username: process.env.SFTP_USERNAME || '',
+        password: process.env.SFTP_PASSWORD || ''
       });
       
-      const csvContent = await sftp.get('/eco8/out/inventory.csv');
+      const inventoryPath = process.env.SFTP_INVENTORY_PATH || '/inventory.csv';
+      const csvContent = await sftp.get(inventoryPath);
       await sftp.end();
       
       const records = parseCsv(csvContent.toString(), {

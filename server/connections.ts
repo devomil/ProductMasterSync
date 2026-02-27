@@ -72,10 +72,7 @@ const applySFTPCredentials = (credentials: any, connectConfig: any) => {
     console.log('Using INGRAM_SFTP_PASSWORD from environment variables');
     password = process.env.INGRAM_SFTP_PASSWORD;
   }
-  // CWR Distribution credentials
-  if (process.env.SFTP_PASSWORD && 
-      connectConfig.host === 'edi.cwrdistribution.com' && 
-      connectConfig.username === 'eco8') {
+  if (process.env.SFTP_PASSWORD && !password) {
     console.log('Using SFTP_PASSWORD from environment variables');
     password = process.env.SFTP_PASSWORD;
   }
@@ -192,10 +189,7 @@ const testSFTPConnection = async (credentials: any) => {
         credentials.host?.includes('ingrammicro.com')) {
       password = process.env.INGRAM_SFTP_PASSWORD;
     }
-    // CWR Distribution credentials
-    if (process.env.SFTP_PASSWORD && 
-        credentials.host === 'edi.cwrdistribution.com' && 
-        credentials.username === 'eco8') {
+    if (process.env.SFTP_PASSWORD && !password) {
       password = process.env.SFTP_PASSWORD;
     }
     
@@ -615,10 +609,8 @@ export const testConnection = async (req: Request, res: Response) => {
       });
     }
     
-    // Apply environment variables for standard SFTP server
-    if (type === 'sftp' && credentials.host === 'edi.cwrdistribution.com' && credentials.username === 'eco8') {
-      console.log('SFTP credentials detected for standard server, using environment variable password for test');
-      credentials.password = process.env.SFTP_PASSWORD || credentials.password;
+    if (type === 'sftp' && process.env.SFTP_PASSWORD && !credentials.password) {
+      credentials.password = process.env.SFTP_PASSWORD;
     }
     
     let testResult: any;
@@ -691,10 +683,8 @@ export const pullSampleData = async (req: Request, res: Response) => {
     
     console.log('Pull sample data request:', { type, supplier_id, limit, remote_path, specific_path });
     
-    // If this is SFTP, check if we have credentials for the standard server
-    if (type === 'sftp' && credentials && credentials.host === 'edi.cwrdistribution.com' && credentials.username === 'eco8') {
-      console.log('SFTP credentials detected for standard server, using environment variable password');
-      credentials.password = process.env.SFTP_PASSWORD || credentials.password;
+    if (type === 'sftp' && credentials && process.env.SFTP_PASSWORD && !credentials.password) {
+      credentials.password = process.env.SFTP_PASSWORD;
     }
     
     // Validate credentials
@@ -847,10 +837,7 @@ const pullSampleDataFromSFTP = async (
         credentials.host?.includes('ingrammicro.com')) {
       password = process.env.INGRAM_SFTP_PASSWORD;
     }
-    // CWR Distribution credentials
-    if (process.env.SFTP_PASSWORD && 
-        credentials.host === 'edi.cwrdistribution.com' && 
-        credentials.username === 'eco8') {
+    if (process.env.SFTP_PASSWORD && !password) {
       password = process.env.SFTP_PASSWORD;
     }
     
@@ -1821,7 +1808,6 @@ export const syncInventoryForDataSource = async (req: Request, res: Response) =>
           
           // Look for inventory file (try common paths)
           const inventoryPaths = [
-            '/eco8/out/inventory.csv',
             '/inventory.csv',
             '/out/inventory.csv',
             '/data/inventory.csv'

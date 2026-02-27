@@ -49,8 +49,7 @@ export class InventoryService {
         password: config.password
       });
       
-      // Download and parse inventory file
-      const inventoryPath = '/eco8/out/inventory.csv';
+      const inventoryPath = process.env.SFTP_INVENTORY_PATH || '/inventory.csv';
       const csvContent = await sftp.get(inventoryPath);
       await sftp.end();
       
@@ -110,7 +109,7 @@ export class InventoryService {
   
   async getAllInventoryUpdates(): Promise<InventoryRecord[]> {
     try {
-      console.log('Starting bulk inventory update from CWR /eco8/out/inventory.csv');
+      console.log('Starting bulk inventory update from supplier SFTP');
       
       // Ready for real CWR SFTP inventory data connection
       const records: InventoryRecord[] = [];

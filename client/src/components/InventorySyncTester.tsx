@@ -60,7 +60,7 @@ export function InventorySyncTester() {
           <div>
             <h4 className="font-medium">Sync from Supplier SFTP</h4>
             <p className="text-sm text-muted-foreground">
-              Connect to edi.cwrdistribution.com and update all product inventory
+              Connect to supplier SFTP and update all product inventory
             </p>
           </div>
           

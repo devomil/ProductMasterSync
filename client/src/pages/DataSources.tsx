@@ -359,7 +359,7 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
                       <div className="flex-1">
                         <FormLabel className="text-sm font-medium text-gray-700 mb-1 block">File Path</FormLabel>
                         <Input
-                          placeholder="/ecodata/out/catalog.csv"
+                          placeholder="/data/catalog.csv"
                           value={filePath.path}
                           onChange={(e) => updateFilePath(filePath.id, 'path', e.target.value)}
                           className="bg-white"
@@ -1365,8 +1365,8 @@ export default function DataSources() {
                 You'll configure automation in the Inventory Management page where you can:
               </p>
               <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                <li>Set catalog file path (e.g., /eco8/out/catalog.csv)</li>
-                <li>Set inventory file path (e.g., /eco8/out/inventory.csv)</li>
+                <li>Set catalog file path (e.g., /data/catalog.csv)</li>
+                <li>Set inventory file path (e.g., /data/inventory.csv)</li>
                 <li>Configure sync schedules (e.g., every 2 hours for inventory)</li>
                 <li>Set up error notifications</li>
               </ul>

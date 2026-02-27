@@ -470,7 +470,7 @@ export const automationFilePaths = pgTable("automation_file_paths", {
   
   // File identification
   label: text("label").notNull(), // "Main Catalog", "Inventory Updates", "Pricing Feed"
-  filePath: text("file_path").notNull(), // "/eco8/out/catalog.csv"
+  filePath: text("file_path").notNull(), // e.g. "/data/catalog.csv"
   fileType: fileTypeEnum("file_type").notNull(), // catalog, inventory, pricing
   isEnabled: boolean("is_enabled").default(true),
   

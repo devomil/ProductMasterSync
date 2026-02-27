@@ -25,17 +25,21 @@ export class InventoryService {
       
       const sftp = new Client();
       
+      const sftpHost = process.env.SFTP_HOST || '';
+      const sftpUser = process.env.SFTP_USERNAME || '';
+      const sftpPass = process.env.SFTP_PASSWORD || '';
+      const inventoryPath = process.env.SFTP_INVENTORY_PATH || '/inventory.csv';
+      
       await sftp.connect({
-        host: 'edi.cwrdistribution.com',
+        host: sftpHost,
         port: 22,
-        username: 'eco8',
-        password: 'jwS3~eIy'
+        username: sftpUser,
+        password: sftpPass
       });
       
-      console.log(`Fetching live inventory from CWR SFTP for SKU: ${sku}`);
+      console.log(`Fetching live inventory from SFTP for SKU: ${sku}`);
       
-      // Download and parse inventory file
-      const csvContent = await sftp.get('/eco8/out/inventory.csv');
+      const csvContent = await sftp.get(inventoryPath);
       await sftp.end();
       
       // Parse CSV content to find this specific SKU
@@ -92,7 +96,7 @@ export class InventoryService {
   
   async getAllInventoryUpdates(): Promise<InventoryRecord[]> {
     try {
-      console.log('Starting bulk inventory update from CWR /eco8/out/inventory.csv');
+      console.log('Starting bulk inventory update from supplier SFTP');
       
       const records: InventoryRecord[] = [];
       

@@ -34,17 +34,12 @@ async function downloadSFTPFile(
     
     // Use environment variable for password if available (production environment)
     let password = config.password;
-    if (process.env.SFTP_PASSWORD && 
-        config.host === 'edi.cwrdistribution.com' && 
-        config.username === 'eco8') {
-      log('Using SFTP_PASSWORD from environment variables');
-      password = process.env.SFTP_PASSWORD;
-    }
-    // Ingram Micro SFTP credentials
-    if (process.env.INGRAM_SFTP_PASSWORD && 
-        config.host?.includes('ingrammicro.com')) {
+    if (process.env.INGRAM_SFTP_PASSWORD && config.host?.includes('ingrammicro.com')) {
       log('Using INGRAM_SFTP_PASSWORD from environment variables');
       password = process.env.INGRAM_SFTP_PASSWORD;
+    } else if (process.env.SFTP_PASSWORD && !password) {
+      log('Using SFTP_PASSWORD from environment variables');
+      password = process.env.SFTP_PASSWORD;
     }
     
     // Strip protocol prefix if present
