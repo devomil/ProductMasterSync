@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2 } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2, RefreshCw, Search, RotateCcw } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -851,6 +851,25 @@ export default function DataSources() {
     return <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" />Inactive</Badge>;
   };
 
+  const getPurposeBadge = (purpose: string | null | undefined) => {
+    const config: Record<string, { label: string; icon: any; className: string }> = {
+      catalog: { label: 'Catalog', icon: Database, className: 'bg-blue-100 text-blue-700 border-blue-200' },
+      inventory_pricing: { label: 'Inventory & Pricing', icon: RefreshCw, className: 'bg-green-100 text-green-700 border-green-200' },
+      order_fulfillment: { label: 'Order Fulfillment', icon: Package, className: 'bg-purple-100 text-purple-700 border-purple-200' },
+      catalog_search: { label: 'Catalog Search', icon: Search, className: 'bg-amber-100 text-amber-700 border-amber-200' },
+      returns: { label: 'Returns', icon: RotateCcw, className: 'bg-red-100 text-red-700 border-red-200' },
+      general: { label: 'General', icon: Settings, className: 'bg-gray-100 text-gray-700 border-gray-200' },
+    };
+    const p = config[purpose || 'general'] || config.general;
+    const Icon = p.icon;
+    return (
+      <Badge variant="outline" className={`gap-1 text-[10px] px-1.5 py-0 ${p.className}`}>
+        <Icon className="w-2.5 h-2.5" />
+        {p.label}
+      </Badge>
+    );
+  };
+
   if (showMappingWalkthrough) {
     return (
       <main className="container mx-auto py-6 px-4 md:px-6">
@@ -1042,6 +1061,10 @@ export default function DataSources() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {getPurposeBadge(dataSource.purpose)}
                   </div>
                   <CardDescription>
                     {`${dataSource.type.toUpperCase()} data source for ${supplier?.name || 'supplier'}`}

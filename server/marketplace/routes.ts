@@ -4413,7 +4413,7 @@ router.get('/orders/:orderId/financials', async (req, res) => {
 router.post('/orders/:orderId/fulfill', async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { items, fulfillmentMethod, sellerNotes } = req.body;
+    const { items, fulfillmentMethod, sellerNotes, submitToIngram } = req.body;
     const { db } = await import('../db');
     const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
     const { eq } = await import('drizzle-orm');
@@ -4428,6 +4428,7 @@ router.post('/orders/:orderId/fulfill', async (req, res) => {
           vendorShippingCostInCents: itemData.vendorShippingCostInCents,
           vendorName: itemData.vendorName,
           vendorSku: itemData.vendorSku,
+          ingramPartNumber: itemData.ingramPartNumber || null,
           fulfilledAt: new Date(),
           fulfillmentMethod: fulfillmentMethod || 'dropship',
           updatedAt: new Date(),
@@ -4439,9 +4440,262 @@ router.post('/orders/:orderId/fulfill', async (req, res) => {
       .set({ status: 'shipped', updatedAt: new Date() })
       .where(eq(marketplaceOrders.id, parseInt(orderId)));
 
-    return res.json({ success: true, message: 'Order fulfilled successfully' });
+    let ingramOrderResult: any = null;
+    let ingramWarning: string | null = null;
+
+    const isIngramDropship = submitToIngram && fulfillmentMethod === 'dropship' &&
+      items.some((i: any) => i.vendorName?.toLowerCase().includes('ingram'));
+
+    if (isIngramDropship) {
+      try {
+        const { ingramMicroAPI } = await import('../services/ingram-micro-api');
+        if (!ingramMicroAPI.isConfigured()) {
+          ingramWarning = 'Ingram Micro API is not configured. PO was not submitted.';
+        } else {
+          const rawData = order[0].rawData as any;
+          let shippingAddress: any = null;
+
+          if (order[0].marketplace === 'amazon') {
+            shippingAddress = rawData?.ShippingAddress || rawData?.shippingAddress || null;
+          } else if (order[0].marketplace === 'walmart') {
+            const postalAddr = rawData?.shippingInfo?.postalAddress;
+            if (postalAddr) {
+              shippingAddress = {
+                name: postalAddr.name,
+                addressLine1: postalAddr.address1,
+                addressLine2: postalAddr.address2,
+                city: postalAddr.city,
+                stateOrRegion: postalAddr.state,
+                postalCode: postalAddr.postalCode,
+                countryCode: postalAddr.country || 'US',
+                phone: rawData?.shippingInfo?.phone,
+              };
+            }
+          }
+
+          if (!shippingAddress || !shippingAddress.addressLine1) {
+            ingramWarning = 'Shipping address not available in order data. PO was not submitted.';
+          } else {
+            const ingramItems = items.filter((i: any) =>
+              i.vendorName?.toLowerCase().includes('ingram') && i.ingramPartNumber
+            );
+
+            if (ingramItems.length === 0) {
+              ingramWarning = 'No items with valid Ingram part numbers found. PO was not submitted.';
+            } else {
+              const nameParts = (shippingAddress.name || order[0].customerName || 'Customer').split(' ');
+              const shipToInfo = {
+                contact: shippingAddress.name || order[0].customerName || 'Customer',
+                companyName: shippingAddress.name || order[0].customerName || 'Customer',
+                name1: nameParts[0] || 'Customer',
+                name2: nameParts.slice(1).join(' ') || '',
+                addressLine1: shippingAddress.addressLine1 || shippingAddress.AddressLine1 || '',
+                addressLine2: shippingAddress.addressLine2 || shippingAddress.AddressLine2 || '',
+                city: shippingAddress.city || shippingAddress.City || '',
+                state: shippingAddress.stateOrRegion || shippingAddress.StateOrRegion || '',
+                postalCode: shippingAddress.postalCode || shippingAddress.PostalCode || '',
+                countryCode: shippingAddress.countryCode || shippingAddress.CountryCode || 'US',
+                phoneNumber: shippingAddress.phone || shippingAddress.Phone || '',
+                email: '',
+              };
+
+              const orderRef = order[0].marketplaceOrderId || order[0].orderNumber || `ORD-${orderId}`;
+
+              const response = await ingramMicroAPI.createOrder({
+                customerOrderNumber: orderRef,
+                endCustomerOrderNumber: orderRef,
+                notes: sellerNotes || `Dropship for ${order[0].marketplace} order ${orderRef}`,
+                shipToInfo,
+                lines: ingramItems.map((item: any, idx: number) => ({
+                  customerLineNumber: String(idx + 1).padStart(3, '0'),
+                  ingramPartNumber: item.ingramPartNumber,
+                  quantity: item.quantity || 1,
+                })),
+              });
+
+              ingramOrderResult = {
+                ingramOrderNumber: response.ingramOrderNumber,
+                orderTotal: response.orderTotal,
+                orderStatus: response.orderStatus,
+                lines: response.lines,
+              };
+
+              await db.update(marketplaceOrders)
+                .set({
+                  purchaseOrderNumber: response.ingramOrderNumber,
+                  vendorOrderStatus: response.orderStatus || 'Processing',
+                  vendorOrderDate: new Date(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(marketplaceOrders.id, parseInt(orderId)));
+
+              console.log(`[Orders API] Ingram Micro PO ${response.ingramOrderNumber} created for order ${orderId}`);
+            }
+          }
+        }
+      } catch (ingramError: any) {
+        console.error('[Orders API] Ingram Micro order submission failed:', ingramError.message);
+        ingramWarning = `Ingram Micro PO submission failed: ${ingramError.message}. Fulfillment data was saved locally.`;
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: ingramOrderResult
+        ? `Order fulfilled and Ingram PO ${ingramOrderResult.ingramOrderNumber} submitted`
+        : 'Order fulfilled successfully',
+      ingramOrder: ingramOrderResult,
+      ingramWarning,
+    });
   } catch (error) {
     console.error('[Orders API] Fulfill error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/orders/:orderId/vendor-order-status
+ * Check live PO status from Ingram Micro
+ */
+router.get('/orders/:orderId/vendor-order-status', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { db } = await import('../db');
+    const { marketplaceOrders } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const order = await db.select().from(marketplaceOrders).where(eq(marketplaceOrders.id, parseInt(orderId))).limit(1);
+    if (!order.length) return res.status(404).json({ error: 'Order not found' });
+
+    const poNumber = order[0].purchaseOrderNumber;
+    if (!poNumber) {
+      return res.json({ status: 'no_po', message: 'No purchase order submitted for this order' });
+    }
+
+    const { ingramMicroAPI } = await import('../services/ingram-micro-api');
+    if (!ingramMicroAPI.isConfigured()) {
+      return res.json({
+        status: order[0].vendorOrderStatus || 'unknown',
+        purchaseOrderNumber: poNumber,
+        message: 'Ingram Micro API not configured — showing cached status',
+      });
+    }
+
+    try {
+      const details = await ingramMicroAPI.getOrderDetails(poNumber);
+      const liveStatus = details?.orderStatus || details?.orderStatusDescription || order[0].vendorOrderStatus || 'Processing';
+
+      await db.update(marketplaceOrders)
+        .set({ vendorOrderStatus: liveStatus, updatedAt: new Date() })
+        .where(eq(marketplaceOrders.id, parseInt(orderId)));
+
+      return res.json({
+        status: liveStatus,
+        purchaseOrderNumber: poNumber,
+        vendorOrderDate: order[0].vendorOrderDate,
+        details: {
+          orderTotal: details?.orderTotal,
+          subOrders: details?.subOrders || [],
+          lines: details?.lines || details?.orderLineItems || [],
+        },
+      });
+    } catch (apiError: any) {
+      return res.json({
+        status: order[0].vendorOrderStatus || 'unknown',
+        purchaseOrderNumber: poNumber,
+        vendorOrderDate: order[0].vendorOrderDate,
+        message: `Could not fetch live status: ${apiError.message}`,
+      });
+    }
+  } catch (error) {
+    console.error('[Orders API] Vendor order status error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * POST /marketplace/orders/:orderId/refresh-vendor-tracking
+ * Pull latest tracking info from Ingram order details
+ */
+router.post('/orders/:orderId/refresh-vendor-tracking', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { db } = await import('../db');
+    const { marketplaceOrders, marketplaceOrderItems } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const order = await db.select().from(marketplaceOrders).where(eq(marketplaceOrders.id, parseInt(orderId))).limit(1);
+    if (!order.length) return res.status(404).json({ error: 'Order not found' });
+
+    const poNumber = order[0].purchaseOrderNumber;
+    if (!poNumber) {
+      return res.status(400).json({ error: 'No purchase order number on this order' });
+    }
+
+    const { ingramMicroAPI } = await import('../services/ingram-micro-api');
+    if (!ingramMicroAPI.isConfigured()) {
+      return res.status(400).json({ error: 'Ingram Micro API not configured' });
+    }
+
+    const details = await ingramMicroAPI.getOrderDetails(poNumber);
+    const liveStatus = details?.orderStatus || details?.orderStatusDescription || 'Processing';
+
+    let trackingUpdates = 0;
+    const subOrders = details?.subOrders || [];
+    for (const subOrder of subOrders) {
+      const lineItems = subOrder?.lineItems || [];
+      for (const line of lineItems) {
+        const shipments = line?.shipmentDetails || [];
+        for (const shipment of shipments) {
+          if (shipment?.trackingNumber) {
+            const ingramPart = line?.ingramPartNumber;
+            if (ingramPart) {
+              const items = await db.select().from(marketplaceOrderItems)
+                .where(eq(marketplaceOrderItems.orderId, parseInt(orderId)));
+              for (const item of items) {
+                if (item.ingramPartNumber === ingramPart || item.vendorSku === ingramPart) {
+                  await db.update(marketplaceOrderItems)
+                    .set({
+                      vendorTrackingNumber: shipment.trackingNumber,
+                      vendorCarrier: shipment.carrierCode || shipment.carrierName || null,
+                      updatedAt: new Date(),
+                    })
+                    .where(eq(marketplaceOrderItems.id, item.id));
+                  trackingUpdates++;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const firstTracking = subOrders?.[0]?.lineItems?.[0]?.shipmentDetails?.[0]?.trackingNumber;
+    const firstCarrier = subOrders?.[0]?.lineItems?.[0]?.shipmentDetails?.[0]?.carrierCode;
+    if (firstTracking) {
+      await db.update(marketplaceOrders)
+        .set({
+          shippingTrackingNumber: order[0].shippingTrackingNumber || firstTracking,
+          shippingCarrier: order[0].shippingCarrier || firstCarrier || null,
+          vendorOrderStatus: liveStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(marketplaceOrders.id, parseInt(orderId)));
+    } else {
+      await db.update(marketplaceOrders)
+        .set({ vendorOrderStatus: liveStatus, updatedAt: new Date() })
+        .where(eq(marketplaceOrders.id, parseInt(orderId)));
+    }
+
+    return res.json({
+      success: true,
+      status: liveStatus,
+      trackingUpdates,
+      trackingNumber: firstTracking || null,
+      carrier: firstCarrier || null,
+    });
+  } catch (error) {
+    console.error('[Orders API] Refresh vendor tracking error:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

@@ -22,7 +22,12 @@ import {
   ArrowRight,
   ArrowLeft,
   Plus,
-  Trash2
+  Trash2,
+  RefreshCw,
+  Package,
+  Search,
+  RotateCcw,
+  Settings
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -65,14 +70,13 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
     name: "",
     description: "",
     type: "",
+    purpose: "" as string,
     supplierId: "",
-    // Connection details
     host: "",
     port: "22",
     username: "",
     password: "",
     filePaths: [{ id: Date.now().toString(), label: "Main Catalog", path: "" }],
-    // API details
     url: "",
     apiKey: "",
     headers: "{}",
@@ -81,11 +85,40 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
     clientSecret: "",
     customerNumber: "",
     countryCode: "US",
-    // File upload
     fileFormat: "csv",
     hasHeader: true,
     delimiter: ","
   });
+
+  const purposeOptions = [
+    { value: 'catalog', label: 'Catalog Import', description: 'Bulk product data ingestion from files', icon: Database, color: 'blue' },
+    { value: 'inventory_pricing', label: 'Inventory & Pricing Updates', description: 'Regular stock/price refreshes', icon: RefreshCw, color: 'green' },
+    { value: 'order_fulfillment', label: 'Order Fulfillment', description: 'Real-time product lookup for order processing', icon: Package, color: 'purple' },
+    { value: 'catalog_search', label: 'Catalog Search', description: 'API-based product discovery and enrichment', icon: Search, color: 'amber' },
+    { value: 'returns', label: 'Returns Processing', description: 'Handle return workflows', icon: RotateCcw, color: 'red' },
+    { value: 'general', label: 'General', description: 'Multi-purpose connection', icon: Settings, color: 'gray' },
+  ] as const;
+
+  const getSuggestedPurpose = (type: string, apiProvider: string): string => {
+    if (type === 'sftp' || type === 'ftp') return 'inventory_pricing';
+    if (type === 'api' && apiProvider === 'ingram_micro') return 'order_fulfillment';
+    if (type === 'api') return 'catalog_search';
+    if (type === 'csv' || type === 'excel') return 'catalog';
+    return 'general';
+  };
+
+  const getPurposeColorClasses = (color: string, isSelected: boolean) => {
+    if (!isSelected) return 'hover:border-gray-300';
+    const map: Record<string, string> = {
+      blue: 'border-blue-500 bg-blue-50',
+      green: 'border-green-500 bg-green-50',
+      purple: 'border-purple-500 bg-purple-50',
+      amber: 'border-amber-500 bg-amber-50',
+      red: 'border-red-500 bg-red-50',
+      gray: 'border-gray-500 bg-gray-50',
+    };
+    return map[color] || 'border-blue-500 bg-blue-50';
+  };
 
   const [connectionStatus, setConnectionStatus] = useState<{
     tested: boolean;
@@ -112,7 +145,17 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
   ];
 
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      if (field === 'type' || field === 'apiProvider') {
+        const type = field === 'type' ? (value as string) : prev.type;
+        const provider = field === 'apiProvider' ? (value as string) : prev.apiProvider;
+        if (!prev.purpose) {
+          updated.purpose = getSuggestedPurpose(type, provider);
+        }
+      }
+      return updated;
+    });
   };
 
   const addFilePath = () => {
@@ -338,6 +381,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
           name: formData.name,
           description: formData.description,
           type: formData.type,
+          purpose: formData.purpose || 'general',
           supplier_id: parseInt(formData.supplierId),
           config: JSON.stringify(config),
           active: true
@@ -451,6 +495,32 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Product catalog feed"
                 />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Purpose</Label>
+                {formData.purpose === getSuggestedPurpose(formData.type, formData.apiProvider) && formData.purpose && (
+                  <Badge variant="outline" className="text-xs gap-1 text-blue-600 border-blue-200 bg-blue-50">
+                    Auto-suggested
+                  </Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {purposeOptions.map(({ value, label, description, icon: Icon, color }) => (
+                  <Card
+                    key={value}
+                    className={`cursor-pointer transition-all ${getPurposeColorClasses(color, formData.purpose === value)}`}
+                    onClick={() => handleInputChange('purpose', value)}
+                  >
+                    <CardHeader className="p-3 text-center">
+                      <Icon className={`w-5 h-5 mx-auto mb-1 ${formData.purpose === value ? 'opacity-100' : 'text-gray-400'}`} />
+                      <CardTitle className="text-xs font-medium">{label}</CardTitle>
+                      <CardDescription className="text-[10px] leading-tight">{description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                ))}
               </div>
             </div>
 
@@ -808,10 +878,18 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm text-gray-600">Supplier</Label>
-                <div className="font-medium">
-                  {suppliers.find(s => s.id.toString() === formData.supplierId)?.name}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-gray-600">Supplier</Label>
+                  <div className="font-medium">
+                    {suppliers.find(s => s.id.toString() === formData.supplierId)?.name}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-600">Purpose</Label>
+                  <div className="font-medium">
+                    {purposeOptions.find(p => p.value === formData.purpose)?.label || 'General'}
+                  </div>
                 </div>
               </div>
 

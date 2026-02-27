@@ -70,6 +70,9 @@ interface Order {
   isBusinessCustomer: boolean;
   shippingSettingsType: 'automated' | 'manual';
   requiresSignature: boolean;
+  purchaseOrderNumber?: string;
+  vendorOrderStatus?: string;
+  vendorOrderDate?: string;
 }
 
 interface OrdersResponse {
@@ -252,6 +255,8 @@ interface SelectedVendor {
   shippingCostInCents: number;
   margin: number;
   proceeds: number;
+  ingramPartNumber?: string;
+  quantity?: number;
 }
 
 type SubTab = 'orders' | 'sync_jobs' | 'inventory_rules' | 'access_control';
@@ -275,6 +280,9 @@ export default function ManageOrders() {
   const [fulfillOrderId, setFulfillOrderId] = useState<number | null>(null);
   const [selectedVendors, setSelectedVendors] = useState<SelectedVendor[]>([]);
   const [sellerNotes, setSellerNotes] = useState('');
+  const [showPOConfirmation, setShowPOConfirmation] = useState(false);
+  const [fulfillmentStep, setFulfillmentStep] = useState<'select' | 'submitting' | 'complete'>('select');
+  const [poResult, setPOResult] = useState<{ ingramOrderNumber?: string; orderTotal?: number; warning?: string } | null>(null);
   const [page, setPage] = useState(1);
   const resultsPerPage = 25;
 
@@ -341,19 +349,38 @@ export default function ManageOrders() {
   });
 
   const fulfillMutation = useMutation({
-    mutationFn: async (data: { items: any[]; fulfillmentMethod: string; sellerNotes: string }) => {
+    mutationFn: async (data: { items: any[]; fulfillmentMethod: string; sellerNotes: string; submitToIngram?: boolean }) => {
       const response = await apiRequest('POST', `/api/marketplace/orders/${fulfillOrderId}/fulfill`, data);
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: 'Order Fulfilled', description: 'Order has been fulfilled successfully.' });
-      setFulfillOrderId(null);
-      setSelectedVendors([]);
-      setSellerNotes('');
+    onSuccess: (data: any) => {
+      if (data.ingramOrder) {
+        setPOResult({
+          ingramOrderNumber: data.ingramOrder.ingramOrderNumber,
+          orderTotal: data.ingramOrder.orderTotal,
+        });
+        setFulfillmentStep('complete');
+        toast({
+          title: 'Purchase Order Submitted',
+          description: `Ingram Micro PO #${data.ingramOrder.ingramOrderNumber} created successfully.`,
+        });
+      } else if (data.ingramWarning) {
+        setPOResult({ warning: data.ingramWarning });
+        setFulfillmentStep('complete');
+        toast({
+          title: 'Order Fulfilled (PO Warning)',
+          description: data.ingramWarning,
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Order Fulfilled', description: 'Order has been fulfilled successfully.' });
+        closeFulfillModal();
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders/stats/summary'] });
     },
     onError: (error: Error) => {
+      setFulfillmentStep('select');
       toast({ title: 'Fulfillment Failed', description: error.message, variant: 'destructive' });
     },
   });
@@ -362,20 +389,27 @@ export default function ManageOrders() {
     setFulfillOrderId(orderId);
     setSelectedVendors([]);
     setSellerNotes('');
+    setShowPOConfirmation(false);
+    setFulfillmentStep('select');
+    setPOResult(null);
   }, []);
 
   const closeFulfillModal = useCallback(() => {
     setFulfillOrderId(null);
     setSelectedVendors([]);
     setSellerNotes('');
+    setShowPOConfirmation(false);
+    setFulfillmentStep('select');
+    setPOResult(null);
   }, []);
 
-  const toggleVendorSelection = useCallback((orderItemId: number, vendor: VendorAllocationItem) => {
+  const toggleVendorSelection = useCallback((orderItemId: number, vendor: VendorAllocationItem, quantity?: number) => {
     setSelectedVendors(prev => {
       const existing = prev.find(v => v.orderItemId === orderItemId);
       if (existing && existing.vendorId === vendor.vendorId && existing.vendorName === vendor.vendorName) {
         return prev.filter(v => v.orderItemId !== orderItemId);
       }
+      const isIngram = vendor.source === 'ingram_micro' || vendor.vendorName.toLowerCase().includes('ingram');
       return [
         ...prev.filter(v => v.orderItemId !== orderItemId),
         {
@@ -387,6 +421,8 @@ export default function ManageOrders() {
           shippingCostInCents: vendor.shippingCostInCents,
           margin: vendor.margin,
           proceeds: vendor.proceeds,
+          ingramPartNumber: isIngram ? vendor.vendorId : undefined,
+          quantity: quantity || 1,
         },
       ];
     });
@@ -398,6 +434,7 @@ export default function ManageOrders() {
       for (const group of vendorData.vendorAllocations) {
         if (group.allocations.length > 0) {
           const best = group.allocations.reduce((a, b) => (a.margin > b.margin ? a : b));
+          const isIngram = best.source === 'ingram_micro' || best.vendorName.toLowerCase().includes('ingram');
           autoSelected.push({
             orderItemId: group.orderItemId,
             vendorName: best.vendorName,
@@ -407,6 +444,8 @@ export default function ManageOrders() {
             shippingCostInCents: best.shippingCostInCents,
             margin: best.margin,
             proceeds: best.proceeds,
+            ingramPartNumber: isIngram ? best.vendorId : undefined,
+            quantity: group.quantity || 1,
           });
         }
       }
@@ -436,8 +475,15 @@ export default function ManageOrders() {
     };
   }, [financialsData, selectedVendors]);
 
-  const handleFulfillOrder = useCallback(() => {
+  const hasIngramVendor = useMemo(() => {
+    return selectedVendors.some(v => v.ingramPartNumber || v.vendorName.toLowerCase().includes('ingram'));
+  }, [selectedVendors]);
+
+  const handleFulfillOrder = useCallback((submitToIngram: boolean = false) => {
     if (!fulfillOrderId || selectedVendors.length === 0) return;
+    if (submitToIngram) {
+      setFulfillmentStep('submitting');
+    }
     fulfillMutation.mutate({
       items: selectedVendors.map(v => ({
         orderItemId: v.orderItemId,
@@ -445,9 +491,12 @@ export default function ManageOrders() {
         vendorShippingCostInCents: v.shippingCostInCents,
         vendorName: v.vendorName,
         vendorSku: v.vendorSku,
+        ingramPartNumber: v.ingramPartNumber || null,
+        quantity: v.quantity || 1,
       })),
       fulfillmentMethod: 'dropship',
       sellerNotes,
+      submitToIngram,
     });
   }, [fulfillOrderId, selectedVendors, sellerNotes, fulfillMutation]);
 
@@ -901,9 +950,25 @@ export default function ManageOrders() {
                             {new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={`${statusBadgeStyle(order.status)} text-xs font-medium`}>
-                              {statusLabel(order.status)}
-                            </Badge>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge variant="outline" className={`${statusBadgeStyle(order.status)} text-xs font-medium`}>
+                                {statusLabel(order.status)}
+                              </Badge>
+                              {order.purchaseOrderNumber && (
+                                <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 font-mono">
+                                  PO: {order.purchaseOrderNumber}
+                                </Badge>
+                              )}
+                              {order.vendorOrderStatus && order.vendorOrderStatus !== 'no_po' && (
+                                <Badge variant="outline" className={`text-[10px] ${
+                                  order.vendorOrderStatus.toLowerCase().includes('ship') ? 'bg-green-50 text-green-700 border-green-200' :
+                                  order.vendorOrderStatus.toLowerCase().includes('back') ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  'bg-purple-50 text-purple-700 border-purple-200'
+                                }`}>
+                                  {order.vendorOrderStatus}
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-sm font-medium text-slate-900">
                             USD {formatCurrency(order.totalInCents)}
@@ -1232,7 +1297,7 @@ export default function ManageOrders() {
                                         <TableRow
                                           key={idx}
                                           className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-slate-50'}`}
-                                          onClick={() => toggleVendorSelection(group.orderItemId, alloc)}
+                                          onClick={() => toggleVendorSelection(group.orderItemId, alloc, group.quantity)}
                                         >
                                           <TableCell className="w-8 pr-0">
                                             <Checkbox checked={isSelected} className="h-4 w-4" />
@@ -1445,33 +1510,153 @@ export default function ManageOrders() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex items-center justify-between">
-                <div className="text-sm text-slate-500">
-                  {selectedVendors.length > 0 ? (
-                    <span className="text-blue-600 font-medium">{selectedVendors.length} vendor(s) selected</span>
-                  ) : (
-                    'Select vendors from the allocation table to fulfill'
-                  )}
+              {fulfillmentStep === 'complete' && poResult ? (
+                <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                  {poResult.ingramOrderNumber ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-green-700">Purchase Order Submitted</div>
+                          <div className="text-xs text-slate-500">Ingram Micro PO #{poResult.ingramOrderNumber}</div>
+                        </div>
+                      </div>
+                      <Button onClick={closeFulfillModal} className="bg-emerald-600 hover:bg-emerald-700">Done</Button>
+                    </div>
+                  ) : poResult.warning ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                          <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-amber-700">Fulfilled Locally (PO Not Submitted)</div>
+                          <div className="text-xs text-slate-500 max-w-md truncate">{poResult.warning}</div>
+                        </div>
+                      </div>
+                      <Button onClick={closeFulfillModal} variant="outline">Close</Button>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" onClick={closeFulfillModal}>Cancel</Button>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <ExternalLink className="h-4 w-4" /> Get Shipstation Label
-                  </Button>
-                  <Button
-                    className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
-                    disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
-                    onClick={handleFulfillOrder}
-                  >
-                    {fulfillMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+              ) : fulfillmentStep === 'submitting' ? (
+                <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                  <div className="flex items-center justify-center gap-3 py-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">Submitting Purchase Order to Ingram Micro...</div>
+                      <div className="text-xs text-slate-400">This may take a moment</div>
+                    </div>
+                  </div>
+                </div>
+              ) : showPOConfirmation && hasIngramVendor ? (
+                <div className="sticky bottom-0 bg-white border-t">
+                  <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-semibold text-blue-800">Confirm Purchase Order — Ingram Micro</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                      <div>
+                        <div className="text-xs text-blue-600 font-medium mb-1">Items to Order</div>
+                        {selectedVendors.filter(v => v.ingramPartNumber).map(v => (
+                          <div key={v.orderItemId} className="text-xs text-slate-600 flex justify-between">
+                            <span className="font-mono">{v.ingramPartNumber}</span>
+                            <span>Qty: {v.quantity || 1} — {formatCurrency(v.costInCents)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="text-xs text-blue-600 font-medium mb-1">Ship To</div>
+                        {financialsData?.shippingAddress ? (
+                          <div className="text-xs text-slate-600">
+                            <div>{financialsData.shippingAddress.name || financialsData.customerName}</div>
+                            <div>{financialsData.shippingAddress.addressLine1}</div>
+                            <div>{[financialsData.shippingAddress.city, financialsData.shippingAddress.stateOrRegion, financialsData.shippingAddress.postalCode].filter(Boolean).join(', ')}</div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-red-500 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" /> No shipping address — PO cannot be submitted
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs bg-white/60 rounded px-3 py-2">
+                      <span className="text-slate-600">
+                        Total Vendor Cost: <span className="font-semibold">{formatCurrency(dynamicFinancials?.vendorCost || 0)}</span>
+                        {' + '}Shipping: <span className="font-semibold">{formatCurrency(dynamicFinancials?.vendorShipping || 0)}</span>
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        = {formatCurrency(dynamicFinancials?.totalVendorCost || 0)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="px-6 py-3 flex items-center justify-between">
+                    <Button variant="ghost" size="sm" onClick={() => setShowPOConfirmation(false)} className="text-slate-500">
+                      Back
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setShowPOConfirmation(false); handleFulfillOrder(false); }}
+                        disabled={fulfillMutation.isPending}
+                      >
+                        Save Fulfillment Only
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                        disabled={fulfillMutation.isPending || !financialsData?.shippingAddress?.addressLine1}
+                        onClick={() => handleFulfillOrder(true)}
+                      >
+                        <Package className="h-4 w-4" />
+                        Submit PO to Ingram Micro
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex items-center justify-between">
+                  <div className="text-sm text-slate-500">
+                    {selectedVendors.length > 0 ? (
+                      <span className="text-blue-600 font-medium">{selectedVendors.length} vendor(s) selected</span>
                     ) : (
-                      <Truck className="h-4 w-4" />
+                      'Select vendors from the allocation table to fulfill'
                     )}
-                    Dropship from Selected Vendor
-                  </Button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button variant="outline" onClick={closeFulfillModal}>Cancel</Button>
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4" /> Get Shipstation Label
+                    </Button>
+                    {hasIngramVendor ? (
+                      <Button
+                        className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                        disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
+                        onClick={() => setShowPOConfirmation(true)}
+                      >
+                        <Package className="h-4 w-4" />
+                        Dropship via Ingram Micro
+                      </Button>
+                    ) : (
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
+                        disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
+                        onClick={() => handleFulfillOrder(false)}
+                      >
+                        {fulfillMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Truck className="h-4 w-4" />
+                        )}
+                        Fulfill Order
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           ) : null}
         </DialogContent>

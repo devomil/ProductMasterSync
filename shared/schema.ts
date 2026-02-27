@@ -45,6 +45,10 @@ export const processingPriorityEnum = pgEnum('processing_priority', [
 export const resolutionStrategyEnum = pgEnum('resolution_strategy', [
   'newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all'
 ]);
+export const dataSourcePurposeEnum = pgEnum('data_source_purpose', [
+  'catalog', 'inventory_pricing', 'order_fulfillment', 'catalog_search', 'returns', 'general'
+]);
+
 export const connectionTypeEnum = pgEnum('connection_type', [
   'ftp', 'sftp', 'api', 'database'
 ]);
@@ -246,7 +250,9 @@ export const dataSources = pgTable("data_sources", {
   name: text("name").notNull(),
   type: dataSourceTypeEnum("type").notNull(),
   supplierId: integer("supplier_id").references(() => suppliers.id),
-  config: json("config").notNull(), // Stores connection details based on source type
+  config: json("config").notNull(),
+  purpose: dataSourcePurposeEnum("purpose").default('general'),
+  description: text("description"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2627,6 +2633,11 @@ export const marketplaceOrders = pgTable("marketplace_orders", {
   isBusinessCustomer: boolean("is_business_customer").default(false),
   requiresSignature: boolean("requires_signature").default(false),
   
+  // Vendor/PO tracking (Ingram Micro dropship)
+  purchaseOrderNumber: text("purchase_order_number"),
+  vendorOrderStatus: text("vendor_order_status"),
+  vendorOrderDate: timestamp("vendor_order_date"),
+  
   // Sync tracking
   lastSyncedAt: timestamp("last_synced_at"),
   rawData: json("raw_data"),
@@ -2672,6 +2683,11 @@ export const marketplaceOrderItems = pgTable("marketplace_order_items", {
   vendorSku: text("vendor_sku"),
   fulfilledAt: timestamp("fulfilled_at"),
   fulfillmentMethod: text("fulfillment_method"),
+  
+  // Ingram Micro vendor fulfillment tracking
+  ingramPartNumber: text("ingram_part_number"),
+  vendorTrackingNumber: text("vendor_tracking_number"),
+  vendorCarrier: text("vendor_carrier"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -93,6 +93,121 @@ export interface IngramPriceAvailability {
   bundlePartIndicator?: boolean;
 }
 
+export interface IngramOrderCreateShipToInfo {
+  addressId?: string;
+  contact?: string;
+  companyName?: string;
+  name1?: string;
+  name2?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  addressLine3?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  countryCode: string;
+  phoneNumber?: string;
+  email?: string;
+}
+
+export interface IngramOrderCreateLine {
+  customerLineNumber: string;
+  ingramPartNumber: string;
+  quantity: number;
+  specialBidNumber?: string;
+  notes?: string;
+  unitPrice?: number;
+  endUserPrice?: number;
+}
+
+export interface IngramOrderCreateRequest {
+  customerOrderNumber: string;
+  endCustomerOrderNumber?: string;
+  billToAddressId?: string;
+  specialBidNumber?: string;
+  notes?: string;
+  shipToInfo: IngramOrderCreateShipToInfo;
+  lines: IngramOrderCreateLine[];
+  additionalAttributes?: {
+    attributeName: string;
+    attributeValue: string;
+  }[];
+  vmfAdditionalAttributes?: {
+    attributeName: string;
+    attributeValue: string;
+  }[];
+  resellerInfo?: {
+    resellerId?: string;
+    companyName?: string;
+    contact?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    countryCode?: string;
+    phoneNumber?: string;
+    email?: string;
+  };
+  endUserInfo?: {
+    endUserId?: string;
+    contact?: string;
+    companyName?: string;
+    name1?: string;
+    name2?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    countryCode?: string;
+    phoneNumber?: string;
+    email?: string;
+  };
+}
+
+export interface IngramOrderCreateResponseLine {
+  subOrderNumber?: string;
+  ingramOrderLineNumber?: string;
+  customerLineNumber?: string;
+  lineStatus?: string;
+  ingramPartNumber?: string;
+  vendorPartNumber?: string;
+  quantity?: number;
+  unitPrice?: number;
+  extendedUnitPrice?: number;
+  shipmentDetails?: {
+    carrierCode?: string;
+    carrierName?: string;
+    freightAccountNumber?: string;
+    shipFromWarehouseId?: string;
+    shipFromLocation?: string;
+  };
+  notes?: string;
+}
+
+export interface IngramOrderCreateResponse {
+  ingramOrderNumber: string;
+  customerOrderNumber: string;
+  orderTotal?: number;
+  orderStatus?: string;
+  lines?: IngramOrderCreateResponseLine[];
+  additionalAttributes?: {
+    attributeName: string;
+    attributeValue: string;
+  }[];
+  notes?: string;
+}
+
+export interface IngramOrderCreateError {
+  errorCode?: string;
+  errorMessage?: string;
+  fields?: {
+    field: string;
+    message: string;
+  }[];
+}
+
 export interface IngramOrderSearchResult {
   ingramOrderNumber: string;
   ingramOrderDate: string;
@@ -367,6 +482,122 @@ export class IngramMicroAPI {
     };
 
     return this.makeRequest<any>('POST', '/resellers/v6/freightestimate', {}, requestBody);
+  }
+
+  async createOrder(request: IngramOrderCreateRequest): Promise<IngramOrderCreateResponse> {
+    if (!request.customerOrderNumber) {
+      throw new Error('customerOrderNumber is required to create an order');
+    }
+    if (!request.shipToInfo || !request.shipToInfo.addressLine1 || !request.shipToInfo.city || !request.shipToInfo.state || !request.shipToInfo.postalCode || !request.shipToInfo.countryCode) {
+      throw new Error('Complete shipping address is required (addressLine1, city, state, postalCode, countryCode)');
+    }
+    if (!request.lines || request.lines.length === 0) {
+      throw new Error('At least one order line with an ingramPartNumber is required');
+    }
+    for (const line of request.lines) {
+      if (!line.ingramPartNumber) {
+        throw new Error(`Order line ${line.customerLineNumber} is missing ingramPartNumber`);
+      }
+      if (!line.quantity || line.quantity < 1) {
+        throw new Error(`Order line ${line.customerLineNumber} has invalid quantity`);
+      }
+    }
+
+    const orderBody: Record<string, any> = {
+      customerOrderNumber: request.customerOrderNumber,
+      endCustomerOrderNumber: request.endCustomerOrderNumber || request.customerOrderNumber,
+      billToAddressId: request.billToAddressId || this.config.customerNumber,
+      notes: request.notes || '',
+      shipToInfo: request.shipToInfo,
+      lines: request.lines.map((line) => ({
+        customerLineNumber: line.customerLineNumber,
+        ingramPartNumber: line.ingramPartNumber,
+        quantity: line.quantity,
+        ...(line.specialBidNumber ? { specialBidNumber: line.specialBidNumber } : {}),
+        ...(line.notes ? { notes: line.notes } : {}),
+        ...(line.unitPrice != null ? { unitPrice: line.unitPrice } : {}),
+        ...(line.endUserPrice != null ? { endUserPrice: line.endUserPrice } : {}),
+      })),
+    };
+
+    if (request.specialBidNumber) {
+      orderBody.specialBidNumber = request.specialBidNumber;
+    }
+    if (request.additionalAttributes && request.additionalAttributes.length > 0) {
+      orderBody.additionalAttributes = request.additionalAttributes;
+    }
+    if (request.vmfAdditionalAttributes && request.vmfAdditionalAttributes.length > 0) {
+      orderBody.vmfAdditionalAttributes = request.vmfAdditionalAttributes;
+    }
+    if (request.resellerInfo) {
+      orderBody.resellerInfo = request.resellerInfo;
+    }
+    if (request.endUserInfo) {
+      orderBody.endUserInfo = request.endUserInfo;
+    }
+
+    const correlationId = `MDM-ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      console.log(`[Ingram Micro] Creating order for customerOrderNumber: ${request.customerOrderNumber} with ${request.lines.length} line(s)`);
+
+      const response = await this.makeRequest<IngramOrderCreateResponse>(
+        'POST',
+        '/resellers/v6/orders',
+        {},
+        orderBody,
+        correlationId
+      );
+
+      console.log(`[Ingram Micro] Order created successfully. Ingram Order Number: ${response.ingramOrderNumber}`);
+      return response;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Unknown error';
+
+      if (errorMessage.includes('400')) {
+        const parsed = this.parseOrderError(errorMessage);
+        if (parsed.includes('part number') || parsed.includes('SKU')) {
+          throw new Error(`Invalid Ingram part number in order: ${parsed}`);
+        }
+        if (parsed.includes('address')) {
+          throw new Error(`Shipping address validation failed: ${parsed}`);
+        }
+        throw new Error(`Order validation error: ${parsed}`);
+      }
+
+      if (errorMessage.includes('409')) {
+        throw new Error(`Duplicate order: customerOrderNumber "${request.customerOrderNumber}" may already exist`);
+      }
+
+      if (errorMessage.includes('404')) {
+        throw new Error(`One or more Ingram part numbers not found. Verify part numbers are valid and available.`);
+      }
+
+      if (errorMessage.includes('429')) {
+        throw new Error(`Ingram Micro API rate limit exceeded. Please retry in a few moments.`);
+      }
+
+      if (errorMessage.includes('500') || errorMessage.includes('503')) {
+        throw new Error(`Ingram Micro service temporarily unavailable. Please retry later.`);
+      }
+
+      throw new Error(`Failed to create Ingram Micro order: ${errorMessage}`);
+    }
+  }
+
+  private parseOrderError(errorMessage: string): string {
+    try {
+      const jsonMatch = errorMessage.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as IngramOrderCreateError;
+        if (parsed.errorMessage) return parsed.errorMessage;
+        if (parsed.fields && parsed.fields.length > 0) {
+          return parsed.fields.map(f => `${f.field}: ${f.message}`).join('; ');
+        }
+      }
+    } catch {
+    }
+    return errorMessage;
   }
 }
 
