@@ -576,6 +576,15 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
 
                 {formData.apiProvider === 'ingram_micro' && (
                   <>
+                    <div>
+                      <Label htmlFor="url">API URL</Label>
+                      <Input
+                        id="url"
+                        value={formData.url || 'https://api.ingrammicro.com'}
+                        onChange={(e) => handleInputChange('url', e.target.value)}
+                        placeholder="https://api.ingrammicro.com"
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="clientId">Client ID</Label>
@@ -616,13 +625,6 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
                           placeholder="US"
                         />
                       </div>
-                    </div>
-                    <div className="rounded-md bg-slate-50 border border-slate-200 p-3 mt-1">
-                      <p className="text-xs text-slate-600 font-medium">API URL: https://api.ingrammicro.com</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Uses Ingram Micro's Resellers API v6 for catalog, pricing, and availability data.
-                        Credentials can also be configured via environment variables.
-                      </p>
                     </div>
                   </>
                 )}
