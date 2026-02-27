@@ -2719,13 +2719,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error('Unable to list any files on SFTP server');
             }
             
-            // Look for data files (CSV, TSV, or common patterns)
             const catalogFile = fileList.find(f => 
               f.name.toLowerCase().includes('catalog') || 
               f.name.toLowerCase().includes('product') ||
+              f.name.toLowerCase().includes('price') ||
               f.name.toLowerCase().endsWith('.csv') ||
               f.name.toLowerCase().endsWith('.tsv') ||
-              f.name.toLowerCase().endsWith('.txt')
+              f.name.toLowerCase().endsWith('.txt') ||
+              f.name.toLowerCase().endsWith('.zip')
             );
             
             if (!catalogFile) {
@@ -2753,13 +2754,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await sftp.end();
           console.log('SFTP file downloaded:', localPath);
           
-          // Parse the file - detect delimiter from content or filename
-          const fileContent = fs.readFileSync(localPath, 'utf-8');
-          const isTsv = localFileName.toLowerCase().endsWith('.tsv') || 
+          let fileContent: string;
+          let actualFileName = localFileName;
+          
+          if (localFileName.toLowerCase().endsWith('.zip')) {
+            console.log('Extracting ZIP file:', localPath);
+            const AdmZip = (await import('adm-zip')).default;
+            const zip = new AdmZip(localPath);
+            const zipEntries = zip.getEntries();
+            
+            const dataEntry = zipEntries.find(e => {
+              if (e.isDirectory) return false;
+              const name = e.entryName.toLowerCase();
+              return name.endsWith('.csv') || name.endsWith('.tsv') || 
+                     name.endsWith('.txt') || name.endsWith('.json') ||
+                     name.endsWith('.xlsx') || name.endsWith('.xls');
+            });
+            
+            if (!dataEntry) {
+              throw new Error(`ZIP file contains no supported data files. Found: ${zipEntries.map(e => e.entryName).join(', ')}`);
+            }
+            
+            fileContent = dataEntry.getData().toString('utf8');
+            actualFileName = dataEntry.entryName;
+            console.log(`Extracted ${actualFileName} from ZIP (${fileContent.length} chars)`);
+          } else {
+            fileContent = fs.readFileSync(localPath, 'utf-8');
+          }
+          
+          const isTsv = actualFileName.toLowerCase().endsWith('.tsv') || 
                         (fileContent.split('\n')[0]?.includes('\t') && !fileContent.split('\n')[0]?.includes(','));
           
-          const delimiter = isTsv ? '\t' : ',';
-          console.log(`Parsing file with delimiter: ${isTsv ? 'TAB (TSV)' : 'COMMA (CSV)'}`);
+          const pipeCount = (fileContent.split('\n')[0]?.match(/\|/g) || []).length;
+          const commaCount = (fileContent.split('\n')[0]?.match(/,/g) || []).length;
+          const tabCount = (fileContent.split('\n')[0]?.match(/\t/g) || []).length;
+          
+          let delimiter = ',';
+          if (tabCount > commaCount && tabCount > pipeCount) delimiter = '\t';
+          else if (pipeCount > commaCount && pipeCount > tabCount) delimiter = '|';
+          
+          console.log(`Parsing file with delimiter: ${delimiter === '\t' ? 'TAB' : delimiter === '|' ? 'PIPE' : 'COMMA'}`);
           
           const records = csvParse.parse(fileContent, {
             columns: true,
@@ -2769,7 +2803,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             delimiter: delimiter
           });
           
-          // Take the requested number of records
           const sampleData = records.slice(0, requestedLimit);
           
           console.log(`Parsed ${records.length} total records, returning ${sampleData.length} samples`);
@@ -2780,9 +2813,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ 
             success: true, 
             data: sampleData,
-            totalRecords: sampleData.length,
+            totalRecords: records.length,
             source: 'sftp',
-            file: targetFileName
+            file: actualFileName
           });
           return;
           

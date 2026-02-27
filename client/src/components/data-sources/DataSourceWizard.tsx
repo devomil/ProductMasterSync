@@ -71,7 +71,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
     port: "22",
     username: "",
     password: "",
-    filePaths: [{ id: Date.now().toString(), label: "Main Catalog", path: "/ecodata/out/catalog.csv" }],
+    filePaths: [{ id: Date.now().toString(), label: "Main Catalog", path: "" }],
     // API details
     url: "",
     apiKey: "",
@@ -534,7 +534,7 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
                             id={`path-value-${filePath.id}`}
                             value={filePath.path}
                             onChange={(e) => updateFilePath(filePath.id, 'path', e.target.value)}
-                            placeholder="/data/products.csv"
+                            placeholder="PRICE.ZIP or /data/products.csv"
                             className="mt-1"
                           />
                         </div>
@@ -617,10 +617,13 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Uses Ingram Micro's Resellers API v6 for catalog, pricing, and availability data.
-                      Credentials can also be configured via environment variables (INGRAM_MICRO_CLIENT_ID, etc.).
-                    </p>
+                    <div className="rounded-md bg-slate-50 border border-slate-200 p-3 mt-1">
+                      <p className="text-xs text-slate-600 font-medium">API URL: https://api.ingrammicro.com</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Uses Ingram Micro's Resellers API v6 for catalog, pricing, and availability data.
+                        Credentials can also be configured via environment variables.
+                      </p>
+                    </div>
                   </>
                 )}
 
