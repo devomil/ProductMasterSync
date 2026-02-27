@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle, ChevronDown, ChevronUp, Puzzle } from "lucide-react";
+import { ArrowLeft, TruckIcon, Package, MapPin, TrendingUp, RefreshCw, CheckCircle, AlertCircle, Loader2, ExternalLink, DollarSign, BarChart3, ShieldAlert, ShieldCheck, Info, HelpCircle, ChevronDown, ChevronUp, Puzzle, Database, Search, RotateCcw, Settings, Wifi, WifiOff, Server } from "lucide-react";
 import { SiAmazon, SiWalmart } from "react-icons/si";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import WarehouseDetailModal from "@/components/WarehouseDetailModal";
@@ -135,7 +135,8 @@ const getVendorStockData = (product: any, supplierData?: any[], inventoryData?: 
         quantity: stockDisplay,
         type: supplier.isPrimary ? "primary" : "secondary",
         shippingCost: isIngram ? (ingramLiveData?.freeFreight ? 0 : null) : (shippingCosts?.[supplier.name] || null),
-        supplierSku: supplier.supplierSku
+        supplierSku: supplier.supplierSku,
+        connections: supplier.connections || [],
       });
     }
   }
@@ -1099,14 +1100,81 @@ export default function ProductDetails() {
                           View Warehouse Locations
                         </Button>
                         
+                        {vendor.connections && vendor.connections.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Data Connections</div>
+                            <div className="grid gap-2">
+                              {vendor.connections.map((conn: any) => {
+                                const purposeConfig: Record<string, { icon: any; label: string; color: string; bg: string }> = {
+                                  catalog: { icon: Database, label: 'Catalog Import', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+                                  inventory_pricing: { icon: RefreshCw, label: 'Inventory & Pricing', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+                                  order_fulfillment: { icon: Package, label: 'Order Fulfillment', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
+                                  catalog_search: { icon: Search, label: 'Catalog Search', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+                                  returns: { icon: RotateCcw, label: 'Returns', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
+                                  general: { icon: Settings, label: 'General', color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200' },
+                                };
+                                const cfg = purposeConfig[conn.purpose] || purposeConfig.general;
+                                const PurposeIcon = cfg.icon;
+
+                                const typeLabels: Record<string, string> = {
+                                  sftp: 'SFTP',
+                                  ftp: 'FTP',
+                                  api: 'API',
+                                  ingram_api: 'Ingram Micro API',
+                                  csv: 'CSV',
+                                  excel: 'Excel',
+                                  json: 'JSON',
+                                  xml: 'XML',
+                                  edi: 'EDI',
+                                  direct_db: 'Database',
+                                };
+
+                                return (
+                                  <div key={conn.id} className={`flex items-center gap-3 rounded-md border px-3 py-2 ${cfg.bg}`}>
+                                    <div className={`flex-shrink-0 ${cfg.color}`}>
+                                      <PurposeIcon className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-sm font-medium ${cfg.color}`}>{cfg.label}</span>
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal">
+                                          {typeLabels[conn.type] || conn.type}
+                                        </Badge>
+                                      </div>
+                                      <div className="text-xs text-gray-500 truncate">{conn.name}</div>
+                                    </div>
+                                    <div className="flex-shrink-0 flex items-center gap-1">
+                                      {conn.automationActive && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <RefreshCw className="h-3 w-3 text-green-500 animate-spin" style={{ animationDuration: '3s' }} />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="left">
+                                              <p className="text-xs">Automated: {conn.automationName}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                      {conn.active ? (
+                                        <Wifi className="h-3.5 w-3.5 text-green-500" />
+                                      ) : (
+                                        <WifiOff className="h-3.5 w-3.5 text-gray-400" />
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="text-sm text-gray-600 space-y-1">
-                            {/* Show supplier-specific part number from actual data */}
                             {vendor.supplierSku && (
                               <div><strong>Supplier Part Number:</strong> {vendor.supplierSku}</div>
                             )}
                             
-                            {/* Always show these for the primary supplier (first card) */}
                             {index === 0 && (
                               <>
                                 <div><strong>MPN:</strong> {product.manufacturerPartNumber || "N/A"}</div>

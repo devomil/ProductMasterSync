@@ -1378,18 +1378,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .leftJoin(suppliers, eq(suppliers.id, productSuppliers.supplierId))
         .where(eq(productSuppliers.productId, productId));
       
-      // Build response with actual supplier data
-      const supplierData = supplierLinks.map(link => ({
-        supplierId: link.supplierId,
-        name: link.supplierName || 'Unknown Supplier',
-        code: link.supplierCode,
-        supplierSku: link.supplierSku,
-        isPrimary: link.isPrimary,
-        confidence: link.confidence,
-        cost: product.cost ? parseFloat(product.cost as string) : null,
-        quantity: product.inventoryQuantity || 0,
-        type: link.isPrimary ? 'primary' : 'secondary'
-      }));
+      const uniqueSupplierIds = [...new Set(supplierLinks.map(l => l.supplierId).filter(Boolean))] as number[];
+
+      let supplierDataSources: any[] = [];
+      if (uniqueSupplierIds.length > 0) {
+        supplierDataSources = await db
+          .select({
+            id: dataSources.id,
+            name: dataSources.name,
+            type: dataSources.type,
+            supplierId: dataSources.supplierId,
+            purpose: dataSources.purpose,
+            description: dataSources.description,
+            active: dataSources.active,
+          })
+          .from(dataSources)
+          .where(inArray(dataSources.supplierId, uniqueSupplierIds));
+      }
+
+      let automationSchedules: any[] = [];
+      if (supplierDataSources.length > 0) {
+        const dsIds = supplierDataSources.map(ds => ds.id);
+        automationSchedules = await db
+          .select({
+            dataSourceId: supplierAutomation.dataSourceId,
+            name: supplierAutomation.name,
+            isActive: supplierAutomation.isActive,
+          })
+          .from(supplierAutomation)
+          .where(inArray(supplierAutomation.dataSourceId, dsIds));
+      }
+
+      const supplierData = supplierLinks.map(link => {
+        const connections = supplierDataSources
+          .filter(ds => ds.supplierId === link.supplierId)
+          .map(ds => {
+            const automation = automationSchedules.find(a => a.dataSourceId === ds.id);
+            return {
+              id: ds.id,
+              name: ds.name,
+              type: ds.type,
+              purpose: ds.purpose || 'general',
+              description: ds.description,
+              active: ds.active,
+              automationName: automation?.name || null,
+              automationActive: automation?.isActive || false,
+            };
+          });
+
+        return {
+          supplierId: link.supplierId,
+          name: link.supplierName || 'Unknown Supplier',
+          code: link.supplierCode,
+          supplierSku: link.supplierSku,
+          isPrimary: link.isPrimary,
+          confidence: link.confidence,
+          cost: product.cost ? parseFloat(product.cost as string) : null,
+          quantity: product.inventoryQuantity || 0,
+          type: link.isPrimary ? 'primary' : 'secondary',
+          connections,
+        };
+      });
       
       res.json({
         success: true,
