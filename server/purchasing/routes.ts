@@ -320,10 +320,11 @@ router.post("/upload-analyze", upload.single('file'), async (req, res) => {
       upc: p.upc || null,
       description: p.description || null,
       brand: p.brand || null,
-      model: p.model || null,
+      model: p.model || p.mpn || null,
       color: p.color || null,
       quantity: p.quantity || null,
       supplierPrice: p.supplierPrice || null,
+      imageUrl: p.imageUrl || null,
     }));
 
     await db.insert(fileAnalysisResults).values(resultRecords);

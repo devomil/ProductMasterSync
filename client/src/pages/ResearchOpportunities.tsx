@@ -54,6 +54,8 @@ interface AnalysisResult {
   opportunityType: string | null;
   confidenceScore: number | null;
   errorMessage: string | null;
+  matchMethod: string | null;
+  imageUrl: string | null;
 }
 
 export default function ResearchOpportunities() {
@@ -177,11 +179,11 @@ export default function ResearchOpportunities() {
       if (msg.includes('403') || msg.includes('Access') || msg.includes('Unauthorized')) {
         return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API access denied — check API credentials/permissions' };
       }
-      if (msg.includes('Could not find ASIN') && msg.includes('403')) {
-        return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API returned 403 — credentials may need updating' };
+      if (msg.includes('No ASIN found after trying')) {
+        return { label: 'No Match', color: 'text-yellow-600', icon: Search, detail: msg };
       }
       if (msg.includes('Could not find ASIN')) {
-        return { label: 'No ASIN Match', color: 'text-yellow-600', icon: Search, detail: `UPC ${result.upc || 'unknown'} not found in Amazon catalog` };
+        return { label: 'No Match', color: 'text-yellow-600', icon: Search, detail: `Tried UPC, MPN, and keyword searches — no Amazon match found` };
       }
       if (msg.includes('rate') || msg.includes('429') || msg.includes('throttl')) {
         return { label: 'Rate Limited', color: 'text-orange-500', icon: Clock, detail: 'Amazon API rate limit hit — retry later' };
@@ -189,7 +191,10 @@ export default function ResearchOpportunities() {
       return { label: 'Failed', color: 'text-red-600', icon: XCircle, detail: msg };
     }
     if (result.buyBoxPrice !== null && result.asin) {
-      return { label: 'Matched', color: 'text-green-600', icon: CheckCircle, detail: 'Amazon pricing and fees retrieved successfully' };
+      const matchLabel = result.matchMethod === 'upc' ? 'via UPC' : 
+                         result.matchMethod === 'mpn' ? 'via MPN' : 
+                         result.matchMethod === 'keyword' ? 'via Keywords' : '';
+      return { label: 'Matched', color: 'text-green-600', icon: CheckCircle, detail: `Amazon pricing retrieved ${matchLabel} (${result.confidenceScore || 0}% confidence)` };
     }
     if (result.asin && !result.buyBoxPrice) {
       return { label: 'No Buy Box', color: 'text-yellow-600', icon: AlertCircle, detail: 'ASIN found but no active Buy Box price' };
@@ -412,11 +417,18 @@ export default function ResearchOpportunities() {
                 <CardContent className="space-y-3">
                   <div className="flex gap-2 items-start">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</div>
-                    <p className="text-xs text-gray-600">Upload a product list with UPCs, MPNs, or ASINs</p>
+                    <p className="text-xs text-gray-600">Upload a product list with UPCs, MPNs, ASINs, or descriptions</p>
                   </div>
                   <div className="flex gap-2 items-start">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</div>
-                    <p className="text-xs text-gray-600">Each UPC is sent to Amazon SP-API to find the ASIN</p>
+                    <div className="text-xs text-gray-600">
+                      <p className="font-medium mb-0.5">Multi-strategy Amazon ASIN matching:</p>
+                      <div className="space-y-0.5 ml-1">
+                        <p><span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1"></span>UPC lookup — 100% confidence</p>
+                        <p><span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-1"></span>MPN/SKU search — 75% confidence</p>
+                        <p><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1"></span>Keyword/description — 50% confidence</p>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-2 items-start">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</div>
@@ -604,8 +616,11 @@ export default function ResearchOpportunities() {
                   {errors.filter(e => e.errorMessage?.includes('403')).length > 0 && (
                     <span>{errors.filter(e => e.errorMessage?.includes('403')).length} products got Amazon API access errors (403). The SP-API access token may need refreshing. </span>
                   )}
-                  {errors.filter(e => e.errorMessage?.includes('Could not find ASIN')).length > 0 && (
-                    <span>{errors.filter(e => e.errorMessage?.includes('Could not find ASIN')).length} UPCs had no matching ASIN in Amazon's catalog. </span>
+                  {errors.filter(e => e.errorMessage?.includes('No ASIN found after trying')).length > 0 && (
+                    <span>{errors.filter(e => e.errorMessage?.includes('No ASIN found after trying')).length} products had no Amazon match after trying UPC, MPN, and keyword searches. </span>
+                  )}
+                  {errors.filter(e => e.errorMessage?.includes('rate') || e.errorMessage?.includes('429')).length > 0 && (
+                    <span>{errors.filter(e => e.errorMessage?.includes('rate') || e.errorMessage?.includes('429')).length} products were rate limited — they can be retried. </span>
                   )}
                 </AlertDescription>
               </Alert>
@@ -672,25 +687,56 @@ export default function ResearchOpportunities() {
                           return (
                           <TableRow key={result.id} className={result.isOpportunity ? 'bg-emerald-50/50' : ''}>
                             <TableCell>
-                              <div className="max-w-[180px]">
-                                <div className="text-sm font-medium truncate">{result.description || result.brand || '—'}</div>
-                                {result.brand && result.description && (
-                                  <div className="text-xs text-muted-foreground truncate">{result.brand}</div>
+                              <div className="flex items-center gap-2.5 max-w-[220px]">
+                                {result.imageUrl ? (
+                                  <img
+                                    src={result.imageUrl}
+                                    alt={result.description || 'Product'}
+                                    className="w-10 h-10 rounded object-contain border border-gray-100 bg-white flex-shrink-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center flex-shrink-0">
+                                    <Package className="h-4 w-4 text-gray-300" />
+                                  </div>
                                 )}
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium truncate">{result.description || result.brand || '—'}</div>
+                                  {result.brand && result.description && (
+                                    <div className="text-xs text-muted-foreground truncate">{result.brand}</div>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="font-mono text-xs">{result.upc || '—'}</TableCell>
                             <TableCell>
                               {result.asin ? (
-                                <a
-                                  href={`https://www.amazon.com/dp/${result.asin}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-mono text-xs text-blue-600 hover:underline flex items-center gap-1"
-                                >
-                                  {result.asin}
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
+                                <div className="space-y-1">
+                                  <a
+                                    href={`https://www.amazon.com/dp/${result.asin}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    {result.asin}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                  {result.matchMethod && (
+                                    <Badge variant="outline" className={`text-[9px] px-1 py-0 ${
+                                      result.matchMethod === 'upc' || result.matchMethod === 'direct' 
+                                        ? 'bg-green-50 text-green-700 border-green-200' 
+                                        : result.matchMethod === 'mpn' 
+                                          ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                                    }`}>
+                                      {result.matchMethod === 'upc' ? 'UPC Match' :
+                                       result.matchMethod === 'direct' ? 'Direct ASIN' :
+                                       result.matchMethod === 'mpn' ? 'MPN Match' :
+                                       'Keyword Match'}
+                                      {result.confidenceScore ? ` ${result.confidenceScore}%` : ''}
+                                    </Badge>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-xs text-gray-400">—</span>
                               )}

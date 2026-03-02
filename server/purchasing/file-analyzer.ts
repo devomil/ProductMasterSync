@@ -2,7 +2,7 @@ import { parse } from 'csv-parse/sync';
 import { db } from '../db';
 import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence, amazonAsins } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import { searchCatalogItemsByUPC, getCompetitivePricing, getListingRestrictions } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC, searchCatalogByKeyword, getCompetitivePricing, getListingRestrictions } from '../utils/amazon-spapi';
 import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { getProductFees } from '../services/amazon-product-fees';
 import { saveAmazonMarketData } from '../marketplace/repository';
@@ -336,35 +336,131 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
   }
 }
 
-async function convertUpcToAsin(upc: string): Promise<string | null> {
-  try {
-    console.log(`[File Analyzer] Converting UPC ${upc} to ASIN...`);
-    const config = await getAmazonConfigFromDb();
-    
-    // Ensure config has required fields
-    if (!config.marketplaceId) {
-      console.error('[File Analyzer] Amazon marketplace ID not configured');
-      return null;
-    }
-    
-    const items = await searchCatalogItemsByUPC(upc, {
-      ...config,
-      marketplaceId: config.marketplaceId,
-      endpoint: config.endpoint || 'https://sellingpartnerapi-na.amazon.com'
-    });
-    
-    if (items && items.length > 0) {
-      const asin = items[0].asin;
-      console.log(`[File Analyzer] UPC ${upc} → ASIN ${asin}`);
-      return asin;
-    }
-    
-    console.log(`[File Analyzer] No ASIN found for UPC ${upc}`);
-    return null;
-  } catch (error) {
-    console.error(`[File Analyzer] Error converting UPC ${upc}:`, error);
+interface AsinMatch {
+  asin: string;
+  matchMethod: 'upc' | 'mpn' | 'keyword';
+  confidence: number;
+  imageUrl?: string;
+}
+
+async function findAsinForProduct(product: {
+  upc?: string | null;
+  mpn?: string | null;
+  brand?: string | null;
+  description?: string | null;
+  model?: string | null;
+  imageUrl?: string | null;
+}): Promise<AsinMatch | null> {
+  const config = await getAmazonConfigFromDb();
+  if (!config.marketplaceId) {
+    console.error('[File Analyzer] Amazon marketplace ID not configured');
     return null;
   }
+
+  const apiConfig = {
+    ...config,
+    marketplaceId: config.marketplaceId,
+    endpoint: config.endpoint || 'https://sellingpartnerapi-na.amazon.com'
+  };
+
+  // Strategy 1: UPC lookup (100% confidence)
+  if (product.upc && product.upc.length >= 10) {
+    try {
+      console.log(`[File Analyzer] Strategy 1: UPC lookup for ${product.upc}`);
+      const items = await searchCatalogItemsByUPC(product.upc, apiConfig);
+      if (items && items.length > 0) {
+        const item = items[0];
+        let imageUrl = product.imageUrl || undefined;
+        if (item.attributes?.main_product_image_locator) {
+          const imgData = item.attributes.main_product_image_locator;
+          if (Array.isArray(imgData) && imgData[0]?.media_location) {
+            imageUrl = imgData[0].media_location;
+          }
+        }
+        if (!imageUrl && item.attributes?.image) {
+          const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
+          if (imgArr[0]?.link) imageUrl = imgArr[0].link;
+        }
+        console.log(`[File Analyzer] ✓ UPC ${product.upc} → ASIN ${item.asin} (100% confidence)`);
+        return { asin: item.asin, matchMethod: 'upc', confidence: 100, imageUrl };
+      }
+      console.log(`[File Analyzer] UPC ${product.upc}: no results from catalog API`);
+    } catch (error: any) {
+      console.error(`[File Analyzer] UPC lookup failed for ${product.upc}:`, error.message);
+    }
+    await sleep(500);
+  }
+
+  // Strategy 2: MPN/SKU/Model keyword search (75% confidence)
+  const mpnTerms = [product.mpn, product.model].filter(Boolean);
+  for (const term of mpnTerms) {
+    if (!term) continue;
+    try {
+      const searchTerm = product.brand ? `${product.brand} ${term}` : term;
+      console.log(`[File Analyzer] Strategy 2: MPN/SKU search for "${searchTerm}"`);
+      const items = await searchCatalogByKeyword(searchTerm, apiConfig);
+      if (items && items.length > 0) {
+        const item = items[0];
+        let imageUrl = product.imageUrl || undefined;
+        if (item.attributes?.main_product_image_locator) {
+          const imgData = item.attributes.main_product_image_locator;
+          if (Array.isArray(imgData) && imgData[0]?.media_location) {
+            imageUrl = imgData[0].media_location;
+          }
+        }
+        if (!imageUrl && item.attributes?.image) {
+          const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
+          if (imgArr[0]?.link) imageUrl = imgArr[0].link;
+        }
+        console.log(`[File Analyzer] ✓ MPN "${term}" → ASIN ${item.asin} (75% confidence)`);
+        return { asin: item.asin, matchMethod: 'mpn', confidence: 75, imageUrl };
+      }
+    } catch (error: any) {
+      console.error(`[File Analyzer] MPN search failed for "${term}":`, error.message);
+    }
+    await sleep(500);
+  }
+
+  // Strategy 3: Description/brand keyword search (50% confidence)
+  if (product.description || product.brand) {
+    try {
+      let searchTerms = '';
+      if (product.brand && product.description) {
+        const descWords = product.description.split(/\s+/).slice(0, 5).join(' ');
+        searchTerms = `${product.brand} ${descWords}`;
+      } else if (product.description) {
+        searchTerms = product.description.split(/\s+/).slice(0, 6).join(' ');
+      } else if (product.brand) {
+        searchTerms = product.brand;
+      }
+
+      if (searchTerms.length >= 3) {
+        console.log(`[File Analyzer] Strategy 3: Keyword search for "${searchTerms}"`);
+        const items = await searchCatalogByKeyword(searchTerms, apiConfig);
+        if (items && items.length > 0) {
+          const item = items[0];
+          let imageUrl = product.imageUrl || undefined;
+          if (item.attributes?.main_product_image_locator) {
+            const imgData = item.attributes.main_product_image_locator;
+            if (Array.isArray(imgData) && imgData[0]?.media_location) {
+              imageUrl = imgData[0].media_location;
+            }
+          }
+          if (!imageUrl && item.attributes?.image) {
+            const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
+            if (imgArr[0]?.link) imageUrl = imgArr[0].link;
+          }
+          console.log(`[File Analyzer] ✓ Keywords → ASIN ${item.asin} (50% confidence)`);
+          return { asin: item.asin, matchMethod: 'keyword', confidence: 50, imageUrl };
+        }
+      }
+    } catch (error: any) {
+      console.error(`[File Analyzer] Keyword search failed:`, error.message);
+    }
+  }
+
+  console.log(`[File Analyzer] ✗ No ASIN found for product: UPC=${product.upc}, MPN=${product.mpn}, brand=${product.brand}`);
+  return null;
 }
 
 export async function analyzeUploadedFile(uploadId: number): Promise<void> {
@@ -391,19 +487,41 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
 
     for (const result of results) {
       try {
-        // Convert UPC to ASIN if ASIN is not provided
         let asin = result.asin;
-        if ((!asin || asin === '') && result.upc) {
-          asin = await convertUpcToAsin(result.upc);
-          if (!asin) {
-            throw new Error(`Could not find ASIN for UPC ${result.upc}`);
+        let matchMethod: string | null = null;
+        let matchConfidence: number = 0;
+        let productImageUrl: string | null = result.imageUrl || null;
+
+        if (!asin || asin === '') {
+          const match = await findAsinForProduct({
+            upc: result.upc,
+            mpn: result.model,
+            brand: result.brand,
+            description: result.description,
+            model: result.model,
+            imageUrl: result.imageUrl,
+          });
+
+          if (match) {
+            asin = match.asin;
+            matchMethod = match.matchMethod;
+            matchConfidence = match.confidence;
+            if (match.imageUrl) productImageUrl = match.imageUrl;
+
+            await db
+              .update(fileAnalysisResults)
+              .set({ asin, matchMethod, imageUrl: productImageUrl })
+              .where(eq(fileAnalysisResults.id, result.id));
+          } else {
+            const strategies = [];
+            if (result.upc) strategies.push(`UPC: ${result.upc}`);
+            if (result.model) strategies.push(`MPN: ${result.model}`);
+            if (result.description) strategies.push(`Keywords: "${result.description?.substring(0, 30)}..."`);
+            throw new Error(`No ASIN found after trying: ${strategies.join(', ') || 'no identifiers available'}`);
           }
-          
-          // Update the result with the found ASIN
-          await db
-            .update(fileAnalysisResults)
-            .set({ asin })
-            .where(eq(fileAnalysisResults.id, result.id));
+        } else {
+          matchMethod = 'direct';
+          matchConfidence = 100;
         }
 
         if (!asin) {
@@ -424,16 +542,12 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
           if (buyBoxPrice && buyBoxPrice > 0) {
             const fees = marketData.estimatedFees ?? buyBoxPrice * 0.15;
 
-            // DROPSHIP: ZERO shipping cost (supplier ships directly to customer)
             const dropshipShipping = 0;
             dropshipMargin = ((buyBoxPrice - supplierCost - fees - dropshipShipping) / buyBoxPrice) * 100;
 
-            // WAREHOUSE: Shipping cost to get product to our warehouse
-            // Default to $10 for now (can be customized per supplier later)
             const warehouseShipping = 10;
             warehouseMargin = ((buyBoxPrice - supplierCost - fees - warehouseShipping) / buyBoxPrice) * 100;
 
-            // Determine opportunity type based on thresholds
             if (dropshipMargin >= dropshipThreshold && warehouseMargin >= warehouseThreshold) {
               opportunityType = 'both';
               isOpportunity = true;
@@ -465,14 +579,16 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
             warehouseMargin,
             isOpportunity,
             opportunityType,
-            confidenceScore: marketData.buyBoxPrice ? 85.0 : 0.0,
+            confidenceScore: matchConfidence,
+            matchMethod,
+            imageUrl: productImageUrl,
             errorMessage: null,
           })
           .where(eq(fileAnalysisResults.id, result.id));
 
         successCount++;
       } catch (error) {
-        console.error(`[File Analyzer] Error analyzing ASIN ${result.asin}:`, error);
+        console.error(`[File Analyzer] Error analyzing product ${result.id}:`, error);
         
         await db
           .update(fileAnalysisResults)
