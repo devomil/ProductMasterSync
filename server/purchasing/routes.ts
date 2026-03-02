@@ -404,15 +404,39 @@ router.post("/uploads/:uploadId/restart", async (req, res) => {
       return res.status(404).json({ error: 'Upload not found' });
     }
 
-    if (upload.status === 'completed') {
-      return res.status(400).json({ error: 'Upload already completed' });
-    }
+    await db.update(fileAnalysisResults)
+      .set({
+        asin: '',
+        errorMessage: null,
+        matchMethod: null,
+        buyBoxPrice: null,
+        amazonPrice: null,
+        lowestFbaPrice: null,
+        lowestFbmPrice: null,
+        estimatedFees: null,
+        isRestricted: false,
+        restrictionReasons: null,
+        dropshipMargin: null,
+        warehouseMargin: null,
+        isOpportunity: false,
+        opportunityType: null,
+        confidenceScore: null,
+      })
+      .where(eq(fileAnalysisResults.uploadId, uploadId));
 
     await db.update(fileUploads)
-      .set({ status: 'running' })
+      .set({
+        status: 'running',
+        processedRows: 0,
+        successRows: 0,
+        failedRows: 0,
+        opportunitiesFound: 0,
+        completedAt: null,
+        analysisResults: null,
+      })
       .where(eq(fileUploads.id, uploadId));
 
-    console.log(`[File Upload] Restarting analysis for upload ${uploadId}`);
+    console.log(`[File Upload] Re-analyzing upload ${uploadId} (cleared ${upload.totalRows} previous results)`);
     analyzeUploadedFile(uploadId).catch(err => {
       console.error(`[File Upload] Background analysis failed for upload ${uploadId}:`, err);
     });

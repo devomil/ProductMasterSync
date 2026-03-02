@@ -131,6 +131,34 @@ export default function ResearchOpportunities() {
     },
   });
 
+  const reanalyzeMutation = useMutation({
+    mutationFn: async (uploadId: number) => {
+      const response = await fetch(`/api/purchasing/uploads/${uploadId}/restart`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Re-analysis failed');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Re-analysis Started",
+        description: "Clearing old results and re-running multi-strategy search...",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads'] });
+      setActiveTab('progress');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Re-analysis Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
@@ -532,13 +560,34 @@ export default function ResearchOpportunities() {
                           {new Date(upload.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedUploadId(upload.id);
-                            setActiveTab('results');
-                          }}>
-                            View
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedUploadId(upload.id);
+                              setActiveTab('results');
+                            }}>
+                              View
+                            </Button>
+                            {(upload.status === 'completed' || upload.status === 'failed') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reanalyzeMutation.mutate(upload.id);
+                                }}
+                                disabled={reanalyzeMutation.isPending}
+                              >
+                                {reanalyzeMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                )}
+                                Re-analyze
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -609,22 +658,29 @@ export default function ResearchOpportunities() {
               </Card>
             </div>
 
-            {errors.length > 0 && (
-              <Alert className="border-orange-200 bg-orange-50">
-                <AlertCircle className="h-4 w-4 text-orange-600" />
-                <AlertDescription className="text-sm text-orange-800">
-                  {errors.filter(e => e.errorMessage?.includes('403')).length > 0 && (
-                    <span>{errors.filter(e => e.errorMessage?.includes('403')).length} products got Amazon API access errors (403). The SP-API access token may need refreshing. </span>
-                  )}
-                  {errors.filter(e => e.errorMessage?.includes('No ASIN found after trying')).length > 0 && (
-                    <span>{errors.filter(e => e.errorMessage?.includes('No ASIN found after trying')).length} products had no Amazon match after trying UPC, MPN, and keyword searches. </span>
-                  )}
-                  {errors.filter(e => e.errorMessage?.includes('rate') || e.errorMessage?.includes('429')).length > 0 && (
-                    <span>{errors.filter(e => e.errorMessage?.includes('rate') || e.errorMessage?.includes('429')).length} products were rate limited — they can be retried. </span>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
+            {errors.length > 0 && (() => {
+              const accessErrors = errors.filter(e => e.errorMessage?.includes('access denied') || e.errorMessage?.includes('403'));
+              const noMatchErrors = errors.filter(e => e.errorMessage?.includes('No ASIN found after trying') && !e.errorMessage?.includes('403'));
+              const rateErrors = errors.filter(e => e.errorMessage?.includes('rate') || e.errorMessage?.includes('429'));
+              return (
+                <Alert className={accessErrors.length > 0 ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}>
+                  <AlertCircle className={`h-4 w-4 ${accessErrors.length > 0 ? 'text-red-600' : 'text-orange-600'}`} />
+                  <AlertDescription className={`text-sm ${accessErrors.length > 0 ? 'text-red-800' : 'text-orange-800'}`}>
+                    <div className="space-y-1">
+                      {accessErrors.length > 0 && (
+                        <p className="font-medium">{accessErrors.length} products failed due to Amazon SP-API access denied (403). Check your API credentials and Catalog Items API permissions in Seller Central. Once fixed, click "Re-analyze" to retry.</p>
+                      )}
+                      {noMatchErrors.length > 0 && (
+                        <p>{noMatchErrors.length} products had no Amazon match after trying all strategies (UPC, MPN, keyword).</p>
+                      )}
+                      {rateErrors.length > 0 && (
+                        <p>{rateErrors.length} products were rate limited — click "Re-analyze" to retry.</p>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
 
             <Card>
               <CardHeader>
@@ -640,14 +696,32 @@ export default function ResearchOpportunities() {
                       <span className="text-xs text-gray-400">Catalog Items • Competitive Pricing • Product Fees • Listing Restrictions</span>
                     </CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                    Refresh
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (selectedUploadId) reanalyzeMutation.mutate(selectedUploadId);
+                      }}
+                      disabled={reanalyzeMutation.isPending}
+                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      {reanalyzeMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Re-analyze
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

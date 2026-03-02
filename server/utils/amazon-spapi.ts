@@ -170,6 +170,9 @@ export async function searchCatalogByKeyword(
     if (error.response?.data) {
       console.error('Amazon API keyword search error:', JSON.stringify(error.response.data, null, 2));
     }
+    if (error.response?.status === 403 || error.response?.status === 401) {
+      throw error;
+    }
     return [];
   }
 }

@@ -343,6 +343,29 @@ interface AsinMatch {
   imageUrl?: string;
 }
 
+function extractImageFromCatalogItem(item: any, fallbackUrl?: string | null): string | undefined {
+  if (item.attributes?.main_product_image_locator) {
+    const imgData = item.attributes.main_product_image_locator;
+    if (Array.isArray(imgData) && imgData[0]?.media_location) {
+      return imgData[0].media_location;
+    }
+  }
+  if (item.attributes?.image) {
+    const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
+    if (imgArr[0]?.link) return imgArr[0].link;
+  }
+  return fallbackUrl || undefined;
+}
+
+function isApiAccessError(error: any): boolean {
+  const msg = error?.message || '';
+  const status = error?.response?.status;
+  return status === 403 || status === 401 || 
+    msg.includes('403') || msg.includes('Access') || 
+    msg.includes('Unauthorized') || msg.includes('access denied') ||
+    msg.includes('AccessDeniedException');
+}
+
 async function findAsinForProduct(product: {
   upc?: string | null;
   mpn?: string | null;
@@ -353,8 +376,7 @@ async function findAsinForProduct(product: {
 }): Promise<AsinMatch | null> {
   const config = await getAmazonConfigFromDb();
   if (!config.marketplaceId) {
-    console.error('[File Analyzer] Amazon marketplace ID not configured');
-    return null;
+    throw new Error('Amazon marketplace ID not configured');
   }
 
   const apiConfig = {
@@ -363,59 +385,50 @@ async function findAsinForProduct(product: {
     endpoint: config.endpoint || 'https://sellingpartnerapi-na.amazon.com'
   };
 
+  let hadApiAccessError = false;
+  const strategiesTried: string[] = [];
+
   // Strategy 1: UPC lookup (100% confidence)
   if (product.upc && product.upc.length >= 10) {
+    strategiesTried.push(`UPC: ${product.upc}`);
     try {
       console.log(`[File Analyzer] Strategy 1: UPC lookup for ${product.upc}`);
       const items = await searchCatalogItemsByUPC(product.upc, apiConfig);
       if (items && items.length > 0) {
         const item = items[0];
-        let imageUrl = product.imageUrl || undefined;
-        if (item.attributes?.main_product_image_locator) {
-          const imgData = item.attributes.main_product_image_locator;
-          if (Array.isArray(imgData) && imgData[0]?.media_location) {
-            imageUrl = imgData[0].media_location;
-          }
-        }
-        if (!imageUrl && item.attributes?.image) {
-          const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
-          if (imgArr[0]?.link) imageUrl = imgArr[0].link;
-        }
+        const imageUrl = extractImageFromCatalogItem(item, product.imageUrl);
         console.log(`[File Analyzer] ✓ UPC ${product.upc} → ASIN ${item.asin} (100% confidence)`);
         return { asin: item.asin, matchMethod: 'upc', confidence: 100, imageUrl };
       }
       console.log(`[File Analyzer] UPC ${product.upc}: no results from catalog API`);
     } catch (error: any) {
-      console.error(`[File Analyzer] UPC lookup failed for ${product.upc}:`, error.message);
+      if (isApiAccessError(error)) {
+        hadApiAccessError = true;
+        console.error(`[File Analyzer] UPC lookup 403 ACCESS DENIED for ${product.upc}`);
+      } else {
+        console.error(`[File Analyzer] UPC lookup failed for ${product.upc}:`, error.message);
+      }
     }
     await sleep(500);
   }
 
   // Strategy 2: MPN/SKU/Model keyword search (75% confidence)
-  const mpnTerms = [product.mpn, product.model].filter(Boolean);
+  const mpnTerms = [...new Set([product.mpn, product.model].filter(Boolean))];
   for (const term of mpnTerms) {
     if (!term) continue;
+    const searchTerm = product.brand ? `${product.brand} ${term}` : term;
+    strategiesTried.push(`MPN: ${term}`);
     try {
-      const searchTerm = product.brand ? `${product.brand} ${term}` : term;
       console.log(`[File Analyzer] Strategy 2: MPN/SKU search for "${searchTerm}"`);
       const items = await searchCatalogByKeyword(searchTerm, apiConfig);
       if (items && items.length > 0) {
         const item = items[0];
-        let imageUrl = product.imageUrl || undefined;
-        if (item.attributes?.main_product_image_locator) {
-          const imgData = item.attributes.main_product_image_locator;
-          if (Array.isArray(imgData) && imgData[0]?.media_location) {
-            imageUrl = imgData[0].media_location;
-          }
-        }
-        if (!imageUrl && item.attributes?.image) {
-          const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
-          if (imgArr[0]?.link) imageUrl = imgArr[0].link;
-        }
+        const imageUrl = extractImageFromCatalogItem(item, product.imageUrl);
         console.log(`[File Analyzer] ✓ MPN "${term}" → ASIN ${item.asin} (75% confidence)`);
         return { asin: item.asin, matchMethod: 'mpn', confidence: 75, imageUrl };
       }
     } catch (error: any) {
+      if (isApiAccessError(error)) hadApiAccessError = true;
       console.error(`[File Analyzer] MPN search failed for "${term}":`, error.message);
     }
     await sleep(500);
@@ -423,44 +436,39 @@ async function findAsinForProduct(product: {
 
   // Strategy 3: Description/brand keyword search (50% confidence)
   if (product.description || product.brand) {
-    try {
-      let searchTerms = '';
-      if (product.brand && product.description) {
-        const descWords = product.description.split(/\s+/).slice(0, 5).join(' ');
-        searchTerms = `${product.brand} ${descWords}`;
-      } else if (product.description) {
-        searchTerms = product.description.split(/\s+/).slice(0, 6).join(' ');
-      } else if (product.brand) {
-        searchTerms = product.brand;
-      }
+    let searchTerms = '';
+    if (product.brand && product.description) {
+      const descWords = product.description.split(/\s+/).slice(0, 5).join(' ');
+      searchTerms = `${product.brand} ${descWords}`;
+    } else if (product.description) {
+      searchTerms = product.description.split(/\s+/).slice(0, 6).join(' ');
+    } else if (product.brand) {
+      searchTerms = product.brand;
+    }
 
-      if (searchTerms.length >= 3) {
+    if (searchTerms.length >= 3) {
+      strategiesTried.push(`Keywords: "${searchTerms.substring(0, 30)}..."`);
+      try {
         console.log(`[File Analyzer] Strategy 3: Keyword search for "${searchTerms}"`);
         const items = await searchCatalogByKeyword(searchTerms, apiConfig);
         if (items && items.length > 0) {
           const item = items[0];
-          let imageUrl = product.imageUrl || undefined;
-          if (item.attributes?.main_product_image_locator) {
-            const imgData = item.attributes.main_product_image_locator;
-            if (Array.isArray(imgData) && imgData[0]?.media_location) {
-              imageUrl = imgData[0].media_location;
-            }
-          }
-          if (!imageUrl && item.attributes?.image) {
-            const imgArr = Array.isArray(item.attributes.image) ? item.attributes.image : [item.attributes.image];
-            if (imgArr[0]?.link) imageUrl = imgArr[0].link;
-          }
+          const imageUrl = extractImageFromCatalogItem(item, product.imageUrl);
           console.log(`[File Analyzer] ✓ Keywords → ASIN ${item.asin} (50% confidence)`);
           return { asin: item.asin, matchMethod: 'keyword', confidence: 50, imageUrl };
         }
+      } catch (error: any) {
+        if (isApiAccessError(error)) hadApiAccessError = true;
+        console.error(`[File Analyzer] Keyword search failed:`, error.message);
       }
-    } catch (error: any) {
-      console.error(`[File Analyzer] Keyword search failed:`, error.message);
     }
   }
 
-  console.log(`[File Analyzer] ✗ No ASIN found for product: UPC=${product.upc}, MPN=${product.mpn}, brand=${product.brand}`);
-  return null;
+  if (hadApiAccessError) {
+    throw new Error(`Amazon SP-API access denied (403) — check API credentials/permissions. Tried: ${strategiesTried.join(', ')}`);
+  }
+
+  throw new Error(`No ASIN found after trying: ${strategiesTried.join(', ')}`);
 }
 
 export async function analyzeUploadedFile(uploadId: number): Promise<void> {
