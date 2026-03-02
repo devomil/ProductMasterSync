@@ -117,7 +117,7 @@ const navigation: { section: string; items: NavItem[] }[] = [
     section: 'AI & Analytics',
     items: [
       { label: 'Purchasing AI', href: '/purchasing-ai', icon: Brain },
-      { label: 'Batch Processing', href: '/batch-processing', icon: Cpu },
+      { label: 'Research Opportunities', href: '/research-opportunities', icon: Cpu },
       { label: 'System Analysis', href: '/system-analysis', icon: Activity },
     ]
   },

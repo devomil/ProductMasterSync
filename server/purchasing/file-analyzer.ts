@@ -15,25 +15,43 @@ interface CSVRow {
   UPC?: string;
   Description?: string;
   DESCRIPTION?: string;
+  'Item Description'?: string;
   Brand?: string;
   'BRAND NAME'?: string;
+  Manufacturer?: string;
   Model?: string;
+  'Item #'?: string;
   Color?: string;
   Qty?: string;
   AVAILABLE?: string;
   'Retail Price'?: string;
+  'Unit Retail'?: string;
   PRICE?: string;
+  Condition?: string;
+  Category?: string;
+  'Seller Category'?: string;
+  'Image URL'?: string;
+  Packaging?: string;
+  MPN?: string;
+  'Manufacturer Part Number'?: string;
+  Keywords?: string;
 }
 
 interface ParsedProduct {
   asin: string;
   upc?: string;
+  mpn?: string;
   description?: string;
   brand?: string;
   model?: string;
   color?: string;
   quantity?: number;
   supplierPrice?: number;
+  category?: string;
+  condition?: string;
+  imageUrl?: string;
+  itemNumber?: string;
+  keywords?: string;
 }
 
 interface MarketData {
@@ -239,44 +257,38 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
     const products: ParsedProduct[] = [];
 
     for (const row of records) {
-      // Extract ASIN or UPC - at least one must be present
       const asin = row.ASIN?.trim();
       
-      // Normalize UPC - handle scientific notation (e.g., 6.97068E+12) and ensure 12-digit format
       let upc: string | undefined;
       if (row.UPC) {
         const upcValue = row.UPC.trim();
-        
-        // Check if it's in scientific notation
         if (upcValue.includes('E') || upcValue.includes('e')) {
-          // Parse scientific notation to number, then convert to string
           const numericUpc = Number(upcValue);
           if (!isNaN(numericUpc)) {
-            // Convert to string and pad to 12 digits (UPC-A standard)
             upc = Math.floor(numericUpc).toString().padStart(12, '0');
           }
         } else {
-          // Regular UPC - remove any non-digits and pad to 12 digits
           const cleanUpc = upcValue.replace(/[^0-9]/g, '');
           if (cleanUpc.length > 0) {
             upc = cleanUpc.padStart(12, '0');
           }
         }
       }
+
+      const mpn = row.MPN?.trim() || row['Manufacturer Part Number']?.trim() || row['Item #']?.trim();
       
-      if ((!asin || asin === '') && (!upc || upc === '')) {
+      if ((!asin || asin === '') && (!upc || upc === '') && (!mpn || mpn === '')) {
         continue;
       }
 
-      // Extract description - support multiple column name formats
-      const description = row.Description?.trim() || row.DESCRIPTION?.trim();
-      
-      // Extract brand - support multiple column name formats
-      const brand = row.Brand?.trim() || row['BRAND NAME']?.trim();
+      const description = row.Description?.trim() || row.DESCRIPTION?.trim() || row['Item Description']?.trim();
+      const brand = row.Brand?.trim() || row['BRAND NAME']?.trim() || row.Manufacturer?.trim();
+      const category = row.Category?.trim() || row['Seller Category']?.trim();
+      const condition = row.Condition?.trim();
+      const imageUrl = row['Image URL']?.trim();
 
-      // Parse retail price - handle multiple column names and formats
       let supplierPrice: number | undefined;
-      const priceStr = row['Retail Price'] || row.PRICE;
+      const priceStr = row['Retail Price'] || row['Unit Retail'] || row.PRICE;
       if (priceStr) {
         const cleanPrice = priceStr.replace(/[$,\s]/g, '');
         const parsed = parseFloat(cleanPrice);
@@ -285,7 +297,6 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
         }
       }
 
-      // Parse quantity - support multiple column names
       let quantity: number | undefined;
       const qtyStr = row.Qty || row.AVAILABLE;
       if (qtyStr) {
@@ -297,14 +308,20 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
       }
 
       products.push({
-        asin: asin || '',  // Will be populated from UPC lookup if empty
+        asin: asin || '',
         upc,
+        mpn,
         description,
         brand,
         model: row.Model?.trim(),
         color: row.Color?.trim(),
         quantity,
         supplierPrice,
+        category,
+        condition,
+        imageUrl,
+        itemNumber: row['Item #']?.trim(),
+        keywords: row.Keywords?.trim(),
       });
     }
 

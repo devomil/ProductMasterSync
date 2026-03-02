@@ -34,7 +34,7 @@ import AmazonAnalytics from "@/pages/AmazonAnalyticsEnhanced";
 import AIPurchasing from "@/pages/AIPurchasing";
 import ASINDemo from "@/pages/ASINDemo";
 import SystemAnalysis from "@/pages/SystemAnalysis";
-import BatchProcessing from "@/pages/BatchProcessing";
+import ResearchOpportunities from "@/pages/ResearchOpportunities";
 import SampleDataTest from "@/pages/SampleDataTest";
 import AdvancedDeduplication from "@/pages/AdvancedDeduplication";
 import GamifiedMapping from "@/pages/GamifiedMapping";
@@ -86,7 +86,7 @@ function Router() {
       <Route path="/audit-logs" component={AuditLogs} />
       <Route path="/ai-purchasing" component={AIPurchasing} />
       <Route path="/asin-demo" component={ASINDemo} />
-      <Route path="/batch-processing" component={BatchProcessing} />
+      <Route path="/research-opportunities" component={ResearchOpportunities} />
       <Route path="/sample-data-test" component={SampleDataTest} />
       <Route path="/advanced-deduplication" component={AdvancedDeduplication} />
       <Route path="/gamified-mapping" component={GamifiedMapping} />
