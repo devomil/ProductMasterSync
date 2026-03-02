@@ -2487,6 +2487,8 @@ export const fileAnalysisResults = pgTable("file_analysis_results", {
   // Analysis metadata
   analysisDate: timestamp("analysis_date").defaultNow(),
   errorMessage: text("error_message"),
+  matchMethod: text("match_method"),
+  imageUrl: text("image_url"),
   
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {

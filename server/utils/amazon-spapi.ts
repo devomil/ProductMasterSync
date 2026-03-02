@@ -127,6 +127,54 @@ export async function searchCatalogItemsByUPC(
 }
 
 /**
+ * Search catalog items by keyword (description/brand/MPN)
+ */
+export async function searchCatalogByKeyword(
+  keyword: string,
+  config: SPAPIConfig
+): Promise<SPAPICatalogItem[]> {
+  try {
+    const accessToken = await getAccessToken(config);
+    const endpoint = config.endpoint || 'https://sellingpartnerapi-na.amazon.com';
+    const path = '/catalog/2022-04-01/items';
+    const queryParams = {
+      marketplaceIds: config.marketplaceId,
+      keywords: keyword,
+      includedData: 'attributes,dimensions,images,productTypes,relationships,salesRanks,summaries',
+      pageSize: '5'
+    };
+
+    const queryString = Object.keys(queryParams)
+      .map(key => `${key}=${encodeURIComponent(queryParams[key as keyof typeof queryParams])}`)
+      .join('&');
+
+    const response = await axios({
+      method: 'GET',
+      url: `${endpoint}${path}?${queryString}`,
+      headers: {
+        'x-amz-access-token': accessToken,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.data && response.data.items) {
+      return response.data.items.map((item: any) => ({
+        asin: item.asin,
+        attributes: item.attributes || {}
+      }));
+    }
+
+    return [];
+  } catch (error: any) {
+    console.error('Error searching catalog by keyword:', error.message);
+    if (error.response?.data) {
+      console.error('Amazon API keyword search error:', JSON.stringify(error.response.data, null, 2));
+    }
+    return [];
+  }
+}
+
+/**
  * Get detailed catalog item information by ASIN
  */
 export async function getCatalogItem(
