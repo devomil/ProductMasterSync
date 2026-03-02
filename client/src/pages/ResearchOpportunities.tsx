@@ -74,12 +74,22 @@ export default function ResearchOpportunities() {
 
   const { data: activeUploadStatus } = useQuery<UploadResult>({
     queryKey: ['/api/purchasing/uploads', activeUpload?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/purchasing/uploads/${activeUpload?.id}`);
+      if (!response.ok) throw new Error('Failed to fetch upload status');
+      return response.json();
+    },
     enabled: !!activeUpload?.id,
     refetchInterval: activeUpload ? 3000 : false,
   });
 
   const { data: selectedResults, isLoading: resultsLoading } = useQuery<AnalysisResult[]>({
     queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'],
+    queryFn: async () => {
+      const response = await fetch(`/api/purchasing/uploads/${selectedUploadId}/results`);
+      if (!response.ok) throw new Error('Failed to fetch results');
+      return response.json();
+    },
     enabled: !!selectedUploadId,
   });
 
@@ -165,21 +175,24 @@ export default function ResearchOpportunities() {
     if (result.errorMessage) {
       const msg = result.errorMessage;
       if (msg.includes('403') || msg.includes('Access') || msg.includes('Unauthorized')) {
-        return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API access denied — check credentials' };
+        return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API access denied — check API credentials/permissions' };
+      }
+      if (msg.includes('Could not find ASIN') && msg.includes('403')) {
+        return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API returned 403 — credentials may need updating' };
       }
       if (msg.includes('Could not find ASIN')) {
-        return { label: 'No ASIN Found', color: 'text-yellow-600', icon: Search, detail: 'UPC not found in Amazon catalog' };
+        return { label: 'No ASIN Match', color: 'text-yellow-600', icon: Search, detail: `UPC ${result.upc || 'unknown'} not found in Amazon catalog` };
       }
       if (msg.includes('rate') || msg.includes('429') || msg.includes('throttl')) {
-        return { label: 'Rate Limited', color: 'text-orange-500', icon: Clock, detail: 'Amazon API rate limit hit — will retry' };
+        return { label: 'Rate Limited', color: 'text-orange-500', icon: Clock, detail: 'Amazon API rate limit hit — retry later' };
       }
-      return { label: 'Error', color: 'text-red-600', icon: XCircle, detail: msg };
+      return { label: 'Failed', color: 'text-red-600', icon: XCircle, detail: msg };
     }
     if (result.buyBoxPrice !== null && result.asin) {
-      return { label: 'Analyzed', color: 'text-green-600', icon: CheckCircle, detail: 'Amazon pricing and fees retrieved' };
+      return { label: 'Matched', color: 'text-green-600', icon: CheckCircle, detail: 'Amazon pricing and fees retrieved successfully' };
     }
     if (result.asin && !result.buyBoxPrice) {
-      return { label: 'No Buy Box', color: 'text-yellow-600', icon: AlertCircle, detail: 'ASIN found but no Buy Box price available' };
+      return { label: 'No Buy Box', color: 'text-yellow-600', icon: AlertCircle, detail: 'ASIN found but no active Buy Box price' };
     }
     return { label: 'Pending', color: 'text-gray-400', icon: Clock, detail: 'Waiting to be analyzed' };
   };
