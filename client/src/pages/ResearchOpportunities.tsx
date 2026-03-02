@@ -9,11 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Upload, Search, TrendingUp, AlertCircle, CheckCircle, XCircle,
   FileSpreadsheet, Loader2, DollarSign, Package, BarChart3,
-  Clock, RefreshCw, ArrowUpDown, ExternalLink, ShieldCheck, ShieldAlert
+  Clock, RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Zap, Globe
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 import { useToast } from '@/hooks/use-toast';
@@ -161,6 +161,29 @@ export default function ResearchOpportunities() {
     }
   };
 
+  const getResultStatus = (result: AnalysisResult) => {
+    if (result.errorMessage) {
+      const msg = result.errorMessage;
+      if (msg.includes('403') || msg.includes('Access') || msg.includes('Unauthorized')) {
+        return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API access denied — check credentials' };
+      }
+      if (msg.includes('Could not find ASIN')) {
+        return { label: 'No ASIN Found', color: 'text-yellow-600', icon: Search, detail: 'UPC not found in Amazon catalog' };
+      }
+      if (msg.includes('rate') || msg.includes('429') || msg.includes('throttl')) {
+        return { label: 'Rate Limited', color: 'text-orange-500', icon: Clock, detail: 'Amazon API rate limit hit — will retry' };
+      }
+      return { label: 'Error', color: 'text-red-600', icon: XCircle, detail: msg };
+    }
+    if (result.buyBoxPrice !== null && result.asin) {
+      return { label: 'Analyzed', color: 'text-green-600', icon: CheckCircle, detail: 'Amazon pricing and fees retrieved' };
+    }
+    if (result.asin && !result.buyBoxPrice) {
+      return { label: 'No Buy Box', color: 'text-yellow-600', icon: AlertCircle, detail: 'ASIN found but no Buy Box price available' };
+    }
+    return { label: 'Pending', color: 'text-gray-400', icon: Clock, detail: 'Waiting to be analyzed' };
+  };
+
   const currentUpload = activeUploadStatus || activeUpload;
   const progressPct = currentUpload && currentUpload.totalRows
     ? Math.round(((currentUpload.processedRows || 0) / currentUpload.totalRows) * 100)
@@ -169,37 +192,58 @@ export default function ResearchOpportunities() {
   const opportunities = selectedResults?.filter(r => r.isOpportunity) || [];
   const errors = selectedResults?.filter(r => r.errorMessage) || [];
   const analyzed = selectedResults?.filter(r => !r.errorMessage && r.buyBoxPrice !== null) || [];
+  const restricted = selectedResults?.filter(r => r.isRestricted) || [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Research Opportunities</h1>
         <p className="text-muted-foreground">
-          Upload product lists to discover marketplace selling opportunities across Amazon, Walmart, and more
+          Upload product lists to discover marketplace selling opportunities across Amazon and Walmart
         </p>
       </div>
 
       {currentUpload && (currentUpload.status === 'running' || currentUpload.status === 'pending') && (
-        <Card className="border-blue-200 bg-blue-50/50">
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardContent className="pt-6">
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                  <span className="font-medium">Analyzing: {currentUpload.fileName}</span>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Globe className="h-5 w-5 text-blue-600 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="font-medium">Analyzing: {currentUpload.fileName}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-gray-500">Searching:</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-0.5 bg-orange-100 text-orange-700 rounded px-1.5 py-0.5">
+                          <SiAmazon className="h-3 w-3" />
+                          <span className="text-[10px] font-medium">SP-API</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">UPC → ASIN → Pricing → Fees → Restrictions</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <Badge variant="default" className="bg-blue-500">
-                  <Clock className="w-3 h-3 mr-1" />
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                   {currentUpload.status === 'pending' ? 'Starting...' : 'Running'}
                 </Badge>
               </div>
               <Progress value={progressPct} className="h-2" />
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>{currentUpload.processedRows || 0} of {currentUpload.totalRows || 0} products</span>
-                <div className="flex gap-4">
-                  <span className="text-green-600">{currentUpload.successRows || 0} matched</span>
-                  <span className="text-red-600">{currentUpload.failedRows || 0} failed</span>
-                  <span className="text-emerald-600">{currentUpload.opportunitiesFound || 0} opportunities</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{currentUpload.processedRows || 0} of {currentUpload.totalRows || 0} products</span>
+                <div className="flex gap-4 text-xs">
+                  <span className="flex items-center gap-1 text-green-600">
+                    <CheckCircle className="h-3 w-3" /> {currentUpload.successRows || 0} matched
+                  </span>
+                  <span className="flex items-center gap-1 text-red-600">
+                    <XCircle className="h-3 w-3" /> {currentUpload.failedRows || 0} failed
+                  </span>
+                  <span className="flex items-center gap-1 text-emerald-600">
+                    <TrendingUp className="h-3 w-3" /> {currentUpload.opportunitiesFound || 0} opportunities
+                  </span>
                 </div>
               </div>
             </div>
@@ -235,8 +279,7 @@ export default function ResearchOpportunities() {
                     Upload Product List
                   </CardTitle>
                   <CardDescription>
-                    Upload a CSV or Excel file with UPCs, MPNs, or keywords. The system will look up each product
-                    across marketplaces to find profitable selling opportunities.
+                    Upload a CSV or Excel file with UPCs, MPNs, or keywords. Each product is analyzed against marketplace APIs in real-time.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -324,6 +367,33 @@ export default function ResearchOpportunities() {
 
               <Card>
                 <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    Marketplace APIs Used
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-3 p-2 bg-orange-50 rounded-lg border border-orange-100">
+                    <SiAmazon className="h-5 w-5 text-orange-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-orange-800">Amazon SP-API</p>
+                      <p className="text-[10px] text-orange-600">Catalog Search, Competitive Pricing, Fees, Restrictions</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700 text-[10px] ml-auto">Active</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <SiWalmart className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-blue-800">Walmart Marketplace</p>
+                      <p className="text-[10px] text-blue-600">Pricing Insights, Product Matching</p>
+                    </div>
+                    <Badge className="bg-gray-100 text-gray-500 text-[10px] ml-auto">Planned</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm">How It Works</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -333,15 +403,15 @@ export default function ResearchOpportunities() {
                   </div>
                   <div className="flex gap-2 items-start">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</div>
-                    <p className="text-xs text-gray-600">System looks up each product on Amazon and Walmart via API</p>
+                    <p className="text-xs text-gray-600">Each UPC is sent to Amazon SP-API to find the ASIN</p>
                   </div>
                   <div className="flex gap-2 items-start">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</div>
-                    <p className="text-xs text-gray-600">Compares your cost against marketplace prices, fees, and restrictions</p>
+                    <p className="text-xs text-gray-600">Fetches Buy Box price, referral/FBA fees, and listing restrictions</p>
                   </div>
                   <div className="flex gap-2 items-start">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">4</div>
-                    <p className="text-xs text-gray-600">Highlights profitable opportunities above your margin thresholds</p>
+                    <p className="text-xs text-gray-600">Calculates dropship and warehouse margins vs your supplier cost</p>
                   </div>
                 </CardContent>
               </Card>
@@ -369,6 +439,7 @@ export default function ResearchOpportunities() {
                     <TableRow>
                       <TableHead>File</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Marketplaces</TableHead>
                       <TableHead>Products</TableHead>
                       <TableHead>Opportunities</TableHead>
                       <TableHead>Success Rate</TableHead>
@@ -407,6 +478,18 @@ export default function ResearchOpportunities() {
                           {upload.status === 'failed' && (
                             <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Failed</Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <SiAmazon className="h-4 w-4 text-orange-500" />
+                                </TooltipTrigger>
+                                <TooltipContent><p className="text-xs">Amazon SP-API: Catalog, Pricing, Fees</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">{upload.processedRows || 0} / {upload.totalRows || 0}</span>
@@ -453,12 +536,12 @@ export default function ResearchOpportunities() {
 
         {selectedUploadId && (
           <TabsContent value="results" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-2 mb-1">
                     <Package className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-muted-foreground">Total Products</span>
+                    <span className="text-xs text-muted-foreground">Total</span>
                   </div>
                   <div className="text-2xl font-bold">{selectedResults?.length || 0}</div>
                 </CardContent>
@@ -467,7 +550,7 @@ export default function ResearchOpportunities() {
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm text-muted-foreground">Opportunities</span>
+                    <span className="text-xs text-muted-foreground">Opportunities</span>
                   </div>
                   <div className="text-2xl font-bold text-emerald-600">{opportunities.length}</div>
                 </CardContent>
@@ -476,7 +559,7 @@ export default function ResearchOpportunities() {
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-2 mb-1">
                     <CheckCircle className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm text-muted-foreground">Analyzed</span>
+                    <span className="text-xs text-muted-foreground">Analyzed</span>
                   </div>
                   <div className="text-2xl font-bold text-blue-600">{analyzed.length}</div>
                 </CardContent>
@@ -484,35 +567,59 @@ export default function ResearchOpportunities() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-2 mb-1">
+                    <ShieldAlert className="h-4 w-4 text-orange-500" />
+                    <span className="text-xs text-muted-foreground">Restricted</span>
+                  </div>
+                  <div className="text-2xl font-bold text-orange-600">{restricted.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-2 mb-1">
                     <AlertCircle className="h-4 w-4 text-red-500" />
-                    <span className="text-sm text-muted-foreground">Errors</span>
+                    <span className="text-xs text-muted-foreground">Errors</span>
                   </div>
                   <div className="text-2xl font-bold text-red-600">{errors.length}</div>
                 </CardContent>
               </Card>
             </div>
 
+            {errors.length > 0 && (
+              <Alert className="border-orange-200 bg-orange-50">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-sm text-orange-800">
+                  {errors.filter(e => e.errorMessage?.includes('403')).length > 0 && (
+                    <span>{errors.filter(e => e.errorMessage?.includes('403')).length} products got Amazon API access errors (403). The SP-API access token may need refreshing. </span>
+                  )}
+                  {errors.filter(e => e.errorMessage?.includes('Could not find ASIN')).length > 0 && (
+                    <span>{errors.filter(e => e.errorMessage?.includes('Could not find ASIN')).length} UPCs had no matching ASIN in Amazon's catalog. </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Analysis Results</CardTitle>
-                    <CardDescription>
-                      {opportunities.length > 0
-                        ? `Found ${opportunities.length} profitable opportunities`
-                        : 'Detailed marketplace research results'}
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      <span>Data sources:</span>
+                      <div className="flex items-center gap-1 bg-orange-50 rounded px-1.5 py-0.5 border border-orange-100">
+                        <SiAmazon className="h-3 w-3 text-orange-600" />
+                        <span className="text-[10px] font-medium text-orange-700">Amazon SP-API</span>
+                      </div>
+                      <span className="text-xs text-gray-400">Catalog Items • Competitive Pricing • Product Fees • Listing Restrictions</span>
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                      Refresh
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                    Refresh
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -526,9 +633,10 @@ export default function ResearchOpportunities() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[200px]">Product</TableHead>
+                          <TableHead className="w-[180px]">Product</TableHead>
                           <TableHead>UPC</TableHead>
                           <TableHead>ASIN</TableHead>
+                          <TableHead>API Status</TableHead>
                           <TableHead className="text-right">Your Cost</TableHead>
                           <TableHead className="text-right">Buy Box</TableHead>
                           <TableHead className="text-right">Fees</TableHead>
@@ -545,10 +653,13 @@ export default function ResearchOpportunities() {
                             if (!a.isOpportunity && b.isOpportunity) return 1;
                             return (b.dropshipMargin || 0) - (a.dropshipMargin || 0);
                           })
-                          .map((result) => (
+                          .map((result) => {
+                          const status = getResultStatus(result);
+                          const StatusIcon = status.icon;
+                          return (
                           <TableRow key={result.id} className={result.isOpportunity ? 'bg-emerald-50/50' : ''}>
                             <TableCell>
-                              <div className="max-w-[200px]">
+                              <div className="max-w-[180px]">
                                 <div className="text-sm font-medium truncate">{result.description || result.brand || '—'}</div>
                                 {result.brand && result.description && (
                                   <div className="text-xs text-muted-foreground truncate">{result.brand}</div>
@@ -571,11 +682,31 @@ export default function ResearchOpportunities() {
                                 <span className="text-xs text-gray-400">—</span>
                               )}
                             </TableCell>
+                            <TableCell>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <div className={`flex items-center gap-1 ${status.color}`}>
+                                      <StatusIcon className="h-3.5 w-3.5" />
+                                      <span className="text-xs">{status.label}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom">
+                                    <p className="text-xs max-w-[250px]">{status.detail}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </TableCell>
                             <TableCell className="text-right font-medium">
                               {formatCurrency(result.supplierPrice)}
                             </TableCell>
                             <TableCell className="text-right">
-                              {formatCurrency(result.buyBoxPrice)}
+                              {result.buyBoxPrice !== null ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <SiAmazon className="h-3 w-3 text-orange-400" />
+                                  <span>{formatCurrency(result.buyBoxPrice)}</span>
+                                </div>
+                              ) : '—'}
                             </TableCell>
                             <TableCell className="text-right text-sm">
                               {formatCurrency(result.estimatedFees)}
@@ -598,22 +729,39 @@ export default function ResearchOpportunities() {
                             </TableCell>
                             <TableCell>
                               {result.isRestricted ? (
-                                <ShieldAlert className="h-4 w-4 text-red-500" />
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <ShieldAlert className="h-4 w-4 text-red-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Restricted: {result.restrictionReasons?.join(', ') || 'Approval needed'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               ) : result.asin ? (
                                 <ShieldCheck className="h-4 w-4 text-green-500" />
                               ) : null}
                             </TableCell>
                             <TableCell>
                               {result.errorMessage ? (
-                                <Badge variant="outline" className="text-red-500 text-xs">
-                                  Error
-                                </Badge>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="outline" className="text-red-500 text-xs">Error</Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left">
+                                      <p className="text-xs max-w-[300px]">{result.errorMessage}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               ) : (
                                 getOpportunityBadge(result.opportunityType)
                               )}
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

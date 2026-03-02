@@ -264,13 +264,17 @@ export async function parseCSVFile(fileContent: string): Promise<ParsedProduct[]
         const upcValue = row.UPC.trim();
         if (upcValue.includes('E') || upcValue.includes('e')) {
           const numericUpc = Number(upcValue);
-          if (!isNaN(numericUpc)) {
-            upc = Math.floor(numericUpc).toString().padStart(12, '0');
+          if (!isNaN(numericUpc) && numericUpc > 0) {
+            let upcStr = Math.round(numericUpc).toString();
+            if (upcStr.length > 13) {
+              upcStr = upcStr.slice(0, 13);
+            }
+            upc = upcStr.length <= 12 ? upcStr.padStart(12, '0') : upcStr;
           }
         } else {
           const cleanUpc = upcValue.replace(/[^0-9]/g, '');
-          if (cleanUpc.length > 0) {
-            upc = cleanUpc.padStart(12, '0');
+          if (cleanUpc.length > 0 && cleanUpc.length <= 14) {
+            upc = cleanUpc.length <= 12 ? cleanUpc.padStart(12, '0') : cleanUpc;
           }
         }
       }
