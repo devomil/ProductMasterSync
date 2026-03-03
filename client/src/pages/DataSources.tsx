@@ -32,6 +32,7 @@ const editDataSourceSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   type: z.enum(["sftp", "ftp", "api", "csv", "excel"]),
+  purpose: z.enum(["catalog", "inventory_pricing", "order_fulfillment", "catalog_search", "returns", "general"]).optional(),
   config: z.object({
     host: z.string().optional(),
     port: z.number().optional(),
@@ -77,6 +78,7 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
       name: dataSource.name,
       description: (dataSource as any).description || "",
       type: dataSource.type as any,
+      purpose: ((dataSource as any).purpose || "general") as any,
       config: {
         host: parsedConfig?.host || "",
         port: parsedConfig?.port || 22,
@@ -99,6 +101,7 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
       name: dataSource.name,
       description: (dataSource as any).description || "",
       type: dataSource.type as any,
+      purpose: ((dataSource as any).purpose || "general") as any,
       config: {
         host: parsedConfig?.host || "",
         port: parsedConfig?.port || 22,
@@ -132,9 +135,9 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: EditDataSourceFormData) => {
-      // Include file paths in the config
       const updateData = {
         ...data,
+        purpose: data.purpose || 'general',
         config: {
           ...data.config,
           filePaths: filePaths,
@@ -212,6 +215,32 @@ function EditDataSourceForm({ dataSource, onClose }: EditDataSourceFormProps) {
                   <SelectItem value="api">API</SelectItem>
                   <SelectItem value="csv">CSV</SelectItem>
                   <SelectItem value="excel">Excel</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="purpose"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Purpose</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value || "general"}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select purpose" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="catalog">Catalog Import</SelectItem>
+                  <SelectItem value="inventory_pricing">Inventory & Pricing Updates</SelectItem>
+                  <SelectItem value="order_fulfillment">Order Fulfillment</SelectItem>
+                  <SelectItem value="catalog_search">Catalog Search</SelectItem>
+                  <SelectItem value="returns">Returns Processing</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

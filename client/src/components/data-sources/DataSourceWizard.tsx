@@ -27,7 +27,9 @@ import {
   Package,
   Search,
   RotateCcw,
-  Settings
+  Settings,
+  Lightbulb,
+  Check
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -108,16 +110,8 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
   };
 
   const getPurposeColorClasses = (color: string, isSelected: boolean) => {
-    if (!isSelected) return 'hover:border-gray-300';
-    const map: Record<string, string> = {
-      blue: 'border-blue-500 bg-blue-50',
-      green: 'border-green-500 bg-green-50',
-      purple: 'border-purple-500 bg-purple-50',
-      amber: 'border-amber-500 bg-amber-50',
-      red: 'border-red-500 bg-red-50',
-      gray: 'border-gray-500 bg-gray-50',
-    };
-    return map[color] || 'border-blue-500 bg-blue-50';
+    if (!isSelected) return 'hover:border-gray-300 hover:scale-[1.02]';
+    return 'ring-2 ring-emerald-500 bg-emerald-50/60 hover:scale-[1.02]';
   };
 
   const [connectionStatus, setConnectionStatus] = useState<{
@@ -501,26 +495,38 @@ export default function DataSourceWizard({ suppliers, onComplete, onCancel }: Da
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label>Purpose</Label>
-                {formData.purpose === getSuggestedPurpose(formData.type, formData.apiProvider) && formData.purpose && (
-                  <Badge variant="outline" className="text-xs gap-1 text-blue-600 border-blue-200 bg-blue-50">
-                    Auto-suggested
-                  </Badge>
-                )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {purposeOptions.map(({ value, label, description, icon: Icon, color }) => (
-                  <Card
-                    key={value}
-                    className={`cursor-pointer transition-all ${getPurposeColorClasses(color, formData.purpose === value)}`}
-                    onClick={() => handleInputChange('purpose', value)}
-                  >
-                    <CardHeader className="p-3 text-center">
-                      <Icon className={`w-5 h-5 mx-auto mb-1 ${formData.purpose === value ? 'opacity-100' : 'text-gray-400'}`} />
-                      <CardTitle className="text-xs font-medium">{label}</CardTitle>
-                      <CardDescription className="text-[10px] leading-tight">{description}</CardDescription>
-                    </CardHeader>
-                  </Card>
-                ))}
+                {purposeOptions.map(({ value, label, description, icon: Icon, color }) => {
+                  const isSelected = formData.purpose === value;
+                  const isSuggested = value === getSuggestedPurpose(formData.type, formData.apiProvider) && formData.type;
+                  return (
+                    <Card
+                      key={value}
+                      className={`cursor-pointer transition-all duration-150 relative ${getPurposeColorClasses(color, isSelected)}`}
+                      onClick={() => handleInputChange('purpose', value)}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      {isSuggested && !isSelected && (
+                        <div className="absolute top-1.5 right-1.5">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-0.5 text-amber-600 border-amber-200 bg-amber-50">
+                            <Lightbulb className="w-2.5 h-2.5" />
+                            Suggested
+                          </Badge>
+                        </div>
+                      )}
+                      <CardHeader className="p-3 text-center">
+                        <Icon className={`w-5 h-5 mx-auto mb-1 ${isSelected ? 'text-emerald-600' : 'text-gray-400'}`} />
+                        <CardTitle className="text-xs font-medium">{label}</CardTitle>
+                        <CardDescription className="text-[10px] leading-tight">{description}</CardDescription>
+                      </CardHeader>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
 

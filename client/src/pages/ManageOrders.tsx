@@ -284,6 +284,8 @@ export default function ManageOrders() {
   const [fulfillmentStep, setFulfillmentStep] = useState<'select' | 'submitting' | 'complete'>('select');
   const [poResult, setPOResult] = useState<{ ingramOrderNumber?: string; orderTotal?: number; warning?: string } | null>(null);
   const [page, setPage] = useState(1);
+  const [checkingStatusOrderId, setCheckingStatusOrderId] = useState<number | null>(null);
+  const [submittingPhase, setSubmittingPhase] = useState(0);
   const resultsPerPage = 25;
 
   const { toast } = useToast();
@@ -529,6 +531,56 @@ export default function ManageOrders() {
       toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
     },
   });
+
+  const checkVendorStatusMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      setCheckingStatusOrderId(orderId);
+      const response = await fetch(`/api/marketplace/orders/${orderId}/vendor-order-status`);
+      if (!response.ok) throw new Error('Failed to check vendor status');
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      setCheckingStatusOrderId(null);
+      if (data.vendorStatus) {
+        toast({
+          title: 'Vendor Status Updated',
+          description: `PO #${data.purchaseOrderNumber}: ${data.vendorStatus}${data.trackingNumber ? ` — Tracking: ${data.trackingNumber}` : ''}`,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+    },
+    onError: (error: Error) => {
+      setCheckingStatusOrderId(null);
+      toast({ title: 'Status Check Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const refreshTrackingMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      const response = await apiRequest('POST', `/api/marketplace/orders/${orderId}/refresh-vendor-tracking`, {});
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: 'Tracking Updated',
+        description: data.trackingNumber ? `${data.carrier || 'Carrier'}: ${data.trackingNumber}` : 'No tracking info available yet',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/orders'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Tracking Refresh Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  useEffect(() => {
+    if (fulfillmentStep === 'submitting') {
+      setSubmittingPhase(0);
+      const interval = setInterval(() => {
+        setSubmittingPhase(prev => Math.min(prev + 1, 2));
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [fulfillmentStep]);
 
   const marketplaceStats = useMemo(() => {
     const stats = summaryData?.byMarketplace || [];
@@ -955,7 +1007,8 @@ export default function ManageOrders() {
                                 {statusLabel(order.status)}
                               </Badge>
                               {order.purchaseOrderNumber && (
-                                <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 font-mono">
+                                <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 font-mono flex items-center gap-1">
+                                  <Truck className="h-2.5 w-2.5" />
                                   PO: {order.purchaseOrderNumber}
                                 </Badge>
                               )}
@@ -963,10 +1016,14 @@ export default function ManageOrders() {
                                 <Badge variant="outline" className={`text-[10px] ${
                                   order.vendorOrderStatus.toLowerCase().includes('ship') ? 'bg-green-50 text-green-700 border-green-200' :
                                   order.vendorOrderStatus.toLowerCase().includes('back') ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  order.vendorOrderStatus.toLowerCase().includes('process') ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                   'bg-purple-50 text-purple-700 border-purple-200'
                                 }`}>
                                   {order.vendorOrderStatus}
                                 </Badge>
+                              )}
+                              {order.shippingTrackingNumber && (
+                                <span className="text-[10px] text-slate-400 font-mono">{order.shippingCarrier ? `${order.shippingCarrier}: ` : ''}{order.shippingTrackingNumber}</span>
                               )}
                             </div>
                           </TableCell>
@@ -984,6 +1041,22 @@ export default function ManageOrders() {
                                   Fulfill
                                 </Button>
                               )}
+                              {order.purchaseOrderNumber && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-blue-400 hover:text-blue-600"
+                                  title="Check vendor order status"
+                                  disabled={checkingStatusOrderId === order.id}
+                                  onClick={() => checkVendorStatusMutation.mutate(order.id)}
+                                >
+                                  {checkingStatusOrderId === order.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -991,13 +1064,6 @@ export default function ManageOrders() {
                                 onClick={() => setSelectedOrderId(order.id)}
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
-                              >
-                                <Edit3 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </TableCell>
@@ -1378,117 +1444,121 @@ export default function ManageOrders() {
 
                   <Separator />
 
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <DollarSign className="h-3.5 w-3.5" /> Financial Breakdown
-                    </h3>
-                    {dynamicFinancials && (
-                      <div className="space-y-2 text-sm">
+                  {dynamicFinancials && (
+                    <div className="space-y-3">
+                      <div className="border-l-2 border-emerald-400 bg-emerald-50/30 rounded-r-lg px-3 py-2.5 space-y-1.5">
+                        <div className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Revenue</div>
                         {dynamicFinancials.walmartFundedIncentiveTotal > 0 ? (
                           <>
-                            <div className="flex justify-between">
-                              <span className="text-slate-500">Subtotal (Seller Price)</span>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Seller Price</span>
                               <span className="font-medium">{formatCurrency(dynamicFinancials.itemsTotal)}</span>
                             </div>
-                            <div className="flex justify-between text-blue-600">
-                              <div className="flex flex-col">
-                                <span className="flex items-center gap-1">
-                                  <Gift className="h-3 w-3" /> Walmart Funded Incentive
-                                </span>
-                                <span className="text-xs text-blue-400">Walmart covers this — based on current listing price</span>
-                              </div>
+                            <div className="flex justify-between text-sm text-blue-600">
+                              <span className="flex items-center gap-1 text-xs">
+                                <Gift className="h-3 w-3" /> Walmart Incentive
+                              </span>
                               <span className="font-medium">-{formatCurrency(dynamicFinancials.walmartFundedIncentiveTotal)}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Customer Paid</span>
                               <span className="font-medium">{formatCurrency(dynamicFinancials.customerItemsTotal)}</span>
                             </div>
                           </>
                         ) : (
-                          <div className="flex justify-between">
+                          <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Items Total</span>
                             <span className="font-medium">{formatCurrency(dynamicFinancials.itemsTotal)}</span>
                           </div>
                         )}
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Tax Total</span>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Tax</span>
                           <span className="font-medium">{formatCurrency(dynamicFinancials.taxTotal)}</span>
                         </div>
-                        <div className="flex justify-between border-t pt-2">
+                        <div className="flex justify-between text-sm pt-1 border-t border-emerald-200">
                           <span className="text-slate-700 font-medium">Grand Total</span>
                           <span className="font-semibold text-slate-900">{formatCurrency(dynamicFinancials.grandTotal)}</span>
                         </div>
-                        <div className="flex justify-between text-orange-600">
-                          <div className="flex flex-col">
-                            <span>Marketplace Referral Fee</span>
+                      </div>
+
+                      <div className="border-l-2 border-orange-400 bg-orange-50/30 rounded-r-lg px-3 py-2.5">
+                        <div className="text-[10px] font-semibold text-orange-600 uppercase tracking-wider mb-1">Marketplace Fees</div>
+                        <div className="flex justify-between text-sm text-orange-700">
+                          <div>
+                            <span>Referral Fee</span>
                             {dynamicFinancials.referralFeeRate > 0 && (
-                              <span className="text-xs text-orange-400">{dynamicFinancials.referralFeeRate}% — {dynamicFinancials.referralFeeCategory}</span>
+                              <span className="text-[10px] text-orange-400 block">{dynamicFinancials.referralFeeRate}% — {dynamicFinancials.referralFeeCategory}</span>
                             )}
                           </div>
                           <span className="font-medium">-{formatCurrency(dynamicFinancials.referralFees)}</span>
                         </div>
-                        <div className="flex justify-between border-t pt-2">
-                          <span className="text-slate-700 font-medium">Estimated Payout</span>
-                          <span className="font-semibold text-emerald-700">{formatCurrency(dynamicFinancials.estimatedPayout)}</span>
-                        </div>
                       </div>
-                    )}
-                  </div>
 
-                  <Separator />
+                      <div className="flex justify-between text-sm bg-blue-50/50 rounded-lg px-3 py-2">
+                        <span className="text-blue-700 font-medium">Estimated Payout</span>
+                        <span className="font-bold text-blue-800">{formatCurrency(dynamicFinancials.estimatedPayout)}</span>
+                      </div>
 
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <Truck className="h-3.5 w-3.5" /> Vendor Costs
-                    </h3>
-                    {dynamicFinancials && (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
+                      <div className="border-l-2 border-slate-300 bg-slate-50/50 rounded-r-lg px-3 py-2.5 space-y-1.5">
+                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Cost of Goods</div>
+                        <div className="flex justify-between text-sm">
                           <span className="text-slate-500">Vendor Cost</span>
                           <span className="font-medium">
                             {isLoadingVendors ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
                             ) : selectedVendors.length > 0 ? (
                               formatCurrency(dynamicFinancials.vendorCost)
-                            ) : '--'}
+                            ) : <span className="text-slate-300">—</span>}
                           </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Shipping Cost</span>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Shipping</span>
                           <span className="font-medium">
                             {isLoadingVendors ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
                             ) : selectedVendors.length > 0 ? (
                               formatCurrency(dynamicFinancials.vendorShipping)
-                            ) : '--'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Margin</span>
-                          <span className={`font-semibold flex items-center gap-1 ${selectedVendors.length > 0 ? getProfitColor(dynamicFinancials.margin) : 'text-slate-400'}`}>
-                            {isLoadingVendors ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
-                            ) : selectedVendors.length > 0 ? (
-                              <>
-                                {dynamicFinancials.margin >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                                {dynamicFinancials.margin}%
-                              </>
-                            ) : '--'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between border-t pt-2 border-dashed">
-                          <span className="text-slate-700 font-medium">Est. Net Proceeds</span>
-                          <span className={`font-bold text-lg ${selectedVendors.length > 0 ? (dynamicFinancials.estimatedNetProceeds >= 0 ? 'text-green-600' : 'text-red-600') : 'text-slate-400'}`}>
-                            {isLoadingVendors ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin inline" />
-                            ) : selectedVendors.length > 0 ? (
-                              formatCurrency(dynamicFinancials.estimatedNetProceeds)
-                            ) : '--'}
+                            ) : <span className="text-slate-300">—</span>}
                           </span>
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      <div className={`rounded-lg px-3 py-3 ${
+                        selectedVendors.length > 0
+                          ? dynamicFinancials.estimatedNetProceeds >= 0
+                            ? 'bg-green-50 border border-green-200'
+                            : 'bg-red-50 border border-red-200'
+                          : 'bg-slate-50 border border-slate-200'
+                      }`}>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-0.5">Net Proceeds</div>
+                            <span className={`font-semibold text-xs flex items-center gap-1 ${selectedVendors.length > 0 ? getProfitColor(dynamicFinancials.margin) : 'text-slate-400'}`}>
+                              {isLoadingVendors ? (
+                                <Loader2 className="h-3 w-3 animate-spin inline" />
+                              ) : selectedVendors.length > 0 ? (
+                                <>
+                                  {dynamicFinancials.margin >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                  {dynamicFinancials.margin}% margin
+                                </>
+                              ) : 'Select a vendor'}
+                            </span>
+                          </div>
+                          <span className={`font-bold text-xl ${
+                            selectedVendors.length > 0
+                              ? dynamicFinancials.estimatedNetProceeds >= 0 ? 'text-green-700' : 'text-red-700'
+                              : 'text-slate-300'
+                          }`}>
+                            {isLoadingVendors ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : selectedVendors.length > 0 ? (
+                              formatCurrency(dynamicFinancials.estimatedNetProceeds)
+                            ) : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <Separator />
 
@@ -1510,153 +1580,223 @@ export default function ManageOrders() {
                 </div>
               </div>
 
-              {fulfillmentStep === 'complete' && poResult ? (
-                <div className="sticky bottom-0 bg-white border-t px-6 py-4">
-                  {poResult.ingramOrderNumber ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-green-700">Purchase Order Submitted</div>
-                          <div className="text-xs text-slate-500">Ingram Micro PO #{poResult.ingramOrderNumber}</div>
-                        </div>
-                      </div>
-                      <Button onClick={closeFulfillModal} className="bg-emerald-600 hover:bg-emerald-700">Done</Button>
-                    </div>
-                  ) : poResult.warning ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                          <AlertTriangle className="h-5 w-5 text-amber-600" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-amber-700">Fulfilled Locally (PO Not Submitted)</div>
-                          <div className="text-xs text-slate-500 max-w-md truncate">{poResult.warning}</div>
-                        </div>
-                      </div>
-                      <Button onClick={closeFulfillModal} variant="outline">Close</Button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : fulfillmentStep === 'submitting' ? (
-                <div className="sticky bottom-0 bg-white border-t px-6 py-4">
-                  <div className="flex items-center justify-center gap-3 py-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                    <div>
-                      <div className="text-sm font-medium text-slate-700">Submitting Purchase Order to Ingram Micro...</div>
-                      <div className="text-xs text-slate-400">This may take a moment</div>
-                    </div>
-                  </div>
-                </div>
-              ) : showPOConfirmation && hasIngramVendor ? (
-                <div className="sticky bottom-0 bg-white border-t">
-                  <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Package className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-semibold text-blue-800">Confirm Purchase Order — Ingram Micro</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                      <div>
-                        <div className="text-xs text-blue-600 font-medium mb-1">Items to Order</div>
-                        {selectedVendors.filter(v => v.ingramPartNumber).map(v => (
-                          <div key={v.orderItemId} className="text-xs text-slate-600 flex justify-between">
-                            <span className="font-mono">{v.ingramPartNumber}</span>
-                            <span>Qty: {v.quantity || 1} — {formatCurrency(v.costInCents)}</span>
+              <div className="sticky bottom-0 bg-white border-t">
+                <div className="px-6 py-2 bg-slate-50 border-b border-slate-100">
+                  <div className="flex items-center justify-center gap-1">
+                    {[
+                      { label: 'Select Vendors', active: !showPOConfirmation && fulfillmentStep === 'select' },
+                      { label: 'Review & Confirm', active: showPOConfirmation && fulfillmentStep === 'select' },
+                      { label: 'Submitting', active: fulfillmentStep === 'submitting' },
+                      { label: 'Complete', active: fulfillmentStep === 'complete' },
+                    ].map((step, idx, arr) => {
+                      const isPast = arr.findIndex(s => s.active) > idx;
+                      return (
+                        <div key={step.label} className="flex items-center gap-1">
+                          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
+                            step.active ? 'bg-blue-100 text-blue-700' : isPast ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400'
+                          }`}>
+                            {isPast ? <CheckCircle2 className="h-3 w-3" /> : null}
+                            {step.label}
                           </div>
-                        ))}
-                      </div>
-                      <div>
-                        <div className="text-xs text-blue-600 font-medium mb-1">Ship To</div>
-                        {financialsData?.shippingAddress ? (
-                          <div className="text-xs text-slate-600">
-                            <div>{financialsData.shippingAddress.name || financialsData.customerName}</div>
-                            <div>{financialsData.shippingAddress.addressLine1}</div>
-                            <div>{[financialsData.shippingAddress.city, financialsData.shippingAddress.stateOrRegion, financialsData.shippingAddress.postalCode].filter(Boolean).join(', ')}</div>
-                          </div>
-                        ) : (
-                          <div className="text-xs text-red-500 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" /> No shipping address — PO cannot be submitted
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs bg-white/60 rounded px-3 py-2">
-                      <span className="text-slate-600">
-                        Total Vendor Cost: <span className="font-semibold">{formatCurrency(dynamicFinancials?.vendorCost || 0)}</span>
-                        {' + '}Shipping: <span className="font-semibold">{formatCurrency(dynamicFinancials?.vendorShipping || 0)}</span>
-                      </span>
-                      <span className="font-semibold text-slate-800">
-                        = {formatCurrency(dynamicFinancials?.totalVendorCost || 0)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="px-6 py-3 flex items-center justify-between">
-                    <Button variant="ghost" size="sm" onClick={() => setShowPOConfirmation(false)} className="text-slate-500">
-                      Back
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => { setShowPOConfirmation(false); handleFulfillOrder(false); }}
-                        disabled={fulfillMutation.isPending}
-                      >
-                        Save Fulfillment Only
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-                        disabled={fulfillMutation.isPending || !financialsData?.shippingAddress?.addressLine1}
-                        onClick={() => handleFulfillOrder(true)}
-                      >
-                        <Package className="h-4 w-4" />
-                        Submit PO to Ingram Micro
-                      </Button>
-                    </div>
+                          {idx < arr.length - 1 && <div className={`w-4 h-px ${isPast ? 'bg-emerald-300' : 'bg-slate-200'}`} />}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : (
-                <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex items-center justify-between">
-                  <div className="text-sm text-slate-500">
-                    {selectedVendors.length > 0 ? (
-                      <span className="text-blue-600 font-medium">{selectedVendors.length} vendor(s) selected</span>
-                    ) : (
-                      'Select vendors from the allocation table to fulfill'
-                    )}
+
+                {fulfillmentStep === 'complete' && poResult ? (
+                  <div className="px-6 py-4">
+                    {poResult.ingramOrderNumber ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                            <CheckCircle2 className="h-6 w-6 text-green-600" />
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-green-700">Purchase Order Submitted Successfully</div>
+                            <div className="text-sm text-slate-600 mt-0.5">
+                              Ingram Micro PO <span className="font-mono font-semibold text-blue-700">#{poResult.ingramOrderNumber}</span>
+                              {poResult.orderTotal ? <span className="ml-2 text-slate-400">Total: {formatCurrency(poResult.orderTotal)}</span> : null}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { closeFulfillModal(); if (fulfillOrderId) setSelectedOrderId(fulfillOrderId); }}>
+                            View Order Details
+                          </Button>
+                          <Button onClick={closeFulfillModal} className="bg-emerald-600 hover:bg-emerald-700">Done</Button>
+                        </div>
+                      </div>
+                    ) : poResult.warning ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                            <AlertTriangle className="h-6 w-6 text-amber-600" />
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-amber-700">Fulfilled Locally — PO Not Submitted</div>
+                            <div className="text-sm text-slate-500 max-w-lg">{poResult.warning}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setPOResult(null);
+                              setFulfillmentStep('select');
+                              setShowPOConfirmation(true);
+                            }}
+                          >
+                            Retry PO Submission
+                          </Button>
+                          <Button onClick={closeFulfillModal} variant="outline">Close</Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={closeFulfillModal}>Cancel</Button>
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <ExternalLink className="h-4 w-4" /> Get Shipstation Label
-                    </Button>
-                    {hasIngramVendor ? (
-                      <Button
-                        className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-                        disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
-                        onClick={() => setShowPOConfirmation(true)}
-                      >
-                        <Package className="h-4 w-4" />
-                        Dropship via Ingram Micro
-                      </Button>
-                    ) : (
-                      <Button
-                        className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
-                        disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
-                        onClick={() => handleFulfillOrder(false)}
-                      >
-                        {fulfillMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Truck className="h-4 w-4" />
-                        )}
-                        Fulfill Order
-                      </Button>
-                    )}
+                ) : fulfillmentStep === 'submitting' ? (
+                  <div className="px-6 py-5">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-slate-700">
+                          {submittingPhase === 0 && 'Connecting to Ingram Micro...'}
+                          {submittingPhase === 1 && 'Submitting purchase order...'}
+                          {submittingPhase === 2 && 'Verifying confirmation...'}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">This may take a moment</div>
+                      </div>
+                      <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1">
+                        <div
+                          className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
+                          style={{ width: `${(submittingPhase + 1) * 33}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : showPOConfirmation && hasIngramVendor ? (
+                  <div>
+                    <div className="px-6 py-3 bg-blue-50/50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-semibold text-blue-800">Purchase Order Review</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">
+                          {selectedVendors.filter(v => v.ingramPartNumber).length} item(s)
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="bg-white rounded-lg border border-blue-100 p-3">
+                          <div className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider mb-1.5">Items to Order</div>
+                          {selectedVendors.filter(v => v.ingramPartNumber).map(v => (
+                            <div key={v.orderItemId} className="text-xs text-slate-600 flex justify-between py-0.5">
+                              <span className="font-mono text-slate-700">{v.ingramPartNumber}</span>
+                              <span>Qty: {v.quantity || 1} — {formatCurrency(v.costInCents)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="bg-white rounded-lg border border-blue-100 p-3">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Ship To</div>
+                            {financialsData?.shippingAddress?.addressLine1 ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <AlertTriangle className="h-3 w-3 text-amber-500" />
+                            )}
+                          </div>
+                          {financialsData?.shippingAddress ? (
+                            <div className="text-xs text-slate-600 space-y-0.5">
+                              <div className="font-medium">{financialsData.shippingAddress.name || financialsData.customerName}</div>
+                              <div>{financialsData.shippingAddress.addressLine1}</div>
+                              {financialsData.shippingAddress.addressLine2 && <div>{financialsData.shippingAddress.addressLine2}</div>}
+                              <div>{[financialsData.shippingAddress.city, financialsData.shippingAddress.stateOrRegion, financialsData.shippingAddress.postalCode].filter(Boolean).join(', ')}</div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-red-500 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> No shipping address — PO cannot be submitted
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs bg-white rounded-lg border border-blue-100 px-3 py-2">
+                        <span className="text-slate-600">
+                          Vendor Cost: <span className="font-semibold">{formatCurrency(dynamicFinancials?.vendorCost || 0)}</span>
+                          {' + '}Shipping: <span className="font-semibold">{formatCurrency(dynamicFinancials?.vendorShipping || 0)}</span>
+                        </span>
+                        <span className="font-bold text-slate-800">
+                          = {formatCurrency(dynamicFinancials?.totalVendorCost || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="px-6 py-3 flex items-center justify-between">
+                      <Button variant="ghost" size="sm" onClick={() => setShowPOConfirmation(false)} className="text-slate-500">
+                        Back
+                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setShowPOConfirmation(false); handleFulfillOrder(false); }}
+                          disabled={fulfillMutation.isPending}
+                        >
+                          Save Fulfillment Only
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                          disabled={fulfillMutation.isPending || !financialsData?.shippingAddress?.addressLine1}
+                          onClick={() => handleFulfillOrder(true)}
+                        >
+                          <Package className="h-4 w-4" />
+                          Submit PO to Ingram Micro
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-6 py-4 flex items-center justify-between">
+                    <div className="text-sm text-slate-500">
+                      {selectedVendors.length > 0 ? (
+                        <span className="text-blue-600 font-medium">{selectedVendors.length} vendor(s) selected</span>
+                      ) : (
+                        'Select vendors from the allocation table to fulfill'
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button variant="outline" onClick={closeFulfillModal}>Cancel</Button>
+                      <Button variant="outline" className="flex items-center gap-2">
+                        <ExternalLink className="h-4 w-4" /> Get Shipstation Label
+                      </Button>
+                      {hasIngramVendor ? (
+                        <Button
+                          className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                          disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
+                          onClick={() => setShowPOConfirmation(true)}
+                        >
+                          <Package className="h-4 w-4" />
+                          Dropship via Ingram Micro
+                        </Button>
+                      ) : (
+                        <Button
+                          className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
+                          disabled={selectedVendors.length === 0 || fulfillMutation.isPending}
+                          onClick={() => handleFulfillOrder(false)}
+                        >
+                          {fulfillMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Truck className="h-4 w-4" />
+                          )}
+                          Fulfill Order
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : null}
         </DialogContent>
@@ -1750,6 +1890,79 @@ export default function ManageOrders() {
                   </Table>
                 </CardContent>
               </Card>
+
+              {orderDetails.purchaseOrderNumber && (
+                <Card className="border-blue-200 bg-blue-50/30">
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-base flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-5 w-5 text-blue-600" />
+                        Vendor Information
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={refreshTrackingMutation.isPending}
+                          onClick={() => refreshTrackingMutation.mutate(orderDetails.id)}
+                        >
+                          {refreshTrackingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                          Refresh Tracking
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs text-blue-700 border-blue-300 hover:bg-blue-100"
+                          disabled={checkVendorStatusMutation.isPending}
+                          onClick={() => checkVendorStatusMutation.mutate(orderDetails.id)}
+                        >
+                          {checkVendorStatusMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Search className="h-3 w-3 mr-1" />}
+                          Check Live Status
+                        </Button>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-500">PO Number</span>
+                        <div className="font-mono font-semibold text-blue-700">{orderDetails.purchaseOrderNumber}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Vendor Status</span>
+                        <div>
+                          {orderDetails.vendorOrderStatus && orderDetails.vendorOrderStatus !== 'no_po' ? (
+                            <Badge variant="outline" className={`text-xs ${
+                              orderDetails.vendorOrderStatus.toLowerCase().includes('ship') ? 'bg-green-50 text-green-700 border-green-200' :
+                              orderDetails.vendorOrderStatus.toLowerCase().includes('back') ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              orderDetails.vendorOrderStatus.toLowerCase().includes('process') ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              'bg-purple-50 text-purple-700 border-purple-200'
+                            }`}>
+                              {orderDetails.vendorOrderStatus}
+                            </Badge>
+                          ) : <span className="text-slate-400">Pending</span>}
+                        </div>
+                      </div>
+                      {orderDetails.vendorOrderDate && (
+                        <div>
+                          <span className="text-slate-500">PO Submitted</span>
+                          <div className="font-medium">{new Date(orderDetails.vendorOrderDate).toLocaleString()}</div>
+                        </div>
+                      )}
+                      {orderDetails.shippingTrackingNumber && (
+                        <div>
+                          <span className="text-slate-500">Tracking</span>
+                          <div className="font-mono text-sm">
+                            {orderDetails.shippingCarrier && <span className="text-slate-600">{orderDetails.shippingCarrier}: </span>}
+                            <span className="font-semibold">{orderDetails.shippingTrackingNumber}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setSelectedOrderId(null)}>Close</Button>

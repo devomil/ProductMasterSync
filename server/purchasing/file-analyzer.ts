@@ -1,12 +1,13 @@
 import { parse } from 'csv-parse/sync';
 import { db } from '../db';
-import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence, amazonAsins } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { fileUploads, fileAnalysisResults, purchasingSettings, amazonMarketIntelligence, amazonAsins, marketplaceListings } from '@shared/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import { searchCatalogItemsByUPC, searchCatalogByKeyword, getCompetitivePricing, getListingRestrictions } from '../utils/amazon-spapi';
 import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { getProductFees } from '../services/amazon-product-fees';
 import { saveAmazonMarketData } from '../marketplace/repository';
-import { searchWalmartCatalogWithFallback } from '../utils/walmart-api';
+import { searchWalmartCatalogWithFallback, getWalmartPricingInsights } from '../utils/walmart-api';
+import { calculateReferralFee } from '../marketplace/walmart-referral-fees';
 
 // Rate limiting helper - adds delay between API calls
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -472,11 +473,26 @@ async function findAsinForProduct(product: {
   throw new Error(`No ASIN found after trying: ${strategiesTried.join(', ')}`);
 }
 
+interface WalmartProductResult {
+  walmartItemId: string;
+  price: number | null;
+  buyBoxPrice: number | null;
+  referralFee: number | null;
+  matchMethod: string;
+  availability: string;
+  imageUrl?: string;
+  title?: string;
+  productType?: string;
+  customerRating?: string;
+  variantCount?: number;
+  listingSku?: string;
+}
+
 async function searchWalmartForProduct(product: {
   upc?: string | null;
   mpn?: string | null;
   brand?: string | null;
-}): Promise<{ walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string; title?: string; productType?: string; customerRating?: string; variantCount?: number } | null> {
+}): Promise<WalmartProductResult | null> {
   try {
     const { items, matchMethod } = await searchWalmartCatalogWithFallback(
       product.upc || undefined,
@@ -487,51 +503,90 @@ async function searchWalmartForProduct(product: {
     if (items.length === 0) return null;
 
     const item: any = items[0];
-    
-    const priceKeys = ['price', 'currentPrice', 'salePrice', 'listPrice', 'msrp'];
-    let price: number | null = null;
-    for (const key of priceKeys) {
-      const val = item[key];
-      if (val != null) {
-        if (typeof val === 'number' && val > 0) {
-          price = val;
-          break;
-        } else if (typeof val === 'object' && val.amount != null) {
-          const parsed = parseFloat(val.amount);
-          if (!isNaN(parsed) && parsed > 0) {
-            price = parsed;
-            break;
-          }
-        } else if (typeof val === 'string') {
-          const parsed = parseFloat(val);
-          if (!isNaN(parsed) && parsed > 0) {
-            price = parsed;
-            break;
-          }
-        }
-      }
-    }
-
     const imageUrl = item.images?.[0]?.url || item.imageUrls?.[0] || item.mainImageUrl || null;
     const variantCount = parseInt(item.properties?.variantItemsNum || '0') || 0;
-    
+
     const availableVariants = item.properties?.variants?.variantData?.filter((v: any) => v.isAvailable === 'Y')?.length || 0;
     const totalVariants = item.properties?.variants?.variantData?.length || 0;
     const availability = availableVariants > 0 ? `${availableVariants}/${totalVariants} in stock` : 
                          totalVariants > 0 ? 'out_of_stock' : (item.availabilityStatus || 'unknown');
 
-    console.log(`[File Analyzer] Walmart match: "${item.title}" (ID: ${item.itemId}), type: ${item.productType}, rating: ${item.customerRating}, variants: ${variantCount}, availability: ${availability}${price ? ', price: $' + price : ', price: N/A (catalog search)'}`);
+    let price: number | null = null;
+    let buyBoxPrice: number | null = null;
+    let referralFee: number | null = null;
+    let listingSku: string | undefined;
+    const categoryPath = item.properties?.categories || null;
+    const productType = item.productType || null;
+
+    if (product.upc) {
+      try {
+        const [listing] = await db.select()
+          .from(marketplaceListings)
+          .where(and(
+            eq(marketplaceListings.marketplace, 'walmart'),
+            eq(marketplaceListings.upc, product.upc)
+          ))
+          .limit(1);
+
+        if (listing && listing.priceInCents) {
+          price = listing.priceInCents / 100;
+          listingSku = listing.marketplaceSku || listing.listingId;
+          console.log(`[File Analyzer] Found in active listings: UPC ${product.upc} → SKU ${listingSku}, price $${price}`);
+
+          if (listingSku) {
+            try {
+              const insights = await getWalmartPricingInsights(0, undefined, {
+                searchValue: listingSku
+              });
+              if (insights.pricingInsightsResponseList.length > 0) {
+                const pi = insights.pricingInsightsResponseList[0];
+                buyBoxPrice = pi.buyBoxBasePrice || pi.buyBoxTotalPrice || null;
+                if (pi.currentPrice && pi.currentPrice > 0) {
+                  price = pi.currentPrice;
+                }
+                console.log(`[File Analyzer] Pricing Insights: buyBox=$${buyBoxPrice}, current=$${price}`);
+              }
+            } catch (piError: any) {
+              console.log(`[File Analyzer] Pricing Insights lookup failed for SKU ${listingSku}: ${piError.message}`);
+            }
+          }
+        }
+      } catch (listingError: any) {
+        console.log(`[File Analyzer] Active listings lookup failed: ${listingError.message}`);
+      }
+    }
+
+    const effectivePrice = buyBoxPrice || price;
+    if (effectivePrice && effectivePrice > 0) {
+      try {
+        const feeResult = calculateReferralFee(
+          Math.round(effectivePrice * 100),
+          categoryPath,
+          productType
+        );
+        referralFee = feeResult.feeInCents / 100;
+        console.log(`[File Analyzer] Referral fee: $${referralFee.toFixed(2)} (${feeResult.feePercentageEffective}% - ${feeResult.contractCategoryName})`);
+      } catch (feeError: any) {
+        referralFee = effectivePrice * 0.15;
+        console.log(`[File Analyzer] Fee calc failed, using 15% estimate: $${referralFee.toFixed(2)}`);
+      }
+    }
+
+    console.log(`[File Analyzer] Walmart match: "${item.title}" (ID: ${item.itemId}), type: ${productType}, buyBox: $${buyBoxPrice || 'N/A'}, price: $${price || 'N/A'}, fee: $${referralFee || 'N/A'}, availability: ${availability}`);
 
     return {
       walmartItemId: item.itemId || item.walmartItemId || '',
       price,
+      buyBoxPrice,
+      referralFee,
       matchMethod: matchMethod === 'upc' ? 'walmart_upc' : 'walmart_mpn',
       availability,
       imageUrl: imageUrl || undefined,
       title: item.title,
-      productType: item.productType,
+      productType,
       customerRating: item.customerRating,
       variantCount,
+      listingSku,
     };
   } catch (error: any) {
     console.error(`[File Analyzer] Walmart search error:`, error.message);
@@ -574,7 +629,7 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
         let amazonSuccess = false;
         let walmartSuccess = false;
 
-        let walmartData: { walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string; title?: string; productType?: string; customerRating?: string; variantCount?: number } | null = null;
+        let walmartData: WalmartProductResult | null = null;
         let marketData: MarketData | null = null;
 
         if (amazonEnabled) {
@@ -650,15 +705,21 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
         let warehouseMargin: number | null = null;
         let isOpportunity = false;
         let opportunityType: string | null = null;
+        let estimatedFees: number | null = null;
 
-        const bestPrice = marketData?.buyBoxPrice ?? marketData?.amazonPrice ?? marketData?.lowestFbaPrice ?? walmartData?.price;
+        const walmartBuyBox = walmartData?.buyBoxPrice ?? null;
+        const walmartPrice = walmartData?.price ?? null;
+        const bestPrice = marketData?.buyBoxPrice ?? marketData?.amazonPrice ?? marketData?.lowestFbaPrice ?? walmartBuyBox ?? walmartPrice;
 
-        if (result.supplierPrice && bestPrice && bestPrice > 0) {
+        if (bestPrice && bestPrice > 0) {
+          estimatedFees = marketData?.estimatedFees ?? walmartData?.referralFee ?? bestPrice * 0.15;
+        }
+
+        if (result.supplierPrice && bestPrice && bestPrice > 0 && estimatedFees !== null) {
           const supplierCost = result.supplierPrice;
-          const fees = marketData?.estimatedFees ?? bestPrice * 0.15;
 
-          dropshipMargin = ((bestPrice - supplierCost - fees) / bestPrice) * 100;
-          warehouseMargin = ((bestPrice - supplierCost - fees - 10) / bestPrice) * 100;
+          dropshipMargin = ((bestPrice - supplierCost - estimatedFees) / bestPrice) * 100;
+          warehouseMargin = ((bestPrice - supplierCost - estimatedFees - 10) / bestPrice) * 100;
 
           if (dropshipMargin >= dropshipThreshold && warehouseMargin >= warehouseThreshold) {
             opportunityType = 'both';
@@ -679,6 +740,7 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
           warehouseMargin,
           isOpportunity,
           opportunityType,
+          estimatedFees,
           confidenceScore: matchConfidence,
           matchMethod,
           imageUrl: productImageUrl,
@@ -692,16 +754,19 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
           updateData.amazonPrice = marketData.amazonPrice;
           updateData.lowestFbaPrice = marketData.lowestFbaPrice;
           updateData.lowestFbmPrice = marketData.lowestFbmPrice;
-          updateData.estimatedFees = marketData.estimatedFees;
+          if (marketData.estimatedFees) updateData.estimatedFees = marketData.estimatedFees;
           updateData.isRestricted = marketData.isRestricted;
           updateData.restrictionReasons = marketData.restrictionReasons;
         }
 
         if (walmartSuccess && walmartData) {
           updateData.walmartItemId = walmartData.walmartItemId;
-          updateData.walmartPrice = walmartData.price;
+          updateData.walmartPrice = walmartBuyBox || walmartPrice;
           updateData.walmartMatchMethod = walmartData.matchMethod;
           updateData.walmartAvailability = walmartData.availability;
+          if (walmartBuyBox && !marketData?.buyBoxPrice) {
+            updateData.buyBoxPrice = walmartBuyBox;
+          }
           if (walmartData.title && (!result.description || result.description.length < 10)) {
             updateData.description = walmartData.title;
           }
