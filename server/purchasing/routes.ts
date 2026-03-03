@@ -458,4 +458,72 @@ router.post("/uploads/:uploadId/restart", async (req, res) => {
   }
 });
 
+router.patch("/results/:resultId", async (req, res) => {
+  try {
+    const resultId = parseInt(req.params.resultId);
+    const { supplierPrice, buyBoxPrice, walmartPrice } = req.body;
+
+    const [existing] = await db.select().from(fileAnalysisResults).where(eq(fileAnalysisResults.id, resultId));
+    if (!existing) {
+      return res.status(404).json({ error: 'Result not found' });
+    }
+
+    const updatedCost = supplierPrice !== undefined ? supplierPrice : existing.supplierPrice;
+    const updatedBuyBox = buyBoxPrice !== undefined ? buyBoxPrice : existing.buyBoxPrice;
+    const updatedWalmartPrice = walmartPrice !== undefined ? walmartPrice : existing.walmartPrice;
+
+    const [upload] = await db.select().from(fileUploads).where(eq(fileUploads.id, existing.uploadId));
+    const [settings] = await db.select().from(purchasingSettings).limit(1);
+    const dropshipThreshold = upload?.dropshipThreshold ?? settings?.dropshipMinMargin ?? 12.0;
+    const warehouseThreshold = upload?.warehouseThreshold ?? settings?.warehouseMinMargin ?? 25.0;
+
+    const bestPrice = updatedBuyBox ?? existing.amazonPrice ?? existing.lowestFbaPrice ?? updatedWalmartPrice;
+
+    let dropshipMargin: number | null = null;
+    let warehouseMargin: number | null = null;
+    let isOpportunity = false;
+    let opportunityType: string | null = null;
+    let estimatedFees: number | null = null;
+
+    if (updatedCost && bestPrice && bestPrice > 0) {
+      estimatedFees = existing.estimatedFees && existing.estimatedFees > 0 
+        ? existing.estimatedFees 
+        : bestPrice * 0.15;
+      dropshipMargin = ((bestPrice - updatedCost - estimatedFees) / bestPrice) * 100;
+      warehouseMargin = ((bestPrice - updatedCost - estimatedFees - 10) / bestPrice) * 100;
+
+      if (dropshipMargin >= dropshipThreshold && warehouseMargin >= warehouseThreshold) {
+        opportunityType = 'both';
+        isOpportunity = true;
+      } else if (warehouseMargin >= warehouseThreshold) {
+        opportunityType = 'warehouse';
+        isOpportunity = true;
+      } else if (dropshipMargin >= dropshipThreshold) {
+        opportunityType = 'dropship';
+        isOpportunity = true;
+      }
+    }
+
+    const updateData: Record<string, any> = {
+      dropshipMargin,
+      warehouseMargin,
+      isOpportunity,
+      opportunityType,
+      estimatedFees,
+    };
+
+    if (supplierPrice !== undefined) updateData.supplierPrice = supplierPrice;
+    if (buyBoxPrice !== undefined) updateData.buyBoxPrice = buyBoxPrice;
+    if (walmartPrice !== undefined) updateData.walmartPrice = walmartPrice;
+
+    await db.update(fileAnalysisResults).set(updateData).where(eq(fileAnalysisResults.id, resultId));
+
+    const [updated] = await db.select().from(fileAnalysisResults).where(eq(fileAnalysisResults.id, resultId));
+    res.json(updated);
+  } catch (error) {
+    console.error('[File Upload] Error updating result:', error);
+    res.status(500).json({ error: 'Failed to update result' });
+  }
+});
+
 export default router;

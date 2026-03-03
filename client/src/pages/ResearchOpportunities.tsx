@@ -14,11 +14,111 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   Upload, Search, TrendingUp, AlertCircle, CheckCircle, XCircle,
   FileSpreadsheet, Loader2, DollarSign, Package, BarChart3,
-  Clock, RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Zap, Globe, Pause
+  Clock, RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Zap, Globe, Pause,
+  Pencil, Check, X
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+
+function EditablePrice({ 
+  value, 
+  resultId, 
+  field,
+  icon,
+  iconColor,
+  placeholder,
+  onSaved 
+}: { 
+  value: number | null; 
+  resultId: number; 
+  field: 'supplierPrice' | 'buyBoxPrice' | 'walmartPrice';
+  icon?: any;
+  iconColor?: string;
+  placeholder?: string;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEdit = () => {
+    setEditValue(value !== null && value !== undefined ? value.toFixed(2) : '');
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditValue('');
+  };
+
+  const saveEdit = async () => {
+    const parsed = editValue === '' ? null : parseFloat(editValue);
+    if (editValue !== '' && (isNaN(parsed!) || parsed! < 0)) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/purchasing/results/${resultId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: parsed }),
+      });
+      onSaved();
+      setEditing(false);
+    } catch (e) {
+      console.error('Save failed:', e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') cancelEdit();
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-gray-400 text-xs">$</span>
+        <input
+          ref={inputRef}
+          type="number"
+          step="0.01"
+          min="0"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={saveEdit}
+          className="w-[70px] h-6 text-xs text-right border border-blue-300 rounded px-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+          disabled={saving}
+          placeholder={placeholder || '0.00'}
+        />
+        {saving && <Loader2 className="h-3 w-3 animate-spin text-blue-400" />}
+      </div>
+    );
+  }
+
+  const IconComp = icon;
+  return (
+    <div 
+      className="group flex items-center justify-end gap-1 cursor-pointer hover:bg-blue-50 rounded px-1 py-0.5 -mx-1 transition-colors"
+      onClick={startEdit}
+      title="Click to edit"
+    >
+      {value !== null && value !== undefined ? (
+        <>
+          {IconComp && <IconComp className={`h-3 w-3 ${iconColor || 'text-gray-400'}`} />}
+          <span className="font-medium">${value.toFixed(2)}</span>
+        </>
+      ) : (
+        <span className="text-xs text-gray-400 italic">{placeholder || '—'}</span>
+      )}
+      <Pencil className="h-2.5 w-2.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+    </div>
+  );
+}
 
 interface UploadResult {
   id: number;
@@ -221,8 +321,8 @@ export default function ResearchOpportunities() {
     return `${value.toFixed(1)}%`;
   };
 
-  const getOpportunityBadge = (type: string | null) => {
-    switch (type) {
+  const getOpportunityBadge = (result: AnalysisResult) => {
+    switch (result.opportunityType) {
       case 'both':
         return <Badge className="bg-emerald-500 text-white">Both</Badge>;
       case 'dropship':
@@ -230,6 +330,16 @@ export default function ResearchOpportunities() {
       case 'warehouse':
         return <Badge className="bg-purple-500 text-white">Warehouse</Badge>;
       default:
+        if (result.asin || result.walmartItemId) {
+          const hasAnyPrice = result.buyBoxPrice || result.walmartPrice || result.amazonPrice;
+          if (!hasAnyPrice) {
+            return <Badge variant="outline" className="text-amber-500 border-amber-200">Needs Price</Badge>;
+          }
+          if (!result.supplierPrice) {
+            return <Badge variant="outline" className="text-amber-500 border-amber-200">Needs Cost</Badge>;
+          }
+          return <Badge variant="outline" className="text-gray-500">Low Margin</Badge>;
+        }
         return <Badge variant="outline" className="text-gray-400">No Match</Badge>;
     }
   };
@@ -836,9 +946,24 @@ export default function ResearchOpportunities() {
                           <TableHead>ASIN</TableHead>
                           <TableHead>Walmart</TableHead>
                           <TableHead>API Status</TableHead>
-                          <TableHead className="text-right">Your Cost</TableHead>
-                          <TableHead className="text-right">Buy Box</TableHead>
-                          <TableHead className="text-right">Walmart Price</TableHead>
+                          <TableHead className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              Your Cost
+                              <Pencil className="h-2.5 w-2.5 text-gray-300" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              Buy Box
+                              <Pencil className="h-2.5 w-2.5 text-gray-300" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              Walmart Price
+                              <Pencil className="h-2.5 w-2.5 text-gray-300" />
+                            </div>
+                          </TableHead>
                           <TableHead className="text-right">Fees</TableHead>
                           <TableHead className="text-right">Dropship %</TableHead>
                           <TableHead className="text-right">Warehouse %</TableHead>
@@ -957,38 +1082,61 @@ export default function ResearchOpportunities() {
                                 </Tooltip>
                               </TooltipProvider>
                             </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(result.supplierPrice)}
+                            <TableCell className="text-right">
+                              <EditablePrice
+                                value={result.supplierPrice}
+                                resultId={result.id}
+                                field="supplierPrice"
+                                icon={DollarSign}
+                                iconColor="text-emerald-500"
+                                placeholder="Enter cost"
+                                onSaved={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
+                              />
                             </TableCell>
                             <TableCell className="text-right">
-                              {result.buyBoxPrice !== null ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <SiAmazon className="h-3 w-3 text-orange-400" />
-                                  <span>{formatCurrency(result.buyBoxPrice)}</span>
-                                </div>
-                              ) : '—'}
+                              <EditablePrice
+                                value={result.buyBoxPrice}
+                                resultId={result.id}
+                                field="buyBoxPrice"
+                                icon={SiAmazon}
+                                iconColor="text-orange-400"
+                                placeholder="Enter price"
+                                onSaved={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
+                              />
                             </TableCell>
                             <TableCell className="text-right">
-                              {result.walmartPrice !== null ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <SiWalmart className="h-3 w-3 text-blue-500" />
-                                  <span>{formatCurrency(result.walmartPrice)}</span>
-                                </div>
-                              ) : result.walmartItemId ? (
+                              <EditablePrice
+                                value={result.walmartPrice}
+                                resultId={result.id}
+                                field="walmartPrice"
+                                icon={SiWalmart}
+                                iconColor="text-blue-500"
+                                placeholder={result.walmartItemId ? "Enter price" : "—"}
+                                onSaved={() => queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'] })}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right text-sm">
+                              {result.estimatedFees !== null && result.estimatedFees > 0 ? (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger>
-                                      <span className="text-[10px] text-gray-400 italic">Listed</span>
+                                      <span>{formatCurrency(result.estimatedFees)}</span>
+                                      {!result.buyBoxPrice && !result.amazonPrice && (
+                                        <span className="text-[9px] text-gray-400 ml-0.5">est.</span>
+                                      )}
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p className="text-xs">Product exists on Walmart but price not available via catalog API</p>
+                                      <p className="text-xs">
+                                        {result.buyBoxPrice || result.amazonPrice 
+                                          ? 'Actual marketplace fees' 
+                                          : 'Estimated at 15% of marketplace price'}
+                                      </p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              ) : '—'}
-                            </TableCell>
-                            <TableCell className="text-right text-sm">
-                              {formatCurrency(result.estimatedFees)}
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <span className={`font-medium ${
@@ -1011,7 +1159,10 @@ export default function ResearchOpportunities() {
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger>
-                                      <ShieldAlert className="h-4 w-4 text-red-500" />
+                                      <Badge variant="outline" className="text-red-500 border-red-200 text-[10px]">
+                                        <ShieldAlert className="h-3 w-3 mr-0.5" />
+                                        Yes
+                                      </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       <p className="text-xs">Restricted: {result.restrictionReasons?.join(', ') || 'Approval needed'}</p>
@@ -1019,8 +1170,13 @@ export default function ResearchOpportunities() {
                                   </Tooltip>
                                 </TooltipProvider>
                               ) : result.asin ? (
-                                <ShieldCheck className="h-4 w-4 text-green-500" />
-                              ) : null}
+                                <Badge variant="outline" className="text-green-600 border-green-200 text-[10px]">
+                                  <ShieldCheck className="h-3 w-3 mr-0.5" />
+                                  Clear
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-gray-400">N/A</span>
+                              )}
                             </TableCell>
                             <TableCell>
                               {result.errorMessage ? (
@@ -1035,7 +1191,7 @@ export default function ResearchOpportunities() {
                                   </Tooltip>
                                 </TooltipProvider>
                               ) : (
-                                getOpportunityBadge(result.opportunityType)
+                                getOpportunityBadge(result)
                               )}
                             </TableCell>
                           </TableRow>
