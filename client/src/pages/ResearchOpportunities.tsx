@@ -433,7 +433,7 @@ export default function ResearchOpportunities() {
                       <p className="text-xs font-medium text-blue-800">Walmart Marketplace</p>
                       <p className="text-[10px] text-blue-600">Pricing Insights, Product Matching</p>
                     </div>
-                    <Badge className="bg-gray-100 text-gray-500 text-[10px] ml-auto">Planned</Badge>
+                    <Badge className="bg-green-100 text-green-700 text-[10px] ml-auto">Active</Badge>
                   </div>
                 </CardContent>
               </Card>
