@@ -7,13 +7,14 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Upload, Search, TrendingUp, AlertCircle, CheckCircle, XCircle,
   FileSpreadsheet, Loader2, DollarSign, Package, BarChart3,
-  Clock, RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Zap, Globe
+  Clock, RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Zap, Globe, Pause
 } from 'lucide-react';
 import { SiAmazon, SiWalmart } from 'react-icons/si';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ interface UploadResult {
   errorMessage: string | null;
   createdAt: string;
   completedAt: string | null;
+  targetMarketplaces: string[] | null;
 }
 
 interface AnalysisResult {
@@ -48,6 +50,10 @@ interface AnalysisResult {
   estimatedFees: number | null;
   isRestricted: boolean;
   restrictionReasons: string[] | null;
+  walmartItemId: string | null;
+  walmartPrice: number | null;
+  walmartMatchMethod: string | null;
+  walmartAvailability: string | null;
   dropshipMargin: number | null;
   warehouseMargin: number | null;
   isOpportunity: boolean;
@@ -62,6 +68,8 @@ export default function ResearchOpportunities() {
   const [selectedUploadId, setSelectedUploadId] = useState<number | null>(null);
   const [dropshipThreshold, setDropshipThreshold] = useState(12);
   const [warehouseThreshold, setWarehouseThreshold] = useState(25);
+  const [amazonEnabled, setAmazonEnabled] = useState(false);
+  const [walmartEnabled, setWalmartEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState('upload');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,10 +105,18 @@ export default function ResearchOpportunities() {
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
+      const targetMarketplaces = [];
+      if (amazonEnabled) targetMarketplaces.push('amazon');
+      if (walmartEnabled) targetMarketplaces.push('walmart');
+      if (targetMarketplaces.length === 0) {
+        throw new Error('Please enable at least one marketplace');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('dropshipThreshold', dropshipThreshold.toString());
       formData.append('warehouseThreshold', warehouseThreshold.toString());
+      formData.append('targetMarketplaces', JSON.stringify(targetMarketplaces));
 
       const response = await fetch('/api/purchasing/upload-analyze', {
         method: 'POST',
@@ -263,11 +279,19 @@ export default function ResearchOpportunities() {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-500">Searching:</span>
                       <div className="flex items-center gap-1.5">
-                        <div className="flex items-center gap-0.5 bg-orange-100 text-orange-700 rounded px-1.5 py-0.5">
-                          <SiAmazon className="h-3 w-3" />
-                          <span className="text-[10px] font-medium">SP-API</span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">UPC → ASIN → Pricing → Fees → Restrictions</span>
+                        {(!currentUpload?.targetMarketplaces || (currentUpload?.targetMarketplaces as string[])?.includes?.('amazon')) && (
+                          <div className="flex items-center gap-0.5 bg-orange-100 text-orange-700 rounded px-1.5 py-0.5">
+                            <SiAmazon className="h-3 w-3" />
+                            <span className="text-[10px] font-medium">SP-API</span>
+                          </div>
+                        )}
+                        {(currentUpload?.targetMarketplaces as string[])?.includes?.('walmart') && (
+                          <div className="flex items-center gap-0.5 bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
+                            <SiWalmart className="h-3 w-3" />
+                            <span className="text-[10px] font-medium">Marketplace</span>
+                          </div>
+                        )}
+                        <span className="text-[10px] text-gray-400">UPC → Product Matching → Pricing</span>
                       </div>
                     </div>
                   </div>
@@ -419,22 +443,53 @@ export default function ResearchOpportunities() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-3 p-2 bg-orange-50 rounded-lg border border-orange-100">
-                    <SiAmazon className="h-5 w-5 text-orange-600 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs font-medium text-orange-800">Amazon SP-API</p>
-                      <p className="text-[10px] text-orange-600">Catalog Search, Competitive Pricing, Fees, Restrictions</p>
+                  <div className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all ${
+                    amazonEnabled ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                  }`}>
+                    <SiAmazon className={`h-5 w-5 flex-shrink-0 ${amazonEnabled ? 'text-orange-600' : 'text-gray-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium ${amazonEnabled ? 'text-orange-800' : 'text-gray-500'}`}>Amazon SP-API</p>
+                      <p className={`text-[10px] ${amazonEnabled ? 'text-orange-600' : 'text-gray-400'}`}>Catalog Search, Pricing, Fees</p>
                     </div>
-                    <Badge className="bg-green-100 text-green-700 text-[10px] ml-auto">Active</Badge>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                    <SiWalmart className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs font-medium text-blue-800">Walmart Marketplace</p>
-                      <p className="text-[10px] text-blue-600">Pricing Insights, Product Matching</p>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {amazonEnabled ? (
+                        <Badge className="bg-green-100 text-green-700 text-[10px]">Active</Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-700 text-[10px]">Paused</Badge>
+                      )}
+                      <Switch
+                        checked={amazonEnabled}
+                        onCheckedChange={setAmazonEnabled}
+                        className="scale-75"
+                      />
                     </div>
-                    <Badge className="bg-green-100 text-green-700 text-[10px] ml-auto">Active</Badge>
                   </div>
+                  <div className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all ${
+                    walmartEnabled ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200 opacity-60'
+                  }`}>
+                    <SiWalmart className={`h-5 w-5 flex-shrink-0 ${walmartEnabled ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium ${walmartEnabled ? 'text-blue-800' : 'text-gray-500'}`}>Walmart Marketplace</p>
+                      <p className={`text-[10px] ${walmartEnabled ? 'text-blue-600' : 'text-gray-400'}`}>Pricing, Product Matching</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {walmartEnabled ? (
+                        <Badge className="bg-green-100 text-green-700 text-[10px]">Active</Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-700 text-[10px]">Paused</Badge>
+                      )}
+                      <Switch
+                        checked={walmartEnabled}
+                        onCheckedChange={setWalmartEnabled}
+                        className="scale-75"
+                      />
+                    </div>
+                  </div>
+                  {!amazonEnabled && !walmartEnabled && (
+                    <Alert variant="destructive" className="py-2">
+                      <AlertDescription className="text-xs">Enable at least one marketplace to analyze products.</AlertDescription>
+                    </Alert>
+                  )}
                 </CardContent>
               </Card>
 
@@ -534,14 +589,26 @@ export default function ResearchOpportunities() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <SiAmazon className="h-4 w-4 text-orange-500" />
-                                </TooltipTrigger>
-                                <TooltipContent><p className="text-xs">Amazon SP-API: Catalog, Pricing, Fees</p></TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            {(!upload.targetMarketplaces || upload.targetMarketplaces.includes('amazon')) && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <SiAmazon className="h-4 w-4 text-orange-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent><p className="text-xs">Amazon SP-API</p></TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            {upload.targetMarketplaces?.includes('walmart') && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <SiWalmart className="h-4 w-4 text-blue-600" />
+                                  </TooltipTrigger>
+                                  <TooltipContent><p className="text-xs">Walmart Marketplace</p></TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -687,13 +754,20 @@ export default function ResearchOpportunities() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Analysis Results</CardTitle>
-                    <CardDescription className="flex items-center gap-2 mt-1">
+                    <CardDescription className="flex items-center gap-2 mt-1 flex-wrap">
                       <span>Data sources:</span>
-                      <div className="flex items-center gap-1 bg-orange-50 rounded px-1.5 py-0.5 border border-orange-100">
-                        <SiAmazon className="h-3 w-3 text-orange-600" />
-                        <span className="text-[10px] font-medium text-orange-700">Amazon SP-API</span>
-                      </div>
-                      <span className="text-xs text-gray-400">Catalog Items • Competitive Pricing • Product Fees • Listing Restrictions</span>
+                      {uploads?.find(u => u.id === selectedUploadId)?.targetMarketplaces?.includes('amazon') !== false && (
+                        <div className="flex items-center gap-1 bg-orange-50 rounded px-1.5 py-0.5 border border-orange-100">
+                          <SiAmazon className="h-3 w-3 text-orange-600" />
+                          <span className="text-[10px] font-medium text-orange-700">Amazon SP-API</span>
+                        </div>
+                      )}
+                      {uploads?.find(u => u.id === selectedUploadId)?.targetMarketplaces?.includes('walmart') && (
+                        <div className="flex items-center gap-1 bg-blue-50 rounded px-1.5 py-0.5 border border-blue-100">
+                          <SiWalmart className="h-3 w-3 text-blue-600" />
+                          <span className="text-[10px] font-medium text-blue-700">Walmart</span>
+                        </div>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -738,9 +812,11 @@ export default function ResearchOpportunities() {
                           <TableHead className="w-[180px]">Product</TableHead>
                           <TableHead>UPC</TableHead>
                           <TableHead>ASIN</TableHead>
+                          <TableHead>Walmart</TableHead>
                           <TableHead>API Status</TableHead>
                           <TableHead className="text-right">Your Cost</TableHead>
                           <TableHead className="text-right">Buy Box</TableHead>
+                          <TableHead className="text-right">Walmart Price</TableHead>
                           <TableHead className="text-right">Fees</TableHead>
                           <TableHead className="text-right">Dropship %</TableHead>
                           <TableHead className="text-right">Warehouse %</TableHead>

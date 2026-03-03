@@ -6,6 +6,7 @@ import { searchCatalogItemsByUPC, searchCatalogByKeyword, getCompetitivePricing,
 import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { getProductFees } from '../services/amazon-product-fees';
 import { saveAmazonMarketData } from '../marketplace/repository';
+import { searchWalmartCatalogWithFallback } from '../utils/walmart-api';
 
 // Rate limiting helper - adds delay between API calls
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -471,6 +472,37 @@ async function findAsinForProduct(product: {
   throw new Error(`No ASIN found after trying: ${strategiesTried.join(', ')}`);
 }
 
+async function searchWalmartForProduct(product: {
+  upc?: string | null;
+  mpn?: string | null;
+  brand?: string | null;
+}): Promise<{ walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string } | null> {
+  try {
+    const { items, matchMethod } = await searchWalmartCatalogWithFallback(
+      product.upc || undefined,
+      product.mpn || undefined,
+      product.brand || undefined
+    );
+
+    if (items.length === 0) return null;
+
+    const item = items[0];
+    const price = item.price?.amount ? parseFloat(item.price.amount) : null;
+    const imageUrl = item.images?.[0]?.url || null;
+
+    return {
+      walmartItemId: item.itemId || '',
+      price,
+      matchMethod: matchMethod === 'upc' ? 'walmart_upc' : 'walmart_mpn',
+      availability: item.availabilityStatus || 'unknown',
+      imageUrl: imageUrl || undefined,
+    };
+  } catch (error: any) {
+    console.error(`[File Analyzer] Walmart search error:`, error.message);
+    return null;
+  }
+}
+
 export async function analyzeUploadedFile(uploadId: number): Promise<void> {
   try {
     const [upload] = await db.select().from(fileUploads).where(eq(fileUploads.id, uploadId));
@@ -478,7 +510,11 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
       throw new Error(`Upload ${uploadId} not found`);
     }
 
-    console.log(`[File Analyzer] Starting analysis for upload ${uploadId}`);
+    const targetMarketplaces: string[] = (upload.targetMarketplaces as string[]) || ['amazon', 'walmart'];
+    const amazonEnabled = targetMarketplaces.includes('amazon');
+    const walmartEnabled = targetMarketplaces.includes('walmart');
+
+    console.log(`[File Analyzer] Starting analysis for upload ${uploadId} (marketplaces: ${targetMarketplaces.join(', ')})`);
 
     const [settings] = await db.select().from(purchasingSettings).limit(1);
     const dropshipThreshold = upload.dropshipThreshold ?? settings?.dropshipMinMargin ?? 12.0;
@@ -499,99 +535,138 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
         let matchMethod: string | null = null;
         let matchConfidence: number = 0;
         let productImageUrl: string | null = result.imageUrl || null;
+        let amazonSuccess = false;
+        let walmartSuccess = false;
 
-        if (!asin || asin === '') {
-          const match = await findAsinForProduct({
-            upc: result.upc,
-            mpn: result.model,
-            brand: result.brand,
-            description: result.description,
-            model: result.model,
-            imageUrl: result.imageUrl,
-          });
+        let walmartData: { walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string } | null = null;
+        let marketData: MarketData | null = null;
 
-          if (match) {
-            asin = match.asin;
-            matchMethod = match.matchMethod;
-            matchConfidence = match.confidence;
-            if (match.imageUrl) productImageUrl = match.imageUrl;
+        if (amazonEnabled) {
+          try {
+            if (!asin || asin === '') {
+              const match = await findAsinForProduct({
+                upc: result.upc,
+                mpn: result.model,
+                brand: result.brand,
+                description: result.description,
+                model: result.model,
+                imageUrl: result.imageUrl,
+              });
 
-            await db
-              .update(fileAnalysisResults)
-              .set({ asin, matchMethod, imageUrl: productImageUrl })
-              .where(eq(fileAnalysisResults.id, result.id));
-          } else {
-            const strategies = [];
-            if (result.upc) strategies.push(`UPC: ${result.upc}`);
-            if (result.model) strategies.push(`MPN: ${result.model}`);
-            if (result.description) strategies.push(`Keywords: "${result.description?.substring(0, 30)}..."`);
-            throw new Error(`No ASIN found after trying: ${strategies.join(', ') || 'no identifiers available'}`);
+              if (match) {
+                asin = match.asin;
+                matchMethod = match.matchMethod;
+                matchConfidence = match.confidence;
+                if (match.imageUrl) productImageUrl = match.imageUrl;
+              }
+            } else {
+              matchMethod = 'direct';
+              matchConfidence = 100;
+            }
+
+            if (asin && asin !== '') {
+              marketData = await getMarketDataForAsin(asin);
+              amazonSuccess = true;
+            }
+          } catch (amazonError: any) {
+            console.error(`[File Analyzer] Amazon error for product ${result.id}:`, amazonError.message);
+            if (!walmartEnabled) {
+              throw amazonError;
+            }
           }
-        } else {
-          matchMethod = 'direct';
-          matchConfidence = 100;
         }
 
-        if (!asin) {
-          throw new Error('No ASIN or UPC provided');
+        if (walmartEnabled) {
+          try {
+            walmartData = await searchWalmartForProduct({
+              upc: result.upc,
+              mpn: result.model,
+              brand: result.brand,
+            });
+            if (walmartData) {
+              walmartSuccess = true;
+              if (!productImageUrl && walmartData.imageUrl) {
+                productImageUrl = walmartData.imageUrl;
+              }
+            }
+          } catch (walmartError: any) {
+            console.error(`[File Analyzer] Walmart error for product ${result.id}:`, walmartError.message);
+          }
         }
 
-        const marketData = await getMarketDataForAsin(asin);
+        if (!amazonSuccess && !walmartSuccess) {
+          if (!amazonEnabled && !walmartEnabled) {
+            throw new Error('No marketplaces enabled for analysis');
+          }
+          const strategies = [];
+          if (result.upc) strategies.push(`UPC: ${result.upc}`);
+          if (result.model) strategies.push(`MPN: ${result.model}`);
+          if (result.description) strategies.push(`Keywords: "${result.description?.substring(0, 30)}..."`);
+          const marketplaceList = targetMarketplaces.join(' & ');
+          throw new Error(`No match found on ${marketplaceList} after trying: ${strategies.join(', ') || 'no identifiers available'}`);
+        }
 
         let dropshipMargin: number | null = null;
         let warehouseMargin: number | null = null;
         let isOpportunity = false;
         let opportunityType: string | null = null;
 
-        if (result.supplierPrice) {
+        const bestPrice = marketData?.buyBoxPrice ?? marketData?.amazonPrice ?? marketData?.lowestFbaPrice ?? walmartData?.price;
+
+        if (result.supplierPrice && bestPrice && bestPrice > 0) {
           const supplierCost = result.supplierPrice;
-          const buyBoxPrice = marketData.buyBoxPrice ?? marketData.amazonPrice ?? marketData.lowestFbaPrice;
+          const fees = marketData?.estimatedFees ?? bestPrice * 0.15;
 
-          if (buyBoxPrice && buyBoxPrice > 0) {
-            const fees = marketData.estimatedFees ?? buyBoxPrice * 0.15;
+          dropshipMargin = ((bestPrice - supplierCost - fees) / bestPrice) * 100;
+          warehouseMargin = ((bestPrice - supplierCost - fees - 10) / bestPrice) * 100;
 
-            const dropshipShipping = 0;
-            dropshipMargin = ((buyBoxPrice - supplierCost - fees - dropshipShipping) / buyBoxPrice) * 100;
-
-            const warehouseShipping = 10;
-            warehouseMargin = ((buyBoxPrice - supplierCost - fees - warehouseShipping) / buyBoxPrice) * 100;
-
-            if (dropshipMargin >= dropshipThreshold && warehouseMargin >= warehouseThreshold) {
-              opportunityType = 'both';
-              isOpportunity = true;
-            } else if (warehouseMargin >= warehouseThreshold) {
-              opportunityType = 'warehouse';
-              isOpportunity = true;
-            } else if (dropshipMargin >= dropshipThreshold) {
-              opportunityType = 'dropship';
-              isOpportunity = true;
-            }
-
-            if (isOpportunity) {
-              opportunitiesFound++;
-            }
+          if (dropshipMargin >= dropshipThreshold && warehouseMargin >= warehouseThreshold) {
+            opportunityType = 'both';
+            isOpportunity = true;
+          } else if (warehouseMargin >= warehouseThreshold) {
+            opportunityType = 'warehouse';
+            isOpportunity = true;
+          } else if (dropshipMargin >= dropshipThreshold) {
+            opportunityType = 'dropship';
+            isOpportunity = true;
           }
+
+          if (isOpportunity) opportunitiesFound++;
+        }
+
+        const updateData: Record<string, any> = {
+          dropshipMargin,
+          warehouseMargin,
+          isOpportunity,
+          opportunityType,
+          confidenceScore: matchConfidence,
+          matchMethod,
+          imageUrl: productImageUrl,
+          errorMessage: null,
+        };
+
+        if (asin && asin !== '') updateData.asin = asin;
+
+        if (amazonSuccess && marketData) {
+          updateData.buyBoxPrice = marketData.buyBoxPrice;
+          updateData.amazonPrice = marketData.amazonPrice;
+          updateData.lowestFbaPrice = marketData.lowestFbaPrice;
+          updateData.lowestFbmPrice = marketData.lowestFbmPrice;
+          updateData.estimatedFees = marketData.estimatedFees;
+          updateData.isRestricted = marketData.isRestricted;
+          updateData.restrictionReasons = marketData.restrictionReasons;
+        }
+
+        if (walmartSuccess && walmartData) {
+          updateData.walmartItemId = walmartData.walmartItemId;
+          updateData.walmartPrice = walmartData.price;
+          updateData.walmartMatchMethod = walmartData.matchMethod;
+          updateData.walmartAvailability = walmartData.availability;
         }
 
         await db
           .update(fileAnalysisResults)
-          .set({
-            buyBoxPrice: marketData.buyBoxPrice,
-            amazonPrice: marketData.amazonPrice,
-            lowestFbaPrice: marketData.lowestFbaPrice,
-            lowestFbmPrice: marketData.lowestFbmPrice,
-            estimatedFees: marketData.estimatedFees,
-            isRestricted: marketData.isRestricted,
-            restrictionReasons: marketData.restrictionReasons,
-            dropshipMargin,
-            warehouseMargin,
-            isOpportunity,
-            opportunityType,
-            confidenceScore: matchConfidence,
-            matchMethod,
-            imageUrl: productImageUrl,
-            errorMessage: null,
-          })
+          .set(updateData)
           .where(eq(fileAnalysisResults.id, result.id));
 
         successCount++;

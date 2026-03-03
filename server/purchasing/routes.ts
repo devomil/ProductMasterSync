@@ -305,6 +305,10 @@ router.post("/upload-analyze", upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No valid products found in CSV' });
     }
 
+    const targetMarketplaces = req.body.targetMarketplaces
+      ? JSON.parse(req.body.targetMarketplaces)
+      : ['amazon', 'walmart'];
+
     const [uploadRecord] = await db.insert(fileUploads).values({
       fileName: req.file.originalname,
       fileSize: req.file.size,
@@ -312,6 +316,7 @@ router.post("/upload-analyze", upload.single('file'), async (req, res) => {
       totalRows: products.length,
       dropshipThreshold: req.body.dropshipThreshold ? parseFloat(req.body.dropshipThreshold) : 12.0,
       warehouseThreshold: req.body.warehouseThreshold ? parseFloat(req.body.warehouseThreshold) : 25.0,
+      targetMarketplaces,
     }).returning();
 
     const resultRecords = products.map(p => ({

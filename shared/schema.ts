@@ -2429,6 +2429,7 @@ export const fileUploads = pgTable("file_uploads", {
   // Analysis settings
   dropshipThreshold: real("dropship_threshold").default(12.0),
   warehouseThreshold: real("warehouse_threshold").default(25.0),
+  targetMarketplaces: text("target_marketplaces").array().default(['amazon', 'walmart']),
   
   // Status tracking
   status: analysisJobStatusEnum("status").default('pending').notNull(),
@@ -2474,6 +2475,12 @@ export const fileAnalysisResults = pgTable("file_analysis_results", {
   estimatedFees: real("estimated_fees"),
   isRestricted: boolean("is_restricted").default(false),
   restrictionReasons: text("restriction_reasons").array(),
+  
+  // Walmart market data
+  walmartItemId: text("walmart_item_id"),
+  walmartPrice: real("walmart_price"),
+  walmartMatchMethod: text("walmart_match_method"),
+  walmartAvailability: text("walmart_availability"),
   
   // Calculated margins
   dropshipMargin: real("dropship_margin"),  // Supplier direct to customer
