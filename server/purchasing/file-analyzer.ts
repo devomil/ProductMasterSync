@@ -476,7 +476,7 @@ async function searchWalmartForProduct(product: {
   upc?: string | null;
   mpn?: string | null;
   brand?: string | null;
-}): Promise<{ walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string } | null> {
+}): Promise<{ walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string; title?: string; productType?: string; customerRating?: string; variantCount?: number } | null> {
   try {
     const { items, matchMethod } = await searchWalmartCatalogWithFallback(
       product.upc || undefined,
@@ -486,16 +486,52 @@ async function searchWalmartForProduct(product: {
 
     if (items.length === 0) return null;
 
-    const item = items[0];
-    const price = item.price?.amount ? parseFloat(item.price.amount) : null;
-    const imageUrl = item.images?.[0]?.url || null;
+    const item: any = items[0];
+    
+    const priceKeys = ['price', 'currentPrice', 'salePrice', 'listPrice', 'msrp'];
+    let price: number | null = null;
+    for (const key of priceKeys) {
+      const val = item[key];
+      if (val != null) {
+        if (typeof val === 'number' && val > 0) {
+          price = val;
+          break;
+        } else if (typeof val === 'object' && val.amount != null) {
+          const parsed = parseFloat(val.amount);
+          if (!isNaN(parsed) && parsed > 0) {
+            price = parsed;
+            break;
+          }
+        } else if (typeof val === 'string') {
+          const parsed = parseFloat(val);
+          if (!isNaN(parsed) && parsed > 0) {
+            price = parsed;
+            break;
+          }
+        }
+      }
+    }
+
+    const imageUrl = item.images?.[0]?.url || item.imageUrls?.[0] || item.mainImageUrl || null;
+    const variantCount = parseInt(item.properties?.variantItemsNum || '0') || 0;
+    
+    const availableVariants = item.properties?.variants?.variantData?.filter((v: any) => v.isAvailable === 'Y')?.length || 0;
+    const totalVariants = item.properties?.variants?.variantData?.length || 0;
+    const availability = availableVariants > 0 ? `${availableVariants}/${totalVariants} in stock` : 
+                         totalVariants > 0 ? 'out_of_stock' : (item.availabilityStatus || 'unknown');
+
+    console.log(`[File Analyzer] Walmart match: "${item.title}" (ID: ${item.itemId}), type: ${item.productType}, rating: ${item.customerRating}, variants: ${variantCount}, availability: ${availability}${price ? ', price: $' + price : ', price: N/A (catalog search)'}`);
 
     return {
-      walmartItemId: item.itemId || '',
+      walmartItemId: item.itemId || item.walmartItemId || '',
       price,
       matchMethod: matchMethod === 'upc' ? 'walmart_upc' : 'walmart_mpn',
-      availability: item.availabilityStatus || 'unknown',
+      availability,
       imageUrl: imageUrl || undefined,
+      title: item.title,
+      productType: item.productType,
+      customerRating: item.customerRating,
+      variantCount,
     };
   } catch (error: any) {
     console.error(`[File Analyzer] Walmart search error:`, error.message);
@@ -538,7 +574,7 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
         let amazonSuccess = false;
         let walmartSuccess = false;
 
-        let walmartData: { walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string } | null = null;
+        let walmartData: { walmartItemId: string; price: number | null; matchMethod: string; availability: string; imageUrl?: string; title?: string; productType?: string; customerRating?: string; variantCount?: number } | null = null;
         let marketData: MarketData | null = null;
 
         if (amazonEnabled) {
@@ -587,6 +623,10 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
               walmartSuccess = true;
               if (!productImageUrl && walmartData.imageUrl) {
                 productImageUrl = walmartData.imageUrl;
+              }
+              if (!matchMethod) {
+                matchMethod = walmartData.matchMethod;
+                matchConfidence = walmartData.matchMethod === 'walmart_upc' ? 95 : 70;
               }
             }
           } catch (walmartError: any) {
@@ -662,6 +702,9 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
           updateData.walmartPrice = walmartData.price;
           updateData.walmartMatchMethod = walmartData.matchMethod;
           updateData.walmartAvailability = walmartData.availability;
+          if (walmartData.title && (!result.description || result.description.length < 10)) {
+            updateData.description = walmartData.title;
+          }
         }
 
         await db
@@ -702,11 +745,18 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
+    const completionTime = new Date();
+    console.log(`[File Analyzer] Setting upload ${uploadId} to completed at ${completionTime.toISOString()}`);
+    
     await db
       .update(fileUploads)
       .set({
         status: 'completed',
-        completedAt: new Date(),
+        processedRows: results.length,
+        successRows: successCount,
+        failedRows: failedCount,
+        opportunitiesFound,
+        completedAt: completionTime,
         analysisResults: {
           totalRows: results.length,
           successRows: successCount,
@@ -717,7 +767,7 @@ export async function analyzeUploadedFile(uploadId: number): Promise<void> {
       })
       .where(eq(fileUploads.id, uploadId));
 
-    console.log(`[File Analyzer] Completed analysis for upload ${uploadId}: ${opportunitiesFound} opportunities found`);
+    console.log(`[File Analyzer] ✅ Completed analysis for upload ${uploadId}: ${successCount} success, ${failedCount} failed, ${opportunitiesFound} opportunities`);
   } catch (error) {
     console.error(`[File Analyzer] Fatal error analyzing upload ${uploadId}:`, error);
     

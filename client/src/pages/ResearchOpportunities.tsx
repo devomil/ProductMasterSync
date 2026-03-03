@@ -223,14 +223,14 @@ export default function ResearchOpportunities() {
       if (msg.includes('403') || msg.includes('Access') || msg.includes('Unauthorized')) {
         return { label: 'API Access Error', color: 'text-orange-600', icon: AlertCircle, detail: 'Amazon SP-API access denied — check API credentials/permissions' };
       }
-      if (msg.includes('No ASIN found after trying')) {
+      if (msg.includes('No ASIN found') || msg.includes('No match found')) {
         return { label: 'No Match', color: 'text-yellow-600', icon: Search, detail: msg };
       }
       if (msg.includes('Could not find ASIN')) {
-        return { label: 'No Match', color: 'text-yellow-600', icon: Search, detail: `Tried UPC, MPN, and keyword searches — no Amazon match found` };
+        return { label: 'No Match', color: 'text-yellow-600', icon: Search, detail: `Tried UPC, MPN, and keyword searches — no match found` };
       }
       if (msg.includes('rate') || msg.includes('429') || msg.includes('throttl')) {
-        return { label: 'Rate Limited', color: 'text-orange-500', icon: Clock, detail: 'Amazon API rate limit hit — retry later' };
+        return { label: 'Rate Limited', color: 'text-orange-500', icon: Clock, detail: 'API rate limit hit — retry later' };
       }
       return { label: 'Failed', color: 'text-red-600', icon: XCircle, detail: msg };
     }
@@ -239,6 +239,10 @@ export default function ResearchOpportunities() {
                          result.matchMethod === 'mpn' ? 'via MPN' : 
                          result.matchMethod === 'keyword' ? 'via Keywords' : '';
       return { label: 'Matched', color: 'text-green-600', icon: CheckCircle, detail: `Amazon pricing retrieved ${matchLabel} (${result.confidenceScore || 0}% confidence)` };
+    }
+    if (result.walmartItemId) {
+      const matchLabel = result.walmartMatchMethod === 'walmart_upc' ? 'via UPC' : 'via MPN';
+      return { label: 'Walmart Match', color: 'text-blue-600', icon: CheckCircle, detail: `Found on Walmart ${matchLabel}${result.walmartAvailability && result.walmartAvailability !== 'unknown' ? ` — ${result.walmartAvailability}` : ''}` };
     }
     if (result.asin && !result.buyBoxPrice) {
       return { label: 'No Buy Box', color: 'text-yellow-600', icon: AlertCircle, detail: 'ASIN found but no active Buy Box price' };
@@ -253,7 +257,7 @@ export default function ResearchOpportunities() {
 
   const opportunities = selectedResults?.filter(r => r.isOpportunity) || [];
   const errors = selectedResults?.filter(r => r.errorMessage) || [];
-  const analyzed = selectedResults?.filter(r => !r.errorMessage && r.buyBoxPrice !== null) || [];
+  const analyzed = selectedResults?.filter(r => !r.errorMessage && (r.buyBoxPrice !== null || r.walmartItemId)) || [];
   const restricted = selectedResults?.filter(r => r.isRestricted) || [];
 
   return (
@@ -892,6 +896,35 @@ export default function ResearchOpportunities() {
                               )}
                             </TableCell>
                             <TableCell>
+                              {result.walmartItemId ? (
+                                <div className="space-y-1">
+                                  <a
+                                    href={`https://www.walmart.com/ip/${result.walmartItemId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    {result.walmartItemId}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                  {result.walmartMatchMethod && (
+                                    <Badge variant="outline" className={`text-[9px] px-1 py-0 ${
+                                      result.walmartMatchMethod === 'walmart_upc' 
+                                        ? 'bg-green-50 text-green-700 border-green-200' 
+                                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                                    }`}>
+                                      {result.walmartMatchMethod === 'walmart_upc' ? 'UPC Match' : 'MPN Match'}
+                                    </Badge>
+                                  )}
+                                  {result.walmartAvailability && result.walmartAvailability !== 'unknown' && (
+                                    <div className="text-[9px] text-gray-500">{result.walmartAvailability}</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
@@ -915,6 +948,25 @@ export default function ResearchOpportunities() {
                                   <SiAmazon className="h-3 w-3 text-orange-400" />
                                   <span>{formatCurrency(result.buyBoxPrice)}</span>
                                 </div>
+                              ) : '—'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {result.walmartPrice !== null ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <SiWalmart className="h-3 w-3 text-blue-500" />
+                                  <span>{formatCurrency(result.walmartPrice)}</span>
+                                </div>
+                              ) : result.walmartItemId ? (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className="text-[10px] text-gray-400 italic">Listed</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Product exists on Walmart but price not available via catalog API</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               ) : '—'}
                             </TableCell>
                             <TableCell className="text-right text-sm">
