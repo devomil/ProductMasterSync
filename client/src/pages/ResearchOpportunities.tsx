@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,22 +76,37 @@ export default function ResearchOpportunities() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [pollingUploadId, setPollingUploadId] = useState<number | null>(null);
+
   const { data: uploads, isLoading: uploadsLoading } = useQuery<UploadResult[]>({
     queryKey: ['/api/purchasing/uploads'],
+    refetchInterval: pollingUploadId ? 5000 : false,
   });
 
   const activeUpload = uploads?.find(u => u.status === 'running' || u.status === 'pending');
+  const currentPollingId = pollingUploadId || activeUpload?.id || null;
 
   const { data: activeUploadStatus } = useQuery<UploadResult>({
-    queryKey: ['/api/purchasing/uploads', activeUpload?.id],
+    queryKey: ['/api/purchasing/uploads', currentPollingId],
     queryFn: async () => {
-      const response = await fetch(`/api/purchasing/uploads/${activeUpload?.id}`);
+      const response = await fetch(`/api/purchasing/uploads/${currentPollingId}`);
       if (!response.ok) throw new Error('Failed to fetch upload status');
       return response.json();
     },
-    enabled: !!activeUpload?.id,
-    refetchInterval: activeUpload ? 3000 : false,
+    enabled: !!currentPollingId,
+    refetchInterval: currentPollingId ? 3000 : false,
   });
+
+  useEffect(() => {
+    if (activeUploadStatus && (activeUploadStatus.status === 'completed' || activeUploadStatus.status === 'failed')) {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads'] });
+      if (activeUploadStatus.status === 'completed' && pollingUploadId) {
+        setSelectedUploadId(pollingUploadId);
+        setActiveTab('results');
+      }
+      setPollingUploadId(null);
+    }
+  }, [activeUploadStatus?.status, activeUploadStatus?.processedRows]);
 
   const { data: selectedResults, isLoading: resultsLoading } = useQuery<AnalysisResult[]>({
     queryKey: ['/api/purchasing/uploads', selectedUploadId, 'results'],
@@ -136,6 +151,7 @@ export default function ResearchOpportunities() {
         description: `Analyzing ${data.totalRows} products from ${data.fileName}`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads'] });
+      setPollingUploadId(data.uploadId);
       setActiveTab('progress');
     },
     onError: (error: any) => {
@@ -156,14 +172,15 @@ export default function ResearchOpportunities() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || 'Re-analysis failed');
       }
-      return response.json();
+      return { ...(await response.json()), _uploadId: uploadId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Re-analysis Started",
         description: "Clearing old results and re-running multi-strategy search...",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/purchasing/uploads'] });
+      setPollingUploadId(data._uploadId);
       setActiveTab('progress');
     },
     onError: (error: any) => {
@@ -250,7 +267,8 @@ export default function ResearchOpportunities() {
     return { label: 'Pending', color: 'text-gray-400', icon: Clock, detail: 'Waiting to be analyzed' };
   };
 
-  const currentUpload = activeUploadStatus || activeUpload;
+  const isPolling = !!currentPollingId;
+  const currentUpload = isPolling ? (activeUploadStatus || activeUpload) : activeUpload;
   const progressPct = currentUpload && currentUpload.totalRows
     ? Math.round(((currentUpload.processedRows || 0) / currentUpload.totalRows) * 100)
     : 0;

@@ -421,11 +421,16 @@ router.post("/uploads/:uploadId/restart", async (req, res) => {
         estimatedFees: null,
         isRestricted: false,
         restrictionReasons: null,
+        walmartItemId: null,
+        walmartPrice: null,
+        walmartMatchMethod: null,
+        walmartAvailability: null,
         dropshipMargin: null,
         warehouseMargin: null,
         isOpportunity: false,
         opportunityType: null,
         confidenceScore: null,
+        imageUrl: null,
       })
       .where(eq(fileAnalysisResults.uploadId, uploadId));
 
