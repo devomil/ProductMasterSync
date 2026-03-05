@@ -80,6 +80,10 @@ Preferred communication style: Simple, everyday language.
 
 ## Database Schema Notes
 - **Enum alignment**: All `pgEnum` definitions in `shared/schema.ts` must exactly match the production database enum values to prevent destructive migrations. Enum values that differ between schema and production will cause Drizzle to generate DROP/CREATE statements that destroy data.
+- **Column type alignment**: All column type definitions must match production exactly:
+  - Use `jsonb()` (not `json()`) for all JSON columns — production uses `jsonb` throughout.
+  - Use `text()` for columns where production has `text` or `varchar`, even if logically they hold enum-like values. Only use `pgEnum()` references if production actually has that enum type on the column.
+  - When adding new columns to existing production tables, use `text()` for maximum safety.
 - **Safe column types**: For columns that don't have a matching production enum, use `text()` instead of `pgEnum()`. This generates safe `ALTER TABLE ADD COLUMN` statements.
 - **Data source purpose**: Uses `text("purpose")` (not enum) with app-level validation via `dataSourcePurposeValues` constant.
 - **Tables in production but not schema**: ~27 legacy tables exist in production that aren't defined in `shared/schema.ts`. Drizzle ignores these during migrations.

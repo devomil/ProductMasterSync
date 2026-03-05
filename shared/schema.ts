@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, uniqueIndex, pgEnum, index, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uniqueIndex, pgEnum, index, real } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -101,7 +101,7 @@ export const suppliers = pgTable("suppliers", {
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
   active: boolean("active").default(true),
-  dataSource: json("data_sources"),
+  dataSource: jsonb("data_sources"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -115,7 +115,7 @@ export const categories = pgTable("categories", {
   parentId: integer("parent_id"),
   level: integer("level").default(0),
   path: text("path"),
-  attributes: json("attributes").default({}),
+  attributes: jsonb("attributes").default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -149,7 +149,7 @@ export const products = pgTable("products", {
   cost: text("cost"),                               // Cost
   weight: text("weight"),                           // Weight
   dimensions: text("dimensions"),                   // Dimensions
-  attributes: json("attributes").default({}),       // Flexible attributes
+  attributes: jsonb("attributes").default({}),       // Flexible attributes
   status: text("status").default("draft"),          // Product status
   isRemanufactured: boolean("is_remanufactured").default(false),
   isCloseout: boolean("is_closeout").default(false),
@@ -206,7 +206,7 @@ export const productSuppliers = pgTable("product_suppliers", {
   productId: integer("product_id").references(() => products.id).notNull(),
   supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
   supplierSku: text("supplier_sku").notNull(),
-  supplierAttributes: json("supplier_attributes").default({}),
+  supplierAttributes: jsonb("supplier_attributes").default({}),
   confidence: integer("confidence").default(100),
   isPrimary: boolean("is_primary").default(false),
 });
@@ -223,9 +223,9 @@ export const imports = pgTable("imports", {
   errorCount: integer("error_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
-  sourceData: json("source_data").default({}), // For API config/metadata
+  sourceData: jsonb("source_data").default({}), // For API config/metadata
   mappingTemplate: text("mapping_template"),
-  importErrors: json("import_errors").default([]),
+  importErrors: jsonb("import_errors").default([]),
 });
 
 // Data Exports table
@@ -235,7 +235,7 @@ export const exportsTable = pgTable("exports", {
   type: text("type").notNull(), // file, api, etc.
   status: exportStatusEnum("status").default('pending'),
   format: text("format"), // csv, excel, json, etc.
-  filter: json("filter").default({}),
+  filter: jsonb("filter").default({}),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
   recordCount: integer("record_count").default(0),
@@ -256,7 +256,7 @@ export const approvals = pgTable("approvals", {
   completedAt: timestamp("completed_at"),
   entityId: integer("entity_id"), // ID of the entity being approved
   entityType: text("entity_type"), // Type of entity (product, category, etc.)
-  changes: json("changes").default({}), // JSON diff of changes
+  changes: jsonb("changes").default({}), // JSON diff of changes
 });
 
 // Audit Logs table
@@ -266,7 +266,7 @@ export const auditLogs = pgTable("audit_logs", {
   entityType: text("entity_type").notNull(),
   entityId: integer("entity_id"),
   userId: integer("user_id").references(() => users.id),
-  details: json("details").default({}),
+  details: jsonb("details").default({}),
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
@@ -274,9 +274,9 @@ export const auditLogs = pgTable("audit_logs", {
 export const dataSources = pgTable("data_sources", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: dataSourceTypeEnum("type").notNull(),
+  type: text("type").notNull(),
   supplierId: integer("supplier_id").references(() => suppliers.id),
-  config: json("config").notNull(),
+  config: jsonb("config").notNull(),
   purpose: text("purpose").default('general'),
   description: text("description"),
   active: boolean("active").default(true),
@@ -310,10 +310,10 @@ export const mappingTemplates = pgTable("mapping_templates", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  sourceType: dataSourceTypeEnum("source_type").notNull(),
-  mappings: json("mappings").notNull(),
-  transformations: json("transformations").default([]),
-  validationRules: json("validation_rules").default([]),
+  sourceType: text("source_type").notNull(),
+  mappings: jsonb("mappings").notNull(),
+  transformations: jsonb("transformations").default([]),
+  validationRules: jsonb("validation_rules").default([]),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   fileLabel: text("file_label"),
   purpose: text("purpose").default('catalog'),
@@ -329,7 +329,7 @@ export const dataLineage = pgTable("data_lineage", {
   sourceId: integer("source_id").notNull(), // ID of import, manual entry, etc.
   sourceType: text("source_type").notNull(), // 'import', 'manual', 'api', etc.
   userId: integer("user_id").references(() => users.id),
-  previousValue: json("previous_value"),
+  previousValue: jsonb("previous_value"),
   confidence: integer("confidence"), // 0-100 confidence score
   timestamp: timestamp("timestamp").defaultNow(),
 });
@@ -342,7 +342,7 @@ export const dataMergingConfig = pgTable("data_merging_config", {
   strategy: text("strategy").notNull(),
   preferredSourceId: integer("preferred_source_id"),
   confidenceThreshold: integer("confidence_threshold"),
-  fieldStrategies: json("field_strategies").default({}), // Field-specific strategies
+  fieldStrategies: jsonb("field_strategies").default({}), // Field-specific strategies
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -353,8 +353,8 @@ export const workflows = pgTable("workflows", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  steps: json("steps").notNull(), // Array of workflow steps
-  triggers: json("triggers").notNull(), // What triggers this workflow
+  steps: jsonb("steps").notNull(), // Array of workflow steps
+  triggers: jsonb("triggers").notNull(), // What triggers this workflow
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -367,7 +367,7 @@ export const workflowExecutions = pgTable("workflow_executions", {
   status: text("status").notNull(), // 'running', 'completed', 'failed'
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
-  results: json("results"), // Results of each step
+  results: jsonb("results"), // Results of each step
   error: text("error"),
 });
 
@@ -380,7 +380,7 @@ export const connections = pgTable("connections", {
   description: text("description"),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   isActive: boolean("is_active").default(true),
-  credentials: json("credentials").notNull(),
+  credentials: jsonb("credentials").notNull(),
   lastTested: timestamp("last_tested"),
   lastStatus: text("last_status"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -411,7 +411,7 @@ export const dataSourcePaths = pgTable("data_source_paths", {
   isActive: boolean("is_active").default(true),
   lastProcessed: timestamp("last_processed"),
   nextScheduled: timestamp("next_scheduled"),
-  lastStatus: importStatusEnum("last_status"),
+  lastStatus: text("last_status"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -442,7 +442,7 @@ export const dataPullJobs = pgTable("data_pull_jobs", {
   
   // Error handling
   errorMessage: text("error_message"),
-  errorDetails: json("error_details"),
+  errorDetails: jsonb("error_details"),
   retryCount: integer("retry_count").default(0),
   maxRetries: integer("max_retries").default(3),
   
@@ -477,7 +477,7 @@ export const supplierAutomation = pgTable("supplier_automation", {
   // Notifications
   notifyOnSuccess: boolean("notify_on_success").default(false),
   notifyOnFailure: boolean("notify_on_failure").default(true),
-  notificationEmails: json("notification_emails").default([]),
+  notificationEmails: jsonb("notification_emails").default([]),
   
   // Health monitoring
   consecutiveFailures: integer("consecutive_failures").default(0),
@@ -505,7 +505,7 @@ export const automationFilePaths = pgTable("automation_file_paths", {
   timesPerDay: integer("times_per_day").default(1), // 1-12 times daily
   startTime: text("start_time").default("06:00"),
   endTime: text("end_time").default("22:00"),
-  scheduleTimes: json("schedule_times").default(['06:00']), // Specific times for daily
+  scheduleTimes: jsonb("schedule_times").default(['06:00']), // Specific times for daily
   customSchedule: text("custom_schedule"), // Cron expression
   
   // Processing dependencies
@@ -570,7 +570,7 @@ export const automationLogs = pgTable("automation_logs", {
   // Log details
   level: text("level").notNull(), // info, warning, error, debug
   message: text("message").notNull(),
-  details: json("details"),
+  details: jsonb("details"),
   
   // Context
   jobType: text("job_type"),
@@ -594,13 +594,13 @@ export const shippingTemplates = pgTable("shipping_templates", {
   description: text("description"),
   
   // Cost-based rules
-  costRules: json("cost_rules").default([]), // Array of {minCost, maxCost, shippingCost}
+  costRules: jsonb("cost_rules").default([]), // Array of {minCost, maxCost, shippingCost}
   
   // Weight-based rules  
-  weightRules: json("weight_rules").default([]), // Array of {minWeight, maxWeight, shippingCost}
+  weightRules: jsonb("weight_rules").default([]), // Array of {minWeight, maxWeight, shippingCost}
   
   // Combined rules (cost AND weight conditions)
-  combinedRules: json("combined_rules").default([]), // Array of {minCost, maxCost, minWeight, maxWeight, shippingCost}
+  combinedRules: jsonb("combined_rules").default([]), // Array of {minCost, maxCost, minWeight, maxWeight, shippingCost}
   
   // Flat rate or free shipping
   flatRate: real("flat_rate"), // For flat_rate method
@@ -652,7 +652,7 @@ export const amazonSyncLogs = pgTable("amazon_sync_logs", {
   result: text("result"), // "success", "not_found", "timeout", "invalid_upc", "rate_limited", "error"
   responseTimeMs: integer("response_time_ms"), // API response time in milliseconds
   errorMessage: text("error_message"),
-  errorDetails: json("error_details").default({}),
+  errorDetails: jsonb("error_details").default({}),
   upc: text("upc"), // The UPC that was used
   asin: text("asin"), // The ASIN that was found if successful
   createdAt: timestamp("created_at").defaultNow(),
@@ -668,8 +668,8 @@ export const upcAsinMappings = pgTable("upc_asin_mappings", {
   // Listing restriction data per ASIN
   canList: boolean("can_list").default(true),
   hasListingRestrictions: boolean("has_listing_restrictions").default(false),
-  restrictionReasonCodes: json("restriction_reason_codes").default([]),
-  restrictionMessages: json("restriction_messages").default([]),
+  restrictionReasonCodes: jsonb("restriction_reason_codes").default([]),
+  restrictionMessages: jsonb("restriction_messages").default([]),
   
   // Discovery metadata
   discoveredAt: timestamp("discovered_at").defaultNow(),
@@ -738,39 +738,39 @@ export const amazonAsins = pgTable("amazon_asins", {
   // Category and classification
   category: text("category"),
   subcategory: text("subcategory"),
-  browseNodes: json("browse_nodes").default([]), // Amazon category nodes
+  browseNodes: jsonb("browse_nodes").default([]), // Amazon category nodes
   categoryPath: text("category_path"), // Full category breadcrumb
   productGroup: text("product_group"),
   productType: text("product_type"),
   
   // Physical attributes
-  dimensions: json("dimensions").default({}), // L x W x H in inches
+  dimensions: jsonb("dimensions").default({}), // L x W x H in inches
   weight: text("weight"), // Weight with unit
   color: text("color"),
   size: text("size"),
   
   // Images and media
   primaryImageUrl: text("primary_image_url"),
-  additionalImages: json("additional_images").default([]),
-  videoUrls: json("video_urls").default([]),
+  additionalImages: jsonb("additional_images").default([]),
+  videoUrls: jsonb("video_urls").default([]),
   
   // Listing restrictions and eligibility
   canList: boolean("can_list").default(true),
   hasListingRestrictions: boolean("has_listing_restrictions").default(false),
-  restrictionReasonCodes: json("restriction_reason_codes").default([]),
-  restrictionMessages: json("restriction_messages").default([]),
+  restrictionReasonCodes: jsonb("restriction_reason_codes").default([]),
+  restrictionMessages: jsonb("restriction_messages").default([]),
   lastRestrictionsCheck: timestamp("last_restrictions_check"),
   
   // Product details
-  features: json("features").default([]), // Bullet points array
+  features: jsonb("features").default([]), // Bullet points array
   description: text("description"),
-  technicalDetails: json("technical_details").default({}),
+  technicalDetails: jsonb("technical_details").default({}),
   
   // Parent/child relationships for variations
   parentAsin: text("parent_asin"),
   variationType: text("variation_type"), // color, size, etc.
   variationValue: text("variation_value"),
-  childAsins: json("child_asins").default([]),
+  childAsins: jsonb("child_asins").default([]),
   
   // Marketplace metadata
   marketplaceId: text("marketplace_id").default("ATVPDKIKX0DER"),
@@ -853,7 +853,7 @@ export const amazonMarketIntelligence = pgTable("amazon_market_intelligence", {
   requiresApproval: boolean("requires_approval").default(false),
   ageRestricted: boolean("age_restricted").default(false),
   canList: boolean("can_list"), // Can the product be listed on Amazon (from Listings Restrictions API)
-  listingRestrictions: json("listing_restrictions"), // Full restrictions data
+  listingRestrictions: jsonb("listing_restrictions"), // Full restrictions data
   
   // Amazon Fees (from Product Fees API)
   referralFee: integer("referral_fee"), // Referral fee in cents
@@ -929,21 +929,21 @@ export const walmartProducts = pgTable("walmart_products", {
   title: text("title").notNull(),
   description: text("description"),
   shortDescription: text("short_description"),
-  keyFeatures: json("key_features").default([]), // Array of strings
+  keyFeatures: jsonb("key_features").default([]), // Array of strings
   
   // Images
-  imageUrls: json("image_urls").default([]), // Array of image URLs
+  imageUrls: jsonb("image_urls").default([]), // Array of image URLs
   primaryImageUrl: text("primary_image_url"),
   
   // Category and classification
-  categoryPath: json("category_path").default([]), // ["Parent", "Child", "Type"]
+  categoryPath: jsonb("category_path").default([]), // ["Parent", "Child", "Type"]
   categoryId: text("category_id"),
   categoryName: text("category_name"),
   taxonomyId: text("taxonomy_id"),
   productType: text("product_type"), // Final level in hierarchy - determines referral fee
   
   // Variants
-  variants: json("variants").default([]), // Array of variant objects
+  variants: jsonb("variants").default([]), // Array of variant objects
   isParent: boolean("is_parent").default(false),
   parentSku: text("parent_sku"),
   
@@ -967,7 +967,7 @@ export const walmartProducts = pgTable("walmart_products", {
   totalReviews: integer("total_reviews"),
   
   // Product attributes
-  attributes: json("attributes").default({}), // Weight, dimensions, color, etc.
+  attributes: jsonb("attributes").default({}), // Weight, dimensions, color, etc.
   weight: text("weight"),
   dimensions: text("dimensions"),
   color: text("color"),
@@ -1048,7 +1048,7 @@ export const walmartMarketIntelligence = pgTable("walmart_market_intelligence", 
   isRestrictedCategory: boolean("is_restricted_category").default(false),
   requiresApproval: boolean("requires_approval").default(false),
   canList: boolean("can_list"),
-  listingRestrictions: json("listing_restrictions"),
+  listingRestrictions: jsonb("listing_restrictions"),
   
   // Walmart Fees
   referralFee: integer("referral_fee"), // In cents
@@ -1089,7 +1089,7 @@ export const walmartTaxonomy = pgTable("walmart_taxonomy", {
   
   // Hierarchy
   parentCategoryId: text("parent_category_id"),
-  categoryPath: json("category_path").default([]), // Full path from root
+  categoryPath: jsonb("category_path").default([]), // Full path from root
   level: integer("level").default(1), // Tree depth
   
   // Product type information
@@ -1248,7 +1248,7 @@ export const marketplaceListings = pgTable("marketplace_listings", {
   // Category and product type
   productType: text("product_type"),
   category: text("category"),
-  categoryPath: json("category_path").default([]),
+  categoryPath: jsonb("category_path").default([]),
   contractCategory: text("contract_category"), // For fee calculation
   
   // Fulfillment
@@ -1260,7 +1260,7 @@ export const marketplaceListings = pgTable("marketplace_listings", {
   lastSyncJobId: integer("last_sync_job_id"),
   
   // Raw data snapshot (for debugging/auditing)
-  rawSnapshot: json("raw_snapshot").default({}),
+  rawSnapshot: jsonb("raw_snapshot").default({}),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1303,7 +1303,7 @@ export const walmartListingDetails = pgTable("walmart_listing_details", {
   buyBoxPriceInCents: integer("buy_box_price_in_cents"),
   buyBoxWinner: boolean("buy_box_winner").default(false),
   competitorCount: integer("competitor_count"),
-  competitorPrices: json("competitor_prices").default([]),
+  competitorPrices: jsonb("competitor_prices").default([]),
   
   // Pricing Insights from Walmart API
   buyBoxBasePriceInCents: integer("buy_box_base_price_in_cents"),
@@ -1316,7 +1316,7 @@ export const walmartListingDetails = pgTable("walmart_listing_details", {
   trafficLevel: text("traffic_level"), // 'high', 'medium', 'low', etc.
   gmv30InCents: integer("gmv_30_in_cents"), // 30-day Gross Merchandise Value
   pricingInsightsFetchedAt: timestamp("pricing_insights_fetched_at"),
-  insightsRaw: json("insights_raw").default({}), // Raw API response
+  insightsRaw: jsonb("insights_raw").default({}), // Raw API response
   
   // Compliance and eligibility
   wfsEligible: boolean("wfs_eligible").default(false),
@@ -1328,7 +1328,7 @@ export const walmartListingDetails = pgTable("walmart_listing_details", {
   
   // Promotions
   hasPromotion: boolean("has_promotion").default(false),
-  promotionDetails: json("promotion_details").default({}),
+  promotionDetails: jsonb("promotion_details").default({}),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1366,7 +1366,7 @@ export const marketplaceSyncJobs = pgTable("marketplace_sync_jobs", {
   
   // Error tracking
   errorMessage: text("error_message"),
-  errorDetails: json("error_details").default({}),
+  errorDetails: jsonb("error_details").default({}),
   
   // Metadata
   triggeredBy: text("triggered_by"), // 'manual', 'scheduled', 'system'
@@ -1438,8 +1438,8 @@ export const productAsinMapping = pgTable("product_asin_mapping", {
   // AI Intelligence Tracking
   opportunityScore: real("opportunity_score"), // AI-calculated opportunity score
   recommendedStrategy: text("recommended_strategy"), // Strategy recommendation
-  profitPotential: json("profit_potential"), // Profit analysis data
-  marketIntelligence: json("market_intelligence"), // AI market insights
+  profitPotential: jsonb("profit_potential"), // Profit analysis data
+  marketIntelligence: jsonb("market_intelligence"), // AI market insights
   lastAnalyzed: timestamp("last_analyzed"), // Last AI analysis timestamp
   
   // Competitive analysis
@@ -1464,15 +1464,15 @@ export const multiAsinOpportunities = pgTable("multi_asin_opportunities", {
   productId: integer("product_id").notNull().references(() => products.id),
   upc: text("upc"),
   manufacturerPartNumber: text("manufacturer_part_number"),
-  discoveredAsins: json("discovered_asins"), // Array of all found ASINs
+  discoveredAsins: jsonb("discovered_asins"), // Array of all found ASINs
   primaryAsin: text("primary_asin"),
-  secondaryAsins: json("secondary_asins"), // Strategic secondary ASINs
+  secondaryAsins: jsonb("secondary_asins"), // Strategic secondary ASINs
   opportunityScore: real("opportunity_score"),
   strategyType: text("strategy_type"), // 'DOMINATE_ALL', 'SELECTIVE_TARGET', 'TEST_AND_EXPAND'
-  profitAnalysis: json("profit_analysis"),
-  supplierRecommendations: json("supplier_recommendations"),
-  competitiveAnalysis: json("competitive_analysis"),
-  seasonalForecast: json("seasonal_forecast"),
+  profitAnalysis: jsonb("profit_analysis"),
+  supplierRecommendations: jsonb("supplier_recommendations"),
+  competitiveAnalysis: jsonb("competitive_analysis"),
+  seasonalForecast: jsonb("seasonal_forecast"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
@@ -1492,8 +1492,8 @@ export const supplierAsinPerformance = pgTable("supplier_asin_performance", {
   successRate: real("success_rate"),
   avgProfitMargin: real("avg_profit_margin"),
   marketDominanceScore: real("market_dominance_score"),
-  negotiationOpportunities: json("negotiation_opportunities"),
-  performanceTrends: json("performance_trends"),
+  negotiationOpportunities: jsonb("negotiation_opportunities"),
+  performanceTrends: jsonb("performance_trends"),
   lastUpdated: timestamp("last_updated").defaultNow(),
 }, (table) => {
   return {
@@ -1520,7 +1520,7 @@ export const amazonCompetitiveAnalysis = pgTable("amazon_competitive_analysis", 
   // Brand competition
   uniqueBrands: integer("unique_brands").default(0),
   dominantBrand: text("dominant_brand"), // Brand with most ASINs
-  brandDistribution: json("brand_distribution").default({}), // { "brand": count }
+  brandDistribution: jsonb("brand_distribution").default({}), // { "brand": count }
   
   // Sales performance insights
   bestPerformingAsin: text("best_performing_asin"), // Highest ranked ASIN
@@ -1529,13 +1529,13 @@ export const amazonCompetitiveAnalysis = pgTable("amazon_competitive_analysis", 
   rankSpread: integer("rank_spread"), // Difference between best and worst rank
   
   // Market saturation indicators
-  fbaVsFbmRatio: json("fba_vs_fbm_ratio").default({}), // Fulfillment method distribution
+  fbaVsFbmRatio: jsonb("fba_vs_fbm_ratio").default({}), // Fulfillment method distribution
   primeEligibleCount: integer("prime_eligible_count").default(0),
   amazonChoiceCount: integer("amazon_choice_count").default(0),
   
   // Entry barriers and opportunities
   averageReviewCount: integer("average_review_count"),
-  reviewCountRange: json("review_count_range").default({}), // min, max
+  reviewCountRange: jsonb("review_count_range").default({}), // min, max
   gatedBrandCount: integer("gated_brand_count").default(0),
   restrictedAsinCount: integer("restricted_asin_count").default(0),
   
@@ -1788,7 +1788,7 @@ export const productRestrictions = pgTable("product_restrictions", {
   
   // Resolution tracking
   canBeResolved: boolean("can_be_resolved").default(true),
-  resolutionSteps: json("resolution_steps").default([]),
+  resolutionSteps: jsonb("resolution_steps").default([]),
   resolutionStatus: text("resolution_status").default("pending"), // "pending", "in_progress", "resolved", "permanent"
   
   // Timing information
@@ -1841,7 +1841,7 @@ export const confidenceScores = pgTable("confidence_scores", {
   // Matching algorithm details
   algorithm: text("algorithm"), // "exact", "fuzzy", "ml_model", "rule_based"
   algorithmVersion: text("algorithm_version"),
-  matchingRules: json("matching_rules").default([]),
+  matchingRules: jsonb("matching_rules").default([]),
   
   // AI insights
   aiRecommendation: text("ai_recommendation"), // "accept", "review", "reject"
@@ -1924,9 +1924,9 @@ export const aiAutomationReports = pgTable("ai_automation_reports", {
   reportDate: timestamp("report_date").defaultNow(),
   
   // Scope and filters
-  productFilter: json("product_filter").default({}), // Filters used for this report
-  marketplaceFilter: json("marketplace_filter").default({}),
-  supplierFilter: json("supplier_filter").default({}),
+  productFilter: jsonb("product_filter").default({}), // Filters used for this report
+  marketplaceFilter: jsonb("marketplace_filter").default({}),
+  supplierFilter: jsonb("supplier_filter").default({}),
   
   // Results summary
   totalProducts: integer("total_products").default(0),
@@ -1937,12 +1937,12 @@ export const aiAutomationReports = pgTable("ai_automation_reports", {
   // Profit potential
   totalProfitPotential: integer("total_profit_potential").default(0), // In cents
   avgProfitMargin: real("avg_profit_margin").default(0),
-  topOpportunityProduct: json("top_opportunity_product").default({}),
+  topOpportunityProduct: jsonb("top_opportunity_product").default({}),
   
   // Recommendations
-  recommendedActions: json("recommended_actions").default([]),
-  priorityRecommendations: json("priority_recommendations").default([]),
-  automationSuggestions: json("automation_suggestions").default([]),
+  recommendedActions: jsonb("recommended_actions").default([]),
+  priorityRecommendations: jsonb("priority_recommendations").default([]),
+  automationSuggestions: jsonb("automation_suggestions").default([]),
   
   // Performance metrics
   processingTimeMs: integer("processing_time_ms").default(0),
@@ -1985,7 +1985,7 @@ export const marketplaceSyncStatus = pgTable("marketplace_sync_status", {
   
   // Error tracking
   errorCount: integer("error_count").default(0),
-  errorDetails: json("error_details").default([]),
+  errorDetails: jsonb("error_details").default([]),
   lastError: text("last_error"),
   
   // Performance metrics
@@ -2419,7 +2419,7 @@ export const fileUploads = pgTable("file_uploads", {
   targetMarketplaces: text("target_marketplaces").array().default(['amazon', 'walmart']),
   
   // Status tracking
-  status: analysisJobStatusEnum("status").default('pending').notNull(),
+  status: text("status").default('pending').notNull(),
   totalRows: integer("total_rows").default(0),
   processedRows: integer("processed_rows").default(0),
   successRows: integer("success_rows").default(0),
@@ -2427,7 +2427,7 @@ export const fileUploads = pgTable("file_uploads", {
   opportunitiesFound: integer("opportunities_found").default(0),
   
   // Results
-  analysisResults: json("analysis_results"),  // Summary stats
+  analysisResults: jsonb("analysis_results"),  // Summary stats
   errorMessage: text("error_message"),
   
   createdAt: timestamp("created_at").defaultNow(),
@@ -2551,7 +2551,7 @@ export const insertPurchasingAnalysisRunSchema = createInsertSchema(purchasingAn
 // Marketplace Credentials table - Store API credentials for marketplace integrations
 export const marketplaceCredentials = pgTable("marketplace_credentials", {
   id: serial("id").primaryKey(),
-  marketplace: marketplaceEnum("marketplace").notNull(),  // amazon, walmart, ebay, newegg
+  marketplace: text("marketplace").notNull(),  // amazon, walmart, ebay, newegg
   
   // Amazon SP-API credentials
   clientId: text("client_id"),
@@ -2632,7 +2632,7 @@ export const marketplaceOrders = pgTable("marketplace_orders", {
   
   // Sync tracking
   lastSyncedAt: timestamp("last_synced_at"),
-  rawData: json("raw_data"),
+  rawData: jsonb("raw_data"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2810,7 +2810,7 @@ export const flxpointVariants = pgTable("flxpoint_variants", {
   upc: text("upc"),
   
   // Raw Flxpoint data
-  flxpointData: json("flxpoint_data"),             // Full variant payload from Flxpoint
+  flxpointData: jsonb("flxpoint_data"),             // Full variant payload from Flxpoint
   
   // Sync tracking
   lastPulledAt: timestamp("last_pulled_at"),       // Last time pulled from Flxpoint
@@ -2856,7 +2856,7 @@ export const flxpointSyncRuns = pgTable("flxpoint_sync_runs", {
   finishedAt: timestamp("finished_at"),
   
   // Error details
-  errors: json("errors"),                          // Array of error details
+  errors: jsonb("errors"),                          // Array of error details
   
   // Resume support
   lastProcessedPage: integer("last_processed_page").default(0),
@@ -2916,7 +2916,7 @@ export const brandPartners = pgTable("brand_partners", {
   
   // Additional info
   notes: text("notes"),                                // General notes
-  tags: json("tags").default([]),                      // Tags for filtering
+  tags: jsonb("tags").default([]),                      // Tags for filtering
   
   // Product count (denormalized for quick display)
   productCount: integer("product_count").default(0),
