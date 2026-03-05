@@ -13,40 +13,28 @@ export interface ValidationRule {
   defaultValue?: any;
 }
 
-// Enums
+// Enums - matching production database exactly
 export const importStatusEnum = pgEnum('import_status', ['pending', 'processing', 'success', 'error']);
 export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
 export const exportStatusEnum = pgEnum('export_status', ['pending', 'processing', 'success', 'error']);
 export const dataSourceTypeEnum = pgEnum('data_source_type', [
-  'csv', 'excel', 'json', 'xml', 'edi_x12', 'edifact', 'api', 'sftp', 'ftp', 'manual'
+  'sftp', 'ftp', 'api', 'manual_upload', 'database', 'web_scraping'
 ]);
 export const marketplaceEnum = pgEnum('marketplace', [
-  'amazon', 'walmart', 'ebay', 'target', 'home_depot', 'flxpoint'
+  'amazon', 'walmart', 'ebay', 'target', 'home_depot'
 ]);
 
-// Flxpoint sync status enum
 export const flxpointSyncStatusEnum = pgEnum('flxpoint_sync_status', [
   'pending', 'synced', 'error', 'skipped'
 ]);
 
-// Flxpoint sync job type enum
 export const flxpointSyncJobTypeEnum = pgEnum('flxpoint_sync_job_type', [
   'pull', 'push', 'enrich', 'walmart_sync'
 ]);
-export const scheduleFrequencyEnum = pgEnum('schedule_frequency', [
-  'once', 'hourly', 'daily', 'weekly', 'monthly', 'custom'
-]);
+
 export const fileTypeEnum = pgEnum('file_type', [
-  'catalog', 'inventory', 'pricing', 'images', 'specifications', 'other'
+  'csv', 'excel', 'json', 'xml', 'edi', 'pdf'
 ]);
-export const processingPriorityEnum = pgEnum('processing_priority', [
-  'low', 'normal', 'high', 'critical'
-]);
-export const resolutionStrategyEnum = pgEnum('resolution_strategy', [
-  'newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all'
-]);
-export const dataSourcePurposeValues = ['catalog', 'inventory_pricing', 'order_fulfillment', 'catalog_search', 'returns', 'general'] as const;
-export type DataSourcePurpose = typeof dataSourcePurposeValues[number];
 
 export const connectionTypeEnum = pgEnum('connection_type', [
   'ftp', 'sftp', 'api', 'database'
@@ -54,6 +42,45 @@ export const connectionTypeEnum = pgEnum('connection_type', [
 export const connectionStatusEnum = pgEnum('connection_status', [
   'success', 'error', 'pending'
 ]);
+export const dataPullJobStatusEnum = pgEnum('data_pull_job_status', [
+  'pending', 'running', 'completed', 'failed', 'cancelled', 'timeout'
+]);
+export const amazonSyncJobStatusEnum = pgEnum('amazon_sync_job_status', [
+  'pending', 'in_progress', 'completed', 'failed', 'cancelled'
+]);
+export const listingStatusEnum = pgEnum('listing_status', [
+  'active', 'inactive', 'pending', 'retired', 'unpublished', 'suppressed'
+]);
+export const syncJobStatusEnum = pgEnum('sync_job_status', [
+  'pending', 'running', 'completed', 'failed', 'cancelled'
+]);
+export const recommendationTypeEnum = pgEnum('recommendation_type', [
+  'dropship', 'warehouse', 'no_opportunity'
+]);
+export const riskLevelEnum = pgEnum('risk_level', [
+  'low', 'medium', 'high'
+]);
+export const analysisJobStatusEnum = pgEnum('analysis_job_status', [
+  'pending', 'running', 'paused', 'completed', 'failed', 'cancelled'
+]);
+export const analysisJobPriorityEnum = pgEnum('analysis_job_priority', [
+  'high', 'medium', 'low'
+]);
+export const orderStatusEnum = pgEnum('order_status', [
+  'pending', 'unshipped', 'shipped', 'delivered', 'cancelled', 'on_hold'
+]);
+export const orderTypeEnum = pgEnum('order_type', [
+  'standard', 'subscription', 'preorder'
+]);
+export const partnerStatusEnum = pgEnum('partner_status', [
+  'prospect', 'active', 'inactive', 'suspended'
+]);
+export const communicationTypeEnum = pgEnum('communication_type', [
+  'email', 'phone', 'meeting', 'video_call', 'note', 'other'
+]);
+
+export const dataSourcePurposeValues = ['catalog', 'inventory_pricing', 'order_fulfillment', 'catalog_search', 'returns', 'general'] as const;
+export type DataSourcePurpose = typeof dataSourcePurposeValues[number];
 
 // Users table
 export const users = pgTable("users", {
@@ -263,7 +290,7 @@ export const schedules = pgTable("schedules", {
   dataSourceId: integer("data_source_id").references(() => dataSources.id).notNull(),
   remotePath: text("remote_path"), // Path this schedule is associated with (for FTP/SFTP)
   pathLabel: text("path_label"), // Human-readable label for the path
-  frequency: scheduleFrequencyEnum("frequency").notNull(),
+  frequency: text("frequency").notNull(),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   dayOfWeek: integer("day_of_week"), // 0-6 for Sunday to Saturday
@@ -278,9 +305,6 @@ export const schedules = pgTable("schedules", {
 });
 
 // Mapping templates for data normalization
-export const mappingViews = pgEnum('mapping_view', [
-  'catalog', 'detail'
-]);
 
 export const mappingTemplates = pgTable("mapping_templates", {
   id: serial("id").primaryKey(),
@@ -315,7 +339,7 @@ export const dataMergingConfig = pgTable("data_merging_config", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  strategy: resolutionStrategyEnum("strategy").notNull(),
+  strategy: text("strategy").notNull(),
   preferredSourceId: integer("preferred_source_id"),
   confidenceThreshold: integer("confidence_threshold"),
   fieldStrategies: json("field_strategies").default({}), // Field-specific strategies
@@ -352,13 +376,13 @@ export const workflowExecutions = pgTable("workflow_executions", {
 export const connections = pgTable("connections", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: connectionTypeEnum("type").notNull(),
+  type: text("type").notNull(),
   description: text("description"),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   isActive: boolean("is_active").default(true),
   credentials: json("credentials").notNull(),
   lastTested: timestamp("last_tested"),
-  lastStatus: connectionStatusEnum("last_status"),
+  lastStatus: text("last_status"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -371,12 +395,12 @@ export const dataSourcePaths = pgTable("data_source_paths", {
   // File identification
   label: text("label").notNull(), // "Main Catalog", "Inventory", "Pricing"
   filePath: text("file_path").notNull(),
-  fileType: fileTypeEnum("file_type").notNull(),
-  processingPriority: processingPriorityEnum("processing_priority").default("normal"),
+  fileType: text("file_type").notNull(),
+  processingPriority: text("processing_priority").default("normal"),
   
   // Automation settings
   isAutomated: boolean("is_automated").default(false),
-  scheduleFrequency: scheduleFrequencyEnum("schedule_frequency").default("daily"),
+  scheduleFrequency: text("schedule_frequency").default("daily"),
   customSchedule: text("custom_schedule"), // Cron expression for custom schedules
   
   // Processing dependencies - ensures catalog files process before inventory
@@ -394,19 +418,15 @@ export const dataSourcePaths = pgTable("data_source_paths", {
 });
 
 // Enhanced data pull job system for catalog and inventory management
-export const dataPullJobsEnum = pgEnum('data_pull_job_status', [
-  'pending', 'running', 'completed', 'failed', 'cancelled', 'timeout'
-]);
-
 export const dataPullJobs = pgTable("data_pull_jobs", {
   id: serial("id").primaryKey(),
   supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
   dataSourceId: integer("data_source_id").notNull().references(() => dataSources.id),
   
   // Job identification
-  jobType: fileTypeEnum("job_type").notNull(), // catalog, inventory, pricing, etc.
+  jobType: text("job_type").notNull(),
   filePath: text("file_path").notNull(),
-  status: dataPullJobsEnum("status").default("pending"),
+  status: dataPullJobStatusEnum("status").default("pending"),
   
   // Scheduling information
   scheduledAt: timestamp("scheduled_at").notNull(),
@@ -477,11 +497,11 @@ export const automationFilePaths = pgTable("automation_file_paths", {
   // File identification
   label: text("label").notNull(), // "Main Catalog", "Inventory Updates", "Pricing Feed"
   filePath: text("file_path").notNull(), // e.g. "/data/catalog.csv"
-  fileType: fileTypeEnum("file_type").notNull(), // catalog, inventory, pricing
+  fileType: text("file_type").notNull(),
   isEnabled: boolean("is_enabled").default(true),
   
   // Complete scheduling configuration - every file gets these settings
-  frequency: scheduleFrequencyEnum("frequency").default("daily"),
+  frequency: text("frequency").default("daily"),
   timesPerDay: integer("times_per_day").default(1), // 1-12 times daily
   startTime: text("start_time").default("06:00"),
   endTime: text("end_time").default("22:00"),
@@ -489,7 +509,7 @@ export const automationFilePaths = pgTable("automation_file_paths", {
   customSchedule: text("custom_schedule"), // Cron expression
   
   // Processing dependencies
-  dependsOnFileType: fileTypeEnum("depends_on_file_type"), // Wait for this file type
+  dependsOnFileType: text("depends_on_file_type"),
   processingOrder: integer("processing_order").default(1), // Processing sequence
   delayAfterDependency: integer("delay_after_dependency").default(10), // Minutes
   
@@ -553,7 +573,7 @@ export const automationLogs = pgTable("automation_logs", {
   details: json("details"),
   
   // Context
-  jobType: fileTypeEnum("job_type"), // catalog, inventory, pricing
+  jobType: text("job_type"),
   filePath: text("file_path"),
   recordsAffected: integer("records_affected"),
   
@@ -565,15 +585,11 @@ export const automationLogs = pgTable("automation_logs", {
 });
 
 // Shipping Templates for supplier-specific shipping calculations
-export const shippingMethodEnum = pgEnum('shipping_method', [
-  'cost_based', 'weight_based', 'combined', 'flat_rate', 'free'
-]);
-
 export const shippingTemplates = pgTable("shipping_templates", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
-  method: shippingMethodEnum("method").notNull(),
+  method: text("method").notNull(),
   isDefault: boolean("is_default").default(false),
   description: text("description"),
   
@@ -599,10 +615,6 @@ export const shippingTemplates = pgTable("shipping_templates", {
 });
 
 // Amazon Sync Job status tracking
-export const amazonSyncJobStatusEnum = pgEnum('amazon_sync_job_status', [
-  'pending', 'in_progress', 'completed', 'failed', 'cancelled'
-]);
-
 export const amazonSyncJobs = pgTable("amazon_sync_jobs", {
   id: serial("id").primaryKey(),
   batchId: text("batch_id").notNull().unique(),
@@ -1196,16 +1208,6 @@ export const walmartPricingInsights = pgTable("walmart_pricing_insights", {
 // ============================================================================
 // ACTIVE LISTINGS SCHEMA - Track seller's active marketplace listings
 // ============================================================================
-
-// Listing status enum
-export const listingStatusEnum = pgEnum('listing_status', [
-  'active', 'inactive', 'pending', 'retired', 'unpublished', 'suppressed'
-]);
-
-// Sync job status enum  
-export const syncJobStatusEnum = pgEnum('sync_job_status', [
-  'pending', 'running', 'completed', 'failed', 'cancelled'
-]);
 
 // Core marketplace listings table - normalized backbone for all marketplaces
 export const marketplaceListings = pgTable("marketplace_listings", {
@@ -2236,24 +2238,9 @@ export const suppliersShippingRelations = relations(suppliers, ({ many }) => ({
   shippingTemplates: many(shippingTemplates),
 }));
 
-// Purchasing AI enums
-export const recommendationTypeEnum = pgEnum('recommendation_type', [
-  'dropship', 'warehouse', 'no_opportunity'
-]);
-export const riskLevelEnum = pgEnum('risk_level', [
-  'low', 'medium', 'high'
-]);
 // Fulfillment method options (no longer enum since we support multiple selections)
 export const FULFILLMENT_METHODS = ['fbm', 'fba', 'dropship', 'warehouse'] as const;
 export type FulfillmentMethod = typeof FULFILLMENT_METHODS[number];
-
-// Analysis Job enums
-export const analysisJobStatusEnum = pgEnum('analysis_job_status', [
-  'pending', 'running', 'paused', 'completed', 'failed', 'cancelled'
-]);
-export const analysisJobPriorityEnum = pgEnum('analysis_job_priority', [
-  'high', 'medium', 'low'
-]);
 
 // Purchasing Opportunities table - AI-generated purchasing recommendations
 export const purchasingOpportunities = pgTable("purchasing_opportunities", {
@@ -2595,10 +2582,6 @@ export const marketplaceCredentials = pgTable("marketplace_credentials", {
   };
 });
 
-// Marketplace orders enum
-export const orderStatusEnum = pgEnum('order_status', ['pending', 'unshipped', 'shipped', 'delivered', 'cancelled', 'on_hold']);
-export const orderTypeEnum = pgEnum('order_type', ['standard', 'subscription', 'preorder']);
-
 // Marketplace Orders table
 export const marketplaceOrders = pgTable("marketplace_orders", {
   id: serial("id").primaryKey(),
@@ -2905,15 +2888,6 @@ export type InsertFlxpointSyncRun = z.infer<typeof insertFlxpointSyncRunSchema>;
 // =====================================================
 
 // Partner status enum
-export const partnerStatusEnum = pgEnum('partner_status', [
-  'prospect', 'active', 'inactive', 'suspended'
-]);
-
-// Communication type enum
-export const communicationTypeEnum = pgEnum('communication_type', [
-  'email', 'phone', 'meeting', 'video_call', 'note', 'other'
-]);
-
 /**
  * Brand Partners table
  * Main table for storing brand/manufacturer partnership information
