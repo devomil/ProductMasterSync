@@ -659,18 +659,25 @@ export default function DataSources() {
     queryClient.invalidateQueries({ queryKey: ['/api/datasources'] });
     setShowWizard(false);
     
-    // Find the supplier name to display in the toast
     const suppliersList = suppliers as any[];
     const supplier = suppliersList.find((s: any) => s.id === parseInt(newDataSource.supplier_id || newDataSource.supplierId));
     const supplierName = supplier?.name || newDataSource.name || 'Data source';
+    
+    setCurrentDataSource(newDataSource);
+
+    if (newDataSource.purpose === 'catalog_search') {
+      toast({
+        title: "Data Source Created",
+        description: `${supplierName} is ready. This data source uses API-based search and doesn't require field mapping.`
+      });
+      return;
+    }
     
     toast({
       title: "Data Source Created",
       description: `${supplierName} is ready for field mapping`
     });
 
-    // Automatically start the mapping walkthrough
-    setCurrentDataSource(newDataSource);
     startMappingWalkthrough(newDataSource.id);
   };
 
@@ -780,6 +787,7 @@ export default function DataSources() {
           sourceType: currentDataSource?.type || 'sftp',
           mappings: processedMappings,
           supplierId: currentDataSource?.supplier_id || currentDataSource?.supplierId,
+          purpose: currentDataSource?.purpose || 'catalog',
           transformations: [
             {
               field: 'sku',
@@ -906,6 +914,7 @@ export default function DataSources() {
           dataSourceId={currentDataSource?.id || ''}
           dataSourceName={currentDataSource?.name || 'Supplier'}
           sampleData={sampleData}
+          purpose={currentDataSource?.purpose || 'general'}
           onComplete={handleMappingComplete}
           onCancel={handleMappingCancel}
         />

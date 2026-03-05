@@ -288,11 +288,12 @@ export const mappingTemplates = pgTable("mapping_templates", {
   name: text("name").notNull(),
   description: text("description"),
   sourceType: dataSourceTypeEnum("source_type").notNull(),
-  mappings: json("mappings").notNull(), // Object with mappings for each view { catalog: {}, detail: {} }
-  transformations: json("transformations").default([]), // Array of transformations
-  validationRules: json("validation_rules").default([]), // Array of validation rules
+  mappings: json("mappings").notNull(),
+  transformations: json("transformations").default([]),
+  validationRules: json("validation_rules").default([]),
   supplierId: integer("supplier_id").references(() => suppliers.id),
-  fileLabel: text("file_label"), // Label for specific file paths this template applies to
+  fileLabel: text("file_label"),
+  purpose: dataSourcePurposeEnum("purpose").default('catalog'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -33,7 +33,7 @@ Preferred communication style: Simple, everyday language.
     - **Walmart Price Incentives**: Integration with Walmart /v3/price/incentives API to fetch and cache Walmart-funded incentive items for financial breakdown in order fulfillment.
     - **Inventory Management**: Automated data pull jobs, scheduling, and monitoring.
     - **Shipping Template System**: Supplier-specific, cost and weight-based shipping calculations.
-    - **Field Mapping System**: Two-tier mapping with interactive walkthroughs and auto-mapping capabilities.
+    - **Field Mapping System**: Purpose-driven mapping templates with interactive walkthroughs and AI auto-mapping. Mapping workflow adapts based on data source purpose: Catalog Import shows all 60+ fields, Inventory & Pricing shows only ~13 fields (identifier + pricing + inventory), Order Fulfillment shows 5 fields, Catalog Search skips mapping entirely. Purpose stored on `mapping_templates` table and used by automation scheduler to determine update strategy.
     - **AI-Powered Category Mapping**: Automated category mapping using Claude AI with an approval workflow.
     - **Purchasing AI**: Multi-select fulfillment preferences, bulk analysis for 1M+ product catalogs, with rate limiting and deduplication.
     - **Research Opportunities**: Upload CSV/Excel product lists for marketplace selling opportunity discovery, using multi-strategy Amazon ASIN matching (UPC, MPN/SKU, description/brand keywords) with confidence scores and opportunity/restriction highlighting.

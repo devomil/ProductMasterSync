@@ -139,19 +139,19 @@ async function processFile(
     
     log(`Parsed ${records.length} records from file`);
     
-    // Load and apply mapping template for this supplier
-    const mappingTemplates = await storage.getMappingTemplates(supplierId);
-    if (mappingTemplates && mappingTemplates.length > 0) {
-      const template = mappingTemplates[0];
+    const mappingTemplatesResult = await storage.getMappingTemplates(supplierId);
+    let templatePurpose: string | null = null;
+    if (mappingTemplatesResult && mappingTemplatesResult.length > 0) {
+      const template = mappingTemplatesResult[0];
+      templatePurpose = (template as any).purpose || null;
       if (template.mappings) {
-        log(`Applying field mapping template: ${template.name}`);
+        log(`Applying field mapping template: ${template.name} (purpose: ${templatePurpose || 'unset'})`);
         const mappings = typeof template.mappings === 'string' 
           ? JSON.parse(template.mappings) 
           : template.mappings;
         
-        // Apply mappings to each record
         records = records.map(record => {
-          const mapped: any = { ...record }; // Keep original fields too
+          const mapped: any = { ...record };
           for (const [targetField, sourceField] of Object.entries(mappings)) {
             if (typeof sourceField === 'string' && record[sourceField] !== undefined) {
               mapped[targetField] = record[sourceField];
@@ -164,21 +164,25 @@ async function processFile(
       }
     }
     
-    // Process each record
+    const effectiveJobType = templatePurpose === 'inventory_pricing' ? 'inventory' 
+      : templatePurpose === 'catalog' ? 'catalog' 
+      : jobType;
+    
+    log(`Effective job type: ${effectiveJobType} (template purpose: ${templatePurpose}, original: ${jobType})`);
+    
     for (const record of records) {
       recordsProcessed++;
       
       try {
-        // Get the part number/SKU from various possible column names
-        const partNumber = record['Part Number'] || record.partNumber || record.PartNumber || record.SKU || record.sku;
+        const partNumber = record['Part Number'] || record.partNumber || record.PartNumber || 
+          record.SKU || record.sku || record.manufacturerPartNumber || record.usin;
         
         if (!partNumber) {
           recordsFailed++;
           continue;
         }
         
-        // For catalog jobs, upsert full product data
-        if (jobType === 'catalog') {
+        if (effectiveJobType === 'catalog') {
           // Check if product exists
           const [existing] = await db.select()
             .from(products)
@@ -231,15 +235,23 @@ async function processFile(
           }
         }
         // For inventory jobs, only update stock levels
-        else if (jobType === 'inventory') {
-          const qtyOnHand = parseInt(record['Qty On Hand'] || record.quantity || record.QtyOnHand || record.inventoryQuantity || '0');
+        else if (effectiveJobType === 'inventory') {
+          const qtyOnHand = parseInt(record['Qty On Hand'] || record.quantity || record.QtyOnHand || 
+            record.inventoryQuantity || record.quantityAvailableCombined || '0');
           
-          // Update inventory for existing products
+          const updateFields: any = {
+            inventoryQuantity: qtyOnHand,
+            updatedAt: new Date(),
+          };
+          
+          const costVal = record.yourCost || record.cost || record.Cost;
+          if (costVal) updateFields.cost = String(costVal);
+          
+          const priceVal = record.listPrice || record.price || record.Price;
+          if (priceVal) updateFields.price = String(priceVal);
+          
           const result = await db.update(products)
-            .set({
-              inventoryQuantity: qtyOnHand,
-              updatedAt: new Date(),
-            })
+            .set(updateFields)
             .where(eq(products.manufacturerPartNumber, partNumber));
           
           if (result.rowCount && result.rowCount > 0) {

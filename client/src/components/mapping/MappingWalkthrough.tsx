@@ -35,15 +35,18 @@ interface MappingField {
   sourceField: string;
   targetField: string;
   required: boolean;
-  category: 'master_catalog' | 'inventory' | 'pricing' | 'shipping' | 'compliance' | 'promotions' | 'documentation' | 'catalog_extensions';
+  category: 'master_catalog' | 'inventory' | 'pricing' | 'shipping' | 'compliance' | 'promotions' | 'documentation' | 'catalog_extensions' | 'product_identifier' | 'availability_cost' | 'return_info';
   description: string;
   example?: string;
 }
+
+type DataSourcePurpose = 'catalog' | 'inventory_pricing' | 'order_fulfillment' | 'catalog_search' | 'returns' | 'general';
 
 interface MappingWalkthroughProps {
   dataSourceId: string;
   dataSourceName?: string;
   sampleData: any[];
+  purpose?: DataSourcePurpose;
   onComplete: (mappings: MappingField[]) => void;
   onCancel: () => void;
 }
@@ -518,6 +521,241 @@ const CATEGORY_LABELS: Record<string, string> = {
   catalog_extensions: 'Catalog Extensions'
 };
 
+const PURPOSE_FIELD_CONFIGS: Record<DataSourcePurpose, Record<string, Array<{ id: string; targetField: string; required: boolean; description: string; example?: string }>>> = {
+  catalog: REQUIRED_MAPPINGS,
+  general: REQUIRED_MAPPINGS,
+  catalog_search: {},
+  inventory_pricing: {
+    product_identifier: [
+      {
+        id: 'manufacturer_part_number',
+        targetField: 'manufacturerPartNumber',
+        required: true,
+        description: 'MPN — used to match against existing catalog products',
+        example: 'MPN-12345'
+      },
+      {
+        id: 'upc',
+        targetField: 'upc',
+        required: false,
+        description: 'UPC — secondary identifier for matching',
+        example: '123456789012'
+      },
+      {
+        id: 'usin',
+        targetField: 'usin',
+        required: false,
+        description: 'Universal Supplier Item Number (SKU)',
+        example: '010342'
+      }
+    ],
+    pricing: [
+      {
+        id: 'your_cost',
+        targetField: 'yourCost',
+        required: false,
+        description: 'Supplier cost price',
+        example: '19.99'
+      },
+      {
+        id: 'cost',
+        targetField: 'cost',
+        required: false,
+        description: 'Cost',
+        example: '19.99'
+      },
+      {
+        id: 'list_price',
+        targetField: 'listPrice',
+        required: false,
+        description: 'Manufacturer list price',
+        example: '29.99'
+      },
+      {
+        id: 'map_price',
+        targetField: 'mapPrice',
+        required: false,
+        description: 'Minimum advertised price',
+        example: '28.49'
+      },
+      {
+        id: 'mrp_price',
+        targetField: 'mrpPrice',
+        required: false,
+        description: 'Manufacturer suggested retail price',
+        example: '35.99'
+      }
+    ],
+    inventory: [
+      {
+        id: 'quantity_available_combined',
+        targetField: 'quantityAvailableCombined',
+        required: false,
+        description: 'Total available stock across all warehouses',
+        example: '150'
+      },
+      {
+        id: 'quantity_available_nj',
+        targetField: 'quantityAvailableNj',
+        required: false,
+        description: 'Stock available in NJ warehouse',
+        example: '75'
+      },
+      {
+        id: 'quantity_available_fl',
+        targetField: 'quantityAvailableFl',
+        required: false,
+        description: 'Stock available in FL warehouse',
+        example: '75'
+      },
+      {
+        id: 'quantity_backordered',
+        targetField: 'quantityBackordered',
+        required: false,
+        description: 'Items on backorder',
+        example: '25'
+      },
+      {
+        id: 'next_shipment_date_combined',
+        targetField: 'nextShipmentDateCombined',
+        required: false,
+        description: 'Next expected shipment date',
+        example: '2025-07-15'
+      }
+    ]
+  },
+  order_fulfillment: {
+    product_identifier: [
+      {
+        id: 'manufacturer_part_number',
+        targetField: 'manufacturerPartNumber',
+        required: true,
+        description: 'MPN — used to match against existing catalog products',
+        example: 'MPN-12345'
+      },
+      {
+        id: 'upc',
+        targetField: 'upc',
+        required: false,
+        description: 'UPC — secondary identifier for matching',
+        example: '123456789012'
+      }
+    ],
+    availability_cost: [
+      {
+        id: 'cost',
+        targetField: 'cost',
+        required: false,
+        description: 'Vendor cost for order processing',
+        example: '19.99'
+      },
+      {
+        id: 'quantity_available_combined',
+        targetField: 'quantityAvailableCombined',
+        required: false,
+        description: 'Available quantity for fulfillment',
+        example: '150'
+      },
+      {
+        id: 'lead_time',
+        targetField: 'leadTime',
+        required: false,
+        description: 'Fulfillment lead time in days',
+        example: '3'
+      }
+    ]
+  },
+  returns: {
+    product_identifier: [
+      {
+        id: 'manufacturer_part_number',
+        targetField: 'manufacturerPartNumber',
+        required: true,
+        description: 'MPN — used to match against existing catalog products',
+        example: 'MPN-12345'
+      },
+      {
+        id: 'upc',
+        targetField: 'upc',
+        required: false,
+        description: 'UPC — secondary identifier for matching',
+        example: '123456789012'
+      }
+    ],
+    return_info: [
+      {
+        id: 'return_status',
+        targetField: 'returnStatus',
+        required: false,
+        description: 'Product return status',
+        example: 'Returned'
+      },
+      {
+        id: 'return_quantity',
+        targetField: 'returnQuantity',
+        required: false,
+        description: 'Quantity being returned',
+        example: '2'
+      },
+      {
+        id: 'return_reason',
+        targetField: 'returnReason',
+        required: false,
+        description: 'Reason for return',
+        example: 'Defective'
+      }
+    ]
+  }
+};
+
+const PURPOSE_CATEGORY_LABELS: Record<string, string> = {
+  product_identifier: 'Product Identifier',
+  availability_cost: 'Availability & Cost',
+  return_info: 'Return Info'
+};
+
+const PURPOSE_CATEGORY_ICONS: Record<string, any> = {
+  product_identifier: Target,
+  availability_cost: DollarSign,
+  return_info: FileText
+};
+
+const PURPOSE_LABELS: Record<DataSourcePurpose, string> = {
+  catalog: 'Full Catalog',
+  general: 'General',
+  catalog_search: 'Catalog Search',
+  inventory_pricing: 'Inventory & Pricing',
+  order_fulfillment: 'Order Fulfillment',
+  returns: 'Returns'
+};
+
+const PURPOSE_COLORS: Record<DataSourcePurpose, string> = {
+  catalog: 'bg-blue-100 text-blue-800 border-blue-300',
+  general: 'bg-gray-100 text-gray-800 border-gray-300',
+  catalog_search: 'bg-purple-100 text-purple-800 border-purple-300',
+  inventory_pricing: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  order_fulfillment: 'bg-amber-100 text-amber-800 border-amber-300',
+  returns: 'bg-red-100 text-red-800 border-red-300'
+};
+
+const PURPOSE_DESCRIPTIONS: Record<DataSourcePurpose, string> = {
+  catalog: 'Map all fields to build complete product catalog entries.',
+  general: 'Map all fields to build complete product catalog entries.',
+  catalog_search: 'This data source uses API-based search and does not require field mapping.',
+  inventory_pricing: 'Map fields to update stock levels and pricing for existing products. Only identifier, pricing, and stock fields are shown. Products must already exist in your catalog to receive updates.',
+  order_fulfillment: 'Map the product identifier and cost fields so the system can look up vendor pricing during order processing.',
+  returns: 'Map product identifiers and return information fields for processing product returns.'
+};
+
+const PURPOSE_HEADER_TITLES: Record<DataSourcePurpose, string> = {
+  catalog: 'Field Mapping Walkthrough',
+  general: 'Field Mapping Walkthrough',
+  catalog_search: 'Catalog Search Source',
+  inventory_pricing: 'Inventory & Pricing Mapping',
+  order_fulfillment: 'Order Fulfillment Mapping',
+  returns: 'Returns Mapping'
+};
+
 function humanizeFieldName(field: string): string {
   return field
     .replace(/[_-]/g, ' ')
@@ -544,7 +782,7 @@ interface CustomFieldSelection {
   selected: boolean;
 }
 
-export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, onComplete, onCancel }: MappingWalkthroughProps) {
+export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, purpose = 'general', onComplete, onCancel }: MappingWalkthroughProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [mappings, setMappings] = useState<Record<string, MappingField>>({});
@@ -558,11 +796,13 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
   const [showAllSourceFields, setShowAllSourceFields] = useState(false);
   const [customFieldSelections, setCustomFieldSelections] = useState<Record<string, CustomFieldSelection>>({});
 
-  const mappingCategories = Object.keys(REQUIRED_MAPPINGS) as Array<keyof typeof REQUIRED_MAPPINGS>;
-  const categories = [...mappingCategories, 'catalog_extensions' as const];
+  const activePurpose = purpose || 'general';
+  const purposeConfig = PURPOSE_FIELD_CONFIGS[activePurpose] || REQUIRED_MAPPINGS;
+  const mappingCategories = Object.keys(purposeConfig) as string[];
+  const categories = [...mappingCategories, 'catalog_extensions'];
   const isExtensionStep = currentStep === mappingCategories.length;
-  const currentCategory = isExtensionStep ? 'catalog_extensions' : mappingCategories[currentStep] as keyof typeof REQUIRED_MAPPINGS;
-  const currentFields = isExtensionStep ? [] : REQUIRED_MAPPINGS[currentCategory as keyof typeof REQUIRED_MAPPINGS] || [];
+  const currentCategory = isExtensionStep ? 'catalog_extensions' : mappingCategories[currentStep];
+  const currentFields = isExtensionStep ? [] : (purposeConfig[currentCategory] || []);
 
   const getUnmappedFields = () => {
     const mappedSourceFields = new Set(Object.values(mappings).map(m => m.sourceField).filter(Boolean));
@@ -586,7 +826,6 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
   const updateMapping = (fieldId: string, sourceField: string) => {
     const targetField = currentFields.find(f => f.id === fieldId);
     if (targetField) {
-      // Handle skipped fields by setting empty sourceField
       const actualSourceField = sourceField === "__SKIP__" ? "" : sourceField;
       
       setMappings(prev => ({
@@ -596,7 +835,7 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
           sourceField: actualSourceField,
           targetField: targetField.targetField,
           required: targetField.required,
-          category: currentCategory,
+          category: currentCategory as MappingField['category'],
           description: targetField.description,
           example: targetField.example
         }
@@ -618,7 +857,9 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
 
       const response = await apiRequest('POST', '/api/ai-mapping/auto-map', {
         sourceFields,
-        targetFields
+        targetFields,
+        purpose: activePurpose,
+        purposeContext: PURPOSE_DESCRIPTIONS[activePurpose]
       });
 
       const data = await response.json();
@@ -666,27 +907,25 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
   };
 
   const getCompletionStats = () => {
-    const totalRequired = Object.values(REQUIRED_MAPPINGS)
-      .flat()
-      .filter(f => f.required).length;
+    const allFields = Object.values(purposeConfig).flat();
+    const totalRequired = allFields.filter(f => f.required).length;
     
     const mappedRequired = Object.values(mappings)
       .filter(m => m.required && m.sourceField).length;
     
-    const totalOptional = Object.values(REQUIRED_MAPPINGS)
-      .flat()
-      .filter(f => !f.required).length;
+    const totalOptional = allFields.filter(f => !f.required).length;
     
     const mappedOptional = Object.values(mappings)
       .filter(m => !m.required && m.sourceField).length;
 
+    const total = totalRequired + totalOptional;
     return {
       totalRequired,
       mappedRequired,
       totalOptional,
       mappedOptional,
       requiredComplete: mappedRequired === totalRequired,
-      overallProgress: Math.round(((mappedRequired + mappedOptional) / (totalRequired + totalOptional)) * 100)
+      overallProgress: total > 0 ? Math.round(((mappedRequired + mappedOptional) / total) * 100) : 0
     };
   };
 
@@ -809,7 +1048,7 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
 
   const stats = getCompletionStats();
   const categoryStats = getCurrentCategoryStats();
-  const IconComponent = CATEGORY_ICONS[currentCategory];
+  const IconComponent = PURPOSE_CATEGORY_ICONS[currentCategory] || CATEGORY_ICONS[currentCategory];
 
   // Show completion screen after mapping is done
   if (isComplete) {
@@ -910,13 +1149,46 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Field Mapping Walkthrough</h2>
+      {/* Purpose Badge & Header */}
+      <div className="text-center space-y-3">
+        {activePurpose !== 'general' && activePurpose !== 'catalog' && (
+          <div className="flex justify-center">
+            <Badge className={`text-sm px-3 py-1 ${PURPOSE_COLORS[activePurpose]}`}>
+              {PURPOSE_LABELS[activePurpose]}
+            </Badge>
+          </div>
+        )}
+        <h2 className="text-2xl font-bold text-gray-900">{PURPOSE_HEADER_TITLES[activePurpose]}</h2>
         <p className="text-gray-600 mt-2">
-          Map your supplier data fields to our master catalog structure for accurate product imports
+          {PURPOSE_DESCRIPTIONS[activePurpose]}
         </p>
       </div>
+
+      {/* Purpose-specific guidance banner */}
+      {activePurpose === 'inventory_pricing' && (
+        <Alert className="border-emerald-300 bg-emerald-50">
+          <Database className="h-4 w-4 text-emerald-600" />
+          <AlertDescription className="text-emerald-800">
+            You're mapping an inventory & pricing feed. Only identifier, pricing, and stock fields are shown. Products must already exist in your catalog to receive updates.
+          </AlertDescription>
+        </Alert>
+      )}
+      {activePurpose === 'order_fulfillment' && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <ShoppingCart className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            You're mapping an order fulfillment source. Map the product identifier and cost fields so the system can look up vendor pricing during order processing.
+          </AlertDescription>
+        </Alert>
+      )}
+      {activePurpose === 'returns' && (
+        <Alert className="border-red-300 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            You're mapping a returns data source. Map identifiers and return details to process product returns efficiently.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Progress Overview */}
       <Card>
@@ -986,7 +1258,7 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
       <div className="flex justify-center">
         <div className="flex items-center space-x-2">
           {categories.map((category, index) => {
-            const Icon = CATEGORY_ICONS[category];
+            const Icon = PURPOSE_CATEGORY_ICONS[category] || CATEGORY_ICONS[category];
             const isActive = index === currentStep;
             const isCompleted = index < currentStep || (index === currentStep && categoryStats.complete);
             
@@ -1149,7 +1421,7 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, o
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <IconComponent className="h-5 w-5" />
-              {CATEGORY_LABELS[currentCategory]}
+              {PURPOSE_CATEGORY_LABELS[currentCategory] || CATEGORY_LABELS[currentCategory]}
               <Badge variant={categoryStats.complete ? "default" : "secondary"}>
                 {categoryStats.mapped}/{categoryStats.total} mapped
               </Badge>
