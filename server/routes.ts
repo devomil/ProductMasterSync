@@ -4011,6 +4011,286 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/datasources/:id/test-inventory-match', async (req, res) => {
+    try {
+      const dataSourceId = parseInt(req.params.id);
+      const { limit = 50 } = req.body;
+      
+      console.log(`[Inventory Match] Testing inventory match for data source ${dataSourceId}...`);
+      
+      const [dataSource] = await db
+        .select()
+        .from(dataSources)
+        .where(eq(dataSources.id, dataSourceId));
+        
+      if (!dataSource) {
+        return res.status(404).json({ success: false, message: 'Data source not found' });
+      }
+      
+      let supplierName = '';
+      if (dataSource.supplierId) {
+        const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, dataSource.supplierId));
+        supplierName = supplier?.name?.toLowerCase() || '';
+      }
+      
+      const mappingTemplateResults = await db
+        .select()
+        .from(mappingTemplates)
+        .where(eq(mappingTemplates.sourceType, dataSource.type))
+        .orderBy(desc(mappingTemplates.updatedAt))
+        .limit(1);
+        
+      if (mappingTemplateResults.length === 0) {
+        return res.status(400).json({ success: false, message: 'No mapping template found.' });
+      }
+      
+      const mappingTemplate = mappingTemplateResults[0];
+      const fieldMappings = (mappingTemplate.mappings as Record<string, string>) || {};
+      
+      const config = dataSource.config as any;
+      let records: any[] = [];
+      
+      if (dataSource.type === 'sftp' && config?.host && config?.username) {
+        try {
+          const SftpClient = (await import('ssh2-sftp-client')).default;
+          const fsSync = await import('fs');
+          const pathMod = await import('path');
+          const csvParse = await import('csv-parse/sync');
+          
+          const sftp = new SftpClient();
+          let password = config.password;
+          if (process.env.INGRAM_SFTP_PASSWORD && config.host?.includes('ingrammicro.com')) {
+            password = process.env.INGRAM_SFTP_PASSWORD;
+          }
+          
+          const connectConfig: any = {
+            host: config.host,
+            port: config.port || 22,
+            username: config.username,
+            password: password
+          };
+          
+          if (config.host?.includes('bluestarinc') || config.legacyAlgorithms) {
+            connectConfig.algorithms = {
+              kex: ['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'],
+              cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes128-gcm@openssh.com', 'aes256-gcm', 'aes256-gcm@openssh.com', 'aes256-cbc', 'aes192-cbc', 'aes128-cbc', '3des-cbc']
+            };
+          }
+          
+          await sftp.connect(connectConfig);
+          
+          let remotePath = config.path || config.filePath || config.file || null;
+          
+          if (!remotePath) {
+            const fileList = await sftp.list('./');
+            const priceFile = fileList.find((f: any) => 
+              f.name.toLowerCase().includes('price') ||
+              f.name.toLowerCase().includes('inventory') ||
+              f.name.toLowerCase().includes('stock') ||
+              f.name.toLowerCase().endsWith('.csv') ||
+              f.name.toLowerCase().endsWith('.zip') ||
+              f.name.toLowerCase().endsWith('.txt')
+            );
+            if (priceFile) {
+              remotePath = `/${priceFile.name}`;
+            }
+          } else if (!remotePath.startsWith('/')) {
+            remotePath = `/${remotePath}`;
+          }
+          
+          if (remotePath) {
+            const tempDir = './temp';
+            if (!fsSync.existsSync(tempDir)) fsSync.mkdirSync(tempDir, { recursive: true });
+            
+            const fileName = pathMod.basename(remotePath);
+            const localPath = pathMod.join(tempDir, `match_test_${fileName}`);
+            await sftp.get(remotePath, localPath);
+            await sftp.end();
+            
+            let fileContent: string;
+            let actualFileName = fileName;
+            
+            if (fileName.toLowerCase().endsWith('.zip')) {
+              const AdmZip = (await import('adm-zip')).default;
+              const zip = new AdmZip(localPath);
+              const zipEntries = zip.getEntries();
+              const dataEntry = zipEntries.find((e: any) => {
+                if (e.isDirectory) return false;
+                const n = e.entryName.toLowerCase();
+                return n.endsWith('.csv') || n.endsWith('.tsv') || n.endsWith('.txt');
+              });
+              fileContent = dataEntry ? dataEntry.getData().toString('utf8') : '';
+              actualFileName = dataEntry?.entryName || fileName;
+            } else {
+              fileContent = fsSync.readFileSync(localPath, 'utf-8');
+            }
+            
+            const firstLine = fileContent.split('\n')[0] || '';
+            const pipeCount = (firstLine.match(/\|/g) || []).length;
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const tabCount = (firstLine.match(/\t/g) || []).length;
+            let delimiter = ',';
+            if (tabCount > commaCount && tabCount > pipeCount) delimiter = '\t';
+            else if (pipeCount > commaCount && pipeCount > tabCount) delimiter = '|';
+            
+            const firstLineCols = firstLine.split(delimiter);
+            const looksLikeHeader = firstLineCols.some(col => {
+              const trimmed = col.trim().replace(/^["']|["']$/g, '');
+              if (!trimmed) return false;
+              if (/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
+              if (/^[A-Z\s]{20,}$/.test(trimmed)) return false;
+              if (/^[A-Z]$/.test(trimmed)) return false;
+              if (/^0{3,}/.test(trimmed)) return false;
+              return /^[a-zA-Z_]/.test(trimmed) && /[a-z]/.test(trimmed);
+            });
+            
+            if (looksLikeHeader) {
+              records = csvParse.parse(fileContent, {
+                columns: true, skip_empty_lines: true, relax_column_count: true, relax_quotes: true, delimiter
+              });
+            } else {
+              const rawRecords = csvParse.parse(fileContent, {
+                columns: false, skip_empty_lines: true, relax_column_count: true, relax_quotes: true, delimiter
+              }) as string[][];
+              
+              const colCount = rawRecords[0]?.length || 0;
+              const isIngram = config.host?.includes('ingrammicro.com') || supplierName.includes('ingram');
+              let columnNames: string[];
+              
+              if (isIngram && colCount >= 20) {
+                columnNames = [
+                  'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
+                  'Description Line 1', 'Description Line 2', 'Customer Price',
+                  'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
+                  'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
+                  'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
+                  'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+                  'New Item Flag', 'Special Price'
+                ];
+                while (columnNames.length < colCount) columnNames.push(`Column_${columnNames.length + 1}`);
+                columnNames = columnNames.slice(0, colCount);
+              } else {
+                columnNames = Array.from({ length: colCount }, (_, i) => `Column_${i + 1}`);
+              }
+              
+              records = rawRecords.map(row => {
+                const obj: any = {};
+                columnNames.forEach((name, i) => { obj[name] = (row[i] || '').trim(); });
+                return obj;
+              });
+            }
+            
+            try { fsSync.unlinkSync(localPath); } catch {}
+          } else {
+            await sftp.end();
+          }
+        } catch (sftpErr) {
+          console.error('[Inventory Match] SFTP error:', sftpErr);
+        }
+      }
+      
+      if (records.length === 0) {
+        return res.status(400).json({ success: false, message: 'Failed to pull sample data from source' });
+      }
+      
+      const sampleRecords = records.slice(0, limit);
+      console.log(`[Inventory Match] Testing ${sampleRecords.length} records against catalog...`);
+      
+      const matched: any[] = [];
+      const unmatchedIdentifiers: string[] = [];
+      
+      for (const record of sampleRecords) {
+        const mappedRecord: any = {};
+        for (const [targetField, sourceField] of Object.entries(fieldMappings)) {
+          if (record[sourceField] !== undefined) {
+            mappedRecord[targetField] = record[sourceField];
+          }
+        }
+        
+        const identifier = mappedRecord.manufacturerPartNumber || mappedRecord.usin || 
+          mappedRecord.upc || record['Ingram Part Number'] || record['Vendor Part Number'] || '';
+        const cleanId = String(identifier).trim();
+        
+        if (!cleanId) continue;
+        
+        let existingProduct = null;
+        
+        if (mappedRecord.manufacturerPartNumber) {
+          const [found] = await db.select({
+            id: products.id,
+            name: products.name,
+            sku: products.sku,
+            manufacturerPartNumber: products.manufacturerPartNumber,
+            price: products.price,
+            cost: products.cost,
+            inventoryQuantity: products.inventoryQuantity,
+          }).from(products)
+            .where(eq(products.manufacturerPartNumber, String(mappedRecord.manufacturerPartNumber).trim()))
+            .limit(1);
+          existingProduct = found;
+        }
+        
+        if (!existingProduct && mappedRecord.upc) {
+          const [found] = await db.select({
+            id: products.id,
+            name: products.name,
+            sku: products.sku,
+            manufacturerPartNumber: products.manufacturerPartNumber,
+            price: products.price,
+            cost: products.cost,
+            inventoryQuantity: products.inventoryQuantity,
+          }).from(products)
+            .where(eq(products.upc, String(mappedRecord.upc).trim()))
+            .limit(1);
+          existingProduct = found;
+        }
+        
+        if (existingProduct) {
+          const newCost = mappedRecord.yourCost || mappedRecord.cost || null;
+          const newPrice = mappedRecord.listPrice || mappedRecord.price || null;
+          const newQty = mappedRecord.quantityAvailableCombined || mappedRecord.inventoryQuantity || null;
+          
+          matched.push({
+            identifier: cleanId,
+            productId: existingProduct.id,
+            productName: existingProduct.name || existingProduct.sku,
+            productSku: existingProduct.sku,
+            currentPrice: existingProduct.price,
+            newPrice: newPrice ? String(parseFloat(String(newPrice)) || 0) : null,
+            currentCost: existingProduct.cost,
+            newCost: newCost ? String(parseFloat(String(newCost)) || 0) : null,
+            currentQuantity: existingProduct.inventoryQuantity || 0,
+            newQuantity: newQty ? parseInt(String(newQty)) || 0 : null,
+          });
+        } else {
+          unmatchedIdentifiers.push(cleanId);
+        }
+      }
+      
+      const matchRate = sampleRecords.length > 0 ? Math.round((matched.length / sampleRecords.length) * 100) : 0;
+      
+      console.log(`[Inventory Match] Result: ${matched.length}/${sampleRecords.length} matched (${matchRate}%)`);
+      
+      res.json({
+        success: true,
+        totalRecords: sampleRecords.length,
+        matched: matched.length,
+        unmatched: unmatchedIdentifiers.length,
+        matchRate,
+        matchedProducts: matched.slice(0, 10),
+        unmatchedIdentifiers: unmatchedIdentifiers.slice(0, 20),
+      });
+      
+    } catch (error) {
+      console.error('[Inventory Match] Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to test inventory match',
+        error: (error as Error).message
+      });
+    }
+  });
+
   // Shipping Templates endpoints
   app.get("/api/suppliers/:supplierId/shipping-templates", async (req, res) => {
     try {

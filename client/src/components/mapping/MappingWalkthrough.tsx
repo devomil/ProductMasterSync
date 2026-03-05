@@ -793,6 +793,8 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
   const [isComplete, setIsComplete] = useState(false);
   const [isSamplePulling, setIsSamplePulling] = useState(false);
   const [samplePullResult, setSamplePullResult] = useState<any>(null);
+  const [isTestingMatch, setIsTestingMatch] = useState(false);
+  const [matchResult, setMatchResult] = useState<any>(null);
   const [showAllSourceFields, setShowAllSourceFields] = useState(false);
   const [customFieldSelections, setCustomFieldSelections] = useState<Record<string, CustomFieldSelection>>({});
 
@@ -1040,6 +1042,41 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
     }
   };
 
+  const handleTestInventoryMatch = async () => {
+    try {
+      setIsTestingMatch(true);
+      
+      const response = await apiRequest('POST', `/api/datasources/${dataSourceId}/test-inventory-match`, {
+        limit: 50
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setMatchResult(result);
+        toast({
+          title: "Match Test Complete",
+          description: `${result.matched} of ${result.totalRecords} records matched existing products (${result.matchRate}%)`
+        });
+      } else {
+        toast({
+          title: "Match Test Failed",
+          description: result.message || "Failed to test inventory match",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Test inventory match error:', error);
+      toast({
+        title: "Match Test Error",
+        description: "Failed to test inventory match. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingMatch(false);
+    }
+  };
+
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
@@ -1050,14 +1087,41 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
   const categoryStats = getCurrentCategoryStats();
   const IconComponent = PURPOSE_CATEGORY_ICONS[currentCategory] || CATEGORY_ICONS[currentCategory];
 
-  // Show completion screen after mapping is done
+  const isCatalogPurpose = activePurpose === 'catalog' || activePurpose === 'general';
+  const isMatchTestPurpose = activePurpose === 'inventory_pricing' || activePurpose === 'order_fulfillment' || activePurpose === 'returns';
+
+  const getMatchTestLabels = () => {
+    if (activePurpose === 'inventory_pricing') {
+      return {
+        buttonLabel: 'Test Update Match',
+        buttonLoadingLabel: 'Testing Match...',
+        description: 'Test how many records from your feed match products already in your catalog.',
+        icon: Database
+      };
+    }
+    if (activePurpose === 'order_fulfillment') {
+      return {
+        buttonLabel: 'Verify Product Lookup',
+        buttonLoadingLabel: 'Verifying...',
+        description: 'Verify that products in this feed can be found in your catalog for order processing.',
+        icon: ShoppingCart
+      };
+    }
+    return {
+      buttonLabel: 'Verify Product Match',
+      buttonLoadingLabel: 'Verifying...',
+      description: 'Verify that products in this feed can be matched to catalog entries for return processing.',
+      icon: AlertCircle
+    };
+  };
+
   if (isComplete) {
     return (
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900">Field Mapping Complete!</h2>
           <p className="text-gray-600 mt-2">
-            Your field mappings have been saved successfully. Ready to test with sample data.
+            Your field mappings have been saved successfully. {isCatalogPurpose ? 'Ready to test with sample data.' : 'Ready to test your mappings.'}
           </p>
         </div>
         
@@ -1086,57 +1150,207 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Test Your Mappings
-            </CardTitle>
-            <p className="text-sm text-gray-600">
-              Pull 50 sample products using your saved field mappings to validate the import process.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!samplePullResult ? (
-              <Button 
-                onClick={handleSamplePull}
-                disabled={isSamplePulling}
-                className="w-full"
-                size="lg"
-              >
-                {isSamplePulling ? (
-                  <>
-                    <Zap className="h-4 w-4 mr-2 animate-pulse" />
-                    Pulling Sample Data...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4 mr-2" />
-                    Sample Pull with Mapping (50 Products)
-                  </>
-                )}
-              </Button>
-            ) : (
-              <div className="space-y-4">
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Successfully imported {samplePullResult.imported} products using your field mappings!
-                  </AlertDescription>
-                </Alert>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" onClick={() => window.location.href = '/products'}>
-                    View Products in Catalog
-                  </Button>
-                  <Button variant="outline" onClick={handleSamplePull} disabled={isSamplePulling}>
-                    Pull Another Sample
-                  </Button>
+        {isCatalogPurpose && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Test Your Mappings
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Pull 50 sample products using your saved field mappings to validate the import process.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!samplePullResult ? (
+                <Button 
+                  onClick={handleSamplePull}
+                  disabled={isSamplePulling}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isSamplePulling ? (
+                    <>
+                      <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                      Pulling Sample Data...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Sample Pull with Mapping (50 Products)
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="space-y-4">
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Successfully imported {samplePullResult.imported} products using your field mappings!
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button variant="outline" onClick={() => window.location.href = '/products'}>
+                      View Products in Catalog
+                    </Button>
+                    <Button variant="outline" onClick={handleSamplePull} disabled={isSamplePulling}>
+                      Pull Another Sample
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {isMatchTestPurpose && (() => {
+          const labels = getMatchTestLabels();
+          const MatchIcon = labels.icon;
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MatchIcon className="h-5 w-5" />
+                  {labels.buttonLabel}
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  {labels.description}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!matchResult ? (
+                  <Button 
+                    onClick={handleTestInventoryMatch}
+                    disabled={isTestingMatch}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isTestingMatch ? (
+                      <>
+                        <Zap className="h-4 w-4 mr-2 animate-pulse" />
+                        {labels.buttonLoadingLabel}
+                      </>
+                    ) : (
+                      <>
+                        <Target className="h-4 w-4 mr-2" />
+                        {labels.buttonLabel}
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{matchResult.totalRecords}</div>
+                        <div className="text-sm text-blue-700">Total Records</div>
+                      </div>
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{matchResult.matched}</div>
+                        <div className="text-sm text-green-700">Matched</div>
+                      </div>
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{matchResult.unmatched}</div>
+                        <div className="text-sm text-red-700">Unmatched</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">Match Rate</span>
+                        <span className="font-bold">{matchResult.matchRate}%</span>
+                      </div>
+                      <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden flex">
+                        <div 
+                          className="h-full bg-green-500 transition-all duration-500"
+                          style={{ width: `${matchResult.matchRate}%` }}
+                        />
+                        <div 
+                          className="h-full bg-red-400 transition-all duration-500"
+                          style={{ width: `${100 - matchResult.matchRate}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span className="text-green-600">{matchResult.matched} matched</span>
+                        <span className="text-red-600">{matchResult.unmatched} unmatched</span>
+                      </div>
+                    </div>
+
+                    {matchResult.matchedProducts && matchResult.matchedProducts.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700">Sample Matched Products (Current → New)</h4>
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Identifier</th>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Product</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Price</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {matchResult.matchedProducts.map((product: any, idx: number) => (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 font-mono text-xs">{product.identifier}</td>
+                                  <td className="px-3 py-2 text-xs truncate max-w-[200px]">{product.productName}</td>
+                                  <td className="px-3 py-2 text-right text-xs">
+                                    {product.currentPrice != null && product.newPrice != null ? (
+                                      <span>
+                                        <span className="text-gray-400 line-through">${product.currentPrice}</span>
+                                        {' → '}
+                                        <span className="text-green-600 font-medium">${product.newPrice}</span>
+                                      </span>
+                                    ) : product.currentPrice != null ? (
+                                      <span>${product.currentPrice}</span>
+                                    ) : '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-xs">
+                                    {product.currentQuantity != null && product.newQuantity != null ? (
+                                      <span>
+                                        <span className="text-gray-400">{product.currentQuantity}</span>
+                                        {' → '}
+                                        <span className="text-blue-600 font-medium">{product.newQuantity}</span>
+                                      </span>
+                                    ) : product.currentQuantity != null ? (
+                                      <span>{product.currentQuantity}</span>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {matchResult.unmatchedIdentifiers && matchResult.unmatchedIdentifiers.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700">Unmatched Identifiers</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {matchResult.unmatchedIdentifiers.map((id: string, idx: number) => (
+                            <Badge key={idx} variant="outline" className="text-xs text-red-600 border-red-300 bg-red-50">
+                              {id}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <Button variant="outline" onClick={() => setMatchResult(null)}>
+                        Run Again
+                      </Button>
+                      <Button variant="outline" onClick={onCancel}>
+                        Done
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <div className="flex justify-center">
           <Button onClick={onCancel} variant="outline">
