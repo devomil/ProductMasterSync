@@ -45,9 +45,8 @@ export const processingPriorityEnum = pgEnum('processing_priority', [
 export const resolutionStrategyEnum = pgEnum('resolution_strategy', [
   'newest_wins', 'highest_confidence_wins', 'specific_source_wins', 'manual_resolution', 'keep_all'
 ]);
-export const dataSourcePurposeEnum = pgEnum('data_source_purpose', [
-  'catalog', 'inventory_pricing', 'order_fulfillment', 'catalog_search', 'returns', 'general'
-]);
+export const dataSourcePurposeValues = ['catalog', 'inventory_pricing', 'order_fulfillment', 'catalog_search', 'returns', 'general'] as const;
+export type DataSourcePurpose = typeof dataSourcePurposeValues[number];
 
 export const connectionTypeEnum = pgEnum('connection_type', [
   'ftp', 'sftp', 'api', 'database'
@@ -251,7 +250,7 @@ export const dataSources = pgTable("data_sources", {
   type: dataSourceTypeEnum("type").notNull(),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   config: json("config").notNull(),
-  purpose: dataSourcePurposeEnum("purpose").default('general'),
+  purpose: text("purpose").default('general'),
   description: text("description"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -293,7 +292,7 @@ export const mappingTemplates = pgTable("mapping_templates", {
   validationRules: json("validation_rules").default([]),
   supplierId: integer("supplier_id").references(() => suppliers.id),
   fileLabel: text("file_label"),
-  purpose: dataSourcePurposeEnum("purpose").default('catalog'),
+  purpose: text("purpose").default('catalog'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
