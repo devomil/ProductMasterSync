@@ -2827,13 +2827,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`Parsing file with delimiter: ${delimiter === '\t' ? 'TAB' : delimiter === '|' ? 'PIPE' : 'COMMA'}`);
           
-          const records = csvParse.parse(fileContent, {
-            columns: true,
-            skip_empty_lines: true,
-            relax_column_count: true,
-            relax_quotes: true,
-            delimiter: delimiter
+          const firstLine = fileContent.split('\n')[0] || '';
+          const firstLineCols = firstLine.split(delimiter);
+          const looksLikeHeader = firstLineCols.some(col => {
+            const trimmed = col.trim().replace(/^["']|["']$/g, '');
+            if (!trimmed) return false;
+            if (/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
+            if (/^[A-Z\s]{20,}$/.test(trimmed)) return false;
+            if (/^[A-Z]$/.test(trimmed)) return false;
+            if (/^0{3,}/.test(trimmed)) return false;
+            return /^[a-zA-Z_]/.test(trimmed) && /[a-z]/.test(trimmed);
           });
+          
+          console.log(`Header detection: looksLikeHeader=${looksLikeHeader}, firstLineCols=${firstLineCols.length}`);
+          
+          let records: any[];
+          
+          if (looksLikeHeader) {
+            records = csvParse.parse(fileContent, {
+              columns: true,
+              skip_empty_lines: true,
+              relax_column_count: true,
+              relax_quotes: true,
+              delimiter: delimiter
+            });
+          } else {
+            const rawRecords = csvParse.parse(fileContent, {
+              columns: false,
+              skip_empty_lines: true,
+              relax_column_count: true,
+              relax_quotes: true,
+              delimiter: delimiter
+            }) as string[][];
+            
+            const colCount = rawRecords[0]?.length || 0;
+            let columnNames: string[];
+            
+            const isIngram = config?.host?.includes('ingrammicro.com') || supplierNameForSample.includes('ingram');
+            
+            if (isIngram && colCount >= 20) {
+              columnNames = [
+                'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
+                'Description Line 1', 'Description Line 2', 'Customer Price',
+                'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
+                'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
+                'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
+                'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+                'New Item Flag', 'Special Price'
+              ];
+              while (columnNames.length < colCount) {
+                columnNames.push(`Column_${columnNames.length + 1}`);
+              }
+              columnNames = columnNames.slice(0, colCount);
+              console.log(`[Sample Data] Applied Ingram Micro price file column headers (${colCount} columns)`);
+            } else {
+              columnNames = Array.from({ length: colCount }, (_, i) => `Column_${i + 1}`);
+              console.log(`[Sample Data] Generated generic column names for headerless file (${colCount} columns)`);
+            }
+            
+            records = rawRecords.map(row => {
+              const obj: any = {};
+              columnNames.forEach((name, i) => {
+                obj[name] = (row[i] || '').trim();
+              });
+              return obj;
+            });
+          }
           
           const sampleData = records.slice(0, requestedLimit);
           

@@ -37,25 +37,72 @@ export const processCSVFile = async (
     quote?: string;
     encoding?: string;
     mappingTemplate?: any;
+    supplierName?: string;
+    hostName?: string;
   } = {}
 ): Promise<{ records: any[]; headers: string[] }> => {
-  // Read the file
   const fileContent = await fs.readFile(filePath, options.encoding || 'utf8');
-  
-  // Parse the CSV
+  const delimiter = options.delimiter || ',';
+
+  let useHeader = options.hasHeader !== false;
+
+  if (useHeader && options.hasHeader === undefined) {
+    const firstLine = fileContent.split('\n')[0] || '';
+    const firstCols = firstLine.split(delimiter);
+    const hasLowercaseLetters = firstCols.some(col => {
+      const trimmed = col.trim().replace(/^["']|["']$/g, '');
+      if (!trimmed) return false;
+      if (/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
+      if (/^[A-Z\s]{20,}$/.test(trimmed)) return false;
+      if (/^[A-Z]$/.test(trimmed)) return false;
+      if (/^0{3,}/.test(trimmed)) return false;
+      return /^[a-zA-Z_]/.test(trimmed) && /[a-z]/.test(trimmed);
+    });
+    useHeader = hasLowercaseLetters;
+  }
+
   const parseOptions = {
-    delimiter: options.delimiter || ',',
+    delimiter: delimiter,
     quote: options.quote || '"',
-    columns: options.hasHeader !== false, // Auto-detect headers by default
+    columns: useHeader,
     skip_empty_lines: true,
     trim: true
   };
   
   const records = await parseCSV(fileContent, parseOptions);
-  const headers = options.hasHeader !== false 
-    ? Object.keys(records[0] || {})
-    : [];
-    
+
+  if (!useHeader && Array.isArray(records) && records.length > 0) {
+    const colCount = (records[0] as any[]).length;
+    const isIngram = options.hostName?.includes('ingrammicro.com') || 
+      options.supplierName?.toLowerCase().includes('ingram');
+
+    let columnNames: string[];
+    if (isIngram && colCount >= 20) {
+      columnNames = [
+        'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
+        'Description Line 1', 'Description Line 2', 'Customer Price',
+        'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
+        'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
+        'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
+        'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+        'New Item Flag', 'Special Price'
+      ];
+      while (columnNames.length < colCount) columnNames.push(`Column_${columnNames.length + 1}`);
+      columnNames = columnNames.slice(0, colCount);
+    } else {
+      columnNames = Array.from({ length: colCount }, (_, i) => `Column_${i + 1}`);
+    }
+
+    const namedRecords = (records as any[][]).map(row => {
+      const obj: any = {};
+      columnNames.forEach((name, i) => { obj[name] = row[i] || ''; });
+      return obj;
+    });
+
+    return { records: namedRecords, headers: columnNames };
+  }
+
+  const headers = useHeader ? Object.keys(records[0] || {}) : [];
   return { records, headers };
 };
 
