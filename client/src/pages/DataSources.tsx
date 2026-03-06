@@ -442,7 +442,7 @@ export default function DataSources() {
   const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
   const [showFullImportDialog, setShowFullImportDialog] = useState(false);
   const [selectedDataSourceForImport, setSelectedDataSourceForImport] = useState<DataSource | null>(null);
-  const [fullImportSize, setFullImportSize] = useState(5000);
+  const [fullImportSize, setFullImportSize] = useState<number | 'all'>(5000);
   const [showAutomationDialog, setShowAutomationDialog] = useState(false);
   const [selectedDataSourceForAutomation, setSelectedDataSourceForAutomation] = useState<DataSource | null>(null);
   const [loadingWalkthroughId, setLoadingWalkthroughId] = useState<string | null>(null);
@@ -574,19 +574,21 @@ export default function DataSources() {
 
   // Mutation for full catalog import
   const fullImportMutation = useMutation({
-    mutationFn: async ({ dataSourceId, limit }: { dataSourceId: number; limit: number }) => {
-      const response = await apiRequest("POST", `/api/datasources/${dataSourceId}/sample-pull-with-mapping`, { 
-        limit 
-      });
+    mutationFn: async ({ dataSourceId, limit }: { dataSourceId: number; limit: number | 'all' }) => {
+      const body = limit === 'all' 
+        ? { fullImport: true, limit: 0 }
+        : { limit };
+      const response = await apiRequest("POST", `/api/datasources/${dataSourceId}/sample-pull-with-mapping`, body);
       return response as any;
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
       setShowFullImportDialog(false);
       setSelectedDataSourceForImport(null);
       toast({
         title: "Full Catalog Import Complete",
-        description: `Successfully imported ${data.productsImported || fullImportSize} products from supplier catalog`
+        description: `Successfully imported ${data.productsImported || (fullImportSize === 'all' ? 'all' : fullImportSize)} products from supplier catalog`
       });
     },
     onError: (error) => {
@@ -1360,33 +1362,54 @@ export default function DataSources() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              {[1000, 5000, 10000, 30000, 50000].map((size) => (
+              {([1000, 5000, 10000, 30000, 50000, 100000, 200000, 'all'] as const).map((size) => (
                 <Button
-                  key={size}
+                  key={String(size)}
                   variant={fullImportSize === size ? "default" : "outline"}
-                  className="h-12"
+                  className={`h-12 ${size === 'all' ? 'col-span-2 border-emerald-300 hover:border-emerald-500' : ''}`}
                   onClick={() => setFullImportSize(size)}
                 >
                   <div className="text-center">
-                    <div className="font-semibold">{size.toLocaleString()} Products</div>
+                    <div className="font-semibold">
+                      {size === 'all' ? 'All Products' : `${size.toLocaleString()} Products`}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      {size <= 5000 ? "Small catalog" : size <= 10000 ? "Medium catalog" : "Large catalog"}
+                      {size === 'all' ? 'Complete catalog — no limit' :
+                       size <= 5000 ? 'Small catalog' : 
+                       size <= 30000 ? 'Medium catalog' : 
+                       'Large catalog'}
                     </div>
                   </div>
                 </Button>
               ))}
             </div>
-            <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-              <div className="flex items-start gap-2">
-                <Package className="w-4 h-4 text-green-600 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-green-900">Ready for Production</p>
-                  <p className="text-green-700">
-                    This will import your complete supplier catalog. Make sure field mappings are correct and sample data looks good before proceeding.
-                  </p>
+            {fullImportSize === 'all' || (typeof fullImportSize === 'number' && fullImportSize >= 100000) ? (
+              <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                <div className="flex items-start gap-2">
+                  <Package className="w-4 h-4 text-amber-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-900">Large Import</p>
+                    <p className="text-amber-700">
+                      {fullImportSize === 'all' 
+                        ? 'This will import the entire supplier catalog with no limit. This may take several minutes depending on catalog size.'
+                        : `Importing ${fullImportSize.toLocaleString()} products may take several minutes. Make sure field mappings are correct before proceeding.`}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                <div className="flex items-start gap-2">
+                  <Package className="w-4 h-4 text-green-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-green-900">Ready for Production</p>
+                    <p className="text-green-700">
+                      This will import your complete supplier catalog. Make sure field mappings are correct and sample data looks good before proceeding.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowFullImportDialog(false)}>
@@ -1403,7 +1426,9 @@ export default function DataSources() {
               }}
               disabled={fullImportMutation.isPending}
             >
-              {fullImportMutation.isPending ? "Importing..." : `Import ${fullImportSize.toLocaleString()} Products`}
+              {fullImportMutation.isPending ? "Importing..." : 
+                fullImportSize === 'all' ? 'Import All Products' : 
+                `Import ${fullImportSize.toLocaleString()} Products`}
             </Button>
           </DialogFooter>
         </DialogContent>
