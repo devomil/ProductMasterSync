@@ -37,12 +37,13 @@ export interface ProductSearchResponse {
   pagination: PaginationData;
 }
 
-export function useProducts(page?: number, limit?: number, search?: string) {
-  // Build query parameters for pagination and search
+export function useProducts(page?: number, limit?: number, search?: string, supplierId?: number, manufacturer?: string) {
   const queryParams = new URLSearchParams();
   if (page) queryParams.append('page', page.toString());
   if (limit) queryParams.append('limit', limit.toString());
   if (search && search.trim()) queryParams.append('search', search.trim());
+  if (supplierId) queryParams.append('supplierId', supplierId.toString());
+  if (manufacturer) queryParams.append('manufacturer', manufacturer);
   const queryString = queryParams.toString();
   const url = `/api/products${queryString ? `?${queryString}` : ''}`;
 
@@ -52,10 +53,14 @@ export function useProducts(page?: number, limit?: number, search?: string) {
     isError,
     error,
   } = useQuery<Product[] | ProductSearchResponse>({
-    queryKey: [url],
+    queryKey: ['/api/products', page, limit, search, supplierId, manufacturer],
+    queryFn: async () => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch products');
+      return res.json();
+    },
   });
 
-  // Handle both legacy array response and new paginated response
   const isPaginated = data && typeof data === 'object' && 'products' in data;
   
   return {

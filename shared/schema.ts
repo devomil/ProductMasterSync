@@ -197,6 +197,8 @@ export const products = pgTable("products", {
   return {
     skuIdx: uniqueIndex("products_sku_idx").on(table.sku),
     analysisStaleIdx: index("products_analysis_stale_idx").on(table.analysisStaleAt),
+    manufacturerNameIdx: index("products_manufacturer_name_idx").on(table.manufacturerName),
+    upcIdx: index("products_upc_idx").on(table.upc),
   };
 });
 
@@ -209,6 +211,11 @@ export const productSuppliers = pgTable("product_suppliers", {
   supplierAttributes: jsonb("supplier_attributes").default({}),
   confidence: integer("confidence").default(100),
   isPrimary: boolean("is_primary").default(false),
+}, (table) => {
+  return {
+    productSupplierIdx: index("product_suppliers_product_supplier_idx").on(table.productId, table.supplierId),
+    supplierIdx: index("product_suppliers_supplier_idx").on(table.supplierId),
+  };
 });
 
 // Data Imports table

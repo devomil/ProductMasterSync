@@ -978,9 +978,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const search = req.query.search as string;
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
       const status = req.query.status as string;
+      const supplierId = req.query.supplierId ? parseInt(req.query.supplierId as string) : undefined;
+      const manufacturer = req.query.manufacturer as string;
 
       // Check if pagination is requested (backward compatibility)
-      const isPaginationRequested = page !== undefined || limit !== undefined || search !== undefined || categoryId !== undefined || status !== undefined;
+      const isPaginationRequested = page !== undefined || limit !== undefined || search !== undefined || categoryId !== undefined || status !== undefined || supplierId !== undefined || manufacturer !== undefined;
 
       // Use optimized query with pagination for scalability
       try {
@@ -991,17 +993,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             limit: limit || 50,
             search,
             categoryId,
-            status
+            status,
+            supplierId,
+            manufacturer
           });
           res.json(result);
         } else {
           // Legacy format - return just array for backward compatibility
           const result = await PerformanceOptimizedQueries.getProductsOptimized({
             page: 1,
-            limit: 10000, // Support large catalogs (1000+ products)
+            limit: 10000,
             search,
             categoryId,
-            status
+            status,
+            supplierId,
+            manufacturer
           });
           res.json(result.products); // Just return the array
         }
@@ -3331,7 +3337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/datasources/:id/sample-pull-with-mapping', async (req, res) => {
     try {
       const dataSourceId = parseInt(req.params.id);
-      const { limit = 50 } = req.body;
+      const { limit = 50, fullImport = false } = req.body;
+      const recordLimit = fullImport ? 0 : (limit || 50);
       
       console.log(`Starting sample pull with mapping for data source ${dataSourceId}...`);
       
@@ -3411,7 +3418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { IngramMicroAPI } = await import('./services/ingram-micro-api');
             const ingramApi = new IngramMicroAPI();
             
-            const pageSize = Math.min(limit, 100);
+            const pageSize = Math.min(recordLimit || limit, 100);
             const searchResult = await ingramApi.searchProducts({ 
               keyword: '*',
               pageSize,
@@ -3436,7 +3443,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             const priceMap = new Map(priceData.map((p: any) => [p.ingramPartNumber, p]));
             
-            const transformedData = searchResult.catalog.slice(0, limit).map((product: any) => {
+            const sliceLimit = recordLimit || limit;
+            const transformedData = searchResult.catalog.slice(0, sliceLimit).map((product: any) => {
               const pricing = priceMap.get(product.ingramPartNumber);
               return {
                 sku: product.ingramPartNumber || '',
@@ -3486,7 +3494,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { FlxpointClient } = await import('./marketplace/flxpoint-client');
             const flxpointClient = new FlxpointClient(apiToken);
             
-            const response = await flxpointClient.getListingParents(1, Math.min(limit, 100));
+            const flxLimit = recordLimit || limit;
+            const response = await flxpointClient.getListingParents(1, Math.min(flxLimit, 100));
             
             if (!response.data || response.data.length === 0) {
               return res.status(400).json({ 
@@ -3496,7 +3505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Transform Flxpoint data to flat structure
-            const transformedData = response.data.slice(0, limit).map((variant: any) => ({
+            const transformedData = response.data.slice(0, flxLimit).map((variant: any) => ({
               sku: variant.sku || '',
               parent_sku: variant.parent_sku || variant.parentSku || '',
               source_sku: variant.source_sku || variant.sourceSku || '',
@@ -3742,7 +3751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             sampleResult = {
               success: true,
-              data: records.slice(0, limit),
+              data: (recordLimit > 0 ? records.slice(0, recordLimit) : records),
               totalRecords: records.length
             };
           } else {

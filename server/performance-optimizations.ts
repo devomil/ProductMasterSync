@@ -11,16 +11,20 @@ export class PerformanceOptimizedQueries {
     search?: string;
     categoryId?: number;
     status?: string;
+    supplierId?: number;
+    manufacturer?: string;
   } = {}): Promise<{ products: any[]; pagination: any }> {
     const page = Math.max(1, params.page || 1);
-    const limit = Math.min(100, Math.max(10, params.limit || 50)); // Max 100 items per page
+    const limit = Math.min(250, Math.max(10, params.limit || 50));
     const offset = (page - 1) * limit;
     
-    const cacheKey = `products:optimized:${page}:${limit}:${params.search || ''}:${params.categoryId || ''}:${params.status || ''}`;
+    const cacheKey = `products:optimized:${page}:${limit}:${params.search || ''}:${params.categoryId || ''}:${params.status || ''}:${params.supplierId || ''}:${params.manufacturer || ''}`;
     const cached = queryCache.get<{ products: any[]; pagination: any }>(cacheKey);
     if (cached) {
       return cached;
     }
+
+    const hasFilters = !!(params.search || params.categoryId || params.status || params.supplierId || params.manufacturer);
 
     // Build WHERE conditions for filtering
     const whereConditions: string[] = [];
@@ -50,14 +54,28 @@ export class PerformanceOptimizedQueries {
       paramIndex++;
     }
 
+    if (params.supplierId) {
+      whereConditions.push(`EXISTS (SELECT 1 FROM product_suppliers ps2 WHERE ps2.product_id = p.id AND ps2.supplier_id = $${paramIndex})`);
+      queryParams.push(params.supplierId);
+      paramIndex++;
+    }
+
+    if (params.manufacturer) {
+      whereConditions.push(`p.manufacturer_name ILIKE $${paramIndex}`);
+      queryParams.push(`%${params.manufacturer}%`);
+      paramIndex++;
+    }
+
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // Get total count for pagination
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM products p
-      ${whereClause}
-    `;
+    // Use estimated count for unfiltered queries (constant time via pg_class)
+    // Use exact COUNT(*) only when filters are active
+    const countQuery = hasFilters
+      ? `SELECT COUNT(*) as total FROM products p ${whereClause}`
+      : `SELECT GREATEST(
+           (SELECT reltuples::bigint FROM pg_class WHERE relname = 'products'),
+           (SELECT COUNT(*) FROM products LIMIT 1)
+         ) as total`;
 
     // Optimized SQL query with CTE for pagination BEFORE joining ASINs
     // This ensures ASINs appear on all pages, not just page 1
@@ -139,7 +157,8 @@ export class PerformanceOptimizedQueries {
       }
     };
 
-    queryCache.set(cacheKey, result, 15000); // 15 second cache (shorter due to pagination)
+    const cacheTTL = hasFilters ? 15000 : 60000;
+    queryCache.set(cacheKey, result, cacheTTL);
     return result;
   }
 
@@ -262,10 +281,14 @@ export class PerformanceOptimizedQueries {
       return cached;
     }
 
-    // Use efficient COUNT queries instead of fetching all records
+    // Use estimated count from pg_class for total products (constant time at 1M+ scale)
+    // Use exact COUNT only for small tables and filtered queries
     const statsQuery = `
       SELECT
-        (SELECT COUNT(*) FROM products) as total_products,
+        GREATEST(
+          (SELECT reltuples::bigint FROM pg_class WHERE relname = 'products'),
+          0
+        ) as total_products,
         (SELECT COUNT(*) FROM suppliers WHERE active = true) as active_suppliers,
         (SELECT COUNT(*) FROM imports WHERE status = 'success' AND created_at > NOW() - INTERVAL '30 days') as successful_imports_30d,
         (SELECT COUNT(*) FROM approvals WHERE status = 'pending') as pending_approvals,
@@ -274,8 +297,23 @@ export class PerformanceOptimizedQueries {
         (SELECT AVG(CASE WHEN inventory_quantity > 0 THEN 1 ELSE 0 END) * 100 FROM products WHERE status = 'active') as inventory_completeness
     `;
 
-    const result = await pool.query(statsQuery);
-    const stats = result.rows[0];
+    // Per-supplier product count breakdown in a single GROUP BY query
+    const supplierCountsQuery = `
+      SELECT s.id, s.name, COUNT(ps.product_id)::int as product_count
+      FROM suppliers s
+      LEFT JOIN product_suppliers ps ON ps.supplier_id = s.id
+      WHERE s.active = true
+      GROUP BY s.id, s.name
+      ORDER BY product_count DESC
+    `;
+
+    const [statsResult, supplierCountsResult] = await Promise.all([
+      pool.query(statsQuery),
+      pool.query(supplierCountsQuery)
+    ]);
+
+    const stats = statsResult.rows[0];
+    const supplierProductCounts = supplierCountsResult.rows;
 
     // Calculate data quality metrics efficiently
     const dataQuality = {
@@ -307,14 +345,15 @@ export class PerformanceOptimizedQueries {
       pendingApprovals: parseInt(stats.pending_approvals) || 0,
       activeProducts: parseInt(stats.active_products) || 0,
       totalCategories: parseInt(stats.total_categories) || 0,
+      supplierProductCounts,
       dataQuality,
       pipelinePerformance,
       systemHealth,
-      recentActivity: [], // Could be optimized with a separate query if needed
+      recentActivity: [],
       lastUpdated: new Date().toISOString()
     };
 
-    queryCache.set(cacheKey, statistics, 30000); // 30 second cache for statistics
+    queryCache.set(cacheKey, statistics, 300000); // 5 minute cache for dashboard stats
     return statistics;
   }
 

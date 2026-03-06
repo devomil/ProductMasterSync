@@ -9,25 +9,30 @@ interface CacheEntry<T> {
 
 class QueryCache {
   private cache = new Map<string, CacheEntry<any>>();
-  private readonly DEFAULT_TTL = 30000; // 30 seconds
-  private readonly MAX_CACHE_SIZE = 10000; // Limit cache to 10k entries for memory efficiency
-  private readonly CLEANUP_BATCH_SIZE = 1000; // Clean up 1k entries at a time
+  private readonly DEFAULT_TTL = 30000;
+  private readonly MAX_CACHE_SIZE = 10000;
+  private readonly CLEANUP_BATCH_SIZE = 1000;
+  private hits = 0;
+  private misses = 0;
 
   get<T>(key: string): T | null {
     const entry = this.cache.get(key);
-    if (!entry) return null;
-    
-    const now = Date.now();
-    
-    // Check if entry has expired
-    if (now - entry.timestamp > entry.ttl) {
-      this.cache.delete(key);
+    if (!entry) {
+      this.misses++;
       return null;
     }
     
-    // Update access statistics for LRU tracking
+    const now = Date.now();
+    
+    if (now - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      this.misses++;
+      return null;
+    }
+    
     entry.accessCount++;
     entry.lastAccessed = now;
+    this.hits++;
     
     return entry.data;
   }
@@ -106,19 +111,25 @@ class QueryCache {
     return this.cache.size;
   }
 
-  // Cache performance metrics for monitoring
   getStats(): {
     size: number;
     maxSize: number;
     memoryUsage: string;
+    hits: number;
+    misses: number;
+    hitRate: string;
   } {
-    const estimatedMemoryPerEntry = 1024; // Rough estimate: 1KB per entry
+    const estimatedMemoryPerEntry = 1024;
     const estimatedMemoryUsage = this.cache.size * estimatedMemoryPerEntry;
+    const total = this.hits + this.misses;
     
     return {
       size: this.cache.size,
       maxSize: this.MAX_CACHE_SIZE,
-      memoryUsage: `${(estimatedMemoryUsage / 1024 / 1024).toFixed(2)} MB`
+      memoryUsage: `${(estimatedMemoryUsage / 1024 / 1024).toFixed(2)} MB`,
+      hits: this.hits,
+      misses: this.misses,
+      hitRate: total > 0 ? `${((this.hits / total) * 100).toFixed(1)}%` : '0%'
     };
   }
 }

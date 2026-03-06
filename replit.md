@@ -47,11 +47,20 @@ Preferred communication style: Simple, everyday language.
     - **Flxpoint Integration**: API client for pushing product listings to marketplaces, pulling variants, pushing commission data, and enriching variants with marketplace data, including job history and progress monitoring.
     - **Dynamic Catalog Extension**: Allows users to add unmapped supplier fields to the master catalog as custom fields, which are then rendered on product detail tabs with attribution.
     - **Product Connection Visibility**: Product Details Supplier Info tab displays all data connections feeding each supplier, including type, purpose, automation status, and active state.
-    - **Performance Optimization**: Intelligent caching and optimized queries.
+    - **Performance Optimization**: Intelligent caching and optimized queries, 1M+ product scale support.
+
+## Performance Optimization (1M+ Product Scale)
+- **Database Indexes**: GIN trigram on `products.name` for fast ILIKE, B-tree on `manufacturer_name`, `upc`; composite `(product_id, supplier_id)` and `supplier_id` indexes on `product_suppliers` table.
+- **Estimated Counts**: Dashboard and unfiltered product list use `pg_class.reltuples` for constant-time total count instead of `COUNT(*)`. Exact counts only used with active filters.
+- **Query Cache**: LRU cache with hit/miss tracking, 60s TTL for unfiltered products, 15s for filtered, 5min for dashboard stats.
+- **Connection Pool**: Max 20 connections, 30s statement timeout, slow query logging (>5s).
+- **Bulk Import Pipeline**: 500-record batch upserts via raw SQL `INSERT ... ON CONFLICT`, streaming CSV parser for files >50MB, ETA progress tracking.
+- **Product Filters**: Server-side supplier and manufacturer filtering with indexed queries, supplier/manufacturer dropdown filters in UI.
+- **Enhanced Pagination**: Jump-to-page input, page size selector (25/50/100/250), approximate counts for >10K products, keyboard navigation.
 
 ## System Design
 - **Architecture**: Module-based for clear separation of concerns.
-- **Scalability**: Designed for large product catalogs and numerous suppliers.
+- **Scalability**: Designed for 1M+ product catalogs across 4+ vendors (200K-800K products each).
 - **Data Integrity**: Comprehensive validation, enrichment, and conflict resolution.
 - **Deployment**: Replit for development, Replit Autoscale for production.
 

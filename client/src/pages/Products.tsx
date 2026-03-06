@@ -1,4 +1,4 @@
-import { useState, useReducer } from "react";
+import { useState, useReducer, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { 
   Package2, 
@@ -204,7 +204,10 @@ const Products = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [jumpToPageInput, setJumpToPageInput] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState<number | undefined>(undefined);
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string | undefined>(undefined);
   
   // State for view options
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable' | 'spacious'>('comfortable');
@@ -253,9 +256,49 @@ const Products = () => {
     },
   });
 
-  // Get products data from API with server-side search
-  const { products, pagination, isLoading } = useProducts(currentPage, itemsPerPage, searchQuery);
+  // Get products data from API with server-side search and filters
+  const { products, pagination, isLoading } = useProducts(currentPage, itemsPerPage, searchQuery, selectedSupplierId, selectedManufacturer);
   
+  const formatApproximateCount = useCallback((count: number): string => {
+    if (count > 1000000) return `~${(count / 1000000).toFixed(1)}M`;
+    if (count > 10000) return `~${(count / 1000).toFixed(1)}K`;
+    return count.toLocaleString();
+  }, []);
+
+  const handleJumpToPage = useCallback(() => {
+    const page = parseInt(jumpToPageInput, 10);
+    if (!isNaN(page) && page >= 1 && page <= (pagination?.totalPages || 1)) {
+      setCurrentPage(page);
+      setJumpToPageInput("");
+    }
+  }, [jumpToPageInput, pagination?.totalPages]);
+
+  const handlePageSizeChange = useCallback((newSize: string) => {
+    setItemsPerPage(parseInt(newSize, 10));
+    setCurrentPage(1);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (e.key === 'ArrowLeft' && currentPage > 1) {
+        e.preventDefault();
+        setCurrentPage(prev => Math.max(1, prev - 1));
+      } else if (e.key === 'ArrowRight' && currentPage < (pagination?.totalPages || 1)) {
+        e.preventDefault();
+        setCurrentPage(prev => Math.min(pagination?.totalPages || 1, prev + 1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, pagination?.totalPages]);
+
   // Get categories data
   const { categories, isLoading: categoriesLoading } = useCategories();
   
@@ -652,15 +695,70 @@ const Products = () => {
 
           {/* Search bar and basic controls */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 sm:space-x-4">
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
-              <Input 
-                type="search" 
-                placeholder="Search products..."
-                className="pl-9" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
+                <Input 
+                  type="search" 
+                  placeholder="Search products..."
+                  className="pl-9" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select
+                value={selectedSupplierId?.toString() || "all"}
+                onValueChange={(v) => {
+                  setSelectedSupplierId(v === "all" ? undefined : parseInt(v, 10));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <Truck className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="All Suppliers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers?.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={selectedManufacturer || "all"}
+                onValueChange={(v) => {
+                  setSelectedManufacturer(v === "all" ? undefined : v);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <Factory className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="All Manufacturers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Manufacturers</SelectItem>
+                  {Array.from(new Set(products?.map((p: any) => p.manufacturerName).filter(Boolean) || [])).sort().map((m: any) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(selectedSupplierId || selectedManufacturer) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedSupplierId(undefined);
+                    setSelectedManufacturer(undefined);
+                    setCurrentPage(1);
+                  }}
+                  className="h-9 px-2"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Clear
+                </Button>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               {/* View Options */}
@@ -1111,42 +1209,101 @@ const Products = () => {
           </div>
 
           {/* Pagination */}
-          <div className="mt-5 flex items-center justify-between">
-            <div className="text-sm text-neutral-500">
-              Showing <span className="font-medium">{pagination ? Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalItems) : 0}</span> to <span className="font-medium">{pagination ? Math.min(pagination.page * pagination.limit, pagination.totalItems) : 0}</span> of <span className="font-medium">{pagination?.totalItems || 0}</span> products
-            </div>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                  />
-                </PaginationItem>
-                {pagination && Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => i + 1).map((page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink 
-                      onClick={() => setCurrentPage(page)}
-                      isActive={currentPage === page}
-                      className="cursor-pointer"
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-                {pagination && pagination.totalPages > 5 && (
-                  <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>
+          <div className="mt-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-neutral-500">
+                Showing <span className="font-medium">{pagination ? Math.min((pagination.page - 1) * pagination.limit + 1, pagination.totalItems) : 0}</span> to <span className="font-medium">{pagination ? Math.min(pagination.page * pagination.limit, pagination.totalItems) : 0}</span> of <span className="font-medium">{pagination ? formatApproximateCount(pagination.totalItems) : '0'}</span> products
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-neutral-500">Per page:</span>
+                <Select value={itemsPerPage.toString()} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="h-8 w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="250">250</SelectItem>
+                  </SelectContent>
+                </Select>
+                {itemsPerPage > 100 && (
+                  <span className="text-xs text-amber-600">Larger sizes may load slower</span>
                 )}
-                <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => setCurrentPage(prev => Math.min(pagination?.totalPages || 1, prev + 1))}
-                    className={!pagination || currentPage >= pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  {pagination && (() => {
+                    const totalPages = pagination.totalPages;
+                    const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (currentPage > 3) pages.push('ellipsis-start');
+                      const start = Math.max(2, currentPage - 1);
+                      const end = Math.min(totalPages - 1, currentPage + 1);
+                      for (let i = start; i <= end; i++) pages.push(i);
+                      if (currentPage < totalPages - 2) pages.push('ellipsis-end');
+                      pages.push(totalPages);
+                    }
+                    return pages.map((page, idx) => {
+                      if (page === 'ellipsis-start' || page === 'ellipsis-end') {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        );
+                      }
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(page)}
+                            isActive={currentPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    });
+                  })()}
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(prev => Math.min(pagination?.totalPages || 1, prev + 1))}
+                      className={!pagination || currentPage >= pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-neutral-500 whitespace-nowrap">Go to:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={pagination?.totalPages || 1}
+                  value={jumpToPageInput}
+                  onChange={(e) => setJumpToPageInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleJumpToPage(); }}
+                  placeholder={`${currentPage}`}
+                  className="h-8 w-[70px] text-sm"
+                />
+                <Button variant="outline" size="sm" className="h-8 px-2" onClick={handleJumpToPage}>
+                  Go
+                </Button>
+              </div>
+              <span className="text-xs text-neutral-400 hidden lg:inline" title="Use left/right arrow keys to navigate pages">
+                ← → keys
+              </span>
+            </div>
           </div>
         </div>
       </div>
