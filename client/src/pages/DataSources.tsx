@@ -446,6 +446,7 @@ export default function DataSources() {
   const [showAutomationDialog, setShowAutomationDialog] = useState(false);
   const [selectedDataSourceForAutomation, setSelectedDataSourceForAutomation] = useState<DataSource | null>(null);
   const [loadingWalkthroughId, setLoadingWalkthroughId] = useState<string | null>(null);
+  const [showEnrichmentPanel, setShowEnrichmentPanel] = useState(false);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -642,6 +643,48 @@ export default function DataSources() {
         description: "Failed to clear products",
         variant: "destructive"
       });
+    }
+  });
+
+  const { data: enrichmentStatus, refetch: refetchEnrichment } = useQuery({
+    queryKey: ['/api/marketplace/ingram-micro/bulk-enrich/status'],
+    refetchInterval: showEnrichmentPanel ? 2000 : false,
+  });
+
+  const startEnrichmentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/marketplace/ingram-micro/bulk-enrich", {
+        batchSize: 25,
+        detailsPerBatch: 10,
+        delayMs: 600,
+      });
+      return response as any;
+    },
+    onSuccess: () => {
+      setShowEnrichmentPanel(true);
+      refetchEnrichment();
+      toast({
+        title: "Enrichment Started",
+        description: "Fetching rich product details from Ingram Micro API. This will run in the background."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start enrichment",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const stopEnrichmentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/marketplace/ingram-micro/bulk-enrich/stop");
+      return response as any;
+    },
+    onSuccess: () => {
+      refetchEnrichment();
+      toast({ title: "Enrichment Stopped", description: "The enrichment process has been stopped." });
     }
   });
 
@@ -1247,6 +1290,117 @@ export default function DataSources() {
           </div>
         </div>
       </div>
+
+      {/* Ingram Micro API Enrichment Panel */}
+      <Card className="mt-6">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Ingram Micro API Enrichment</CardTitle>
+              <CardDescription>
+                Enrich imported products with rich details, real-time pricing, and inventory from the Ingram Micro API
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {(enrichmentStatus as any)?.status === 'running' ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => stopEnrichmentMutation.mutate()}
+                  disabled={stopEnrichmentMutation.isPending}
+                >
+                  <Power className="w-4 h-4 mr-1" />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setShowEnrichmentPanel(true);
+                    startEnrichmentMutation.mutate();
+                  }}
+                  disabled={startEnrichmentMutation.isPending}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${startEnrichmentMutation.isPending ? 'animate-spin' : ''}`} />
+                  {startEnrichmentMutation.isPending ? 'Starting...' : 'Start Enrichment'}
+                </Button>
+              )}
+              {(enrichmentStatus as any)?.status !== 'idle' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowEnrichmentPanel(!showEnrichmentPanel);
+                    refetchEnrichment();
+                  }}
+                >
+                  {showEnrichmentPanel ? 'Hide Details' : 'Show Details'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        {showEnrichmentPanel && (enrichmentStatus as any)?.status !== 'idle' && (
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Badge variant={
+                  (enrichmentStatus as any)?.status === 'running' ? 'default' :
+                  (enrichmentStatus as any)?.status === 'completed' ? 'secondary' :
+                  (enrichmentStatus as any)?.status === 'error' ? 'destructive' : 'outline'
+                }>
+                  {(enrichmentStatus as any)?.status === 'running' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                  {(enrichmentStatus as any)?.status?.toUpperCase()}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Phase: {(enrichmentStatus as any)?.phase || 'N/A'}
+                </span>
+              </div>
+              
+              {(enrichmentStatus as any)?.totalProducts > 0 && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Progress: {(enrichmentStatus as any)?.processed?.toLocaleString()} / {(enrichmentStatus as any)?.totalProducts?.toLocaleString()}</span>
+                    <span>{Math.round(((enrichmentStatus as any)?.processed / (enrichmentStatus as any)?.totalProducts) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-emerald-600 h-2.5 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, ((enrichmentStatus as any)?.processed / (enrichmentStatus as any)?.totalProducts) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-2 bg-green-50 rounded">
+                  <div className="text-lg font-bold text-green-700">{(enrichmentStatus as any)?.enriched?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-green-600">Enriched</div>
+                </div>
+                <div className="p-2 bg-red-50 rounded">
+                  <div className="text-lg font-bold text-red-700">{(enrichmentStatus as any)?.errors?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-red-600">Errors</div>
+                </div>
+                <div className="p-2 bg-blue-50 rounded">
+                  <div className="text-lg font-bold text-blue-700">{(enrichmentStatus as any)?.totalProducts?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-blue-600">Total Products</div>
+                </div>
+              </div>
+
+              {(enrichmentStatus as any)?.startedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Started: {new Date((enrichmentStatus as any).startedAt).toLocaleString()}
+                  {(enrichmentStatus as any)?.completedAt && ` · Completed: ${new Date((enrichmentStatus as any).completedAt).toLocaleString()}`}
+                </p>
+              )}
+              
+              {(enrichmentStatus as any)?.errorMessage && (
+                <p className="text-sm text-red-600">Error: {(enrichmentStatus as any).errorMessage}</p>
+              )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* Edit Data Source Dialog */}
       <Dialog open={!!editingDataSource} onOpenChange={() => setEditingDataSource(null)}>

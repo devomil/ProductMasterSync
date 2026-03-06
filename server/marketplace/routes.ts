@@ -5894,4 +5894,258 @@ router.post('/ingram-micro/freight-estimate', async (req, res) => {
   }
 });
 
+// ==========================================
+// Bulk Product Enrichment from Ingram Micro API
+// ==========================================
+
+let enrichmentJob: {
+  status: 'idle' | 'running' | 'completed' | 'error';
+  phase: string;
+  totalProducts: number;
+  processed: number;
+  enriched: number;
+  errors: number;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  errorMessage: string | null;
+} = {
+  status: 'idle',
+  phase: '',
+  totalProducts: 0,
+  processed: 0,
+  enriched: 0,
+  errors: 0,
+  startedAt: null,
+  completedAt: null,
+  errorMessage: null,
+};
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runBulkEnrichment(batchSize: number = 25, detailsPerBatch: number = 10, delayMs: number = 600) {
+  const { pool } = await import('../db');
+  
+  enrichmentJob = {
+    status: 'running',
+    phase: 'Loading products',
+    totalProducts: 0,
+    processed: 0,
+    enriched: 0,
+    errors: 0,
+    startedAt: new Date(),
+    completedAt: null,
+    errorMessage: null,
+  };
+
+  try {
+    const productsResult = await pool.query(
+      `SELECT id, sku, usin, upc, name, description, weight FROM products WHERE usin IS NOT NULL ORDER BY id`
+    );
+    const allProducts = productsResult.rows;
+    enrichmentJob.totalProducts = allProducts.length;
+    console.log(`[Enrichment] Starting bulk enrichment for ${allProducts.length} products`);
+
+    // Phase 1: Price & Availability (batch calls)
+    enrichmentJob.phase = 'Price & Availability';
+    console.log(`[Enrichment] Phase 1: Price & Availability in batches of ${batchSize}`);
+    
+    for (let i = 0; i < allProducts.length; i += batchSize) {
+      if (enrichmentJob.status !== 'running') break;
+      
+      const batch = allProducts.slice(i, i + batchSize);
+      const batchUsins = batch.map(p => ({ ingramPartNumber: p.usin }));
+      
+      try {
+        const priceResults = await ingramMicroAPI.getPriceAndAvailability(batchUsins);
+        
+        if (Array.isArray(priceResults)) {
+          for (const priceData of priceResults) {
+            const product = batch.find(p => p.usin === priceData.ingramPartNumber);
+            if (!product) continue;
+            
+            const customerPrice = priceData.pricing?.customerPrice;
+            const retailPrice = priceData.pricing?.retailPrice;
+            const mapPrice = priceData.pricing?.mapPrice;
+            const totalAvailability = priceData.availability?.totalAvailability || 0;
+            const upc = priceData.upc || null;
+            const description = priceData.description || null;
+            
+            await pool.query(
+              `UPDATE products SET
+                cost = COALESCE($1, cost),
+                price = COALESCE($2, price),
+                upc = COALESCE($3, upc),
+                description = COALESCE($4, description),
+                inventory_quantity = $5,
+                attributes = jsonb_set(
+                  COALESCE(attributes, '{}'::jsonb),
+                  '{ingramPricing}',
+                  $6::jsonb
+                ),
+                updated_at = NOW()
+              WHERE id = $7`,
+              [
+                customerPrice != null ? String(customerPrice) : null,
+                retailPrice != null ? String(retailPrice) : null,
+                upc,
+                description,
+                totalAvailability,
+                JSON.stringify({
+                  customerPrice,
+                  retailPrice,
+                  mapPrice,
+                  totalAvailability,
+                  warehouses: priceData.availability?.availabilityByWarehouse || [],
+                  lastUpdated: new Date().toISOString(),
+                }),
+                product.id,
+              ]
+            );
+            enrichmentJob.enriched++;
+          }
+        }
+        
+        enrichmentJob.processed = Math.min(i + batchSize, allProducts.length);
+        
+        if ((i / batchSize) % 20 === 0) {
+          console.log(`[Enrichment] P&A progress: ${enrichmentJob.processed}/${allProducts.length} (${enrichmentJob.enriched} enriched)`);
+        }
+      } catch (batchError: any) {
+        enrichmentJob.errors++;
+        console.error(`[Enrichment] P&A batch error at ${i}:`, batchError.message?.slice(0, 200));
+      }
+      
+      await sleep(delayMs);
+    }
+    
+    console.log(`[Enrichment] Phase 1 complete: ${enrichmentJob.enriched} products updated with pricing`);
+
+    // Phase 2: Product Details (one at a time, only for products missing description/weight)
+    enrichmentJob.phase = 'Product Details';
+    enrichmentJob.processed = 0;
+    
+    const needsDetailsResult = await pool.query(
+      `SELECT id, usin FROM products WHERE usin IS NOT NULL AND (description IS NULL OR description = '' OR weight IS NULL OR weight = '') ORDER BY id`
+    );
+    const needsDetails = needsDetailsResult.rows;
+    enrichmentJob.totalProducts = needsDetails.length;
+    console.log(`[Enrichment] Phase 2: ${needsDetails.length} products need detail enrichment`);
+    
+    for (let i = 0; i < needsDetails.length; i += detailsPerBatch) {
+      if (enrichmentJob.status !== 'running') break;
+      
+      const detailBatch = needsDetails.slice(i, i + detailsPerBatch);
+      
+      for (const product of detailBatch) {
+        try {
+          const detail = await ingramMicroAPI.getProductDetails(product.usin);
+          
+          if (detail) {
+            const techSpecs = detail.technicalSpecifications || [];
+            const weight = (detail as any).weight?.toString() || null;
+            const description = detail.description || null;
+            const category = detail.productCategory || null;
+            const subCategory = detail.productSubCategory || null;
+            const indicators = detail.indicators || {};
+            
+            await pool.query(
+              `UPDATE products SET
+                description = COALESCE($1, description),
+                weight = COALESCE($2, weight),
+                is_remanufactured = COALESCE($3, is_remanufactured),
+                attributes = jsonb_set(
+                  COALESCE(attributes, '{}'::jsonb),
+                  '{ingramDetails}',
+                  $4::jsonb
+                ),
+                updated_at = NOW()
+              WHERE id = $5`,
+              [
+                description,
+                weight,
+                (indicators as any).refurbished || false,
+                JSON.stringify({
+                  category,
+                  subCategory,
+                  productClass: detail.productClass,
+                  statusCode: detail.productStatusCode,
+                  indicators,
+                  technicalSpecifications: techSpecs,
+                  warrantyInformation: detail.warrantyInformation || [],
+                  lastUpdated: new Date().toISOString(),
+                }),
+                product.id,
+              ]
+            );
+            enrichmentJob.enriched++;
+          }
+        } catch (detailError: any) {
+          enrichmentJob.errors++;
+          if (enrichmentJob.errors % 50 === 0) {
+            console.error(`[Enrichment] Detail error (${enrichmentJob.errors} total):`, detailError.message?.slice(0, 200));
+          }
+        }
+        
+        await sleep(delayMs);
+      }
+      
+      enrichmentJob.processed = Math.min(i + detailsPerBatch, needsDetails.length);
+      
+      if ((i / detailsPerBatch) % 50 === 0) {
+        console.log(`[Enrichment] Details progress: ${enrichmentJob.processed}/${needsDetails.length}`);
+      }
+    }
+    
+    enrichmentJob.status = 'completed';
+    enrichmentJob.phase = 'Complete';
+    enrichmentJob.completedAt = new Date();
+    console.log(`[Enrichment] Bulk enrichment complete: ${enrichmentJob.enriched} enriched, ${enrichmentJob.errors} errors`);
+    
+  } catch (error: any) {
+    enrichmentJob.status = 'error';
+    enrichmentJob.errorMessage = error.message;
+    console.error('[Enrichment] Fatal error:', error.message);
+  }
+}
+
+router.post('/ingram-micro/bulk-enrich', async (req, res) => {
+  try {
+    if (enrichmentJob.status === 'running') {
+      return res.status(409).json({ 
+        error: 'Enrichment job already running',
+        job: enrichmentJob
+      });
+    }
+    
+    const { batchSize = 25, detailsPerBatch = 10, delayMs = 600 } = req.body || {};
+    
+    runBulkEnrichment(batchSize, detailsPerBatch, delayMs);
+    
+    return res.json({ 
+      success: true, 
+      message: 'Bulk enrichment started',
+      job: enrichmentJob
+    });
+  } catch (error) {
+    console.error('[Enrichment] Start error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/ingram-micro/bulk-enrich/status', async (req, res) => {
+  return res.json(enrichmentJob);
+});
+
+router.post('/ingram-micro/bulk-enrich/stop', async (req, res) => {
+  if (enrichmentJob.status === 'running') {
+    enrichmentJob.status = 'completed';
+    enrichmentJob.phase = 'Stopped by user';
+    enrichmentJob.completedAt = new Date();
+    return res.json({ success: true, message: 'Enrichment job stopped', job: enrichmentJob });
+  }
+  return res.json({ success: false, message: 'No running job to stop' });
+});
+
 export default router;
