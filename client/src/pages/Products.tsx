@@ -344,7 +344,7 @@ const Products = () => {
       product_name: product.name || '-',
       description: cleanHtmlTags(product.description || '') || '-',  // Clean HTML tags from description
       brand: product.manufacturerName || '-',
-      primary_image: product.primaryImageUrl || '-',
+      primary_image: product.imageUrl || product.image_url || product.primaryImageUrl || product.imageUrlLarge || product.primaryImage || '-',
       mpn: product.manufacturerPartNumber || '-'
     };
     
