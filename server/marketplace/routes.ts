@@ -5979,11 +5979,7 @@ async function runBulkEnrichment(batchSize: number = 25, detailsPerBatch: number
                 upc = COALESCE($3, upc),
                 description = COALESCE($4, description),
                 inventory_quantity = $5,
-                attributes = jsonb_set(
-                  COALESCE(attributes, '{}'::jsonb),
-                  '{ingramPricing}',
-                  $6::jsonb
-                ),
+                attributes = (COALESCE(attributes::jsonb, '{}'::jsonb) || jsonb_build_object('ingramPricing', $6::jsonb))::json,
                 updated_at = NOW()
               WHERE id = $7`,
               [
@@ -6055,11 +6051,7 @@ async function runBulkEnrichment(batchSize: number = 25, detailsPerBatch: number
                 description = COALESCE($1, description),
                 weight = COALESCE($2, weight),
                 is_remanufactured = COALESCE($3, is_remanufactured),
-                attributes = jsonb_set(
-                  COALESCE(attributes, '{}'::jsonb),
-                  '{ingramDetails}',
-                  $4::jsonb
-                ),
+                attributes = (COALESCE(attributes::jsonb, '{}'::jsonb) || jsonb_build_object('ingramDetails', $4::jsonb))::json,
                 updated_at = NOW()
               WHERE id = $5`,
               [
