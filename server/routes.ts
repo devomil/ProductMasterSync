@@ -4098,13 +4098,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const batch = transformedProducts.slice(batchStart, batchStart + BATCH_SIZE);
         
         try {
+          // Look up existing products by usin to reuse their SKUs (prevents duplicates on re-import)
+          const batchUsins = batch.map(p => p.usin).filter(Boolean);
+          const existingByUsin = new Map<string, string>();
+          if (batchUsins.length > 0) {
+            const placeholders = batchUsins.map((_, i) => `$${i + 1}`).join(', ');
+            const lookupResult = await pool.query(
+              `SELECT sku, usin FROM products WHERE usin IN (${placeholders})`,
+              batchUsins
+            );
+            for (const row of lookupResult.rows) {
+              if (row.usin) existingByUsin.set(row.usin, row.sku);
+            }
+          }
+          
           const values: string[] = [];
           const params: any[] = [];
           let paramIdx = 1;
           
           for (const product of batch) {
             const name = product.name || 'Imported Product';
-            const sku = product.sku;
+            // Reuse existing SKU if product already exists by usin, otherwise use generated EDC SKU
+            const sku = (product.usin && existingByUsin.get(product.usin)) || product.sku;
             const upc = product.upc || null;
             const manufacturerPartNumber = product.manufacturerPartNumber || null;
             const usin = product.usin || null;
