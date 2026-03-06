@@ -4108,32 +4108,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const upc = product.upc || null;
             const manufacturerPartNumber = product.manufacturerPartNumber || null;
             const usin = product.usin || null;
-            const yourCost = product.yourCost || null;
-            const listPrice = product.listPrice || null;
-            const mapPrice = product.mapPrice || null;
-            const mrpPrice = product.mrpPrice || null;
+            const cost = product.yourCost != null ? String(product.yourCost) : (product.cost || null);
+            const price = product.listPrice != null ? String(product.listPrice) : (product.price || null);
             const categoryId = product.categoryId || null;
-            const attrs = product.attributes ? JSON.stringify(product.attributes) : null;
             const status = product.status || 'active';
             const manufacturerName = product.manufacturerName || null;
             
-            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}, $${paramIdx+9}, $${paramIdx+10}::jsonb, $${paramIdx+11}, $${paramIdx+12}, NOW(), NOW())`);
-            params.push(name, sku, upc, manufacturerPartNumber, usin, yourCost, listPrice, mapPrice, mrpPrice, categoryId, attrs, status, manufacturerName);
-            paramIdx += 13;
+            // Store pricing details in attributes
+            const existingAttrs = product.attributes || {};
+            if (product.yourCost != null) existingAttrs.yourCost = product.yourCost;
+            if (product.listPrice != null) existingAttrs.listPrice = product.listPrice;
+            if (product.mapPrice != null) existingAttrs.mapPrice = product.mapPrice;
+            if (product.mrpPrice != null) existingAttrs.mrpPrice = product.mrpPrice;
+            const attrs = JSON.stringify(existingAttrs);
+            
+            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}::jsonb, $${paramIdx+9}, $${paramIdx+10}, NOW(), NOW())`);
+            params.push(name, sku, upc, manufacturerPartNumber, usin, cost, price, categoryId, attrs, status, manufacturerName);
+            paramIdx += 11;
           }
           
           const sql = `
-            INSERT INTO products (name, sku, upc, manufacturer_part_number, usin, your_cost, list_price, map_price, mrp_price, category_id, attributes, status, manufacturer_name, created_at, updated_at)
+            INSERT INTO products (name, sku, upc, manufacturer_part_number, usin, cost, price, category_id, attributes, status, manufacturer_name, created_at, updated_at)
             VALUES ${values.join(', ')}
             ON CONFLICT (sku) DO UPDATE SET
               name = EXCLUDED.name,
               upc = COALESCE(EXCLUDED.upc, products.upc),
               manufacturer_part_number = COALESCE(EXCLUDED.manufacturer_part_number, products.manufacturer_part_number),
               usin = COALESCE(EXCLUDED.usin, products.usin),
-              your_cost = COALESCE(EXCLUDED.your_cost, products.your_cost),
-              list_price = COALESCE(EXCLUDED.list_price, products.list_price),
-              map_price = COALESCE(EXCLUDED.map_price, products.map_price),
-              mrp_price = COALESCE(EXCLUDED.mrp_price, products.mrp_price),
+              cost = COALESCE(EXCLUDED.cost, products.cost),
+              price = COALESCE(EXCLUDED.price, products.price),
               attributes = COALESCE(EXCLUDED.attributes, products.attributes),
               manufacturer_name = COALESCE(EXCLUDED.manufacturer_name, products.manufacturer_name),
               updated_at = NOW()
