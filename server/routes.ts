@@ -3909,7 +3909,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const supplierId = dataSource.supplierId;
       console.log(`Associating products with supplier ID: ${supplierId}`);
       
-      for (let i = 0; i < Math.min(limit, sampleResult.data.length); i++) {
+      const transformLimit = (fullImport || recordLimit === 0) ? sampleResult.data.length : Math.min(recordLimit || limit || 50, sampleResult.data.length);
+      for (let i = 0; i < transformLimit; i++) {
         const sourceRecord = sampleResult.data[i];
         const transformedRecord: any = {
           status: 'active',
@@ -3922,8 +3923,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const edcSKU = `EDC${String(nextEDCNumber).padStart(6, '0')}`;
         transformedRecord.sku = edcSKU;
         nextEDCNumber++;
-        
-        console.log(`Generated unique EDC SKU: ${edcSKU}`);
         
         // Apply field mappings
         const customFieldsData: Record<string, any> = {};
@@ -3983,14 +3982,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Ensure required fields are populated (SKU is already set to unique EDC number above)
         if (!transformedRecord.name) {
-          // Try multiple field mappings for name
-          transformedRecord.name = transformedRecord.title || 
-                                   transformedRecord.uppercaseTitle || 
-                                   transformedRecord.productName || 
-                                   sourceRecord['Title'] || 
-                                   sourceRecord['Uppercase Title'] || 
-                                   sourceRecord['Product Name'] || 
-                                   'Imported Product';
+          // Try Ingram Micro description fields first
+          const desc1 = sourceRecord['Description Line 1']?.trim();
+          const desc2 = sourceRecord['Description Line 2']?.trim();
+          if (desc1 && desc2) {
+            transformedRecord.name = `${desc1} ${desc2}`;
+          } else if (desc1) {
+            transformedRecord.name = desc1;
+          } else {
+            transformedRecord.name = transformedRecord.title || 
+                                     transformedRecord.uppercaseTitle || 
+                                     transformedRecord.productName || 
+                                     sourceRecord['Title'] || 
+                                     sourceRecord['Uppercase Title'] || 
+                                     sourceRecord['Product Name'] || 
+                                     'Imported Product';
+          }
+        }
+        
+        // Set manufacturer name from Vendor Name if not already set
+        if (!transformedRecord.manufacturerName && sourceRecord['Vendor Name']) {
+          transformedRecord.manufacturerName = sourceRecord['Vendor Name'].trim();
         }
         
         transformedProducts.push(transformedRecord);
@@ -4066,68 +4078,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Created ${categoriesCreated} new categories`);
       }
       
-      // Insert products into database with de-duplication
+      // Batch insert products into database for performance
       console.log('=== DATABASE INSERTION ===');
-      const insertedProducts = [];
-      for (let i = 0; i < transformedProducts.length; i++) {
-        const product = transformedProducts[i];
+      const BATCH_SIZE = 500;
+      let totalInserted = 0;
+      let totalErrors = 0;
+      const totalBatches = Math.ceil(transformedProducts.length / BATCH_SIZE);
+      
+      if (transformedProducts.length > 0) {
+        console.log('First product fields:', Object.keys(transformedProducts[0]));
+        console.log(`Processing ${transformedProducts.length} products in ${totalBatches} batches of ${BATCH_SIZE}`);
+      }
+      
+      // Increase statement timeout for bulk import
+      await pool.query('SET statement_timeout = 120000');
+      
+      for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+        const batchStart = batchIdx * BATCH_SIZE;
+        const batch = transformedProducts.slice(batchStart, batchStart + BATCH_SIZE);
+        
         try {
-          // Use SKU for de-duplication (USIN constraint not set up yet)
-          const conflictTarget = products.sku;
+          const values: string[] = [];
+          const params: any[] = [];
+          let paramIdx = 1;
           
-          if (i === 0) {
-            console.log('Inserting first product with fields:', Object.keys(product));
-            console.log('Image field in insert:', product.image_url || product.imageUrl || 'NO IMAGE');
-          }
-          
-          const [insertedProduct] = await db
-            .insert(products)
-            .values(product)
-            .returning();
+          for (const product of batch) {
+            const name = product.name || 'Imported Product';
+            const sku = product.sku;
+            const upc = product.upc || null;
+            const manufacturerPartNumber = product.manufacturerPartNumber || null;
+            const usin = product.usin || null;
+            const yourCost = product.yourCost || null;
+            const listPrice = product.listPrice || null;
+            const mapPrice = product.mapPrice || null;
+            const mrpPrice = product.mrpPrice || null;
+            const categoryId = product.categoryId || null;
+            const attrs = product.attributes ? JSON.stringify(product.attributes) : null;
+            const status = product.status || 'active';
+            const manufacturerName = product.manufacturerName || null;
             
-          if (i === 0) {
-            console.log('First inserted product result:', JSON.stringify(insertedProduct, null, 2));
-            console.log('Inserted image_url:', insertedProduct.image_url);
+            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}, $${paramIdx+9}, $${paramIdx+10}::jsonb, $${paramIdx+11}, $${paramIdx+12}, NOW(), NOW())`);
+            params.push(name, sku, upc, manufacturerPartNumber, usin, yourCost, listPrice, mapPrice, mrpPrice, categoryId, attrs, status, manufacturerName);
+            paramIdx += 13;
           }
           
-          // Link product to supplier via productSuppliers table
-          if (supplierId && insertedProduct.id) {
-            try {
-              await db
-                .insert(productSuppliers)
-                .values({
-                  productId: insertedProduct.id,
-                  supplierId: supplierId,
-                  supplierSku: product.usin || product.sku || insertedProduct.sku,
-                  isPrimary: true,
-                  confidence: 100,
-                  supplierAttributes: {}
-                })
-                .onConflictDoNothing();
-              
-              if (i === 0) {
-                console.log(`Linked product ${insertedProduct.id} to supplier ${supplierId}`);
-              }
-            } catch (linkError) {
-              console.error(`Error linking product to supplier:`, linkError);
+          const sql = `
+            INSERT INTO products (name, sku, upc, manufacturer_part_number, usin, your_cost, list_price, map_price, mrp_price, category_id, attributes, status, manufacturer_name, created_at, updated_at)
+            VALUES ${values.join(', ')}
+            ON CONFLICT (sku) DO UPDATE SET
+              name = EXCLUDED.name,
+              upc = COALESCE(EXCLUDED.upc, products.upc),
+              manufacturer_part_number = COALESCE(EXCLUDED.manufacturer_part_number, products.manufacturer_part_number),
+              usin = COALESCE(EXCLUDED.usin, products.usin),
+              your_cost = COALESCE(EXCLUDED.your_cost, products.your_cost),
+              list_price = COALESCE(EXCLUDED.list_price, products.list_price),
+              map_price = COALESCE(EXCLUDED.map_price, products.map_price),
+              mrp_price = COALESCE(EXCLUDED.mrp_price, products.mrp_price),
+              attributes = COALESCE(EXCLUDED.attributes, products.attributes),
+              manufacturer_name = COALESCE(EXCLUDED.manufacturer_name, products.manufacturer_name),
+              updated_at = NOW()
+            RETURNING id, sku, usin
+          `;
+          
+          const result = await pool.query(sql, params);
+          const insertedRows = result.rows;
+          totalInserted += insertedRows.length;
+          
+          // Batch link products to supplier
+          if (supplierId && insertedRows.length > 0) {
+            const linkValues: string[] = [];
+            const linkParams: any[] = [];
+            let linkParamIdx = 1;
+            
+            for (const row of insertedRows) {
+              linkValues.push(`($${linkParamIdx}, $${linkParamIdx+1}, $${linkParamIdx+2}, true, 100, '{}'::jsonb)`);
+              linkParams.push(row.id, supplierId, row.usin || row.sku);
+              linkParamIdx += 3;
             }
-          }
             
-          insertedProducts.push(insertedProduct);
-        } catch (error) {
-          console.error(`Error inserting product ${i + 1}:`, error);
-          console.error('Product data that failed:', JSON.stringify(product, null, 2));
-          // Continue with other products
+            const linkSql = `
+              INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, is_primary, confidence, supplier_attributes)
+              VALUES ${linkValues.join(', ')}
+              ON CONFLICT DO NOTHING
+            `;
+            
+            await pool.query(linkSql, linkParams);
+          }
+          
+          if ((batchIdx + 1) % 10 === 0 || batchIdx === totalBatches - 1) {
+            console.log(`Batch ${batchIdx + 1}/${totalBatches}: ${totalInserted} products inserted so far`);
+          }
+        } catch (batchError) {
+          console.error(`Error in batch ${batchIdx + 1}:`, (batchError as Error).message);
+          totalErrors += batch.length;
         }
       }
       
-      console.log(`Successfully imported ${insertedProducts.length} products`);
+      console.log(`Successfully imported ${totalInserted} products (${totalErrors} errors)`);
+      
+      // Reset statement timeout
+      await pool.query('SET statement_timeout = 30000');
       
       res.json({
         success: true,
-        message: `Successfully imported ${insertedProducts.length} products using saved mapping template`,
-        imported: insertedProducts.length,
-        products: insertedProducts.slice(0, 10), // Return first 10 for preview
+        message: `Successfully imported ${totalInserted} products using saved mapping template`,
+        imported: totalInserted,
+        errors: totalErrors,
         mappingTemplateId: mappingTemplate.id,
         fieldMappings: Object.keys(fieldMappings as object).length
       });
