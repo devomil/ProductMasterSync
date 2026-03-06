@@ -3745,13 +3745,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('No automation file path found, attempting auto-detection...');
             const fileList = await sftp.list('./');
             console.log('Files on SFTP server:', fileList.map(f => f.name));
-            const catalogFile = fileList.find(f => 
-              f.name.toLowerCase().includes('catalog') || 
-              f.name.toLowerCase().includes('product') ||
-              f.name.toLowerCase().endsWith('.csv') ||
-              f.name.toLowerCase().endsWith('.tsv') ||
-              f.name.toLowerCase().endsWith('.txt')
-            );
+            const catalogFile = fileList.find(f => {
+              const name = f.name.toLowerCase();
+              return name.includes('catalog') || 
+                name.includes('product') ||
+                name.includes('price') ||
+                name.endsWith('.csv') ||
+                name.endsWith('.tsv') ||
+                name.endsWith('.txt') ||
+                name.endsWith('.zip');
+            });
             
             if (catalogFile) {
               remotePath = `/${catalogFile.name}`;
@@ -3771,24 +3774,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await sftp.get(remotePath, localPath);
             await sftp.end();
             
-            // Detect delimiter from file extension or content
-            const fileContent = fs.readFileSync(localPath, 'utf-8');
-            const isTsv = fileName.toLowerCase().endsWith('.tsv') || 
-                          (fileContent.split('\n')[0]?.includes('\t') && !fileContent.split('\n')[0]?.includes(','));
-            const delimiter = isTsv ? '\t' : ',';
-            console.log(`Parsing file with delimiter: ${isTsv ? 'TAB (TSV)' : 'COMMA (CSV)'}`);
+            let fileContent: string;
+            let actualFileName = fileName;
             
-            const records = csvParse.parse(fileContent, {
-              columns: true,
-              skip_empty_lines: true,
-              relax_column_count: true,
-              relax_quotes: true,
-              delimiter: delimiter
-            });
+            if (fileName.toLowerCase().endsWith('.zip')) {
+              console.log('Extracting ZIP file:', localPath);
+              const AdmZip = (await import('adm-zip')).default;
+              const zip = new AdmZip(localPath);
+              const zipEntries = zip.getEntries();
+              console.log('ZIP entries:', zipEntries.map(e => e.entryName));
+              
+              const dataEntry = zipEntries.find(e => {
+                if (e.isDirectory) return false;
+                const name = e.entryName.toLowerCase();
+                return name.endsWith('.csv') || name.endsWith('.tsv') || 
+                       name.endsWith('.txt') || name.endsWith('.json') ||
+                       name.endsWith('.xlsx') || name.endsWith('.xls');
+              }) || zipEntries.find(e => !e.isDirectory);
+              
+              if (!dataEntry) {
+                throw new Error(`ZIP file contains no supported data files. Found: ${zipEntries.map(e => e.entryName).join(', ')}`);
+              }
+              
+              fileContent = dataEntry.getData().toString('utf8');
+              actualFileName = dataEntry.entryName;
+              console.log(`Extracted ${actualFileName} from ZIP (${fileContent.length} chars)`);
+              
+              try { fs.unlinkSync(localPath); } catch(e) {}
+            } else {
+              fileContent = fs.readFileSync(localPath, 'utf-8');
+            }
+            
+            const firstLine = fileContent.split('\n')[0] || '';
+            const pipeCount = (firstLine.match(/\|/g) || []).length;
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const tabCount = (firstLine.match(/\t/g) || []).length;
+            
+            let delimiter = ',';
+            if (tabCount > commaCount && tabCount > pipeCount) delimiter = '\t';
+            else if (pipeCount > commaCount && pipeCount > tabCount) delimiter = '|';
+            
+            const isTsv = delimiter === '\t';
+            console.log(`Parsing file with delimiter: ${delimiter === '\t' ? 'TAB' : delimiter === '|' ? 'PIPE' : 'COMMA'}`);
+            
+            const isIngramFile = sftpConfig.host?.includes('ingrammicro.com') || supplierName.includes('ingram');
+            const hasHeaders = firstLine.includes('Description') || firstLine.includes('Name') || firstLine.includes('SKU') || 
+                               firstLine.includes('UPC') || firstLine.includes('Price');
+            
+            let records: any[];
+            if (!hasHeaders && isIngramFile) {
+              console.log('Detected headerless Ingram Micro file, applying predefined column schema');
+              const rawRecords = csvParse.parse(fileContent, {
+                columns: false,
+                skip_empty_lines: true,
+                relax_column_count: true,
+                relax_quotes: true,
+                delimiter: delimiter
+              });
+              
+              const columnNames = [
+                'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
+                'Description Line 1', 'Description Line 2', 'Customer Price',
+                'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
+                'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
+                'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
+                'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+                'New Item Flag', 'Special Price'
+              ];
+              
+              records = rawRecords.map((row: any) => {
+                const obj: any = {};
+                if (Array.isArray(row)) {
+                  columnNames.forEach((name, i) => { obj[name] = (row[i] || '').toString().trim(); });
+                  for (let i = columnNames.length; i < row.length; i++) {
+                    obj[`Column_${i + 1}`] = (row[i] || '').toString().trim();
+                  }
+                } else {
+                  return row;
+                }
+                return obj;
+              });
+              console.log(`Parsed ${records.length} records with Ingram schema (${columnNames.length} columns)`);
+            } else {
+              records = csvParse.parse(fileContent, {
+                columns: true,
+                skip_empty_lines: true,
+                relax_column_count: true,
+                relax_quotes: true,
+                delimiter: delimiter
+              });
+            }
             
             console.log(`Successfully parsed ${records.length} records from catalog file`);
             if (records.length > 0) {
-              console.log('Sample field names:', Object.keys(records[0]));
+              console.log('Sample field names:', Object.keys(records[0]).slice(0, 10));
+              console.log('First record sample:', JSON.stringify(records[0]).slice(0, 300));
             }
             
             sampleResult = {
