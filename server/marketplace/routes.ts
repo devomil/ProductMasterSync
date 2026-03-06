@@ -6104,6 +6104,7 @@ async function runBulkEnrichment(batchSize: number = 25, detailsPerBatch: number
 
 let imageEnrichmentJob: {
   status: 'idle' | 'running' | 'completed' | 'error';
+  source: 'amazon' | 'walmart';
   totalProducts: number;
   processed: number;
   enriched: number;
@@ -6114,6 +6115,7 @@ let imageEnrichmentJob: {
   errorMessage: string | null;
 } = {
   status: 'idle',
+  source: 'amazon',
   totalProducts: 0,
   processed: 0,
   enriched: 0,
@@ -6124,12 +6126,34 @@ let imageEnrichmentJob: {
   errorMessage: null,
 };
 
-async function runImageEnrichment(delayMs: number = 550) {
-  const { pool } = await import('../db');
+async function lookupImageFromAmazon(upc: string): Promise<{ imageUrl: string | null; asin?: string }> {
   const { searchCatalogItemsByUPC } = await import('./amazon-spapi-service');
+  const results = await searchCatalogItemsByUPC(upc);
+  if (results.length > 0 && results[0].imageUrl) {
+    return { imageUrl: results[0].imageUrl, asin: results[0].asin };
+  }
+  return { imageUrl: null };
+}
+
+async function lookupImageFromWalmart(upc: string): Promise<{ imageUrl: string | null; walmartItemId?: string }> {
+  const { searchWalmartCatalogByUPC } = await import('../utils/walmart-api');
+  const items = await searchWalmartCatalogByUPC(upc);
+  if (items.length > 0) {
+    const imageUrls = items[0].images?.map((img: any) => img.url) || [];
+    const primaryImage = imageUrls[0] || items[0].primaryImageUrl || null;
+    if (primaryImage) {
+      return { imageUrl: primaryImage, walmartItemId: items[0].itemId };
+    }
+  }
+  return { imageUrl: null };
+}
+
+async function runImageEnrichment(source: 'amazon' | 'walmart' = 'amazon', delayMs: number = 550) {
+  const { pool } = await import('../db');
 
   imageEnrichmentJob = {
     status: 'running',
+    source,
     totalProducts: 0,
     processed: 0,
     enriched: 0,
@@ -6140,6 +6164,8 @@ async function runImageEnrichment(delayMs: number = 550) {
     errorMessage: null,
   };
 
+  const sourceLabel = source === 'amazon' ? 'Amazon' : 'Walmart';
+
   try {
     const productsResult = await pool.query(
       `SELECT id, upc, name, manufacturer_name FROM products 
@@ -6149,7 +6175,7 @@ async function runImageEnrichment(delayMs: number = 550) {
     );
     const products = productsResult.rows;
     imageEnrichmentJob.totalProducts = products.length;
-    console.log(`[Image Enrichment] Starting for ${products.length} products with UPC but no image`);
+    console.log(`[Image Enrichment] Starting via ${sourceLabel} for ${products.length} products with UPC but no image`);
 
     for (let i = 0; i < products.length; i++) {
       if (imageEnrichmentJob.status !== 'running') {
@@ -6167,12 +6193,21 @@ async function runImageEnrichment(delayMs: number = 550) {
           continue;
         }
 
-        const results = await searchCatalogItemsByUPC(upc);
+        let imageUrl: string | null = null;
+        let asin: string | undefined;
+        let walmartItemId: string | undefined;
+
+        if (source === 'amazon') {
+          const result = await lookupImageFromAmazon(upc);
+          imageUrl = result.imageUrl;
+          asin = result.asin;
+        } else {
+          const result = await lookupImageFromWalmart(upc);
+          imageUrl = result.imageUrl;
+          walmartItemId = result.walmartItemId;
+        }
         
-        if (results.length > 0 && results[0].imageUrl) {
-          const imageUrl = results[0].imageUrl;
-          const asin = results[0].asin || null;
-          
+        if (imageUrl) {
           await pool.query(
             `UPDATE products SET 
               image_url = $1,
@@ -6182,12 +6217,19 @@ async function runImageEnrichment(delayMs: number = 550) {
             [imageUrl, product.id]
           );
           
-          if (asin) {
+          if (source === 'amazon' && asin) {
             await pool.query(
               `UPDATE products SET 
-                attributes = (COALESCE(attributes::jsonb, '{}'::jsonb) || jsonb_build_object('amazonAsin', $1::text, 'amazonImageSource', true))::json
+                attributes = (COALESCE(attributes::jsonb, '{}'::jsonb) || jsonb_build_object('amazonAsin', $1::text, 'imageSource', 'amazon'))::json
               WHERE id = $2`,
               [asin, product.id]
+            );
+          } else if (source === 'walmart' && walmartItemId) {
+            await pool.query(
+              `UPDATE products SET 
+                attributes = (COALESCE(attributes::jsonb, '{}'::jsonb) || jsonb_build_object('walmartItemId', $1::text, 'imageSource', 'walmart'))::json
+              WHERE id = $2`,
+              [walmartItemId, product.id]
             );
           }
           
@@ -6198,7 +6240,7 @@ async function runImageEnrichment(delayMs: number = 550) {
       } catch (error: any) {
         imageEnrichmentJob.errors++;
         if (error.response?.status === 429) {
-          console.log(`[Image Enrichment] Rate limited, backing off 5s...`);
+          console.log(`[Image Enrichment] Rate limited by ${sourceLabel}, backing off 5s...`);
           await sleep(5000);
           i--;
           imageEnrichmentJob.processed--;
@@ -6212,13 +6254,13 @@ async function runImageEnrichment(delayMs: number = 550) {
       await sleep(delayMs);
 
       if ((i + 1) % 100 === 0) {
-        console.log(`[Image Enrichment] Progress: ${i + 1}/${products.length} (${imageEnrichmentJob.enriched} images found, ${imageEnrichmentJob.skipped} skipped, ${imageEnrichmentJob.errors} errors)`);
+        console.log(`[Image Enrichment] Progress: ${i + 1}/${products.length} via ${sourceLabel} (${imageEnrichmentJob.enriched} images found, ${imageEnrichmentJob.skipped} skipped, ${imageEnrichmentJob.errors} errors)`);
       }
     }
 
     imageEnrichmentJob.status = 'completed';
     imageEnrichmentJob.completedAt = new Date();
-    console.log(`[Image Enrichment] Complete: ${imageEnrichmentJob.enriched} images found, ${imageEnrichmentJob.skipped} skipped, ${imageEnrichmentJob.errors} errors out of ${imageEnrichmentJob.totalProducts} total`);
+    console.log(`[Image Enrichment] Complete via ${sourceLabel}: ${imageEnrichmentJob.enriched} images found, ${imageEnrichmentJob.skipped} skipped, ${imageEnrichmentJob.errors} errors out of ${imageEnrichmentJob.totalProducts} total`);
 
   } catch (error: any) {
     imageEnrichmentJob.status = 'error';
@@ -6232,9 +6274,10 @@ router.post('/image-enrichment/start', async (req, res) => {
     if (imageEnrichmentJob.status === 'running') {
       return res.status(409).json({ error: 'Image enrichment already running', job: imageEnrichmentJob });
     }
-    const { delayMs = 550 } = req.body || {};
-    runImageEnrichment(delayMs);
-    return res.json({ success: true, message: 'Image enrichment started', job: imageEnrichmentJob });
+    const { source = 'amazon', delayMs = 550 } = req.body || {};
+    const validSource = source === 'walmart' ? 'walmart' : 'amazon';
+    runImageEnrichment(validSource, delayMs);
+    return res.json({ success: true, message: `Image enrichment started via ${validSource === 'amazon' ? 'Amazon' : 'Walmart'}`, job: imageEnrichmentJob });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

@@ -448,6 +448,7 @@ export default function DataSources() {
   const [loadingWalkthroughId, setLoadingWalkthroughId] = useState<string | null>(null);
   const [showEnrichmentPanel, setShowEnrichmentPanel] = useState(false);
   const [showImageEnrichmentPanel, setShowImageEnrichmentPanel] = useState(false);
+  const [imageSource, setImageSource] = useState<'amazon' | 'walmart'>('amazon');
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -695,16 +696,18 @@ export default function DataSources() {
   });
 
   const startImageEnrichmentMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/marketplace/image-enrichment/start", { delayMs: 550 });
+    mutationFn: async (source: 'amazon' | 'walmart') => {
+      const delayMs = source === 'walmart' ? 250 : 550;
+      const response = await apiRequest("POST", "/api/marketplace/image-enrichment/start", { source, delayMs });
       return response as any;
     },
     onSuccess: () => {
       setShowImageEnrichmentPanel(true);
       refetchImageEnrichment();
+      const sourceName = imageSource === 'amazon' ? 'Amazon' : 'Walmart';
       toast({
         title: "Image Enrichment Started",
-        description: "Looking up product images from Amazon via UPC codes. This will run in the background."
+        description: `Looking up product images from ${sourceName} via UPC codes. This will run in the background.`
       });
     },
     onError: (error: any) => {
@@ -1184,10 +1187,20 @@ export default function DataSources() {
                 Product Image Enrichment
               </CardTitle>
               <CardDescription>
-                Look up product images from Amazon using UPC codes for products that don't have images yet
+                Look up product images using UPC codes from Amazon or Walmart for products that don't have images yet
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {(imageEnrichmentStatus as any)?.status !== 'running' && (
+                <select
+                  value={imageSource}
+                  onChange={(e) => setImageSource(e.target.value as 'amazon' | 'walmart')}
+                  className="h-8 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="amazon">Amazon</option>
+                  <option value="walmart">Walmart</option>
+                </select>
+              )}
               {(imageEnrichmentStatus as any)?.status === 'running' ? (
                 <Button
                   size="sm"
@@ -1201,15 +1214,15 @@ export default function DataSources() {
               ) : (
                 <Button
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className={imageSource === 'walmart' ? "bg-blue-700 hover:bg-blue-800" : "bg-orange-600 hover:bg-orange-700"}
                   onClick={() => {
                     setShowImageEnrichmentPanel(true);
-                    startImageEnrichmentMutation.mutate();
+                    startImageEnrichmentMutation.mutate(imageSource);
                   }}
                   disabled={startImageEnrichmentMutation.isPending || (enrichmentStatus as any)?.status === 'running'}
                 >
                   <ImageIcon className={`w-4 h-4 mr-1 ${startImageEnrichmentMutation.isPending ? 'animate-pulse' : ''}`} />
-                  {startImageEnrichmentMutation.isPending ? 'Starting...' : 'Start Image Lookup'}
+                  {startImageEnrichmentMutation.isPending ? 'Starting...' : `Start via ${imageSource === 'amazon' ? 'Amazon' : 'Walmart'}`}
                 </Button>
               )}
               {(imageEnrichmentStatus as any)?.status !== 'idle' && (
@@ -1239,9 +1252,14 @@ export default function DataSources() {
                   {(imageEnrichmentStatus as any)?.status === 'running' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                   {(imageEnrichmentStatus as any)?.status?.toUpperCase()}
                 </Badge>
-                <span className="text-sm text-muted-foreground">
-                  ~{Math.round(((imageEnrichmentStatus as any)?.totalProducts - (imageEnrichmentStatus as any)?.processed) * 0.55 / 60)} min remaining
-                </span>
+                <Badge variant="outline" className="text-xs">
+                  via {(imageEnrichmentStatus as any)?.source === 'walmart' ? 'Walmart' : 'Amazon'}
+                </Badge>
+                {(imageEnrichmentStatus as any)?.status === 'running' && (
+                  <span className="text-sm text-muted-foreground">
+                    ~{Math.round(((imageEnrichmentStatus as any)?.totalProducts - (imageEnrichmentStatus as any)?.processed) * ((imageEnrichmentStatus as any)?.source === 'walmart' ? 0.25 : 0.55) / 60)} min remaining
+                  </span>
+                )}
               </div>
               
               {(imageEnrichmentStatus as any)?.totalProducts > 0 && (
@@ -1252,7 +1270,7 @@ export default function DataSources() {
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                      className={`h-2.5 rounded-full transition-all duration-500 ${(imageEnrichmentStatus as any)?.source === 'walmart' ? 'bg-blue-700' : 'bg-orange-500'}`}
                       style={{ width: `${Math.min(100, ((imageEnrichmentStatus as any)?.processed / (imageEnrichmentStatus as any)?.totalProducts) * 100)}%` }}
                     />
                   </div>
@@ -1266,7 +1284,7 @@ export default function DataSources() {
                 </div>
                 <div className="p-2 bg-yellow-50 rounded">
                   <div className="text-lg font-bold text-yellow-700">{(imageEnrichmentStatus as any)?.skipped?.toLocaleString() || 0}</div>
-                  <div className="text-xs text-yellow-600">Not on Amazon</div>
+                  <div className="text-xs text-yellow-600">No Match</div>
                 </div>
                 <div className="p-2 bg-red-50 rounded">
                   <div className="text-lg font-bold text-red-700">{(imageEnrichmentStatus as any)?.errors?.toLocaleString() || 0}</div>
