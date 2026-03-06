@@ -6102,6 +6102,157 @@ async function runBulkEnrichment(batchSize: number = 25, detailsPerBatch: number
   }
 }
 
+let imageEnrichmentJob: {
+  status: 'idle' | 'running' | 'completed' | 'error';
+  totalProducts: number;
+  processed: number;
+  enriched: number;
+  errors: number;
+  skipped: number;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  errorMessage: string | null;
+} = {
+  status: 'idle',
+  totalProducts: 0,
+  processed: 0,
+  enriched: 0,
+  errors: 0,
+  skipped: 0,
+  startedAt: null,
+  completedAt: null,
+  errorMessage: null,
+};
+
+async function runImageEnrichment(delayMs: number = 550) {
+  const { pool } = await import('../db');
+  const { searchCatalogItemsByUPC } = await import('./amazon-spapi-service');
+
+  imageEnrichmentJob = {
+    status: 'running',
+    totalProducts: 0,
+    processed: 0,
+    enriched: 0,
+    errors: 0,
+    skipped: 0,
+    startedAt: new Date(),
+    completedAt: null,
+    errorMessage: null,
+  };
+
+  try {
+    const productsResult = await pool.query(
+      `SELECT id, upc, name, manufacturer_name FROM products 
+       WHERE upc IS NOT NULL AND upc != '' 
+       AND (image_url IS NULL OR image_url = '')
+       ORDER BY id`
+    );
+    const products = productsResult.rows;
+    imageEnrichmentJob.totalProducts = products.length;
+    console.log(`[Image Enrichment] Starting for ${products.length} products with UPC but no image`);
+
+    for (let i = 0; i < products.length; i++) {
+      if (imageEnrichmentJob.status !== 'running') {
+        console.log(`[Image Enrichment] Stopped at product ${i}/${products.length}`);
+        break;
+      }
+
+      const product = products[i];
+      imageEnrichmentJob.processed = i + 1;
+
+      try {
+        const upc = product.upc.replace(/[^0-9]/g, '');
+        if (!upc || upc.length < 8) {
+          imageEnrichmentJob.skipped++;
+          continue;
+        }
+
+        const results = await searchCatalogItemsByUPC(upc);
+        
+        if (results.length > 0 && results[0].imageUrl) {
+          const imageUrl = results[0].imageUrl;
+          const asin = results[0].asin || null;
+          
+          await pool.query(
+            `UPDATE products SET 
+              image_url = $1,
+              image_url_large = $1,
+              updated_at = NOW()
+            WHERE id = $2 AND (image_url IS NULL OR image_url = '')`,
+            [imageUrl, product.id]
+          );
+          
+          if (asin) {
+            await pool.query(
+              `UPDATE products SET 
+                attributes = (COALESCE(attributes::jsonb, '{}'::jsonb) || jsonb_build_object('amazonAsin', $1::text, 'amazonImageSource', true))::json
+              WHERE id = $2`,
+              [asin, product.id]
+            );
+          }
+          
+          imageEnrichmentJob.enriched++;
+        } else {
+          imageEnrichmentJob.skipped++;
+        }
+      } catch (error: any) {
+        imageEnrichmentJob.errors++;
+        if (error.response?.status === 429) {
+          console.log(`[Image Enrichment] Rate limited, backing off 5s...`);
+          await sleep(5000);
+          i--;
+          imageEnrichmentJob.processed--;
+          continue;
+        }
+        if ((i % 100 === 0) || imageEnrichmentJob.errors <= 5) {
+          console.error(`[Image Enrichment] Error for product ${product.id} (UPC: ${product.upc}):`, error.message);
+        }
+      }
+
+      await sleep(delayMs);
+
+      if ((i + 1) % 100 === 0) {
+        console.log(`[Image Enrichment] Progress: ${i + 1}/${products.length} (${imageEnrichmentJob.enriched} images found, ${imageEnrichmentJob.skipped} skipped, ${imageEnrichmentJob.errors} errors)`);
+      }
+    }
+
+    imageEnrichmentJob.status = 'completed';
+    imageEnrichmentJob.completedAt = new Date();
+    console.log(`[Image Enrichment] Complete: ${imageEnrichmentJob.enriched} images found, ${imageEnrichmentJob.skipped} skipped, ${imageEnrichmentJob.errors} errors out of ${imageEnrichmentJob.totalProducts} total`);
+
+  } catch (error: any) {
+    imageEnrichmentJob.status = 'error';
+    imageEnrichmentJob.errorMessage = error.message;
+    console.error('[Image Enrichment] Fatal error:', error.message);
+  }
+}
+
+router.post('/image-enrichment/start', async (req, res) => {
+  try {
+    if (imageEnrichmentJob.status === 'running') {
+      return res.status(409).json({ error: 'Image enrichment already running', job: imageEnrichmentJob });
+    }
+    const { delayMs = 550 } = req.body || {};
+    runImageEnrichment(delayMs);
+    return res.json({ success: true, message: 'Image enrichment started', job: imageEnrichmentJob });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/image-enrichment/status', async (req, res) => {
+  return res.json(imageEnrichmentJob);
+});
+
+router.post('/image-enrichment/stop', async (req, res) => {
+  if (imageEnrichmentJob.status === 'running') {
+    imageEnrichmentJob.status = 'completed';
+    imageEnrichmentJob.completedAt = new Date();
+    return res.json({ success: true, message: 'Image enrichment stopped', job: imageEnrichmentJob });
+  }
+  return res.json({ success: false, message: 'No running job to stop' });
+});
+
 router.post('/ingram-micro/bulk-enrich', async (req, res) => {
   try {
     if (enrichmentJob.status === 'running') {

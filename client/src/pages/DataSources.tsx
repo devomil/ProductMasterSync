@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2, RefreshCw, Search, RotateCcw } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2, RefreshCw, Search, RotateCcw, ImageIcon } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -447,6 +447,7 @@ export default function DataSources() {
   const [selectedDataSourceForAutomation, setSelectedDataSourceForAutomation] = useState<DataSource | null>(null);
   const [loadingWalkthroughId, setLoadingWalkthroughId] = useState<string | null>(null);
   const [showEnrichmentPanel, setShowEnrichmentPanel] = useState(false);
+  const [showImageEnrichmentPanel, setShowImageEnrichmentPanel] = useState(false);
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -685,6 +686,44 @@ export default function DataSources() {
     onSuccess: () => {
       refetchEnrichment();
       toast({ title: "Enrichment Stopped", description: "The enrichment process has been stopped." });
+    }
+  });
+
+  const { data: imageEnrichmentStatus, refetch: refetchImageEnrichment } = useQuery({
+    queryKey: ['/api/marketplace/image-enrichment/status'],
+    refetchInterval: showImageEnrichmentPanel ? 2000 : false,
+  });
+
+  const startImageEnrichmentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/marketplace/image-enrichment/start", { delayMs: 550 });
+      return response as any;
+    },
+    onSuccess: () => {
+      setShowImageEnrichmentPanel(true);
+      refetchImageEnrichment();
+      toast({
+        title: "Image Enrichment Started",
+        description: "Looking up product images from Amazon via UPC codes. This will run in the background."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start image enrichment",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const stopImageEnrichmentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/marketplace/image-enrichment/stop");
+      return response as any;
+    },
+    onSuccess: () => {
+      refetchImageEnrichment();
+      toast({ title: "Image Enrichment Stopped", description: "The image lookup process has been stopped." });
     }
   });
 
@@ -1129,6 +1168,125 @@ export default function DataSources() {
               
               {(enrichmentStatus as any)?.errorMessage && (
                 <p className="text-sm text-red-600">Error: {(enrichmentStatus as any).errorMessage}</p>
+              )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Image Enrichment Panel */}
+      <Card className="mb-6 border-blue-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-blue-600" />
+                Product Image Enrichment
+              </CardTitle>
+              <CardDescription>
+                Look up product images from Amazon using UPC codes for products that don't have images yet
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {(imageEnrichmentStatus as any)?.status === 'running' ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => stopImageEnrichmentMutation.mutate()}
+                  disabled={stopImageEnrichmentMutation.isPending}
+                >
+                  <Power className="w-4 h-4 mr-1" />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    setShowImageEnrichmentPanel(true);
+                    startImageEnrichmentMutation.mutate();
+                  }}
+                  disabled={startImageEnrichmentMutation.isPending || (enrichmentStatus as any)?.status === 'running'}
+                >
+                  <ImageIcon className={`w-4 h-4 mr-1 ${startImageEnrichmentMutation.isPending ? 'animate-pulse' : ''}`} />
+                  {startImageEnrichmentMutation.isPending ? 'Starting...' : 'Start Image Lookup'}
+                </Button>
+              )}
+              {(imageEnrichmentStatus as any)?.status !== 'idle' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowImageEnrichmentPanel(!showImageEnrichmentPanel);
+                    refetchImageEnrichment();
+                  }}
+                >
+                  {showImageEnrichmentPanel ? 'Hide Details' : 'Show Details'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        {showImageEnrichmentPanel && (imageEnrichmentStatus as any)?.status !== 'idle' && (
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Badge variant={
+                  (imageEnrichmentStatus as any)?.status === 'running' ? 'default' :
+                  (imageEnrichmentStatus as any)?.status === 'completed' ? 'secondary' :
+                  (imageEnrichmentStatus as any)?.status === 'error' ? 'destructive' : 'outline'
+                }>
+                  {(imageEnrichmentStatus as any)?.status === 'running' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                  {(imageEnrichmentStatus as any)?.status?.toUpperCase()}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  ~{Math.round(((imageEnrichmentStatus as any)?.totalProducts - (imageEnrichmentStatus as any)?.processed) * 0.55 / 60)} min remaining
+                </span>
+              </div>
+              
+              {(imageEnrichmentStatus as any)?.totalProducts > 0 && (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Progress: {(imageEnrichmentStatus as any)?.processed?.toLocaleString()} / {(imageEnrichmentStatus as any)?.totalProducts?.toLocaleString()}</span>
+                    <span>{Math.round(((imageEnrichmentStatus as any)?.processed / (imageEnrichmentStatus as any)?.totalProducts) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, ((imageEnrichmentStatus as any)?.processed / (imageEnrichmentStatus as any)?.totalProducts) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="p-2 bg-green-50 rounded">
+                  <div className="text-lg font-bold text-green-700">{(imageEnrichmentStatus as any)?.enriched?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-green-600">Images Found</div>
+                </div>
+                <div className="p-2 bg-yellow-50 rounded">
+                  <div className="text-lg font-bold text-yellow-700">{(imageEnrichmentStatus as any)?.skipped?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-yellow-600">Not on Amazon</div>
+                </div>
+                <div className="p-2 bg-red-50 rounded">
+                  <div className="text-lg font-bold text-red-700">{(imageEnrichmentStatus as any)?.errors?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-red-600">Errors</div>
+                </div>
+                <div className="p-2 bg-blue-50 rounded">
+                  <div className="text-lg font-bold text-blue-700">{(imageEnrichmentStatus as any)?.totalProducts?.toLocaleString() || 0}</div>
+                  <div className="text-xs text-blue-600">Need Images</div>
+                </div>
+              </div>
+
+              {(imageEnrichmentStatus as any)?.startedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Started: {new Date((imageEnrichmentStatus as any).startedAt).toLocaleString()}
+                  {(imageEnrichmentStatus as any)?.completedAt && ` · Completed: ${new Date((imageEnrichmentStatus as any).completedAt).toLocaleString()}`}
+                </p>
+              )}
+              
+              {(imageEnrichmentStatus as any)?.errorMessage && (
+                <p className="text-sm text-red-600">Error: {(imageEnrichmentStatus as any).errorMessage}</p>
               )}
             </div>
           </CardContent>
