@@ -3397,14 +3397,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get the latest mapping template for this data source type 
-      console.log('Looking for mapping template with sourceType:', dataSource.type);
-      const mappingTemplateResults = await db
-        .select()
-        .from(mappingTemplates)
-        .where(eq(mappingTemplates.sourceType, dataSource.type))
-        .orderBy(desc(mappingTemplates.updatedAt))
-        .limit(1);
+      // Get the mapping template for this data source - prefer supplier-specific, fallback to type-only
+      const supplierId = dataSource.supplierId;
+      console.log('Looking for mapping template with sourceType:', dataSource.type, 'supplierId:', supplierId);
+      
+      let mappingTemplateResults: any[] = [];
+      if (supplierId) {
+        mappingTemplateResults = await db
+          .select()
+          .from(mappingTemplates)
+          .where(and(eq(mappingTemplates.sourceType, dataSource.type), eq(mappingTemplates.supplierId, supplierId)))
+          .orderBy(desc(mappingTemplates.updatedAt))
+          .limit(1);
+      }
+      if (mappingTemplateResults.length === 0) {
+        mappingTemplateResults = await db
+          .select()
+          .from(mappingTemplates)
+          .where(eq(mappingTemplates.sourceType, dataSource.type))
+          .orderBy(desc(mappingTemplates.updatedAt))
+          .limit(1);
+      }
       
       console.log('Found mapping templates:', mappingTemplateResults.length);
         
@@ -3905,8 +3918,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the next available EDC number for unique SKU generation
       let nextEDCNumber = await getNextEDCNumber();
       
-      // Get the supplier ID from the data source
-      const supplierId = dataSource.supplierId;
       console.log(`Associating products with supplier ID: ${supplierId}`);
       
       const transformLimit = (fullImport || recordLimit === 0) ? sampleResult.data.length : Math.min(recordLimit || limit || 50, sampleResult.data.length);
@@ -4238,12 +4249,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supplierName = supplier?.name?.toLowerCase() || '';
       }
       
-      const mappingTemplateResults = await db
-        .select()
-        .from(mappingTemplates)
-        .where(eq(mappingTemplates.sourceType, dataSource.type))
-        .orderBy(desc(mappingTemplates.updatedAt))
-        .limit(1);
+      let mappingTemplateResults: any[] = [];
+      if (dataSource.supplierId) {
+        mappingTemplateResults = await db
+          .select()
+          .from(mappingTemplates)
+          .where(and(eq(mappingTemplates.sourceType, dataSource.type), eq(mappingTemplates.supplierId, dataSource.supplierId)))
+          .orderBy(desc(mappingTemplates.updatedAt))
+          .limit(1);
+      }
+      if (mappingTemplateResults.length === 0) {
+        mappingTemplateResults = await db
+          .select()
+          .from(mappingTemplates)
+          .where(eq(mappingTemplates.sourceType, dataSource.type))
+          .orderBy(desc(mappingTemplates.updatedAt))
+          .limit(1);
+      }
         
       if (mappingTemplateResults.length === 0) {
         return res.status(400).json({ success: false, message: 'No mapping template found.' });
@@ -6247,6 +6269,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: (error as Error).message });
     }
   });
+
+  // Seed supplier-specific mapping templates if missing
+  (async () => {
+    try {
+      const ingramSupplier = await db.select().from(suppliers).where(eq(suppliers.name, 'Ingram Micro')).limit(1);
+      if (ingramSupplier.length > 0) {
+        const ingramId = ingramSupplier[0].id;
+        const existing = await db.select().from(mappingTemplates)
+          .where(and(eq(mappingTemplates.sourceType, 'sftp'), eq(mappingTemplates.supplierId, ingramId)))
+          .limit(1);
+        if (existing.length === 0) {
+          await db.insert(mappingTemplates).values({
+            name: 'Ingram Micro Mapping',
+            description: 'SFTP mapping for Ingram Micro PRICE.ZIP headerless CSV',
+            sourceType: 'sftp',
+            supplierId: ingramId,
+            purpose: 'catalog',
+            mappings: {
+              upc: 'UPC Code',
+              usin: 'Ingram Part Number',
+              mapPrice: 'MAP Price',
+              mrpPrice: 'MSRP',
+              yourCost: 'Customer Price',
+              listPrice: 'Retail Price',
+              manufacturerPartNumber: 'Vendor Part Number',
+              'customFields.Status': 'Status',
+              'customFields.Weight': 'Weight',
+              'customFields.Vendor Name': 'Vendor Name',
+              'customFields.Freight Cost': 'Freight Cost',
+              'customFields.Special Price': 'Special Price',
+              'customFields.Direct Ship Flag': 'Direct Ship Flag',
+              'customFields.Availability Flag': 'Availability Flag',
+              'customFields.Reserved_15': 'Reserved_15',
+              'customFields.Reserved_17': 'Reserved_17',
+            },
+          });
+          console.log('[Seed] Created Ingram Micro SFTP mapping template');
+        }
+      }
+      // Ensure CWR mapping template has supplier_id set
+      const cwrSupplier = await db.select().from(suppliers).where(eq(suppliers.name, 'CWR Distribution')).limit(1);
+      if (cwrSupplier.length > 0) {
+        const cwrId = cwrSupplier[0].id;
+        await pool.query(
+          `UPDATE mapping_templates SET supplier_id = $1 WHERE name ILIKE '%CWR%' AND source_type = 'sftp' AND (supplier_id IS NULL OR supplier_id != $1)`,
+          [cwrId]
+        );
+      }
+    } catch (seedErr) {
+      console.error('[Seed] Mapping template seed error:', seedErr);
+    }
+  })();
 
   const httpServer = createServer(app);
   return httpServer;
