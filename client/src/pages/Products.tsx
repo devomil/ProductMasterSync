@@ -1,19 +1,16 @@
-import { useState, useReducer, useEffect, useCallback } from "react";
+import { useState, useReducer, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
 import { 
   Package2, 
   Plus, 
   Search, 
-  Filter, 
   RefreshCcw,
-  ArrowUpDown,
   MoreHorizontal,
   Edit,
   Trash2,
   Download,
   Upload,
   X,
-  Check,
   Tag,
   Barcode,
   AlignLeft,
@@ -22,15 +19,14 @@ import {
   Truck,
   BadgePercent,
   ShoppingBag,
-  Mail,
   Gauge,
   ChevronLeft,
   ChevronRight,
-  Sliders,
   Warehouse
 } from "lucide-react";
 import { 
-  useProducts, 
+  useProductSearch, 
+  useManufacturers,
   ProductSearchFilters, 
   SearchType, 
   InventoryStatusType 
@@ -97,54 +93,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormDescription,
-} from "@/components/ui/form";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { FulfillmentDrawer } from "@/components/products/FulfillmentDrawer";
 // import { AmazonMarketData } from "@/components/products/AmazonMarketData";
-
-// Search filter schema
-const searchFilterSchema = z.object({
-  searchType: z.enum(['all', 'sku', 'mfgPart', 'upc', 'title', 'description', 'category', 'manufacturer']),
-  query: z.string().optional(),
-  category: z.string().optional(),
-  manufacturer: z.string().optional(),
-  status: z.string().optional(),
-  supplier: z.string().optional(),
-  isRemanufactured: z.boolean().optional(),
-  isCloseout: z.boolean().optional(),
-  isOnSale: z.boolean().optional(),
-  hasRebate: z.boolean().optional(),
-  hasFreeShipping: z.boolean().optional(),
-  priceMin: z.string().optional(),
-  priceMax: z.string().optional(),
-  inventoryStatus: z.enum(['all', 'inStock', 'lowStock', 'outOfStock']).optional(),
-});
 
 // Product Flag Component
 interface ProductFlagProps {
@@ -200,18 +156,17 @@ const filterReducer = (state: ProductSearchFilters, action: FilterAction): Produ
 
 // Main component
 const Products = () => {
-  // State for basic and advanced search
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [jumpToPageInput, setJumpToPageInput] = useState("");
-  const [selectedSupplierId, setSelectedSupplierId] = useState<number | undefined>(undefined);
-  const [selectedManufacturer, setSelectedManufacturer] = useState<string | undefined>(undefined);
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // State for view options
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable' | 'spacious'>('comfortable');
-  const [showFullDescriptions, setShowFullDescriptions] = useState(false);
   
   // State for product drawers
   const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string, upc: string | null} | null>(null);
@@ -237,27 +192,36 @@ const Products = () => {
     hasFreeShipping: false,
   });
 
-  // Form for advanced search dialog
-  const form = useForm({
-    resolver: zodResolver(searchFilterSchema),
-    defaultValues: {
-      searchType: 'all',
-      query: '',
-      category: '',
-      status: '',
-      supplier: '',
-      manufacturer: '',
-      isRemanufactured: false,
-      isCloseout: false,
-      isOnSale: false,
-      hasRebate: false,
-      hasFreeShipping: false,
-      inventoryStatus: 'all' as const,
-    },
-  });
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setCurrentPage(1);
+    }, 300);
+  }, []);
 
-  // Get products data from API with server-side search and filters
-  const { products, pagination, isLoading } = useProducts(currentPage, itemsPerPage, searchQuery, selectedSupplierId, selectedManufacturer);
+  const searchFilters: ProductSearchFilters = {
+    searchType: filters.searchType || 'all',
+    query: debouncedSearch || filters.query || undefined,
+    category: filters.category || undefined,
+    status: filters.status || undefined,
+    supplier: filters.supplier || undefined,
+    manufacturer: filters.manufacturer || undefined,
+    isRemanufactured: filters.isRemanufactured || false,
+    isCloseout: filters.isCloseout || false,
+    isOnSale: filters.isOnSale || false,
+    hasRebate: filters.hasRebate || false,
+    hasFreeShipping: filters.hasFreeShipping || false,
+    priceMin: priceMin || undefined,
+    priceMax: priceMax || undefined,
+    inventoryStatus: filters.inventoryStatus || 'all',
+    page: currentPage,
+    limit: itemsPerPage,
+  };
+
+  // All filtering is now server-side via /api/products/search
+  const { products, pagination, isLoading } = useProductSearch(searchFilters);
   
   const formatApproximateCount = useCallback((count: number): string => {
     if (count > 1000000) return `~${(count / 1000000).toFixed(1)}M`;
@@ -299,11 +263,9 @@ const Products = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, pagination?.totalPages]);
 
-  // Get categories data
   const { categories, isLoading: categoriesLoading } = useCategories();
-  
-  // Get suppliers data
   const { suppliers } = useSuppliers();
+  const { manufacturers: allManufacturers } = useManufacturers();
   
   // Get CWR mapping template to determine dynamic columns
   const cwrTemplate = mappingTemplates?.find(t => t.name === 'CWR');
@@ -389,164 +351,38 @@ const Products = () => {
     return fieldMap[field] || product[field] || '-';
   };
 
-  // Helper function to check if any meaningful filters are applied
+  // Check if any meaningful filters are active (for UI display)
   const hasActiveFilters = () => {
-    return filters.query || 
-           (filters.category && filters.category !== '') ||
-           (filters.supplier && filters.supplier !== '') ||
-           (filters.manufacturer && filters.manufacturer !== '') ||
+    return searchQuery || filters.query || 
+           (filters.category && filters.category !== '' && filters.category !== 'all_categories') ||
+           (filters.supplier && filters.supplier !== '' && filters.supplier !== 'all_suppliers') ||
+           (filters.manufacturer && filters.manufacturer !== '' && filters.manufacturer !== 'all_manufacturers') ||
+           (filters.status && filters.status !== '' && filters.status !== 'all_statuses') ||
            (filters.inventoryStatus && filters.inventoryStatus !== 'all') ||
            filters.isRemanufactured || filters.isCloseout || filters.isOnSale || 
-           filters.hasRebate || filters.hasFreeShipping;
+           filters.hasRebate || filters.hasFreeShipping ||
+           priceMin || priceMax;
   };
 
-  // Filtering logic - only for advanced filters (search is now server-side)
-  const filteredProducts = products.filter(product => {
-    // Advanced filtering (client-side)
-    if (hasActiveFilters()) {
-      let matches = true;
-
-      // Text search based on searchType
-      if (filters.query) {
-        const query = filters.query.toLowerCase();
-        const normalizedQuery = query.replace(/\s+/g, '');
-        const normalizedSku = product.sku.toLowerCase().replace(/\s+/g, '');
-        const normalizedUpc = (product.upc || '').toLowerCase().replace(/\s+/g, '');
-        const normalizedMfgPart = (product.manufacturerPartNumber || '').toLowerCase().replace(/\s+/g, '');
-        
-        switch (filters.searchType) {
-          case 'sku':
-            matches = matches && (normalizedSku.includes(normalizedQuery) || product.sku.toLowerCase().includes(query));
-            break;
-          case 'mfgPart':
-            matches = matches && (normalizedMfgPart.includes(normalizedQuery) || (product.manufacturerPartNumber?.toLowerCase().includes(query) || false));
-            break;
-          case 'upc':
-            matches = matches && (normalizedUpc.includes(normalizedQuery) || (product.upc?.toLowerCase().includes(query) || false));
-            break;
-          case 'title':
-            matches = matches && product.name.toLowerCase().includes(query);
-            break;
-          case 'description':
-            matches = matches && (product.description?.toLowerCase().includes(query) || false);
-            break;
-          case 'category':
-            // This would need to match category name if available
-            matches = matches && (product.categoryId?.toString() === filters.category || false);
-            break;
-          case 'manufacturer':
-            matches = matches && (product.manufacturerName?.toLowerCase().includes(query) || false);
-            break;
-          case 'all':
-            matches = matches && (
-              normalizedSku.includes(normalizedQuery) ||
-              product.sku.toLowerCase().includes(query) ||
-              normalizedMfgPart.includes(normalizedQuery) ||
-              (product.manufacturerPartNumber?.toLowerCase().includes(query) || false) ||
-              normalizedUpc.includes(normalizedQuery) ||
-              (product.upc?.toLowerCase().includes(query) || false) ||
-              product.name.toLowerCase().includes(query) ||
-              (product.description?.toLowerCase().includes(query) || false) ||
-              (product.manufacturerName?.toLowerCase().includes(query) || false)
-            );
-            break;
-        }
-      }
-
-      // Category filter
-      if (filters.category && filters.category !== 'all_categories') {
-        // For demonstration purposes - match the category name
-        const category = product.categoryName || '';
-        matches = matches && category === filters.category;
-      }
-
-      // Status filter
-      if (filters.status && filters.status !== 'all_statuses') {
-        matches = matches && product.status === filters.status;
-      }
-      
-      // Supplier filter
-      if (filters.supplier && filters.supplier !== 'all_suppliers') {
-        // This would check against supplier name in a real implementation
-        // Here we're simulating by reusing existing data
-        matches = matches && product.supplier === filters.supplier;
-      }
-      
-      // Manufacturer filter
-      if (filters.manufacturer && filters.manufacturer !== 'all_manufacturers') {
-        matches = matches && product.manufacturerName === filters.manufacturer;
-      }
-
-      // Special flags
-      if (filters.isRemanufactured) matches = matches && (product.isRemanufactured || false);
-      if (filters.isCloseout) matches = matches && (product.isCloseout || false);
-      if (filters.isOnSale) matches = matches && (product.isOnSale || false);
-      if (filters.hasRebate) matches = matches && (product.hasRebate || false);
-      if (filters.hasFreeShipping) matches = matches && (product.hasFreeShipping || false);
-
-      // Inventory status
-      if (filters.inventoryStatus !== 'all') {
-        const qty = product.inventoryQuantity || 0;
-        const threshold = product.reorderThreshold || 5;
-
-        switch (filters.inventoryStatus) {
-          case 'inStock':
-            matches = matches && qty > threshold;
-            break;
-          case 'lowStock':
-            matches = matches && qty > 0 && qty <= threshold;
-            break;
-          case 'outOfStock':
-            matches = matches && qty <= 0;
-            break;
-        }
-      }
-
-      return matches;
-    }
-
-    return true;
-  });
-
-  const onSubmitSearch = (data: any) => {
-    dispatchFilters({
-      type: 'APPLY_FILTERS',
-      filters: {
-        searchType: data.searchType as SearchType,
-        query: data.query || "",
-        category: data.category || "",
-        status: data.status || "",
-        supplier: data.supplier || "",
-        isRemanufactured: data.isRemanufactured || false,
-        isCloseout: data.isCloseout || false,
-        isOnSale: data.isOnSale || false,
-        hasRebate: data.hasRebate || false,
-        hasFreeShipping: data.hasFreeShipping || false,
-        priceMin: data.priceMin,
-        priceMax: data.priceMax,
-        inventoryStatus: data.inventoryStatus as InventoryStatusType || "all"
-      }
-    });
-    setIsAdvancedSearchOpen(false);
-  };
+  const activeFilterCount = [
+    searchQuery || filters.query,
+    filters.category && filters.category !== '' && filters.category !== 'all_categories',
+    filters.supplier && filters.supplier !== '' && filters.supplier !== 'all_suppliers',
+    filters.manufacturer && filters.manufacturer !== '' && filters.manufacturer !== 'all_manufacturers',
+    filters.status && filters.status !== '' && filters.status !== 'all_statuses',
+    filters.inventoryStatus && filters.inventoryStatus !== 'all',
+    filters.isRemanufactured, filters.isCloseout, filters.isOnSale,
+    filters.hasRebate, filters.hasFreeShipping,
+    priceMin, priceMax,
+  ].filter(Boolean).length;
 
   const resetFilters = () => {
-    const defaultFilters = {
-      searchType: 'all' as SearchType,
-      query: '',
-      category: '',
-      status: '',
-      supplier: '',
-      isRemanufactured: false,
-      isCloseout: false,
-      isOnSale: false,
-      hasRebate: false,
-      hasFreeShipping: false,
-      inventoryStatus: 'all' as InventoryStatusType,
-    };
     dispatchFilters({ type: 'RESET_FILTERS' });
-    form.reset(defaultFilters);
     setSearchQuery("");
+    setDebouncedSearch("");
+    setPriceMin("");
+    setPriceMax("");
+    setCurrentPage(1);
   };
 
   const getSpecialFlagComponents = (product: any) => {
@@ -693,239 +529,55 @@ const Products = () => {
             </Button>
           </div>
 
-          {/* Search bar and basic controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 sm:space-x-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-full sm:w-72">
+          {/* Search bar */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative flex-1 sm:max-w-lg">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
                 <Input 
                   type="search" 
-                  placeholder="Search products..."
+                  placeholder="Search products... (e.g. HP thin client i5 WiFi)"
                   className="pl-9" 
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                 />
               </div>
-              <Select
-                value={selectedSupplierId?.toString() || "all"}
-                onValueChange={(v) => {
-                  setSelectedSupplierId(v === "all" ? undefined : parseInt(v, 10));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[180px] h-9">
-                  <Truck className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
-                  <SelectValue placeholder="All Suppliers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Suppliers</SelectItem>
-                  {suppliers?.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id.toString()}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={selectedManufacturer || "all"}
-                onValueChange={(v) => {
-                  setSelectedManufacturer(v === "all" ? undefined : v);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[180px] h-9">
-                  <Factory className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
-                  <SelectValue placeholder="All Manufacturers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Manufacturers</SelectItem>
-                  {Array.from(new Set(products?.map((p: any) => p.manufacturerName).filter(Boolean) || [])).sort().map((m: any) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(selectedSupplierId || selectedManufacturer) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedSupplierId(undefined);
-                    setSelectedManufacturer(undefined);
-                    setCurrentPage(1);
-                  }}
-                  className="h-9 px-2"
-                >
-                  <X className="h-3.5 w-3.5 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {/* View Options */}
-              <div className="flex items-center space-x-1 border rounded-md p-1">
-                <Button
-                  variant={viewMode === 'compact' ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode('compact')}
-                  className="h-7 px-2"
-                  title="Compact View"
-                >
-                  <LayoutGrid className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant={viewMode === 'comfortable' ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode('comfortable')}
-                  className="h-7 px-2"
-                  title="Comfortable View"
-                >
-                  <AlignLeft className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant={viewMode === 'spacious' ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode('spacious')}
-                  className="h-7 px-2"
-                  title="Spacious View"
-                >
-                  <Package2 className="h-3 w-3" />
-                </Button>
-              </div>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setIsAdvancedSearchOpen(true)}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Advanced Search
-              </Button>
-              <Button variant="outline" size="sm" onClick={resetFilters}>
-                <X className="mr-2 h-4 w-4" />
-                Clear Filters
-              </Button>
-              <Button variant="outline" size="sm">
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Refresh
-              </Button>
-            </div>
-          </div>
-          
-          {/* Active Filters Display */}
-          {Object.values(filters).some(v => v && v !== '' && v !== 'all') && (
-            <div className="bg-neutral-50 border border-neutral-200 rounded-md p-3">
-              <h4 className="text-sm font-medium mb-2">Active Filters:</h4>
               <div className="flex flex-wrap gap-2">
-                {filters.category && (
-                  <Badge variant="outline" className="bg-white">
-                    Category: {filters.category}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-4 w-4 ml-1"
-                      onClick={() => dispatchFilters({
-                        type: 'SET_FILTER',
-                        field: 'category',
-                        value: ''
-                      })}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
+                <div className="flex items-center space-x-1 border rounded-md p-1">
+                  <Button variant={viewMode === 'compact' ? "default" : "ghost"} size="sm" onClick={() => setViewMode('compact')} className="h-7 px-2" title="Compact View">
+                    <LayoutGrid className="h-3 w-3" />
+                  </Button>
+                  <Button variant={viewMode === 'comfortable' ? "default" : "ghost"} size="sm" onClick={() => setViewMode('comfortable')} className="h-7 px-2" title="Comfortable View">
+                    <AlignLeft className="h-3 w-3" />
+                  </Button>
+                  <Button variant={viewMode === 'spacious' ? "default" : "ghost"} size="sm" onClick={() => setViewMode('spacious')} className="h-7 px-2" title="Spacious View">
+                    <Package2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                {hasActiveFilters() && (
+                  <Button variant="outline" size="sm" onClick={resetFilters}>
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    Clear All ({activeFilterCount})
+                  </Button>
                 )}
-                {filters.status && (
-                  <Badge variant="outline" className="bg-white">
-                    Status: {filters.status}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-4 w-4 ml-1"
-                      onClick={() => dispatchFilters({
-                        type: 'SET_FILTER',
-                        field: 'status',
-                        value: ''
-                      })}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.supplier && (
-                  <Badge variant="outline" className="bg-white">
-                    Supplier: {filters.supplier}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-4 w-4 ml-1"
-                      onClick={() => dispatchFilters({
-                        type: 'SET_FILTER',
-                        field: 'supplier',
-                        value: ''
-                      })}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )}
+                <Button variant="outline" size="sm">
+                  <RefreshCcw className="mr-1 h-3.5 w-3.5" />
+                  Refresh
+                </Button>
               </div>
             </div>
-          )}
 
-          {/* Quick filter dropdowns */}
-          <div className="flex flex-wrap gap-3">
-            <div className="w-full sm:w-auto">
+            {/* Filter bar - all filters in one compact row */}
+            <div className="flex flex-wrap items-center gap-2">
               <Select 
-                value={filters.category || ""} 
-                onValueChange={(value) => dispatchFilters({
-                  type: 'SET_FILTER',
-                  field: 'category',
-                  value
-                })}
+                value={filters.supplier || "all_suppliers"} 
+                onValueChange={(value) => {
+                  dispatchFilters({ type: 'SET_FILTER', field: 'supplier', value });
+                  setCurrentPage(1);
+                }}
               >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_categories">All Categories</SelectItem>
-                  {categories.slice(1).map((category) => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="w-full sm:w-auto">
-              <Select 
-                value={filters.status || ""} 
-                onValueChange={(value) => dispatchFilters({
-                  type: 'SET_FILTER',
-                  field: 'status',
-                  value
-                })}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_statuses">All Statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="w-full sm:w-auto">
-              <Select 
-                value={filters.supplier || ""} 
-                onValueChange={(value) => dispatchFilters({
-                  type: 'SET_FILTER',
-                  field: 'supplier',
-                  value
-                })}
-              >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[160px] h-8 text-xs">
+                  <Truck className="mr-1 h-3 w-3 text-muted-foreground" />
                   <SelectValue placeholder="Supplier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -937,31 +589,102 @@ const Products = () => {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="w-full sm:w-auto">
+
               <Select 
-                value={filters.manufacturer || ""} 
-                onValueChange={(value) => dispatchFilters({
-                  type: 'SET_FILTER',
-                  field: 'manufacturer',
-                  value
-                })}
+                value={filters.category || "all_categories"} 
+                onValueChange={(value) => {
+                  dispatchFilters({ type: 'SET_FILTER', field: 'category', value });
+                  setCurrentPage(1);
+                }}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[160px] h-8 text-xs">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_categories">All Categories</SelectItem>
+                  {categories.slice(1).map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select 
+                value={filters.status || "all_statuses"} 
+                onValueChange={(value) => {
+                  dispatchFilters({ type: 'SET_FILTER', field: 'status', value });
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_statuses">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select 
+                value={filters.manufacturer || "all_manufacturers"} 
+                onValueChange={(value) => {
+                  dispatchFilters({ type: 'SET_FILTER', field: 'manufacturer', value });
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[160px] h-8 text-xs">
+                  <Factory className="mr-1 h-3 w-3 text-muted-foreground" />
                   <SelectValue placeholder="Manufacturer" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all_manufacturers">All Manufacturers</SelectItem>
-                  <SelectItem value="TechVision">TechVision</SelectItem>
-                  <SelectItem value="OfficeMax">OfficeMax</SelectItem>
-                  <SelectItem value="AudioTech">AudioTech</SelectItem>
-                  <SelectItem value="WoodWorks">WoodWorks</SelectItem>
+                  {allManufacturers.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="ml-auto flex items-center gap-2">
+
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Price:</span>
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  className="w-[80px] h-8 text-xs"
+                  value={priceMin}
+                  onChange={(e) => { setPriceMin(e.target.value); setCurrentPage(1); }}
+                />
+                <span className="text-xs text-muted-foreground">-</span>
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  className="w-[80px] h-8 text-xs"
+                  value={priceMax}
+                  onChange={(e) => { setPriceMax(e.target.value); setCurrentPage(1); }}
+                />
+              </div>
+
+              <Select 
+                value={filters.inventoryStatus || "all"} 
+                onValueChange={(value) => {
+                  dispatchFilters({ type: 'SET_FILTER', field: 'inventoryStatus', value });
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <Warehouse className="mr-1 h-3 w-3 text-muted-foreground" />
+                  <SelectValue placeholder="Stock" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stock</SelectItem>
+                  <SelectItem value="inStock">In Stock</SelectItem>
+                  <SelectItem value="lowStock">Low Stock</SelectItem>
+                  <SelectItem value="outOfStock">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="ml-auto flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -986,6 +709,7 @@ const Products = () => {
                 Export
               </Button>
             </div>
+          </div>
           </div>
 
           {/* Products Table */}
@@ -1044,7 +768,7 @@ const Products = () => {
                     </TableRow>
                   ))
                 ) : (
-                  filteredProducts.map((product, index) => (
+                  products.map((product, index) => (
                     <TableRow key={`${product.id}-${index}`} className={`
                       ${viewMode === 'compact' ? 'h-10' : 
                         viewMode === 'spacious' ? 'h-16' : 
@@ -1307,329 +1031,6 @@ const Products = () => {
           </div>
         </div>
       </div>
-
-      {/* Advanced Search Dialog */}
-      <Dialog open={isAdvancedSearchOpen} onOpenChange={setIsAdvancedSearchOpen}>
-        <DialogContent className="sm:max-w-md md:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Advanced Search</DialogTitle>
-            <DialogDescription>
-              Search and filter products with multiple criteria
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitSearch)} className="space-y-6">
-              <Tabs defaultValue="general" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="general">General</TabsTrigger>
-                  <TabsTrigger value="attributes">Attributes</TabsTrigger>
-                  <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="general" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="searchType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Search In</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select field" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Fields</SelectItem>
-                              <SelectItem value="sku">SKU</SelectItem>
-                              <SelectItem value="mfgPart">Manufacturer Part #</SelectItem>
-                              <SelectItem value="upc">UPC</SelectItem>
-                              <SelectItem value="title">Product Name</SelectItem>
-                              <SelectItem value="description">Description</SelectItem>
-                              <SelectItem value="manufacturer">Manufacturer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="query"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Search Term</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Enter search term" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Category</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="All Categories" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all_categories">All Categories</SelectItem>
-                              {categories.slice(1).map((category) => (
-                                <SelectItem key={category.id} value={category.name}>
-                                  {category.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="supplier"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Supplier</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="All Suppliers" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all_suppliers">All Suppliers</SelectItem>
-                              {suppliers.map((supplier) => (
-                                <SelectItem key={supplier.id} value={supplier.name}>
-                                  {supplier.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="manufacturer"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Manufacturer</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="All Manufacturers" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all_manufacturers">All Manufacturers</SelectItem>
-                              <SelectItem value="TechVision">TechVision</SelectItem>
-                              <SelectItem value="OfficeMax">OfficeMax</SelectItem>
-                              <SelectItem value="AudioTech">AudioTech</SelectItem>
-                              <SelectItem value="WoodWorks">WoodWorks</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="attributes" className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="isRemanufactured"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Remanufactured</FormLabel>
-                            <FormDescription>
-                              Products that have been refurbished or remanufactured
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="isCloseout"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Closeout</FormLabel>
-                            <FormDescription>
-                              Products marked for closeout or discontinuation
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="isOnSale"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>On Sale</FormLabel>
-                            <FormDescription>
-                              Products currently on sale or discount
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="hasRebate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Has Rebate</FormLabel>
-                            <FormDescription>
-                              Products eligible for rebate or cash back
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="hasFreeShipping"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Free Shipping</FormLabel>
-                            <FormDescription>
-                              Products eligible for free shipping
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="inventory" className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="inventoryStatus"
-                    render={({ field }) => (
-                      <FormItem className="space-y-2">
-                        <FormLabel>Inventory Status</FormLabel>
-                        <FormControl>
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="all"
-                                className="text-primary"
-                                value="all"
-                                checked={field.value === 'all'}
-                                onChange={() => field.onChange('all')}
-                              />
-                              <label htmlFor="all" className="text-sm">All</label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="inStock"
-                                className="text-primary"
-                                value="inStock"
-                                checked={field.value === 'inStock'}
-                                onChange={() => field.onChange('inStock')}
-                              />
-                              <label htmlFor="inStock" className="text-sm">In Stock</label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="lowStock"
-                                className="text-primary"
-                                value="lowStock"
-                                checked={field.value === 'lowStock'}
-                                onChange={() => field.onChange('lowStock')}
-                              />
-                              <label htmlFor="lowStock" className="text-sm">Low Stock</label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="outOfStock"
-                                className="text-primary"
-                                value="outOfStock"
-                                checked={field.value === 'outOfStock'}
-                                onChange={() => field.onChange('outOfStock')}
-                              />
-                              <label htmlFor="outOfStock" className="text-sm">Out of Stock</label>
-                            </div>
-                          </div>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </TabsContent>
-              </Tabs>
-
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => {
-                  resetFilters();
-                  setIsAdvancedSearchOpen(false);
-                }}>
-                  Reset
-                </Button>
-                <Button type="submit">Apply Filters</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
 
       {/* Fulfillment Management Drawer */}
       <FulfillmentDrawer 

@@ -10,6 +10,7 @@ export interface ProductSearchFilters {
   category?: string;
   status?: string;
   supplier?: string;
+  supplierId?: number;
   manufacturer?: string;
   isRemanufactured?: boolean;
   isCloseout?: boolean;
@@ -73,14 +74,14 @@ export function useProducts(page?: number, limit?: number, search?: string, supp
 }
 
 export function useProductSearch(filters: ProductSearchFilters) {
-  // Build query string from filters
   const queryParams = new URLSearchParams();
   
   if (filters.query) queryParams.append('query', filters.query);
-  if (filters.searchType) queryParams.append('searchType', filters.searchType);
-  if (filters.category) queryParams.append('category', filters.category);
-  if (filters.supplier) queryParams.append('supplier', filters.supplier);
-  if (filters.manufacturer) queryParams.append('manufacturer', filters.manufacturer);
+  if (filters.searchType && filters.searchType !== 'all') queryParams.append('searchType', filters.searchType);
+  if (filters.category && filters.category !== 'all_categories') queryParams.append('category', filters.category);
+  if (filters.supplier && filters.supplier !== 'all_suppliers') queryParams.append('supplier', filters.supplier);
+  if (filters.supplierId) queryParams.append('supplierId', filters.supplierId.toString());
+  if (filters.manufacturer && filters.manufacturer !== 'all_manufacturers') queryParams.append('manufacturer', filters.manufacturer);
   if (filters.isRemanufactured) queryParams.append('isRemanufactured', 'true');
   if (filters.isCloseout) queryParams.append('isCloseout', 'true');
   if (filters.isOnSale) queryParams.append('isOnSale', 'true');
@@ -88,11 +89,12 @@ export function useProductSearch(filters: ProductSearchFilters) {
   if (filters.hasFreeShipping) queryParams.append('hasFreeShipping', 'true');
   if (filters.priceMin) queryParams.append('priceMin', filters.priceMin);
   if (filters.priceMax) queryParams.append('priceMax', filters.priceMax);
-  if (filters.inventoryStatus) queryParams.append('inventoryStatus', filters.inventoryStatus);
+  if (filters.inventoryStatus && filters.inventoryStatus !== 'all') queryParams.append('inventoryStatus', filters.inventoryStatus);
   if (filters.page) queryParams.append('page', filters.page.toString());
   if (filters.limit) queryParams.append('limit', filters.limit.toString());
   if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
   if (filters.sortDir) queryParams.append('sortDir', filters.sortDir);
+  if (filters.status && filters.status !== 'all_statuses') queryParams.append('status', filters.status);
   
   const queryString = queryParams.toString();
   const url = `/api/products/search${queryString ? `?${queryString}` : ''}`;
@@ -104,16 +106,33 @@ export function useProductSearch(filters: ProductSearchFilters) {
     error,
   } = useQuery<ProductSearchResponse>({
     queryKey: ['/api/products/search', filters],
-    enabled: Object.keys(filters).length > 0
+    queryFn: async () => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to search products');
+      return res.json();
+    },
   });
 
   return {
     products: data?.products ?? [],
-    pagination: data?.pagination ?? { page: 1, limit: 10, totalItems: 0, totalPages: 0 },
+    pagination: data?.pagination ?? { page: 1, limit: 50, totalItems: 0, totalPages: 0 },
     isLoading,
     isError,
     error,
   };
+}
+
+export function useManufacturers() {
+  const { data, isLoading } = useQuery<string[]>({
+    queryKey: ['/api/products/manufacturers'],
+    queryFn: async () => {
+      const res = await fetch('/api/products/manufacturers');
+      if (!res.ok) throw new Error('Failed to fetch manufacturers');
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+  return { manufacturers: data ?? [], isLoading };
 }
 
 export function useProductDetails(productId: number | undefined) {

@@ -1044,6 +1044,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Full-featured product search with all server-side filters
+  app.get("/api/products/manufacturers", async (req, res) => {
+    try {
+      const manufacturers = await PerformanceOptimizedQueries.getManufacturers();
+      res.json(manufacturers);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.get("/api/products/search", async (req, res) => {
+    try {
+      const params = {
+        query: req.query.query as string,
+        searchType: req.query.searchType as string,
+        category: req.query.category as string,
+        categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined,
+        supplier: req.query.supplier as string,
+        supplierId: req.query.supplierId ? parseInt(req.query.supplierId as string) : undefined,
+        manufacturer: req.query.manufacturer as string,
+        status: req.query.status as string,
+        priceMin: req.query.priceMin ? parseFloat(req.query.priceMin as string) : undefined,
+        priceMax: req.query.priceMax ? parseFloat(req.query.priceMax as string) : undefined,
+        isRemanufactured: req.query.isRemanufactured === 'true',
+        isCloseout: req.query.isCloseout === 'true',
+        isOnSale: req.query.isOnSale === 'true',
+        hasRebate: req.query.hasRebate === 'true',
+        hasFreeShipping: req.query.hasFreeShipping === 'true',
+        inventoryStatus: req.query.inventoryStatus as string,
+        sortBy: req.query.sortBy as string,
+        sortDir: req.query.sortDir as string,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+      };
+
+      const result = await PerformanceOptimizedQueries.searchProducts(params);
+      res.json(result);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // Basic CRUD operations for products
   app.get("/api/products/:id", async (req, res) => {
     try {

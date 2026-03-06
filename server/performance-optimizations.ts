@@ -32,14 +32,19 @@ export class PerformanceOptimizedQueries {
     let paramIndex = 1;
 
     if (params.search) {
-      whereConditions.push(`(
-        p.name ILIKE $${paramIndex} OR 
-        p.sku ILIKE $${paramIndex} OR 
-        p.manufacturer_part_number ILIKE $${paramIndex} OR
-        p.upc ILIKE $${paramIndex}
-      )`);
-      queryParams.push(`%${params.search}%`);
-      paramIndex++;
+      const terms = params.search.trim().split(/\s+/).filter(t => t.length > 0);
+      for (const term of terms) {
+        whereConditions.push(`(
+          p.name ILIKE $${paramIndex} OR 
+          p.sku ILIKE $${paramIndex} OR 
+          p.manufacturer_part_number ILIKE $${paramIndex} OR
+          p.upc ILIKE $${paramIndex} OR
+          p.description ILIKE $${paramIndex} OR
+          p.manufacturer_name ILIKE $${paramIndex}
+        )`);
+        queryParams.push(`%${term}%`);
+        paramIndex++;
+      }
     }
 
     if (params.categoryId) {
@@ -160,6 +165,243 @@ export class PerformanceOptimizedQueries {
     const cacheTTL = hasFilters ? 15000 : 60000;
     queryCache.set(cacheKey, result, cacheTTL);
     return result;
+  }
+
+  // Full-featured product search with all filters server-side
+  static async searchProducts(params: {
+    query?: string;
+    searchType?: string;
+    category?: string;
+    categoryId?: number;
+    supplier?: string;
+    supplierId?: number;
+    manufacturer?: string;
+    status?: string;
+    priceMin?: number;
+    priceMax?: number;
+    isRemanufactured?: boolean;
+    isCloseout?: boolean;
+    isOnSale?: boolean;
+    hasRebate?: boolean;
+    hasFreeShipping?: boolean;
+    inventoryStatus?: string;
+    sortBy?: string;
+    sortDir?: string;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{ products: any[]; pagination: any }> {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(250, Math.max(10, params.limit || 50));
+    const offset = (page - 1) * limit;
+
+    const cacheKey = `products:search:${JSON.stringify(params)}`;
+    const cached = queryCache.get<{ products: any[]; pagination: any }>(cacheKey);
+    if (cached) return cached;
+
+    const whereConditions: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    // Multi-term text search
+    if (params.query && params.query.trim()) {
+      const searchType = params.searchType || 'all';
+      const terms = params.query.trim().split(/\s+/).filter(t => t.length > 0);
+
+      for (const term of terms) {
+        const termParam = `$${paramIndex}`;
+        const likeVal = `%${term}%`;
+
+        if (searchType === 'sku') {
+          whereConditions.push(`p.sku ILIKE ${termParam}`);
+        } else if (searchType === 'upc') {
+          whereConditions.push(`p.upc ILIKE ${termParam}`);
+        } else if (searchType === 'title') {
+          whereConditions.push(`p.name ILIKE ${termParam}`);
+        } else if (searchType === 'mfgPart') {
+          whereConditions.push(`p.manufacturer_part_number ILIKE ${termParam}`);
+        } else if (searchType === 'description') {
+          whereConditions.push(`(p.name ILIKE ${termParam} OR p.description ILIKE ${termParam})`);
+        } else if (searchType === 'manufacturer') {
+          whereConditions.push(`p.manufacturer_name ILIKE ${termParam}`);
+        } else {
+          whereConditions.push(`(
+            p.name ILIKE ${termParam} OR
+            p.sku ILIKE ${termParam} OR
+            p.manufacturer_part_number ILIKE ${termParam} OR
+            p.upc ILIKE ${termParam} OR
+            p.description ILIKE ${termParam} OR
+            p.manufacturer_name ILIKE ${termParam}
+          )`);
+        }
+        queryParams.push(likeVal);
+        paramIndex++;
+      }
+    }
+
+    // Category filter (by name or id)
+    if (params.categoryId) {
+      whereConditions.push(`p.category_id = $${paramIndex}`);
+      queryParams.push(params.categoryId);
+      paramIndex++;
+    } else if (params.category && params.category !== 'all_categories') {
+      whereConditions.push(`EXISTS (SELECT 1 FROM categories c2 WHERE c2.id = p.category_id AND c2.name = $${paramIndex})`);
+      queryParams.push(params.category);
+      paramIndex++;
+    }
+
+    // Status filter
+    if (params.status && params.status !== 'all_statuses') {
+      whereConditions.push(`p.status = $${paramIndex}`);
+      queryParams.push(params.status);
+      paramIndex++;
+    }
+
+    // Supplier filter (by id or name)
+    if (params.supplierId) {
+      whereConditions.push(`EXISTS (SELECT 1 FROM product_suppliers ps2 WHERE ps2.product_id = p.id AND ps2.supplier_id = $${paramIndex})`);
+      queryParams.push(params.supplierId);
+      paramIndex++;
+    } else if (params.supplier && params.supplier !== 'all_suppliers') {
+      whereConditions.push(`EXISTS (SELECT 1 FROM product_suppliers ps2 JOIN suppliers s2 ON s2.id = ps2.supplier_id WHERE ps2.product_id = p.id AND s2.name = $${paramIndex})`);
+      queryParams.push(params.supplier);
+      paramIndex++;
+    }
+
+    // Manufacturer filter
+    if (params.manufacturer && params.manufacturer !== 'all_manufacturers') {
+      whereConditions.push(`p.manufacturer_name ILIKE $${paramIndex}`);
+      queryParams.push(`%${params.manufacturer}%`);
+      paramIndex++;
+    }
+
+    // Price range
+    if (params.priceMin !== undefined && params.priceMin !== null) {
+      whereConditions.push(`p.price >= $${paramIndex}`);
+      queryParams.push(params.priceMin);
+      paramIndex++;
+    }
+    if (params.priceMax !== undefined && params.priceMax !== null) {
+      whereConditions.push(`p.price <= $${paramIndex}`);
+      queryParams.push(params.priceMax);
+      paramIndex++;
+    }
+
+    // Boolean flags
+    if (params.isRemanufactured) {
+      whereConditions.push(`p.is_remanufactured = true`);
+    }
+    if (params.isCloseout) {
+      whereConditions.push(`p.is_closeout = true`);
+    }
+    if (params.isOnSale) {
+      whereConditions.push(`p.is_on_sale = true`);
+    }
+    if (params.hasRebate) {
+      whereConditions.push(`p.has_rebate = true`);
+    }
+    if (params.hasFreeShipping) {
+      whereConditions.push(`p.has_free_shipping = true`);
+    }
+
+    // Inventory status
+    if (params.inventoryStatus && params.inventoryStatus !== 'all') {
+      if (params.inventoryStatus === 'inStock') {
+        whereConditions.push(`p.inventory_quantity > 0`);
+      } else if (params.inventoryStatus === 'lowStock') {
+        whereConditions.push(`p.inventory_quantity > 0 AND p.inventory_quantity <= 5`);
+      } else if (params.inventoryStatus === 'outOfStock') {
+        whereConditions.push(`p.inventory_quantity <= 0 OR p.inventory_quantity IS NULL`);
+      }
+    }
+
+    const hasFilters = whereConditions.length > 0;
+    const whereClause = hasFilters ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Sort
+    const validSortColumns: Record<string, string> = {
+      name: 'p.name', price: 'p.price', cost: 'p.cost', sku: 'p.sku',
+      inventory: 'p.inventory_quantity', created: 'p.created_at', updated: 'p.updated_at',
+      manufacturer: 'p.manufacturer_name'
+    };
+    const sortColumn = validSortColumns[params.sortBy || ''] || 'p.id';
+    const sortDirection = params.sortDir === 'asc' ? 'ASC' : 'DESC';
+
+    const countQuery = hasFilters
+      ? `SELECT COUNT(*) as total FROM products p ${whereClause}`
+      : `SELECT GREATEST((SELECT reltuples::bigint FROM pg_class WHERE relname = 'products'), 0) as total`;
+
+    const productsQuery = `
+      WITH paged_products AS (
+        SELECT p.id
+        FROM products p
+        ${whereClause}
+        ORDER BY ${sortColumn} ${sortDirection}
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      )
+      SELECT p.id, p.sku, p.usin, p.name, p.description,
+             p.category_id as "categoryId",
+             c.name as "categoryName",
+             ps.supplier_id as "supplierId",
+             s.name as "supplier",
+             p.manufacturer_name as "manufacturerName",
+             p.manufacturer_part_number as "manufacturerPartNumber",
+             p.upc, p.price, p.cost, p.weight, p.status,
+             p.is_remanufactured as "isRemanufactured",
+             p.is_closeout as "isCloseout",
+             p.is_on_sale as "isOnSale",
+             p.has_rebate as "hasRebate",
+             p.has_free_shipping as "hasFreeShipping",
+             p.inventory_quantity as "inventoryQuantity",
+             p.image_url as "imageUrl",
+             p.image_url_large as "imageUrlLarge",
+             p.created_at as "createdAt",
+             p.updated_at as "updatedAt",
+             COALESCE(
+               (SELECT json_agg(json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'isActive', pam.is_active))
+                FROM product_asin_mapping pam WHERE pam.product_id = p.id), '[]'::json
+             ) as "asinMappings",
+             COALESCE(
+               (SELECT json_agg(json_build_object('walmartItemId', pwm.walmart_item_id, 'mappingSource', pwm.mapping_source, 'isActive', pwm.is_active))
+                FROM product_walmart_mapping pwm WHERE pwm.product_id = p.id), '[]'::json
+             ) as "walmartMappings"
+      FROM paged_products pp
+      INNER JOIN products p ON p.id = pp.id
+      LEFT JOIN categories c ON c.id = p.category_id
+      LEFT JOIN product_suppliers ps ON ps.product_id = p.id AND ps.is_primary = true
+      LEFT JOIN suppliers s ON s.id = ps.supplier_id
+      ORDER BY ${sortColumn} ${sortDirection}
+    `;
+
+    queryParams.push(limit, offset);
+
+    const [countResult, productsResult] = await Promise.all([
+      pool.query(countQuery, queryParams.slice(0, -2)),
+      pool.query(productsQuery, queryParams)
+    ]);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const result = {
+      products: productsResult.rows,
+      pagination: { page, limit, totalItems, totalPages, hasNextPage: page < totalPages, hasPreviousPage: page > 1 }
+    };
+
+    queryCache.set(cacheKey, result, 15000);
+    return result;
+  }
+
+  static async getManufacturers(): Promise<string[]> {
+    const cacheKey = 'manufacturers:list';
+    const cached = queryCache.get<string[]>(cacheKey);
+    if (cached) return cached;
+
+    const result = await pool.query(
+      `SELECT DISTINCT manufacturer_name FROM products WHERE manufacturer_name IS NOT NULL AND manufacturer_name != '' ORDER BY manufacturer_name LIMIT 500`
+    );
+    const manufacturers = result.rows.map((r: any) => r.manufacturer_name);
+    queryCache.set(cacheKey, manufacturers, 60000);
+    return manufacturers;
   }
 
   // Fast category listing with product counts using raw SQL

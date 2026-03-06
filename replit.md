@@ -56,6 +56,8 @@ Preferred communication style: Simple, everyday language.
 - **Connection Pool**: Max 20 connections, 30s statement timeout, slow query logging (>5s).
 - **Bulk Import Pipeline**: 500-record batch upserts via raw SQL `INSERT ... ON CONFLICT`, streaming CSV parser for files >50MB, ETA progress tracking.
 - **Product Filters**: Server-side supplier and manufacturer filtering with indexed queries, supplier/manufacturer dropdown filters in UI.
+- **Multi-Term Server-Side Search**: `/api/products/search` endpoint with multi-term AND matching (e.g., "HP thin client i5" splits into 4 terms, each matched via ILIKE across name/sku/mpn/upc/description/manufacturer). Supports searchType targeting specific fields (sku, upc, title, mfgPart, description, manufacturer, or all). Combined with server-side filters for category, supplier, manufacturer, status, price range (min/max), boolean flags (isRemanufactured, isCloseout, isOnSale, hasRebate, hasFreeShipping), inventory status (inStock/lowStock/outOfStock), sorting, and pagination. Uses 15s query cache, estimated counts for unfiltered queries. Frontend uses debounced search (300ms) via `useProductSearch` hook.
+- **Manufacturers API**: `/api/products/manufacturers` endpoint returns distinct manufacturer names from catalog with 60s cache.
 - **Enhanced Pagination**: Jump-to-page input, page size selector (25/50/100/250), approximate counts for >10K products, keyboard navigation.
 
 ## System Design
