@@ -312,14 +312,22 @@ export default function Dashboard() {
           <div>
             <p className="text-xs text-slate-500 mb-1">Marketplace Referral Fees</p>
             <p className="text-2xl font-bold text-slate-800">{referralFees > 0 ? formatCurrency(referralFees) : '--'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{hasCogs ? `${Math.round((referralFees / totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Marketplace fees only</p>
           </div>
           <div>
             <p className="text-xs text-slate-500 mb-1">Vendor / Material Costs</p>
             <p className="text-2xl font-bold text-slate-800">{vendorCosts > 0 ? formatCurrency(vendorCosts) : '--'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{vendorCosts > 0 ? `${Math.round((vendorCosts / totalCogs) * 100)}% of COGS` : 'Click "Refresh COGS Data" to match'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{vendorCosts > 0 ? 'Product acquisition costs' : 'Click "Refresh COGS Data" to match'}</p>
           </div>
         </div>
+
+        {hasCogs && vendorCosts === 0 && (
+          <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <p className="text-xs text-amber-800">
+              <span className="font-semibold">Note:</span> COGS currently only includes marketplace referral fees. Click "Refresh COGS Data" to match vendor/product costs from your catalog — this will give you the full cost picture and accurate profit margins.
+            </p>
+          </div>
+        )}
 
         {hasRevenue && hasCogs && (
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
@@ -328,6 +336,7 @@ export default function Dashboard() {
               <p className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
                 {formatCurrency(grossProfit)}
               </p>
+              <p className="text-xs text-slate-400 mt-0.5">{vendorCosts === 0 ? 'Before vendor costs' : 'After all costs'}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 mb-1">Gross Margin</p>
