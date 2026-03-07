@@ -1914,6 +1914,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dailyAverage = daysElapsed > 0 ? monthToDateRevenue / daysElapsed : 0;
       const projectedMonthEnd = dailyAverage * daysInMonth;
 
+      let walmartIncentiveTotal = 0;
+      try {
+        const walmartOrderItems = monthOrderIds.length > 0 ? await db
+          .select({
+            marketplaceSku: marketplaceOrderItems.marketplaceSku,
+            unitPriceInCents: marketplaceOrderItems.unitPriceInCents,
+            quantity: marketplaceOrderItems.quantity,
+            orderId: marketplaceOrderItems.orderId,
+          })
+          .from(marketplaceOrderItems)
+          .innerJoin(marketplaceOrders, eq(marketplaceOrderItems.orderId, marketplaceOrders.id))
+          .where(
+            and(
+              inArray(marketplaceOrderItems.orderId, monthOrderIds),
+              sql`${marketplaceOrders.marketplace} = 'walmart'`
+            )
+          ) : [];
+
+        if (walmartOrderItems.length > 0) {
+          const { fetchAllWalmartIncentives } = await import('./utils/walmart-api');
+          const { marketplaceListings } = await import('@shared/schema');
+          const incentiveMap = await fetchAllWalmartIncentives();
+
+          const skus = [...new Set(walmartOrderItems.map(i => i.marketplaceSku).filter(Boolean))] as string[];
+          const normalizedSkus = skus.map(s => s.replace(/^ING-/, ''));
+          const allSkuVariants = [...skus, ...normalizedSkus.map(s => `ING-${s}`), ...normalizedSkus];
+          const uniqueSkuVariants = [...new Set(allSkuVariants)];
+
+          let listingPrices: { marketplaceSku: string; priceInCents: number | null }[] = [];
+          if (uniqueSkuVariants.length > 0) {
+            listingPrices = await db.select({
+              marketplaceSku: marketplaceListings.marketplaceSku,
+              priceInCents: marketplaceListings.priceInCents,
+            }).from(marketplaceListings).where(inArray(marketplaceListings.marketplaceSku, uniqueSkuVariants));
+          }
+
+          for (const item of walmartOrderItems) {
+            const sku = item.marketplaceSku;
+            if (!sku) continue;
+            const normalizedSku = sku.replace(/^ING-/, '');
+            const incentive = incentiveMap.get(normalizedSku);
+            if (incentive && incentive.incentiveType === 'WALMART_FUNDED') {
+              const listing = listingPrices.find(l => l.marketplaceSku === sku || l.marketplaceSku === `ING-${normalizedSku}` || l.marketplaceSku === normalizedSku);
+              const sellerPriceInCents = listing?.priceInCents || 0;
+              const customerPriceInCents = item.unitPriceInCents || 0;
+              const incentiveAmountInCents = sellerPriceInCents > customerPriceInCents ? sellerPriceInCents - customerPriceInCents : 0;
+              if (incentiveAmountInCents > 0) {
+                walmartIncentiveTotal += incentiveAmountInCents * (item.quantity || 1);
+              }
+            }
+          }
+          console.log(`[Dashboard] Walmart incentives: $${(walmartIncentiveTotal / 100).toFixed(2)} across ${walmartOrderItems.length} items`);
+        }
+      } catch (e) {
+        console.log('[Dashboard] Walmart incentive calculation error:', (e as Error).message);
+      }
+
+      const walmartFundedAmount = walmartIncentiveTotal / 100;
+
       let syncStatus = null;
       try {
         const { getOrderSyncStatus } = await import('./marketplace/order-sync-scheduler');
@@ -2023,12 +2082,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           daysElapsed,
           daysRemaining,
           daysInMonth,
-          monthToDateRevenue,
+          monthToDateRevenue: monthToDateRevenue + walmartFundedAmount,
+          customerRevenue: monthToDateRevenue,
+          walmartFundedAmount,
           todayRevenue,
           yesterdayRevenue,
           last24hRevenue,
-          dailyAverage,
-          projectedMonthEnd,
+          dailyAverage: daysElapsed > 0 ? (monthToDateRevenue + walmartFundedAmount) / daysElapsed : 0,
+          projectedMonthEnd: daysElapsed > 0 ? ((monthToDateRevenue + walmartFundedAmount) / daysElapsed) * daysInMonth : 0,
           projectionConfidence: Math.min(95, Math.round((daysElapsed / daysInMonth) * 100)),
           totalOrders: monthOrders.length,
           revenueByMarketplace,

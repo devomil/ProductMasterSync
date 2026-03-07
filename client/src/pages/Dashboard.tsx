@@ -141,7 +141,13 @@ export default function Dashboard() {
               <p className="text-3xl font-bold tracking-tight">
                 {formatCurrency(revenue)}
               </p>
-              <div className="mt-4 flex items-center justify-between text-sm">
+              {(mi?.walmartFundedAmount || 0) > 0 && (
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Includes Walmart Funded</span>
+                  <span className="font-medium text-emerald-400">+{formatCurrency(mi.walmartFundedAmount)}</span>
+                </div>
+              )}
+              <div className="mt-3 flex items-center justify-between text-sm">
                 <div>
                   <span className="text-slate-400">Days elapsed</span>
                 </div>
@@ -395,6 +401,12 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-2.5">
                 <PnlRow label="Revenue:" value={formatCurrency(revenue)} color="text-emerald-700" bold />
+                {(mi?.walmartFundedAmount || 0) > 0 && (
+                  <PnlRow label="  Walmart Funded:" value={`+${formatCurrency(mi.walmartFundedAmount)}`} color="text-blue-600" />
+                )}
+                {(mi?.customerRevenue || 0) > 0 && (mi?.walmartFundedAmount || 0) > 0 && (
+                  <PnlRow label="  Customer Paid:" value={formatCurrency(mi.customerRevenue)} color="text-slate-500" />
+                )}
                 <PnlRow label="Cost of Goods:" value={hasCogs ? formatCurrency(totalCogs) : '--'} color={hasCogs ? 'text-red-600' : 'text-slate-400'} />
                 <PnlRow label="  Referral Fees:" value={referralFees > 0 ? formatCurrency(referralFees) : '--'} color="text-slate-500" />
                 <PnlRow label="  Vendor Costs:" value={vendorCosts > 0 ? formatCurrency(vendorCosts) : '--'} color="text-slate-500" />
