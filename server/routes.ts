@@ -1874,6 +1874,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(o => o.orderDate && new Date(o.orderDate) >= todayStart)
         .reduce((sum, o) => sum + getOrderRevenue(o), 0) / 100;
 
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const yesterdayRevenue = monthOrders
+        .filter(o => o.orderDate && new Date(o.orderDate) >= yesterdayStart && new Date(o.orderDate) < todayStart)
+        .reduce((sum, o) => sum + getOrderRevenue(o), 0) / 100;
+
+      const last24hStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const last24hRevenue = monthOrders
+        .filter(o => o.orderDate && new Date(o.orderDate) >= last24hStart)
+        .reduce((sum, o) => sum + getOrderRevenue(o), 0) / 100;
+
       const recentOrders = monthOrders
         .sort((a, b) => {
           const da = a.orderDate ? new Date(a.orderDate).getTime() : 0;
@@ -2014,6 +2025,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           daysInMonth,
           monthToDateRevenue,
           todayRevenue,
+          yesterdayRevenue,
+          last24hRevenue,
           dailyAverage,
           projectedMonthEnd,
           projectionConfidence: Math.min(95, Math.round((daysElapsed / daysInMonth) * 100)),

@@ -126,14 +126,26 @@ export default function Dashboard() {
           <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-teal-600 to-teal-700 text-white p-6 shadow-lg">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10" />
             <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="h-4 w-4 text-teal-200" />
-                <span className="text-sm font-medium text-teal-100">Today's Revenue</span>
-              </div>
-              <p className="text-xs text-teal-200 mb-3">Live Sales Today</p>
-              <p className="text-3xl font-bold tracking-tight">
-                {formatCurrency(mi?.todayRevenue || 0)}
-              </p>
+              {(() => {
+                const today = mi?.todayRevenue || 0;
+                const last24h = mi?.last24hRevenue || 0;
+                const yesterday = mi?.yesterdayRevenue || 0;
+                const displayValue = today > 0 ? today : last24h > 0 ? last24h : yesterday;
+                const displayLabel = today > 0 ? "Today's Revenue" : last24h > 0 ? "Last 24 Hours" : "Yesterday's Revenue";
+                const displaySub = today > 0 ? "Live Sales Today" : last24h > 0 ? "Rolling 24-hour sales" : "Most recent day with sales";
+                return (
+                  <>
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="h-4 w-4 text-teal-200" />
+                      <span className="text-sm font-medium text-teal-100">{displayLabel}</span>
+                    </div>
+                    <p className="text-xs text-teal-200 mb-3">{displaySub}</p>
+                    <p className="text-3xl font-bold tracking-tight">
+                      {formatCurrency(displayValue)}
+                    </p>
+                  </>
+                );
+              })()}
               <div className="mt-4 flex items-center justify-between text-sm">
                 <span className="text-teal-200">Days elapsed</span>
                 <span className="font-semibold">{mi?.daysElapsed || 0}</span>
@@ -179,8 +191,16 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <QuickStatCard
             label="Revenue"
-            value={formatCurrency(mi?.todayRevenue || 0)}
-            sub="Today"
+            value={formatCurrency(
+              (mi?.todayRevenue || 0) > 0 ? mi.todayRevenue :
+              (mi?.last24hRevenue || 0) > 0 ? mi.last24hRevenue :
+              (mi?.yesterdayRevenue || 0)
+            )}
+            sub={
+              (mi?.todayRevenue || 0) > 0 ? "Today" :
+              (mi?.last24hRevenue || 0) > 0 ? "Last 24h" :
+              "Yesterday"
+            }
             icon={TrendingUp}
             href="/marketplaces/orders"
           />
@@ -376,8 +396,16 @@ export default function Dashboard() {
                 <span className="font-medium text-slate-700">{mi?.daysElapsed || 0}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Today:</span>
-                <span className="font-medium text-slate-700">{formatCurrency(mi?.todayRevenue || 0)}</span>
+                <span className="text-slate-500">
+                  {(mi?.todayRevenue || 0) > 0 ? 'Today:' : (mi?.last24hRevenue || 0) > 0 ? 'Last 24h:' : 'Yesterday:'}
+                </span>
+                <span className="font-medium text-slate-700">
+                  {formatCurrency(
+                    (mi?.todayRevenue || 0) > 0 ? mi.todayRevenue :
+                    (mi?.last24hRevenue || 0) > 0 ? mi.last24hRevenue :
+                    (mi?.yesterdayRevenue || 0)
+                  )}
+                </span>
               </div>
             </div>
           </div>
