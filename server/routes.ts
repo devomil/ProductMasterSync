@@ -2044,6 +2044,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/dashboard/sync-orders", async (req, res) => {
+    try {
+      const { triggerManualSync, getOrderSyncStatus } = await import('./marketplace/order-sync-scheduler');
+      const status = getOrderSyncStatus();
+      if (status.isRunning) {
+        return res.json({ success: false, message: 'Sync already in progress' });
+      }
+      triggerManualSync().catch(err => console.error('[Manual Sync] Error:', err.message));
+      res.json({ success: true, message: 'Order sync started' });
+    } catch (error) {
+      console.error('[Manual Sync] Error:', error);
+      handleError(res, error);
+    }
+  });
+
   app.post("/api/dashboard/populate-vendor-costs", async (req, res) => {
     try {
       const { populateVendorCosts } = await import('./marketplace/vendor-cost-population');

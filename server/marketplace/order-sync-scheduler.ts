@@ -263,6 +263,13 @@ export function stopOrderSyncScheduler(): void {
   log('Scheduler stopped');
 }
 
+export async function triggerManualSync(): Promise<void> {
+  if (state.isRunning) {
+    throw new Error('Sync already in progress');
+  }
+  await runScheduledSync();
+}
+
 export function getOrderSyncStatus() {
   return {
     active: state.active,

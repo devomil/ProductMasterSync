@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -39,7 +40,25 @@ export default function Dashboard() {
     queryKey: ['/api/statistics'],
   });
 
+  const { toast } = useToast();
   const [backfillResult, setBackfillResult] = useState<any>(null);
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/dashboard/sync-orders');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: "Order sync started", description: "Orders are being pulled from marketplaces. Refresh in a minute to see updates." });
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/dashboard/intelligence'] });
+        }, 30000);
+      } else {
+        toast({ title: "Sync in progress", description: data.message, variant: "destructive" });
+      }
+    },
+  });
 
   const backfillMutation = useMutation({
     mutationFn: async () => {
@@ -83,6 +102,18 @@ export default function Dashboard() {
             <Clock className="h-3 w-3 mr-1.5" />
             Updated {dateStr}
           </span>
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-sm disabled:opacity-50"
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {syncMutation.isPending ? 'Syncing...' : 'Sync Orders'}
+          </button>
           <Link to="/marketplaces/orders">
             <button className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">
               View Full Accounting
