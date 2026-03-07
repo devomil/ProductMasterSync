@@ -228,30 +228,22 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <QuickStatCard
             label="Revenue"
-            value={formatCurrency(
-              (mi?.todayRevenue || 0) > 0 ? mi.todayRevenue :
-              (mi?.last24hRevenue || 0) > 0 ? mi.last24hRevenue :
-              (mi?.yesterdayRevenue || 0)
-            )}
-            sub={
-              (mi?.todayRevenue || 0) > 0 ? "Today" :
-              (mi?.last24hRevenue || 0) > 0 ? "Last 24h" :
-              "Yesterday"
-            }
+            value={formatCurrency(revenue)}
+            sub="Month to Date"
             icon={TrendingUp}
             href="/marketplaces/orders"
           />
           <QuickStatCard
             label="COGS"
             value={hasCogs ? formatCurrency(totalCogs) : '--'}
-            sub={hasCogs ? 'Fees + Vendor Costs' : 'Today'}
+            sub={hasCogs ? 'Fees + Vendor Costs' : 'Month to Date'}
             icon={DollarSign}
             muted={!hasCogs}
           />
           <QuickStatCard
             label="Gross Profit"
             value={hasCogs && hasRevenue ? formatCurrency(grossProfit) : '--'}
-            sub={hasCogs && hasRevenue ? `${Math.round(grossMargin)}% margin` : 'Today'}
+            sub={hasCogs && hasRevenue ? `${Math.round(grossMargin)}% margin` : 'Month to Date'}
             icon={BarChart3}
             muted={!hasCogs}
           />
