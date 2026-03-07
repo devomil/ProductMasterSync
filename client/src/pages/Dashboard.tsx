@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   TrendingUp,
   DollarSign,
@@ -14,8 +15,11 @@ import {
   Loader2,
   ShoppingCart,
   AlertCircle,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -35,11 +39,33 @@ export default function Dashboard() {
     queryKey: ['/api/statistics'],
   });
 
+  const [backfillResult, setBackfillResult] = useState<any>(null);
+
+  const backfillMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/dashboard/populate-vendor-costs');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setBackfillResult(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/intelligence'] });
+    },
+  });
+
   const mi = intelligence?.monthlyIntelligence;
   const cogs = intelligence?.cogsAnalysis;
   const now = new Date();
   const monthYear = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
   const dateStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+
+  const revenue = mi?.monthToDateRevenue || 0;
+  const vendorCosts = cogs?.totalCogs || 0;
+  const referralFees = cogs?.referralFees || 0;
+  const totalCogs = vendorCosts + referralFees;
+  const grossProfit = revenue - totalCogs;
+  const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+  const hasRevenue = revenue > 0;
+  const hasCogs = totalCogs > 0;
 
   return (
     <div className="space-y-6">
@@ -82,7 +108,7 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-slate-400 mb-3">Monthly Revenue</p>
               <p className="text-3xl font-bold tracking-tight">
-                {formatCurrency(mi?.monthToDateRevenue || 0)}
+                {formatCurrency(revenue)}
               </p>
               <div className="mt-4 flex items-center justify-between text-sm">
                 <div>
@@ -160,17 +186,17 @@ export default function Dashboard() {
           />
           <QuickStatCard
             label="COGS"
-            value={(cogs?.totalCogs > 0 || cogs?.referralFees > 0) ? formatCurrency((cogs.totalCogs || 0) + (cogs.referralFees || 0)) : '--'}
-            sub={(cogs?.totalCogs > 0 || cogs?.referralFees > 0) ? 'Fees + Vendor Costs' : 'Today'}
+            value={hasCogs ? formatCurrency(totalCogs) : '--'}
+            sub={hasCogs ? 'Fees + Vendor Costs' : 'Today'}
             icon={DollarSign}
-            muted={!cogs?.totalCogs && !cogs?.referralFees}
+            muted={!hasCogs}
           />
           <QuickStatCard
             label="Gross Profit"
-            value={(cogs?.referralFees > 0 || cogs?.totalCogs > 0) && mi?.monthToDateRevenue ? formatCurrency(mi.monthToDateRevenue - (cogs.totalCogs || 0) - (cogs.referralFees || 0)) : '--'}
-            sub={(cogs?.referralFees > 0 || cogs?.totalCogs > 0) && mi?.monthToDateRevenue ? `${Math.round(((mi.monthToDateRevenue - (cogs.totalCogs || 0) - (cogs.referralFees || 0)) / mi.monthToDateRevenue) * 100)}% margin` : 'Today'}
+            value={hasCogs && hasRevenue ? formatCurrency(grossProfit) : '--'}
+            sub={hasCogs && hasRevenue ? `${Math.round(grossMargin)}% margin` : 'Today'}
             icon={BarChart3}
-            muted={!cogs?.totalCogs && !cogs?.referralFees}
+            muted={!hasCogs}
           />
           <QuickStatCard
             label="Active Accounts"
@@ -187,46 +213,97 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-slate-600" />
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Cost of Goods Sold Analysis &ndash; Today</h2>
+              <h2 className="text-base font-semibold text-slate-900">Cost of Goods Sold Analysis &ndash; {mi?.month || 'This Month'}</h2>
               <p className="text-xs text-slate-500">Product cost tracking and profit margin insights</p>
             </div>
           </div>
-          <Link to="/inventory-management">
-            <button className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors">
-              <Warehouse className="h-4 w-4 mr-2" />
-              Manage Inventory
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => backfillMutation.mutate()}
+              disabled={backfillMutation.isPending}
+              className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors disabled:opacity-50"
+            >
+              {backfillMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              {backfillMutation.isPending ? 'Matching Costs...' : 'Refresh COGS Data'}
             </button>
-          </Link>
+            <Link to="/inventory-management">
+              <button className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors">
+                <Warehouse className="h-4 w-4 mr-2" />
+                Manage Inventory
+              </button>
+            </Link>
+          </div>
         </div>
-        {(() => {
-          const totalCogs = (cogs?.totalCogs || 0) + (cogs?.referralFees || 0);
-          const hasData = totalCogs > 0;
-          return (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Total Cost of Goods Sold</p>
-                  <p className="text-2xl font-bold text-emerald-700">{hasData ? formatCurrency(totalCogs) : '--'}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Referral Fees + Vendor Costs</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Marketplace Referral Fees</p>
-                  <p className="text-2xl font-bold text-slate-800">{cogs?.referralFees > 0 ? formatCurrency(cogs.referralFees) : '--'}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{hasData ? `${Math.round((cogs.referralFees / totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Vendor / Material Costs</p>
-                  <p className="text-2xl font-bold text-slate-800">{cogs?.totalCogs > 0 ? formatCurrency(cogs.totalCogs) : '--'}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{cogs?.totalCogs > 0 && hasData ? `${Math.round((cogs.totalCogs / totalCogs) * 100)}% of COGS` : 'Fulfill orders to track'}</p>
-                </div>
-              </div>
-              <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
-                <p className="text-xs text-slate-400">Cost Period: {mi?.month} {mi?.year}</p>
-                <p className="text-xs text-slate-400">{hasData ? `${cogs?.referralFees > 0 ? 'Referral fees calculated' : ''}${cogs?.ordersWithCogs > 0 ? ` + ${cogs.ordersWithCogs} fulfilled orders` : ''}` : 'Fulfill orders to populate COGS data'}</p>
-              </div>
-            </>
-          );
-        })()}
+
+        {backfillResult && (
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">COGS Data Updated</span>
+            </div>
+            <p className="text-xs text-blue-700">
+              Matched {backfillResult.matched} of {backfillResult.totalItems} order items to catalog costs
+              ({backfillResult.matchedByUpc} by UPC, {backfillResult.matchedByUsin} by Ingram Part#).
+              {backfillResult.alreadyPopulated > 0 && ` ${backfillResult.alreadyPopulated} already had costs.`}
+              {backfillResult.totalCostPopulated > 0 && ` Total vendor cost matched: ${formatCurrency(backfillResult.totalCostPopulated / 100)}.`}
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Total Cost of Goods Sold</p>
+            <p className="text-2xl font-bold text-emerald-700">{hasCogs ? formatCurrency(totalCogs) : '--'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Referral Fees + Vendor Costs</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Marketplace Referral Fees</p>
+            <p className="text-2xl font-bold text-slate-800">{referralFees > 0 ? formatCurrency(referralFees) : '--'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{hasCogs ? `${Math.round((referralFees / totalCogs) * 100)}% of COGS` : '% of COGS'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Vendor / Material Costs</p>
+            <p className="text-2xl font-bold text-slate-800">{vendorCosts > 0 ? formatCurrency(vendorCosts) : '--'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{vendorCosts > 0 ? `${Math.round((vendorCosts / totalCogs) * 100)}% of COGS` : 'Click "Refresh COGS Data" to match'}</p>
+          </div>
+        </div>
+
+        {hasRevenue && hasCogs && (
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Gross Profit</p>
+              <p className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {formatCurrency(grossProfit)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Gross Margin</p>
+              <p className={`text-2xl font-bold ${grossMargin >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {grossMargin.toFixed(1)}%
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Orders with Cost Data</p>
+              <p className="text-2xl font-bold text-slate-800">
+                {cogs?.ordersWithCogs || 0} <span className="text-sm font-normal text-slate-400">of {mi?.totalOrders || 0}</span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
+          <p className="text-xs text-slate-400">Cost Period: {mi?.month} {mi?.year}</p>
+          <p className="text-xs text-slate-400">
+            {hasCogs 
+              ? `${referralFees > 0 ? 'Referral fees calculated' : ''}${cogs?.ordersWithCogs > 0 ? ` + ${cogs.ordersWithCogs} orders with vendor costs` : ''}`
+              : 'Click "Refresh COGS Data" to auto-match vendor costs from catalog'
+            }
+          </p>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -266,17 +343,19 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2.5">
-                <PnlRow label="Revenue:" value={formatCurrency(mi?.monthToDateRevenue || 0)} color="text-emerald-700" bold />
-                <PnlRow label="Cost of Goods:" value="--" color="text-slate-400" />
+                <PnlRow label="Revenue:" value={formatCurrency(revenue)} color="text-emerald-700" bold />
+                <PnlRow label="Cost of Goods:" value={hasCogs ? formatCurrency(totalCogs) : '--'} color={hasCogs ? 'text-red-600' : 'text-slate-400'} />
+                <PnlRow label="  Referral Fees:" value={referralFees > 0 ? formatCurrency(referralFees) : '--'} color="text-slate-500" />
+                <PnlRow label="  Vendor Costs:" value={vendorCosts > 0 ? formatCurrency(vendorCosts) : '--'} color="text-slate-500" />
                 <PnlRow label="Payroll:" value="--" color="text-slate-400" />
                 <PnlRow label="Operating Expenses:" value="--" color="text-slate-400" />
                 <div className="border-t border-slate-200 pt-2.5 mt-3">
-                  <PnlRow label="Total Expenses:" value="--" color="text-slate-400" />
+                  <PnlRow label="Total Expenses:" value={hasCogs ? formatCurrency(totalCogs) : '--'} color={hasCogs ? 'text-slate-700' : 'text-slate-400'} />
                 </div>
                 <div className="border-t border-slate-200 pt-2.5 mt-3 space-y-2">
-                  <PnlRow label="Gross Profit:" value="--" color="text-emerald-600" bold />
-                  <PnlRow label="Gross Margin:" value="--" color="text-emerald-600" />
-                  <PnlRow label="Net Income:" value="--" color="text-emerald-600" bold />
+                  <PnlRow label="Gross Profit:" value={hasCogs && hasRevenue ? formatCurrency(grossProfit) : '--'} color={grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'} bold />
+                  <PnlRow label="Gross Margin:" value={hasCogs && hasRevenue ? `${grossMargin.toFixed(1)}%` : '--'} color={grossMargin >= 0 ? 'text-emerald-600' : 'text-red-600'} />
+                  <PnlRow label="Net Income:" value={hasCogs && hasRevenue ? formatCurrency(grossProfit) : '--'} color={grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'} bold />
                 </div>
               </div>
             )}

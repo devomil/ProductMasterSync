@@ -227,6 +227,15 @@ async function runScheduledSync(): Promise<void> {
     }
   }
 
+  try {
+    const { populateVendorCosts } = await import('./vendor-cost-population');
+    log('Starting post-sync vendor cost population...');
+    const costResult = await populateVendorCosts(3);
+    log(`Vendor cost population complete: ${costResult.matched} matched out of ${costResult.totalItems} items (${costResult.alreadyPopulated} already had costs)`);
+  } catch (error: any) {
+    log(`Vendor cost population failed: ${error.message}`);
+  }
+
   state.isRunning = false;
   log('Scheduled order sync complete');
 }

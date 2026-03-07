@@ -2031,6 +2031,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/dashboard/populate-vendor-costs", async (req, res) => {
+    try {
+      const { populateVendorCosts } = await import('./marketplace/vendor-cost-population');
+      const result = await populateVendorCosts(6);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('[COGS Backfill] Error:', error);
+      handleError(res, error);
+    }
+  });
+
   // Register marketplace routes (static import - works in both dev and production)
   app.use("/api/marketplace", marketplaceRoutes);
   console.log("✅ Marketplace routes registered");
