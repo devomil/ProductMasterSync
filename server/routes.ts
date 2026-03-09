@@ -6377,18 +6377,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Initialize scheduler for always-on Amazon sync
-  // DISABLED: User doesn't want automatic Amazon sync yet
-  /*
   try {
     const { initScheduler } = await import("./utils/scheduler");
     await initScheduler();
-    console.log('✅ Scheduler initialized for continuous Amazon sync');
+    console.log('✅ Amazon sync scheduler initialized (every 2 hours, 50 products/batch)');
   } catch (error) {
-    console.error('❌ Failed to initialize scheduler:', error);
+    console.error('⚠️ Amazon sync scheduler not started:', error);
   }
-  */
-  console.log('ℹ️ Amazon automatic sync disabled - can be enabled later from settings');
 
   // Initialize Walmart listings scheduler (twice daily sync)
   try {

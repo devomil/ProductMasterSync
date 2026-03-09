@@ -1,28 +1,69 @@
-import React from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAmazonConfigStatus, useAmazonSchedulerStatus, useTriggerAmazonSyncJob } from '@/hooks/useAmazonMarketData';
-import { Loader2, PlayCircle, Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, PlayCircle, Calendar, Clock, AlertCircle, CheckCircle2, Settings2, Database } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
+import { toast } from '@/hooks/use-toast';
 
 export function AmazonScheduler() {
   const { data: configStatus, isLoading: isLoadingConfig } = useAmazonConfigStatus();
   const { data: schedulerStatus, isLoading: isLoadingScheduler } = useAmazonSchedulerStatus();
   const triggerSyncJob = useTriggerAmazonSyncJob();
+  const [isConfiguring, setIsConfiguring] = useState(false);
+
+  const { data: overviewStats } = useQuery<{
+    amazonMatches: number;
+    productsRemaining: number;
+    productsWithIdentifiers: number;
+    productsSynced: number;
+  }>({
+    queryKey: ['/api/marketplace/amazon/overview-stats'],
+  });
+
+  const updateScheduleMutation = useMutation({
+    mutationFn: async (config: { intervalHours?: number; limit?: number; enabled?: boolean }) => {
+      const res = await apiRequest('PUT', '/api/marketplace/amazon/scheduler/config', config);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon/scheduler/status'] });
+      toast({ title: 'Schedule Updated', description: 'Amazon sync schedule has been updated.' });
+      setIsConfiguring(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  });
 
   const handleTriggerSync = () => {
     triggerSyncJob.mutate();
   };
 
   const formatInterval = (intervalMs: number) => {
+    if (!intervalMs) return 'Not set';
     const minutes = Math.floor(intervalMs / (60 * 1000));
     if (minutes < 60) {
       return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
     }
     const hours = Math.floor(minutes / 60);
     return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  };
+
+  const getIntervalHours = () => {
+    const config = schedulerStatus?.details?.config;
+    return config?.intervalHours || 2;
+  };
+
+  const getBatchLimit = () => {
+    const config = schedulerStatus?.details?.config;
+    return config?.limit || 50;
   };
 
   const formatLastRun = (timestamp: number) => {
@@ -35,12 +76,8 @@ export function AmazonScheduler() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>
-            <Skeleton className="h-6 w-[250px]" />
-          </CardTitle>
-          <CardDescription>
-            <Skeleton className="h-4 w-[350px]" />
-          </CardDescription>
+          <CardTitle><Skeleton className="h-6 w-[250px]" /></CardTitle>
+          <CardDescription><Skeleton className="h-4 w-[350px]" /></CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-16 w-full" />
@@ -64,11 +101,18 @@ export function AmazonScheduler() {
               Configure automatic syncing of Amazon marketplace data
             </CardDescription>
           </div>
-          {isJobActive && (
-            <Badge variant={jobDetails?.isRunning ? "default" : "outline"}>
-              {jobDetails?.isRunning ? "Running" : "Active"}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {isJobActive && (
+              <Badge variant={jobDetails?.isRunning ? "default" : "secondary"} className="text-xs">
+                {jobDetails?.isRunning ? "Running" : "Active"}
+              </Badge>
+            )}
+            {configValid && isJobActive && (
+              <Button variant="ghost" size="sm" onClick={() => setIsConfiguring(!isConfiguring)}>
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -94,43 +138,105 @@ export function AmazonScheduler() {
 
         {configValid && isJobActive && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
-              <div className="flex items-center space-x-4">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Sync Frequency</p>
-                  <p className="text-sm text-muted-foreground">
-                    Every {formatInterval(jobDetails?.interval || 0)}
-                  </p>
+            {isConfiguring ? (
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="space-y-2">
+                  <Label>Sync Frequency</Label>
+                  <Select
+                    defaultValue={String(getIntervalHours())}
+                    onValueChange={(val) => {
+                      updateScheduleMutation.mutate({ intervalHours: parseInt(val) });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Every 1 hour</SelectItem>
+                      <SelectItem value="2">Every 2 hours</SelectItem>
+                      <SelectItem value="4">Every 4 hours</SelectItem>
+                      <SelectItem value="6">Every 6 hours</SelectItem>
+                      <SelectItem value="12">Every 12 hours</SelectItem>
+                      <SelectItem value="24">Every 24 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
-              <div className="flex items-center space-x-4">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Last Run</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatLastRun(jobDetails?.lastRun || 0)}
-                  </p>
+                <div className="space-y-2">
+                  <Label>Products per Batch</Label>
+                  <Select
+                    defaultValue={String(getBatchLimit())}
+                    onValueChange={(val) => {
+                      updateScheduleMutation.mutate({ limit: parseInt(val) });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25 products</SelectItem>
+                      <SelectItem value="50">50 products</SelectItem>
+                      <SelectItem value="100">100 products</SelectItem>
+                      <SelectItem value="200">200 products</SelectItem>
+                      <SelectItem value="500">500 products</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              
-              <div>
-                {jobDetails?.isRunning ? (
-                  <Badge variant="secondary" className="flex items-center">
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    Running
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="flex items-center">
-                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                    Idle
-                  </Badge>
+            ) : (
+              <>
+                <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
+                  <div className="flex items-center space-x-4">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Sync Frequency</p>
+                      <p className="text-sm text-muted-foreground">
+                        Every {getIntervalHours()} hour{getIntervalHours() !== 1 ? 's' : ''} · {getBatchLimit()} products per batch
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
+                  <div className="flex items-center space-x-4">
+                    <Clock className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Last Run</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatLastRun(jobDetails?.lastRun || 0)}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    {jobDetails?.isRunning ? (
+                      <Badge variant="secondary" className="flex items-center">
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Running
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="flex items-center">
+                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                        Idle
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {overviewStats && (
+                  <div className="flex items-center justify-between space-x-4 rounded-lg border p-4">
+                    <div className="flex items-center space-x-4">
+                      <Database className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Discovery Progress</p>
+                        <p className="text-sm text-muted-foreground">
+                          {overviewStats.amazonMatches} matched · {overviewStats.productsRemaining} remaining of {overviewStats.productsWithIdentifiers} scannable
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </div>
-            </div>
+              </>
+            )}
           </div>
         )}
       </CardContent>

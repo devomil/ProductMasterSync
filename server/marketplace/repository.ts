@@ -193,34 +193,54 @@ export async function getProductsForAmazonSync(limit: number = 10, force: boolea
   const oneDayAgo = new Date();
   oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-  // Build conditions based on parameters
-  const hasIdentifier = sql`(${products.upc} IS NOT NULL AND ${products.upc} != '') OR (${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != '')`;
-  const notProcessing = sql`(${products.amazonSyncStatus} != 'processing' OR ${products.amazonSyncStatus} IS NULL)`;
-  const supplierCondition = supplierId ? eq(products.supplierId, supplierId) : undefined;
+  if (supplierId) {
+    let result;
+    if (force) {
+      result = await db.execute(sql`
+        SELECT * FROM products
+        WHERE id IN (SELECT ps.product_id FROM product_suppliers ps WHERE ps.supplier_id = ${supplierId})
+          AND ((upc IS NOT NULL AND upc != '') OR (manufacturer_part_number IS NOT NULL AND manufacturer_part_number != ''))
+          AND (amazon_sync_status != 'processing' OR amazon_sync_status IS NULL)
+        LIMIT ${limit}
+      `);
+    } else {
+      result = await db.execute(sql`
+        SELECT * FROM products
+        WHERE id IN (SELECT ps.product_id FROM product_suppliers ps WHERE ps.supplier_id = ${supplierId})
+          AND ((upc IS NOT NULL AND upc != '') OR (manufacturer_part_number IS NOT NULL AND manufacturer_part_number != ''))
+          AND (amazon_sync_status != 'processing' OR amazon_sync_status IS NULL)
+          AND (last_amazon_sync IS NULL OR last_amazon_sync < ${oneDayAgo.toISOString()})
+        LIMIT ${limit}
+      `);
+    }
+    const rows = (result.rows || result) as any[];
+    return rows.map((r: any) => ({
+      ...r,
+      supplierId: r.supplier_id,
+      manufacturerPartNumber: r.manufacturer_part_number,
+      manufacturerName: r.manufacturer_name,
+      amazonSyncStatus: r.amazon_sync_status,
+      lastAmazonSync: r.last_amazon_sync,
+      categoryId: r.category_id,
+    })) as Product[];
+  }
 
+  const hasIdentifier = sql`((${products.upc} IS NOT NULL AND ${products.upc} != '') OR (${products.manufacturerPartNumber} IS NOT NULL AND ${products.manufacturerPartNumber} != ''))`;
+  const notProcessing = sql`(${products.amazonSyncStatus} != 'processing' OR ${products.amazonSyncStatus} IS NULL)`;
+  
   if (force) {
-    // Force mode: sync all products with identifiers, ignore cooldown
-    const conditions = supplierCondition 
-      ? and(hasIdentifier, notProcessing, supplierCondition)
-      : and(hasIdentifier, notProcessing);
-      
     return await db
       .select()
       .from(products)
-      .where(conditions)
+      .where(and(hasIdentifier, notProcessing))
       .limit(limit);
   }
 
-  // Normal mode: respect 24-hour cooldown
   const cooldownCondition = sql`(${products.lastAmazonSync} IS NULL OR ${products.lastAmazonSync} < ${oneDayAgo.toISOString()})`;
-  const conditions = supplierCondition
-    ? and(hasIdentifier, cooldownCondition, notProcessing, supplierCondition)
-    : and(hasIdentifier, cooldownCondition, notProcessing);
-    
   return await db
     .select()
     .from(products)
-    .where(conditions)
+    .where(and(hasIdentifier, cooldownCondition, notProcessing))
     .limit(limit);
 }
 

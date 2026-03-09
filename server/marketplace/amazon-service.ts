@@ -16,7 +16,7 @@ import {
   markSyncJobComplete
 } from './repository';
 import { amazonRateLimiter } from '../utils/rate-limiter';
-import { searchCatalogItemsByUPC } from '../utils/amazon-spapi';
+import { searchCatalogItemsByUPC, searchCatalogItemsByMPN } from './amazon-spapi-service';
 import { getAmazonConfigFromDb } from '../utils/get-amazon-config-from-db';
 import { InsertAmazonSyncLog } from '@shared/schema';
 
@@ -59,11 +59,13 @@ async function retryWithBackoff<T>(
 }
 
 /**
- * Fetch Amazon marketplace data for a product by UPC
+ * Fetch Amazon marketplace data for a product by UPC and/or MPN (multi-strategy)
  * @param productId 
- * @param upc 
+ * @param upc - UPC code (optional)
+ * @param mpn - Manufacturer part number (optional) 
+ * @param brand - Brand name for better MPN search accuracy (optional)
  */
-export async function fetchAmazonDataByUpc(productId: number, upc: string) {
+export async function fetchAmazonDataByUpc(productId: number, upc: string, mpn?: string, brand?: string) {
   const startTime = Date.now();
   const config = await getAmazonConfigFromDb();
   let syncLog: any = {
@@ -76,17 +78,24 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
   };
   
   try {
-    // First update product status to indicate it's processing
     await updateProductAmazonSyncStatus(productId, 'processing');
     
-    // Wait for token to be available (respects rate limits)
-    await amazonRateLimiter.waitAndConsume();
+    let catalogItems: any[] = [];
+    let matchMethod = 'upc_match';
     
-    // Fetch catalog items from Amazon by UPC
-    const catalogItems = await searchCatalogItemsByUPC(upc, config);
+    if (upc) {
+      catalogItems = await searchCatalogItemsByUPC(upc);
+    }
+    
+    if (catalogItems.length === 0 && mpn) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      catalogItems = await searchCatalogItemsByMPN(mpn, brand);
+      if (catalogItems.length > 0) {
+        matchMethod = 'mpn_match';
+      }
+    }
     
     if (!catalogItems.length) {
-      // No items found
       const endTime = Date.now();
       syncLog = {
         ...syncLog,
@@ -95,7 +104,6 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
         responseTimeMs: endTime - startTime,
       };
       
-      // await createSyncLog(syncLog);
       await updateProductAmazonSyncStatus(productId, 'error');
       return [];
     }
@@ -212,14 +220,13 @@ export async function fetchAmazonDataByUpc(productId: number, upc: string) {
       
       const savedData = await saveAmazonMarketData(marketData);
       
-      // CRITICAL FIX: Create the product ASIN mapping
       const { createProductAsinMapping } = await import('./repository');
       await createProductAsinMapping({
         productId: productId,
         asin: item.asin,
         mappingSource: 'api_search',
-        matchMethod: 'upc_match',
-        matchConfidence: 95,
+        matchMethod: matchMethod,
+        matchConfidence: matchMethod === 'upc_match' ? 95 : 90,
         isActive: true,
         isVerified: false,
         isDirectCompetitor: true,
@@ -379,16 +386,22 @@ export async function batchSyncAmazonData(limit: number = 10, force: boolean = f
       results.processed++;
       results.productIds.push(product.id);
       
-      console.log(`[${i + 1}/${products.length}] Syncing product ${product.id} (UPC: ${product.upc})...`);
+      const hasUpc = product.upc && product.upc.trim() !== '';
+      const hasMpn = product.manufacturerPartNumber && product.manufacturerPartNumber.trim() !== '';
+      console.log(`[${i + 1}/${products.length}] Syncing product ${product.id} (UPC: ${product.upc || '-'}, MPN: ${product.manufacturerPartNumber || '-'})...`);
       
       try {
-        if (!product.upc) {
-          console.log(`  ⚠️ Skipped - No UPC`);
+        if (!hasUpc && !hasMpn) {
+          console.log(`  ⚠️ Skipped - No UPC or MPN`);
           continue;
         }
         
-        // Perform the sync (rate limiter automatically waits)
-        const asinData = await fetchAmazonDataByUpc(product.id, product.upc);
+        const asinData = await fetchAmazonDataByUpc(
+          product.id, 
+          product.upc || '', 
+          product.manufacturerPartNumber || undefined,
+          product.manufacturerName || undefined
+        );
         
         if (asinData && asinData.length > 0) {
           results.successful++;

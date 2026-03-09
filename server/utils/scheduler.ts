@@ -172,9 +172,9 @@ const executeJob = async (job: ScheduledJob): Promise<boolean> => {
   try {
     let success = false;
     
-    // Mark job as running by updating lastRun
     const now = new Date();
     job.lastRun = now;
+    (job as any)._isRunning = true;
     
     // Execute job based on type
     switch (job.type) {
@@ -210,10 +210,10 @@ const executeJob = async (job: ScheduledJob): Promise<boolean> => {
         success = false;
     }
     
-    // Calculate next run time
+    (job as any)._isRunning = false;
+    
     job.nextRun = calculateNextRun(job, now);
     
-    // Update schedule in database
     if (job.dataSourceId) {
       await db.update(schedules)
         .set({
@@ -225,6 +225,7 @@ const executeJob = async (job: ScheduledJob): Promise<boolean> => {
     
     return success;
   } catch (error) {
+    (job as any)._isRunning = false;
     log(`Error executing job ${job.id}: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
@@ -380,19 +381,18 @@ const loadJobs = async () => {
     );
     
     if (!hasAmazonJob) {
-      // Create always-on Amazon sync job that runs every 2 hours
       scheduledJobs.push({
-        id: -999999, // Special ID for always-on Amazon job
+        id: -999999,
         type: 'api',
         lastRun: null,
-        nextRun: new Date(Date.now() + 300000), // Start in 5 minutes
-        frequency: 'hourly', // Run every 2 hours
+        nextRun: new Date(Date.now() + 300000),
+        frequency: 'hourly',
         config: {
           apiType: 'amazon',
-          limit: 10, // Process 10 products per run
-          hour: 2, // Run every 2 hours starting at 2:00
+          limit: 50,
+          hour: 2,
           minute: 0,
-          intervalHours: 2 // Custom interval
+          intervalHours: 2
         }
       });
       
@@ -494,17 +494,16 @@ export const runJobNow = async (connectionId: number): Promise<{
 // Create a scheduler object that can be imported and used by other modules
 export const scheduler = {
   init: initScheduler,
-  triggerJob: async (jobId: string) => {
-    // For compatibility with the amazon marketplace integration
+  triggerJob: async (jobId: string, limit?: number) => {
     if (jobId === 'amazon-sync') {
       try {
-        // Dynamically import the Amazon sync function
+        const amazonJob = scheduledJobs.find(j => j.type === 'api' && j.config?.apiType === 'amazon');
+        const effectiveLimit = limit || amazonJob?.config?.limit || 50;
         const amazonSyncFn = await getAmazonSyncFunction();
-        return await amazonSyncFn(10);
+        return await amazonSyncFn(effectiveLimit);
       } catch (error) {
         console.error('Error importing Amazon sync function:', error);
-        // Fallback to local implementation
-        return await batchSyncAmazonData(10);
+        return await batchSyncAmazonData(limit || 50);
       }
     }
     
@@ -518,8 +517,29 @@ export const scheduler = {
     
     throw new Error(`Job with ID "${jobId}" not found`);
   },
+  updateAmazonSchedule: (config: { intervalHours?: number; limit?: number; enabled?: boolean }) => {
+    const amazonJob = scheduledJobs.find(j => j.type === 'api' && j.config?.apiType === 'amazon');
+    if (amazonJob) {
+      if (config.intervalHours !== undefined) {
+        amazonJob.config.intervalHours = config.intervalHours;
+      }
+      if (config.limit !== undefined) {
+        amazonJob.config.limit = config.limit;
+      }
+      if (config.enabled === false) {
+        amazonJob.nextRun = null;
+      } else if (config.enabled === true && !amazonJob.nextRun) {
+        amazonJob.nextRun = new Date(Date.now() + 60000);
+      }
+      const nextRunMs = amazonJob.config.intervalHours * 60 * 60 * 1000;
+      if (amazonJob.nextRun) {
+        amazonJob.nextRun = new Date(Date.now() + nextRunMs);
+      }
+      return true;
+    }
+    return false;
+  },
   getJobs: () => {
-    // Return formatted job information that's compatible with the existing code
     return scheduledJobs.map(job => {
       const jobId = job.connectionId ? `connection-${job.connectionId}` : 
                    job.dataSourceId ? `datasource-${job.dataSourceId}` : 
@@ -528,10 +548,11 @@ export const scheduler = {
       return {
         id: jobId,
         type: job.type,
-        lastRun: job.lastRun,
-        nextRun: job.nextRun,
+        lastRun: job.lastRun ? job.lastRun.getTime() : null,
+        nextRun: job.nextRun ? job.nextRun.getTime() : null,
         frequency: job.frequency,
-        config: job.config
+        config: job.config,
+        isRunning: (job as any)._isRunning || false
       };
     });
   }

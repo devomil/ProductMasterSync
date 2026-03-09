@@ -37,9 +37,20 @@ const removeEdcPrefix = (sku: string): string => {
   return sku.replace(/^EDC/i, '');
 };
 
+interface OverviewStats {
+  amazonMatches: number;
+  productsWithUpc: number;
+  totalProducts: number;
+  productsWithIdentifiers: number;
+  productsSynced: number;
+  productsRemaining: number;
+  dataCoverage: number;
+}
+
 export default function AmazonIntegration() {
-  const { data: products, isLoading } = useQuery<{ products: any[]; pagination: { totalItems: number } }>({
-    queryKey: ['/api/products?limit=1000'], // Get enough products to calculate metrics
+  const { data: overviewStats, isLoading } = useQuery<OverviewStats>({
+    queryKey: ['/api/marketplace/amazon/overview-stats'],
+    refetchInterval: 30000,
   });
 
   const { data: configStatus } = useQuery<{ configValid: boolean; missingEnvVars: string[] }>({
@@ -48,15 +59,16 @@ export default function AmazonIntegration() {
 
   const { data: syncLogs, isLoading: isSyncLogsLoading } = useRecentAmazonSyncLogs(25);
 
+  const { data: recentSynced, isLoading: isRecentLoading } = useQuery<{ products: any[] }>({
+    queryKey: ['/api/marketplace/amazon/recent-synced'],
+    refetchInterval: 30000,
+  });
+
   const [activeTab, setActiveTab] = React.useState('overview');
 
-  // Calculate metrics from products data
-  const totalProducts = products?.pagination?.totalItems || 0;
-  const productsWithAsins = products?.products?.filter((p: any) => 
-    p.asinMappings && p.asinMappings.length > 0
-  ).length || 0;
-  const productsWithUpc = products?.products?.filter((p: any) => p.upc).length || 0;
-  const upcCoverage = totalProducts > 0 ? Math.round((productsWithUpc / totalProducts) * 100) : 0;
+  const totalProducts = overviewStats?.totalProducts || 0;
+  const productsWithAsins = overviewStats?.amazonMatches || 0;
+  const upcCoverage = overviewStats?.dataCoverage || 0;
 
   return (
     <div className="container mx-auto py-8 space-y-8">
@@ -173,7 +185,7 @@ export default function AmazonIntegration() {
                   {isLoading ? "..." : `${upcCoverage}%`}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  UPC coverage in catalog
+                  ASIN discovery coverage
                 </p>
               </CardContent>
             </Card>
@@ -229,25 +241,50 @@ export default function AmazonIntegration() {
                   </div>
                   
                   <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                      <AlertCircle className="h-5 w-5" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      productsWithAsins > 0 
+                        ? 'bg-green-100 text-green-600' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {productsWithAsins > 0 ? (
+                        <CheckIcon className="h-5 w-5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-medium">Run Initial Data Sync</h3>
                       <p className="text-sm text-muted-foreground">
-                        Sync your products with Amazon catalog data.
+                        {productsWithAsins > 0 
+                          ? `${productsWithAsins} products matched with Amazon ASINs.`
+                          : 'Sync your products with Amazon catalog data.'}
                       </p>
+                      {productsWithAsins === 0 && configStatus?.configValid && (
+                        <Button variant="link" size="sm" className="p-0 h-auto text-blue-600" onClick={() => setActiveTab('sync')}>
+                          Start Sync →
+                        </Button>
+                      )}
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                      <AlertCircle className="h-5 w-5" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      (overviewStats?.productsSynced || 0) > 0
+                        ? 'bg-green-100 text-green-600' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {(overviewStats?.productsSynced || 0) > 0 ? (
+                        <CheckIcon className="h-5 w-5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-medium">Schedule Regular Updates</h3>
                       <p className="text-sm text-muted-foreground">
-                        Set up automatic sync schedule for marketplace data.
+                        {(overviewStats?.productsSynced || 0) > 0
+                          ? `Automated sync active. ${overviewStats?.productsRemaining || 0} products remaining to scan.`
+                          : 'Set up automatic sync schedule for marketplace data.'}
                       </p>
                     </div>
                   </div>
@@ -336,34 +373,35 @@ export default function AmazonIntegration() {
             
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle>UPC Coverage</CardTitle>
+                <CardTitle>Recently Synced Products</CardTitle>
                 <CardDescription>
-                  Products that have UPC codes and can be matched with Amazon
+                  Products recently synced with Amazon — showing ASIN matches
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>EDC</TableHead>
+                      <TableHead>SKU</TableHead>
                       <TableHead>Product Name</TableHead>
-                      <TableHead>UPC</TableHead>
+                      <TableHead>UPC / MPN</TableHead>
                       <TableHead>ASIN</TableHead>
                       <TableHead>Last Sync</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {!isLoading && products?.products ? (
-                      products.products.slice(0, 10).filter((p: any) => p.upc).map((product: any) => (
+                    {!isRecentLoading && recentSynced?.products && recentSynced.products.length > 0 ? (
+                      recentSynced.products.slice(0, 20).map((product: any) => (
                         <TableRow key={product.id}>
                           <TableCell className="font-medium">{removeEdcPrefix(product.sku)}</TableCell>
                           <TableCell className="max-w-xs truncate">{product.name}</TableCell>
-                          <TableCell className="font-mono text-xs">{product.upc || '-'}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {product.upc || product.mpn || '-'}
+                          </TableCell>
                           <TableCell>
-                            {product.asinMappings && product.asinMappings.length > 0 ? (
+                            {product.asin_mappings && product.asin_mappings.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {product.asinMappings.slice(0, 3).map((mapping: any, idx: number) => (
+                                {product.asin_mappings.slice(0, 3).map((mapping: any, idx: number) => (
                                   <span 
                                     key={idx} 
                                     className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10"
@@ -371,31 +409,25 @@ export default function AmazonIntegration() {
                                     {mapping.asin}
                                   </span>
                                 ))}
-                                {product.asinMappings.length > 3 && (
+                                {product.asin_mappings.length > 3 && (
                                   <span className="text-xs text-muted-foreground">
-                                    +{product.asinMappings.length - 3}
+                                    +{product.asin_mappings.length - 3}
                                   </span>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-muted-foreground">-</span>
+                              <span className="text-muted-foreground text-xs">No match</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm">
-                            {product.lastAmazonSync ? new Date(product.lastAmazonSync).toLocaleDateString() : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" disabled={!product.upc} data-testid={`button-sync-${product.id}`}>
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              Sync
-                            </Button>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {product.last_amazon_sync ? new Date(product.last_amazon_sync).toLocaleDateString() : '-'}
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center">
-                          {isLoading ? 'Loading products...' : 'No products with UPC codes found.'}
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          {isRecentLoading ? 'Loading...' : 'No products synced yet. Run a batch sync to get started.'}
                         </TableCell>
                       </TableRow>
                     )}

@@ -672,6 +672,112 @@ router.post('/amazon/scheduler/trigger', async (req, res) => {
 });
 
 /**
+ * PUT /marketplace/amazon/scheduler/config
+ * Update Amazon sync scheduler configuration
+ */
+router.put('/amazon/scheduler/config', async (req, res) => {
+  try {
+    const { intervalHours, limit, enabled } = req.body;
+    const updated = scheduler.updateAmazonSchedule({ intervalHours, limit, enabled });
+    if (!updated) {
+      return res.status(404).json({ error: 'Amazon scheduler job not found' });
+    }
+    const jobs = scheduler.getJobs();
+    const amazonJob = jobs.find(job => job.type === 'api' && job.config?.apiType === 'amazon');
+    return res.json({ success: true, details: amazonJob });
+  } catch (error) {
+    console.error('Error in PUT /marketplace/amazon/scheduler/config:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/overview-stats
+ * Get accurate Amazon integration stats from database
+ */
+router.get('/amazon/overview-stats', async (req, res) => {
+  try {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+    
+    const statsResult = await db.execute(sql`
+      SELECT 
+        (SELECT COUNT(DISTINCT product_id) FROM product_asin_mapping WHERE is_active = true) as amazon_matches,
+        (SELECT COUNT(*) FROM products WHERE upc IS NOT NULL AND upc != '') as products_with_upc,
+        (SELECT COUNT(*) FROM products) as total_products,
+        (SELECT COUNT(DISTINCT pam.product_id) FROM product_asin_mapping pam 
+         JOIN products p ON p.id = pam.product_id 
+         WHERE pam.is_active = true AND p.upc IS NOT NULL AND p.upc != '') as upc_matched,
+        (SELECT COUNT(*) FROM products 
+         WHERE (upc IS NOT NULL AND upc != '') OR (manufacturer_part_number IS NOT NULL AND manufacturer_part_number != '')) as products_with_identifiers,
+        (SELECT COUNT(*) FROM products 
+         WHERE last_amazon_sync IS NOT NULL) as products_synced
+    `);
+    
+    const stats = Array.isArray(statsResult) ? statsResult[0] : (statsResult as any).rows?.[0] || {};
+    const amazonMatches = parseInt(stats.amazon_matches || '0');
+    const productsWithUpc = parseInt(stats.products_with_upc || '0');
+    const totalProducts = parseInt(stats.total_products || '0');
+    const productsWithIdentifiers = parseInt(stats.products_with_identifiers || '0');
+    const productsSynced = parseInt(stats.products_synced || '0');
+    const dataCoverage = productsWithIdentifiers > 0 
+      ? Math.round((amazonMatches / productsWithIdentifiers) * 100) 
+      : 0;
+    const productsRemaining = productsWithIdentifiers - productsSynced;
+    
+    return res.json({
+      amazonMatches,
+      productsWithUpc,
+      totalProducts,
+      productsWithIdentifiers,
+      productsSynced,
+      productsRemaining: Math.max(0, productsRemaining),
+      dataCoverage
+    });
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/overview-stats:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * GET /marketplace/amazon/recent-synced
+ * Get recently synced products with their ASIN mappings (for UPC Coverage table)
+ */
+router.get('/amazon/recent-synced', async (req, res) => {
+  try {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    
+    const results = await db.execute(sql`
+      SELECT 
+        p.id,
+        p.sku,
+        p.name,
+        p.upc,
+        p.manufacturer_part_number as mpn,
+        p.last_amazon_sync,
+        COALESCE(
+          (SELECT json_agg(json_build_object('asin', pam.asin, 'confidence', pam.match_confidence))
+           FROM product_asin_mapping pam 
+           WHERE pam.product_id = p.id AND pam.is_active = true),
+          '[]'::json
+        ) as asin_mappings
+      FROM products p
+      WHERE p.last_amazon_sync IS NOT NULL
+      ORDER BY p.last_amazon_sync DESC NULLS LAST
+      LIMIT ${limit}
+    `);
+    
+    return res.json({ products: results.rows });
+  } catch (error) {
+    console.error('Error in GET /marketplace/amazon/recent-synced:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
  * POST /marketplace/amazon/test-upc
  * Test endpoint to see raw Amazon API response for a UPC
  */
