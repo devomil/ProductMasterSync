@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAmazonConfigStatus, useAmazonSchedulerStatus, useTriggerAmazonSyncJob } from '@/hooks/useAmazonMarketData';
-import { Loader2, PlayCircle, Calendar, Clock, AlertCircle, CheckCircle2, Settings2, Database } from 'lucide-react';
+import { Loader2, PlayCircle, PauseCircle, StopCircle, Calendar, Clock, AlertCircle, CheckCircle2, Settings2, Database } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,9 +32,15 @@ export function AmazonScheduler() {
       const res = await apiRequest('PUT', '/api/marketplace/amazon/scheduler/config', config);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon/scheduler/status'] });
-      toast({ title: 'Schedule Updated', description: 'Amazon sync schedule has been updated.' });
+      if (variables.enabled === false) {
+        toast({ title: 'Schedule Paused', description: 'Automated sync has been paused. You can run manual batches without interference.' });
+      } else if (variables.enabled === true) {
+        toast({ title: 'Schedule Resumed', description: 'Automated sync has been resumed.' });
+      } else {
+        toast({ title: 'Schedule Updated', description: 'Amazon sync schedule has been updated.' });
+      }
       setIsConfiguring(false);
     },
     onError: (error: Error) => {
@@ -46,14 +52,12 @@ export function AmazonScheduler() {
     triggerSyncJob.mutate();
   };
 
-  const formatInterval = (intervalMs: number) => {
-    if (!intervalMs) return 'Not set';
-    const minutes = Math.floor(intervalMs / (60 * 1000));
-    if (minutes < 60) {
-      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
-    }
-    const hours = Math.floor(minutes / 60);
-    return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  const handlePause = () => {
+    updateScheduleMutation.mutate({ enabled: false });
+  };
+
+  const handleResume = () => {
+    updateScheduleMutation.mutate({ enabled: true });
   };
 
   const getIntervalHours = () => {
@@ -72,6 +76,18 @@ export function AmazonScheduler() {
     return date.toLocaleString();
   };
 
+  const formatNextRun = (timestamp: number) => {
+    if (!timestamp) return null;
+    const now = Date.now();
+    const diff = timestamp - now;
+    if (diff <= 0) return 'Any moment now';
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `in ${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMins = minutes % 60;
+    return `in ${hours}h ${remainingMins}m`;
+  };
+
   if (isLoadingConfig || isLoadingScheduler) {
     return (
       <Card>
@@ -88,8 +104,10 @@ export function AmazonScheduler() {
   }
 
   const configValid = configStatus?.configValid;
-  const isJobActive = schedulerStatus?.active;
+  const isActive = schedulerStatus?.active;
+  const isPaused = schedulerStatus?.paused;
   const jobDetails = schedulerStatus?.details;
+  const hasJob = isActive || isPaused;
 
   return (
     <Card>
@@ -102,12 +120,17 @@ export function AmazonScheduler() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            {isJobActive && (
+            {isPaused && (
+              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">
+                Paused
+              </Badge>
+            )}
+            {isActive && !isPaused && (
               <Badge variant={jobDetails?.isRunning ? "default" : "secondary"} className="text-xs">
                 {jobDetails?.isRunning ? "Running" : "Active"}
               </Badge>
             )}
-            {configValid && isJobActive && (
+            {configValid && hasJob && (
               <Button variant="ghost" size="sm" onClick={() => setIsConfiguring(!isConfiguring)}>
                 <Settings2 className="h-4 w-4" />
               </Button>
@@ -126,7 +149,7 @@ export function AmazonScheduler() {
           </Alert>
         )}
 
-        {configValid && !isJobActive && (
+        {configValid && !hasJob && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Scheduler Not Active</AlertTitle>
@@ -136,7 +159,7 @@ export function AmazonScheduler() {
           </Alert>
         )}
 
-        {configValid && isJobActive && (
+        {configValid && hasJob && (
           <div className="space-y-4">
             {isConfiguring ? (
               <div className="space-y-4 rounded-lg border p-4">
@@ -213,10 +236,15 @@ export function AmazonScheduler() {
                         <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                         Running
                       </Badge>
+                    ) : isPaused ? (
+                      <Badge variant="outline" className="flex items-center text-amber-600">
+                        <PauseCircle className="mr-1 h-3 w-3" />
+                        Paused
+                      </Badge>
                     ) : (
                       <Badge variant="outline" className="flex items-center">
                         <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Idle
+                        {jobDetails?.nextRun ? `Next ${formatNextRun(jobDetails.nextRun)}` : 'Idle'}
                       </Badge>
                     )}
                   </div>
@@ -237,28 +265,69 @@ export function AmazonScheduler() {
                 )}
               </>
             )}
+
+            {isPaused && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <PauseCircle className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800">Schedule Paused</AlertTitle>
+                <AlertDescription className="text-amber-700">
+                  Automated sync is paused. You can run manual batch syncs without interference. Resume when ready.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-2">
+              {isPaused ? (
+                <Button
+                  className="flex-1"
+                  onClick={handleResume}
+                  disabled={updateScheduleMutation.isPending}
+                >
+                  {updateScheduleMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Resume Schedule
+                </Button>
+              ) : (
+                <Button 
+                  className="flex-1" 
+                  onClick={handleTriggerSync} 
+                  disabled={!configValid || triggerSyncJob.isPending || (jobDetails?.isRunning || false)}
+                >
+                  {triggerSyncJob.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                      Trigger Sync Now
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              {isActive && !isPaused && (
+                <Button
+                  variant="outline"
+                  onClick={handlePause}
+                  disabled={updateScheduleMutation.isPending || (jobDetails?.isRunning || false)}
+                  className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                >
+                  {updateScheduleMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <PauseCircle className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
-      <CardFooter>
-        <Button 
-          className="w-full" 
-          onClick={handleTriggerSync} 
-          disabled={!configValid || triggerSyncJob.isPending || (jobDetails?.isRunning || false)}
-        >
-          {triggerSyncJob.isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <PlayCircle className="mr-2 h-4 w-4" />
-              Trigger Sync Now
-            </>
-          )}
-        </Button>
-      </CardFooter>
     </Card>
   );
 }

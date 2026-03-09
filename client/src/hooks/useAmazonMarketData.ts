@@ -31,18 +31,26 @@ export interface AmazonSyncLog {
 
 export interface SchedulerStatus {
   active: boolean;
+  paused: boolean;
   details: {
     id: string;
     name: string;
     interval: number;
     lastRun: number;
+    nextRun: number | null;
     isRunning: boolean;
+    config?: {
+      intervalHours?: number;
+      limit?: number;
+      apiType?: string;
+    };
   } | null;
   allJobs: Array<{
     id: string;
     name: string;
     interval: number;
     lastRun: number;
+    nextRun: number | null;
     isRunning: boolean;
   }>;
 }

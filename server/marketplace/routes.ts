@@ -613,13 +613,15 @@ router.get('/amazon/sync-jobs/history', async (req, res) => {
 router.get('/amazon/scheduler/status', (req, res) => {
   try {
     const jobs = scheduler.getJobs();
-    // Look for API job with amazon type (scheduler creates job with ID like 'job--999999')
     const amazonSyncJob = jobs.find(job => 
       job.type === 'api' && job.config?.apiType === 'amazon'
     );
     
+    const paused = !!amazonSyncJob && !amazonSyncJob.nextRun;
+    
     return res.json({
-      active: !!amazonSyncJob,
+      active: !!amazonSyncJob && !paused,
+      paused,
       details: amazonSyncJob || null,
       allJobs: jobs
     });
