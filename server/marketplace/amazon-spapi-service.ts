@@ -165,7 +165,7 @@ export async function searchCatalogItemsByUPC(upc: string): Promise<any[]> {
       rateLimiter.updateLimitsFromHeaders('searchCatalogItems', response.headers);
     }
 
-    const items = response.items || [];
+    const items = response?.data?.items || response?.items || [];
     console.log(`Found ${items.length} items for UPC ${upc}`);
     
     return items.map(item => ({
@@ -224,7 +224,7 @@ export async function searchCatalogItemsByMPN(mpn: string, brand?: string): Prom
       rateLimiter.updateLimitsFromHeaders('searchCatalogItems', response.headers);
     }
 
-    const items = response.items || [];
+    const items = response?.data?.items || response?.items || [];
     console.log(`Found ${items.length} items for MPN ${mpn}`);
     
     // Filter results to find items that match the MPN more precisely
@@ -333,7 +333,7 @@ export async function getCatalogItem(asin: string): Promise<any | null> {
       rateLimiter.updateLimitsFromHeaders('getCatalogItem', response.headers);
     }
 
-    const item = response;
+    const item = response?.data || response;
     if (!item) return null;
 
     return {
