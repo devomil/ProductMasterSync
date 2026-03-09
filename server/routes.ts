@@ -4574,7 +4574,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Set manufacturer name from Vendor Name if not already set
         if (!transformedRecord.manufacturerName && sourceRecord['Vendor Name']) {
-          transformedRecord.manufacturerName = sourceRecord['Vendor Name'].trim();
+          const rawVendorName = sourceRecord['Vendor Name'].trim();
+          const existingAttrs2 = (transformedRecord.attributes as any) || {};
+          existingAttrs2.vendorNameFull = rawVendorName;
+          transformedRecord.attributes = existingAttrs2;
+          const dashIdx = rawVendorName.indexOf(' - ');
+          transformedRecord.manufacturerName = dashIdx > 0 ? rawVendorName.substring(0, dashIdx).trim() : rawVendorName;
         }
         
         const ingramCategory = sourceRecord['Category']?.trim();
@@ -4663,6 +4668,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      for (const product of transformedProducts) {
+        if (product.categoryId) continue;
+        const supplierCat = product.attributes?.supplier_category;
+        if (!supplierCat || typeof supplierCat !== 'string') continue;
+        
+        const catName = supplierCat.trim();
+        if (categoryMap.has(catName)) {
+          product.categoryId = categoryMap.get(catName);
+          continue;
+        }
+        
+        try {
+          const [existingCategory] = await db
+            .select()
+            .from(categories)
+            .where(eq(categories.name, catName))
+            .limit(1);
+          
+          if (existingCategory) {
+            categoryMap.set(catName, existingCategory.id);
+            product.categoryId = existingCategory.id;
+          } else {
+            const categoryCode = catName
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, '_')
+              .substring(0, 30);
+            
+            const parts = catName.split(' | ');
+            let parentId = null;
+            if (parts.length > 1) {
+              const parentName = parts[0].trim();
+              if (categoryMap.has(parentName)) {
+                parentId = categoryMap.get(parentName);
+              } else {
+                const [existingParent] = await db
+                  .select()
+                  .from(categories)
+                  .where(eq(categories.name, parentName))
+                  .limit(1);
+                if (existingParent) {
+                  parentId = existingParent.id;
+                  categoryMap.set(parentName, parentId);
+                } else {
+                  const parentCode = parentName.toUpperCase().replace(/[^A-Z0-9]/g, '_').substring(0, 30);
+                  const [newParent] = await db
+                    .insert(categories)
+                    .values({ name: parentName, code: parentCode, level: 0, attributes: {}, createdAt: new Date(), updatedAt: new Date() })
+                    .returning();
+                  parentId = newParent.id;
+                  categoryMap.set(parentName, parentId);
+                  categoriesCreated++;
+                }
+              }
+            }
+            
+            const [newCategory] = await db
+              .insert(categories)
+              .values({
+                name: catName,
+                code: categoryCode,
+                level: parentId ? 1 : 0,
+                parentId: parentId,
+                path: catName,
+                attributes: {},
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            categoryMap.set(catName, newCategory.id);
+            product.categoryId = newCategory.id;
+            categoriesCreated++;
+          }
+        } catch (categoryError) {
+          // Continue without category link
+        }
+      }
+      
       if (categoriesCreated > 0) {
         console.log(`Created ${categoriesCreated} new categories`);
       }
@@ -4707,9 +4790,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           for (const product of batch) {
             const name = product.name || 'Imported Product';
-            // Reuse existing SKU if product already exists by usin, otherwise use generated EDC SKU
             const sku = (product.usin && existingByUsin.get(product.usin)) || product.sku;
             const upc = product.upc || null;
+            const description = product.description || null;
             const manufacturerPartNumber = product.manufacturerPartNumber || null;
             const usin = product.usin || null;
             const cost = product.yourCost != null ? String(product.yourCost) : (product.cost || null);
@@ -4718,7 +4801,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const status = product.status || 'active';
             const manufacturerName = product.manufacturerName || null;
             
-            // Store pricing details in attributes
             const existingAttrs = product.attributes || {};
             if (product.yourCost != null) existingAttrs.yourCost = product.yourCost;
             if (product.listPrice != null) existingAttrs.listPrice = product.listPrice;
@@ -4726,21 +4808,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (product.mrpPrice != null) existingAttrs.mrpPrice = product.mrpPrice;
             const attrs = JSON.stringify(existingAttrs);
             
-            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}::jsonb, $${paramIdx+9}, $${paramIdx+10}, NOW(), NOW())`);
-            params.push(name, sku, upc, manufacturerPartNumber, usin, cost, price, categoryId, attrs, status, manufacturerName);
-            paramIdx += 11;
+            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}, $${paramIdx+9}::jsonb, $${paramIdx+10}, $${paramIdx+11}, NOW(), NOW())`);
+            params.push(name, sku, upc, description, manufacturerPartNumber, usin, cost, price, categoryId, attrs, status, manufacturerName);
+            paramIdx += 12;
           }
           
           const sql = `
-            INSERT INTO products (name, sku, upc, manufacturer_part_number, usin, cost, price, category_id, attributes, status, manufacturer_name, created_at, updated_at)
+            INSERT INTO products (name, sku, upc, description, manufacturer_part_number, usin, cost, price, category_id, attributes, status, manufacturer_name, created_at, updated_at)
             VALUES ${values.join(', ')}
             ON CONFLICT (sku) DO UPDATE SET
               name = EXCLUDED.name,
+              description = COALESCE(EXCLUDED.description, products.description),
               upc = COALESCE(EXCLUDED.upc, products.upc),
               manufacturer_part_number = COALESCE(EXCLUDED.manufacturer_part_number, products.manufacturer_part_number),
               usin = COALESCE(EXCLUDED.usin, products.usin),
               cost = COALESCE(EXCLUDED.cost, products.cost),
               price = COALESCE(EXCLUDED.price, products.price),
+              category_id = COALESCE(EXCLUDED.category_id, products.category_id),
               attributes = COALESCE(EXCLUDED.attributes, products.attributes),
               manufacturer_name = COALESCE(EXCLUDED.manufacturer_name, products.manufacturer_name),
               updated_at = NOW()
