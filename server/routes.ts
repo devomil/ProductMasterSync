@@ -807,6 +807,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/asin-search/multiple", async (req, res) => {
+    try {
+      const { upc, manufacturerNumber } = req.query as { upc?: string; manufacturerNumber?: string };
+      if (!upc && !manufacturerNumber) {
+        return res.json({ success: true, data: { searchCriteria: {}, foundASINs: [], totalFound: 0 } });
+      }
+
+      const { searchCatalogItemsByUPC, searchCatalogItemsByMPN } = await import('./marketplace/amazon-spapi-service');
+      const seenAsins = new Set<string>();
+      const foundASINs: any[] = [];
+
+      if (upc) {
+        const upcResults = await searchCatalogItemsByUPC(upc);
+        for (const item of upcResults) {
+          if (item.asin && !seenAsins.has(item.asin)) {
+            seenAsins.add(item.asin);
+            foundASINs.push({
+              ...item,
+              matchMethod: 'upc',
+              confidence: 0.95,
+              searchedUpc: upc
+            });
+          }
+        }
+      }
+
+      if (manufacturerNumber) {
+        const mpnResults = await searchCatalogItemsByMPN(manufacturerNumber);
+        for (const item of mpnResults) {
+          if (item.asin && !seenAsins.has(item.asin)) {
+            seenAsins.add(item.asin);
+            foundASINs.push({
+              ...item,
+              matchMethod: 'mpn',
+              confidence: 0.90,
+              searchedMpn: manufacturerNumber
+            });
+          }
+        }
+      }
+
+      console.log(`[Multi-ASIN Search] UPC=${upc || '-'} MPN=${manufacturerNumber || '-'}: found ${foundASINs.length} ASINs`);
+      res.json({
+        success: true,
+        data: {
+          searchCriteria: { upc, manufacturerNumber },
+          foundASINs,
+          totalFound: foundASINs.length
+        }
+      });
+    } catch (error) {
+      console.error('[Multi-ASIN Search] Error:', error);
+      handleError(res, error);
+    }
+  });
+
   app.post("/api/catalog/discover-asins", async (req, res) => {
     try {
       const { batchSize = 25 } = req.body || {};

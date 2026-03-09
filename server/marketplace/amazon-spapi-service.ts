@@ -145,14 +145,17 @@ export async function searchCatalogItemsByUPC(upc: string): Promise<any[]> {
   const config = await getAmazonConfig();
   
   try {
-    console.log(`Searching Amazon catalog for UPC: ${upc}`);
+    let normalizedUpc = upc.trim();
+    if (normalizedUpc.length === 13 && normalizedUpc.startsWith('0')) {
+      normalizedUpc = normalizedUpc.substring(1);
+    }
+    console.log(`Searching Amazon catalog for UPC: ${normalizedUpc}${normalizedUpc !== upc ? ` (normalized from ${upc})` : ''}`);
     
-    // Apply rate limiting before making request
     await rateLimiter.waitForRateLimit('searchCatalogItems');
     
     const response = await client.searchCatalogItems({
       marketplaceIds: [config.marketplaceId],
-      identifiers: [upc],
+      identifiers: [normalizedUpc],
       identifiersType: 'UPC',
       includedData: ['summaries', 'identifiers', 'images', 'classifications', 'salesRanks']
     });
