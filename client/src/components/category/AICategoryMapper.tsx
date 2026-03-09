@@ -61,8 +61,9 @@ const AICategoryMapper = () => {
   const getSuggestionsMutation = useMutation({
     mutationFn: async (supplierId: number) => {
       // Fetch products for this supplier
-      const productsResponse = await fetch(`/api/products?supplierId=${supplierId}`);
-      const supplierProducts = await productsResponse.json();
+      const productsResponse = await fetch(`/api/products?supplierId=${supplierId}&limit=100`);
+      const productsData = await productsResponse.json();
+      const supplierProducts = Array.isArray(productsData) ? productsData : (productsData.products || []);
 
       if (!supplierProducts || supplierProducts.length === 0) {
         throw new Error('No products found for this supplier. Please pull sample data first.');
