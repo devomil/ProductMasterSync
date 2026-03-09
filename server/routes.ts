@@ -810,12 +810,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/catalog/discover-asins", async (req, res) => {
     try {
       const { batchSize = 25 } = req.body || {};
-      const { searchCatalogItemsByUPC } = await import('./marketplace/amazon-spapi-service');
+      const { searchCatalogItemsByUPC, searchCatalogItemsByMPN } = await import('./marketplace/amazon-spapi-service');
 
       const productsWithoutAsins = await db.execute(sql`
-        SELECT p.id, p.upc, p.name, p.manufacturer_name
+        SELECT p.id, p.upc, p.name, p.manufacturer_name, p.manufacturer_part_number
         FROM products p
-        WHERE p.upc IS NOT NULL AND p.upc != ''
+        WHERE (p.upc IS NOT NULL AND p.upc != '' OR p.manufacturer_part_number IS NOT NULL AND p.manufacturer_part_number != '')
         AND p.id NOT IN (SELECT product_id FROM product_asin_mapping)
         ORDER BY p.id
         LIMIT ${Math.min(batchSize, 50)}
@@ -823,54 +823,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const rows = Array.isArray(productsWithoutAsins) ? productsWithoutAsins : (productsWithoutAsins as any).rows || [];
       if (rows.length === 0) {
-        return res.json({ success: true, message: 'All products with UPCs already have ASIN mappings', discovered: 0 });
+        return res.json({ success: true, message: 'All products with UPCs/MPNs already have ASIN mappings', discovered: 0 });
       }
 
-      console.log(`[ASIN Discovery] Processing ${rows.length} products`);
+      console.log(`[ASIN Discovery] Processing ${rows.length} products with multi-strategy search (UPC + MPN)`);
       let discovered = 0;
       let errors = 0;
+      let upcMatches = 0;
+      let mpnMatches = 0;
 
       for (const product of rows) {
         try {
-          const results = await searchCatalogItemsByUPC(product.upc);
-          if (results && results.length > 0) {
-            for (const item of results.slice(0, 3)) {
-              const asin = item.asin;
-              if (!asin) continue;
+          const seenAsins = new Set<string>();
+          const allResults: Array<{ item: any; matchMethod: string; confidence: number; source: string }> = [];
 
-              await db.execute(sql`
-                INSERT INTO amazon_asins (asin, title, brand, manufacturer, upc, category)
-                VALUES (${asin}, ${item.title || null}, ${item.brand || null}, ${item.manufacturer || null}, ${product.upc}, ${item.category || null})
-                ON CONFLICT (asin) DO UPDATE SET
-                  title = COALESCE(EXCLUDED.title, amazon_asins.title),
-                  upc = COALESCE(EXCLUDED.upc, amazon_asins.upc)
-              `);
-
-              await db.execute(sql`
-                INSERT INTO product_asin_mapping (product_id, asin, mapping_source, match_method, match_confidence, is_active)
-                VALUES (${product.id}, ${asin}, 'upc_discovery', 'upc', 0.95, true)
-                ON CONFLICT (product_id, asin) DO NOTHING
-              `);
-              discovered++;
+          if (product.upc) {
+            const upcResults = await searchCatalogItemsByUPC(product.upc);
+            for (const item of upcResults) {
+              if (item.asin && !seenAsins.has(item.asin)) {
+                seenAsins.add(item.asin);
+                allResults.push({ item, matchMethod: 'upc', confidence: 0.95, source: 'upc_discovery' });
+              }
             }
+            if (upcResults.length > 0) upcMatches++;
           }
+
+          if (product.manufacturer_part_number) {
+            await new Promise(resolve => setTimeout(resolve, 400));
+            const mpnResults = await searchCatalogItemsByMPN(product.manufacturer_part_number, product.manufacturer_name || undefined);
+            for (const item of mpnResults) {
+              if (item.asin && !seenAsins.has(item.asin)) {
+                seenAsins.add(item.asin);
+                allResults.push({ item, matchMethod: 'mpn', confidence: 0.90, source: 'mpn_discovery' });
+              }
+            }
+            if (mpnResults.length > 0 && allResults.some(r => r.matchMethod === 'mpn')) mpnMatches++;
+          }
+
+          for (const { item, matchMethod, confidence, source } of allResults) {
+            await db.execute(sql`
+              INSERT INTO amazon_asins (asin, title, brand, manufacturer, upc, category)
+              VALUES (${item.asin}, ${item.title || null}, ${item.brand || null}, ${item.manufacturer || null}, ${product.upc || null}, ${item.category || null})
+              ON CONFLICT (asin) DO UPDATE SET
+                title = COALESCE(EXCLUDED.title, amazon_asins.title),
+                upc = COALESCE(EXCLUDED.upc, amazon_asins.upc)
+            `);
+
+            await db.execute(sql`
+              INSERT INTO product_asin_mapping (product_id, asin, mapping_source, match_method, match_confidence, is_active)
+              VALUES (${product.id}, ${item.asin}, ${source}, ${matchMethod}, ${confidence}, true)
+              ON CONFLICT (product_id, asin) DO NOTHING
+            `);
+            discovered++;
+          }
+
           await new Promise(resolve => setTimeout(resolve, 600));
         } catch (err) {
           errors++;
-          console.error(`[ASIN Discovery] Error for UPC ${product.upc}:`, (err as Error).message);
+          console.error(`[ASIN Discovery] Error for product ${product.id} (UPC: ${product.upc}, MPN: ${product.manufacturer_part_number}):`, (err as Error).message);
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
       const totalWithoutAsins = await db.execute(sql`
         SELECT COUNT(*) as count FROM products p
-        WHERE p.upc IS NOT NULL AND p.upc != ''
+        WHERE (p.upc IS NOT NULL AND p.upc != '' OR p.manufacturer_part_number IS NOT NULL AND p.manufacturer_part_number != '')
         AND p.id NOT IN (SELECT product_id FROM product_asin_mapping)
       `);
       const remaining = Number((totalWithoutAsins as any).rows?.[0]?.count || 0);
 
-      console.log(`[ASIN Discovery] Discovered ${discovered} ASINs, ${errors} errors, ${remaining} remaining`);
-      res.json({ success: true, discovered, errors, processed: rows.length, remaining, hasMore: remaining > 0 });
+      console.log(`[ASIN Discovery] Discovered ${discovered} ASINs (${upcMatches} UPC matches, ${mpnMatches} MPN matches), ${errors} errors, ${remaining} remaining`);
+      res.json({ success: true, discovered, errors, processed: rows.length, remaining, hasMore: remaining > 0, upcMatches, mpnMatches });
     } catch (error) {
       console.error('[ASIN Discovery] Error:', error);
       handleError(res, error);

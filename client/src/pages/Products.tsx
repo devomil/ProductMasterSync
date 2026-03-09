@@ -197,7 +197,7 @@ const Products = () => {
       } else if (action === 'auto-categorize') {
         toast({ title: "Categories Assigned", description: `${data.categorized || 0} products categorized into ${data.categoriesCreated || 0} categories. ${data.totalRemaining || 0} remaining.` });
       } else if (action === 'discover-asins') {
-        toast({ title: "ASINs Discovered", description: `${data.discovered || 0} Amazon ASINs found from ${data.processed || 0} products. ${data.remaining || 0} remaining.` });
+        toast({ title: "ASINs Discovered", description: `${data.discovered || 0} ASINs found (${data.upcMatches || 0} UPC, ${data.mpnMatches || 0} MPN) from ${data.processed || 0} products. ${data.remaining || 0} remaining.` });
       }
     },
     onError: () => {
@@ -918,14 +918,27 @@ const Products = () => {
                       <TableCell className="text-sm">
                         {product.asinMappings && product.asinMappings.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {product.asinMappings.slice(0, 2).map((mapping: any, idx: number) => (
-                              <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                {mapping.asin}
-                              </Badge>
-                            ))}
-                            {product.asinMappings.length > 2 && (
-                              <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-gray-200">
-                                +{product.asinMappings.length - 2}
+                            {product.asinMappings.slice(0, 3).map((mapping: any, idx: number) => {
+                              const method = mapping.matchMethod || 'unknown';
+                              const confidence = mapping.matchConfidence || 0;
+                              const badgeClass = method === 'upc'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : method === 'mpn'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-gray-50 text-gray-600 border-gray-200';
+                              const methodLabel = method === 'upc' ? 'U' : method === 'mpn' ? 'M' : 'K';
+                              return (
+                                <Badge key={idx} variant="outline" className={`text-xs ${badgeClass}`}
+                                  title={`${mapping.asin} (${method.toUpperCase()} match, ${Math.round(confidence * 100)}% confidence)`}>
+                                  {mapping.asin}
+                                  <span className="ml-1 opacity-60 text-[10px]">{methodLabel}</span>
+                                </Badge>
+                              );
+                            })}
+                            {product.asinMappings.length > 3 && (
+                              <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-gray-200"
+                                title={product.asinMappings.slice(3).map((m: any) => m.asin).join(', ')}>
+                                +{product.asinMappings.length - 3}
                               </Badge>
                             )}
                           </div>

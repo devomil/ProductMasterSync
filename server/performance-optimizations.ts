@@ -115,7 +115,7 @@ export class PerformanceOptimizedQueries {
              COALESCE(
                (
                  SELECT json_agg(
-                   json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'isActive', pam.is_active)
+                   json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'matchConfidence', pam.match_confidence, 'mappingSource', pam.mapping_source, 'isActive', pam.is_active)
                  )
                  FROM product_asin_mapping pam
                  WHERE pam.product_id = p.id
@@ -357,7 +357,7 @@ export class PerformanceOptimizedQueries {
              p.created_at as "createdAt",
              p.updated_at as "updatedAt",
              COALESCE(
-               (SELECT json_agg(json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'isActive', pam.is_active))
+               (SELECT json_agg(json_build_object('asin', pam.asin, 'matchMethod', pam.match_method, 'matchConfidence', pam.match_confidence, 'mappingSource', pam.mapping_source, 'isActive', pam.is_active))
                 FROM product_asin_mapping pam WHERE pam.product_id = p.id), '[]'::json
              ) as "asinMappings",
              COALESCE(
