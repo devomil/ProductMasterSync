@@ -4549,10 +4549,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Ensure required fields are populated (SKU is already set to unique EDC number above)
+        const desc1 = sourceRecord['Description Line 1']?.trim();
+        const desc2 = sourceRecord['Description Line 2']?.trim();
+        
         if (!transformedRecord.name) {
-          // Try Ingram Micro description fields first
-          const desc1 = sourceRecord['Description Line 1']?.trim();
-          const desc2 = sourceRecord['Description Line 2']?.trim();
           if (desc1 && desc2) {
             transformedRecord.name = `${desc1} ${desc2}`;
           } else if (desc1) {
@@ -4568,9 +4568,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
+        if (!transformedRecord.description && (desc1 || desc2)) {
+          transformedRecord.description = [desc1, desc2].filter(Boolean).join(' ');
+        }
+        
         // Set manufacturer name from Vendor Name if not already set
         if (!transformedRecord.manufacturerName && sourceRecord['Vendor Name']) {
           transformedRecord.manufacturerName = sourceRecord['Vendor Name'].trim();
+        }
+        
+        const ingramCategory = sourceRecord['Category']?.trim();
+        const ingramSubCategory = sourceRecord['Sub Category']?.trim();
+        if (ingramCategory || ingramSubCategory) {
+          const existingAttrs = (transformedRecord.attributes as any) || {};
+          transformedRecord.attributes = {
+            ...existingAttrs,
+            customFields: {
+              ...(existingAttrs.customFields || {}),
+              ...(ingramCategory ? { Category: ingramCategory } : {}),
+              ...(ingramSubCategory ? { 'Sub Category': ingramSubCategory } : {}),
+            },
+            supplier_category: ingramSubCategory 
+              ? `${ingramCategory} | ${ingramSubCategory}` 
+              : ingramCategory || null,
+          };
         }
         
         transformedProducts.push(transformedRecord);
@@ -6841,6 +6862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             mappings: {
               upc: 'UPC Code',
               usin: 'Ingram Part Number',
+              description: 'Description Line 1',
               mapPrice: 'MAP Price',
               mrpPrice: 'MSRP',
               yourCost: 'Customer Price',
@@ -6855,6 +6877,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               'customFields.Availability Flag': 'Availability Flag',
               'customFields.Reserved_15': 'Reserved_15',
               'customFields.Reserved_17': 'Reserved_17',
+              'customFields.Category': 'Category',
+              'customFields.Sub Category': 'Sub Category',
             },
           });
           console.log('[Seed] Created Ingram Micro SFTP mapping template');

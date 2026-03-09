@@ -75,7 +75,12 @@ const AICategoryMapper = () => {
       const productSamples = supplierProducts.slice(0, 20).map((p: any) => ({
         name: p.name,
         description: p.description,
-        category: p.attributes?.supplier_category || p.attributes?.category,
+        category: p.attributes?.supplier_category || 
+                  p.attributes?.category ||
+                  p.attributes?.customFields?.Category ||
+                  (p.attributes?.customFields?.['Sub Category'] 
+                    ? `${p.attributes?.customFields?.Category || ''} | ${p.attributes?.customFields?.['Sub Category']}`
+                    : null),
         manufacturerName: p.manufacturerName,
         attributes: p.attributes
       }));
