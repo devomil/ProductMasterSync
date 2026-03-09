@@ -184,11 +184,22 @@ const executeJob = async (job: ScheduledJob): Promise<boolean> => {
         break;
         
       case 'api':
-        // Handle Amazon sync API jobs
         if (job.config?.apiType === 'amazon') {
-          log(`Executing Amazon sync job ${job.id}`);
           try {
-            // Import and execute Amazon sync function
+            const { db: appDb } = await import('../db');
+            const { sql: drizzleSql } = await import('drizzle-orm');
+            const activeCheck = await appDb.execute(drizzleSql`
+              SELECT COUNT(*) as cnt FROM amazon_sync_jobs 
+              WHERE status = 'in_progress'
+            `);
+            const activeCount = parseInt((activeCheck.rows?.[0] as any)?.cnt || '0');
+            if (activeCount > 0) {
+              log(`⏭️ Skipping scheduled Amazon sync — ${activeCount} sync job(s) already in progress`);
+              success = true;
+              break;
+            }
+            
+            log(`Executing Amazon sync job ${job.id}`);
             const { batchSyncAmazonData } = await import('../marketplace/amazon-service');
             const limit = job.config?.limit || 10;
             const result = await batchSyncAmazonData(limit);
