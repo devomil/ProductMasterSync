@@ -219,6 +219,99 @@ Use the official Google product taxonomy. Be specific and accurate.`;
   }
 }
 
+export interface BatchCategoryResult {
+  categoryName: string;
+  categoryPath: string;
+  productIds: number[];
+  confidence: number;
+}
+
+export async function batchCategorizeProducts(
+  products: Array<{ id: number; name: string; manufacturerName: string | null }>,
+  batchSize: number = 50
+): Promise<BatchCategoryResult[]> {
+  const results: BatchCategoryResult[] = [];
+
+  const batches: typeof products[] = [];
+  for (let i = 0; i < products.length; i += batchSize) {
+    batches.push(products.slice(i, i + batchSize));
+  }
+
+  for (const batch of batches) {
+    try {
+      const productList = batch.map((p, i) => 
+        `${i + 1}. [ID:${p.id}] ${p.name} (${p.manufacturerName || 'Unknown'})`
+      ).join('\n');
+
+      const prompt = `You are a product categorization expert for IT/electronics distribution. Categorize each product into a standard hierarchy.
+
+**Products to categorize:**
+${productList}
+
+**Instructions:**
+- Use this hierarchy format: "Top Level > Sub Category > Specific Type"
+- Example categories: "Computers > Laptops > Business Laptops", "Networking > Switches > Managed Switches", "Peripherals > Keyboards & Mice > Wireless Keyboards", "Software > Security > Antivirus", "Accessories > Cables > USB Cables", "Printers > Inkjet > Large Format", "Storage > SSDs > NVMe SSDs", "Services > Warranties > Extended Warranties"
+- Group products with the same category together
+- Be specific but not overly granular
+
+Respond with ONLY a JSON array:
+[
+  {
+    "categoryPath": "Top Level > Sub Category > Type",
+    "productIds": [1, 5, 12],
+    "confidence": 90
+  }
+]
+
+Use the product index numbers (1-based) in productIds, not the database IDs.`;
+
+      const response = await anthropic.messages.create({
+        model: DEFAULT_MODEL_STR,
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }]
+      });
+
+      const textContent = response.content[0];
+      if (textContent.type !== 'text') continue;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(stripCodeFences(textContent.text));
+      } catch {
+        console.error('[AI Category] Failed to parse response for batch');
+        continue;
+      }
+
+      if (Array.isArray(parsed)) {
+        for (const group of parsed) {
+          const categoryPath = group.categoryPath || group.category || '';
+          const parts = categoryPath.split('>').map((s: string) => s.trim());
+          const categoryName = parts[parts.length - 1] || categoryPath;
+          const ids = (group.productIds || []).map((idx: number) => {
+            const product = batch[idx - 1];
+            return product ? product.id : null;
+          }).filter(Boolean) as number[];
+
+          if (ids.length > 0 && categoryName) {
+            results.push({
+              categoryName,
+              categoryPath,
+              productIds: ids,
+              confidence: group.confidence || 80,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[AI Category] Batch error:', (error as Error).message);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  return results;
+}
+
 /**
  * Detect product overlap between suppliers
  */

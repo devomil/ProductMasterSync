@@ -1,5 +1,8 @@
 import { useState, useReducer, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Package2, 
   Plus, 
@@ -22,7 +25,9 @@ import {
   Gauge,
   ChevronLeft,
   ChevronRight,
-  Warehouse
+  Warehouse,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { 
   useProductSearch, 
@@ -173,6 +178,34 @@ const Products = () => {
   const [fulfillmentDrawerOpen, setFulfillmentDrawerOpen] = useState(false);
   const [amazonDataDrawerOpen, setAmazonDataDrawerOpen] = useState(false);
   
+  const { toast } = useToast();
+  const [enrichmentStatus, setEnrichmentStatus] = useState<string | null>(null);
+
+  const enrichMutation = useMutation({
+    mutationFn: async (action: string) => {
+      setEnrichmentStatus(`Running ${action}...`);
+      const res = await apiRequest('POST', `/api/catalog/${action}`);
+      return res.json();
+    },
+    onSuccess: (data, action) => {
+      setEnrichmentStatus(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/products/search'] });
+      if (action === 'migrate-walmart-ids') {
+        toast({ title: "Walmart IDs Migrated", description: `${data.totalMigrated || 0} products linked to Walmart listings` });
+      } else if (action === 'enrich-descriptions') {
+        toast({ title: "Descriptions Enriched", description: `${data.enriched || 0} products updated with better descriptions` });
+      } else if (action === 'auto-categorize') {
+        toast({ title: "Categories Assigned", description: `${data.categorized || 0} products categorized into ${data.categoriesCreated || 0} categories. ${data.totalRemaining || 0} remaining.` });
+      } else if (action === 'discover-asins') {
+        toast({ title: "ASINs Discovered", description: `${data.discovered || 0} Amazon ASINs found from ${data.processed || 0} products. ${data.remaining || 0} remaining.` });
+      }
+    },
+    onError: () => {
+      setEnrichmentStatus(null);
+      toast({ title: "Enrichment Failed", description: "An error occurred. Check logs for details.", variant: "destructive" });
+    },
+  });
+
   // Load mapping templates to get CWR template columns
   const { data: mappingTemplates } = useMappingTemplates();
   
@@ -687,6 +720,38 @@ const Products = () => {
               <div className="ml-auto flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="border-purple-200 text-purple-700 hover:bg-purple-50" disabled={enrichMutation.isPending}>
+                    {enrichMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    {enrichmentStatus || 'Data Enrichment'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem onClick={() => enrichMutation.mutate('auto-categorize')}>
+                    <Tag className="mr-2 h-4 w-4" />
+                    Auto-Categorize Products (AI)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => enrichMutation.mutate('enrich-descriptions')}>
+                    <AlignLeft className="mr-2 h-4 w-4" />
+                    Enrich Descriptions
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => enrichMutation.mutate('discover-asins')}>
+                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    Discover Amazon ASINs
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => enrichMutation.mutate('migrate-walmart-ids')}>
+                    <Barcode className="mr-2 h-4 w-4" />
+                    Link Walmart IDs
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
                     <Upload className="mr-2 h-4 w-4" />
                     Import
@@ -745,6 +810,7 @@ const Products = () => {
                       </>
                     )}
                     <TableHead className="w-[180px] text-sm font-medium whitespace-nowrap px-4 py-3">Amazon ASINs</TableHead>
+                    <TableHead className="w-[140px] text-sm font-medium whitespace-nowrap px-4 py-3">Walmart ID</TableHead>
                     <TableHead className="w-[100px] text-sm font-medium whitespace-nowrap px-4 py-3">Status</TableHead>
                     <TableHead className="w-[100px] text-right text-sm font-medium whitespace-nowrap px-4 py-3">Actions</TableHead>
                   </TableRow>
@@ -865,6 +931,15 @@ const Products = () => {
                           </div>
                         ) : product.amazonSyncStatus === 'success' ? (
                           <span className="text-gray-400 text-xs">No ASINs</span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {product.walmartMappings && product.walmartMappings.length > 0 ? (
+                          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                            {product.walmartMappings[0].walmartItemId}
+                          </Badge>
                         ) : (
                           <span className="text-gray-400 text-xs">-</span>
                         )}

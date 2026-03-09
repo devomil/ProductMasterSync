@@ -807,6 +807,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/catalog/discover-asins", async (req, res) => {
+    try {
+      const { batchSize = 25 } = req.body || {};
+      const { searchCatalogItemsByUPC } = await import('./marketplace/amazon-spapi-service');
+
+      const productsWithoutAsins = await db.execute(sql`
+        SELECT p.id, p.upc, p.name, p.manufacturer_name
+        FROM products p
+        WHERE p.upc IS NOT NULL AND p.upc != ''
+        AND p.id NOT IN (SELECT product_id FROM product_asin_mapping)
+        ORDER BY p.id
+        LIMIT ${Math.min(batchSize, 50)}
+      `);
+
+      const rows = Array.isArray(productsWithoutAsins) ? productsWithoutAsins : (productsWithoutAsins as any).rows || [];
+      if (rows.length === 0) {
+        return res.json({ success: true, message: 'All products with UPCs already have ASIN mappings', discovered: 0 });
+      }
+
+      console.log(`[ASIN Discovery] Processing ${rows.length} products`);
+      let discovered = 0;
+      let errors = 0;
+
+      for (const product of rows) {
+        try {
+          const results = await searchCatalogItemsByUPC(product.upc);
+          if (results && results.length > 0) {
+            for (const item of results.slice(0, 3)) {
+              const asin = item.asin;
+              if (!asin) continue;
+
+              await db.execute(sql`
+                INSERT INTO amazon_asins (asin, title, brand, manufacturer, upc, category)
+                VALUES (${asin}, ${item.title || null}, ${item.brand || null}, ${item.manufacturer || null}, ${product.upc}, ${item.category || null})
+                ON CONFLICT (asin) DO UPDATE SET
+                  title = COALESCE(EXCLUDED.title, amazon_asins.title),
+                  upc = COALESCE(EXCLUDED.upc, amazon_asins.upc)
+              `);
+
+              await db.execute(sql`
+                INSERT INTO product_asin_mapping (product_id, asin, mapping_source, match_method, match_confidence, is_active)
+                VALUES (${product.id}, ${asin}, 'upc_discovery', 'upc', 0.95, true)
+                ON CONFLICT (product_id, asin) DO NOTHING
+              `);
+              discovered++;
+            }
+          }
+          await new Promise(resolve => setTimeout(resolve, 600));
+        } catch (err) {
+          errors++;
+          console.error(`[ASIN Discovery] Error for UPC ${product.upc}:`, (err as Error).message);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      const totalWithoutAsins = await db.execute(sql`
+        SELECT COUNT(*) as count FROM products p
+        WHERE p.upc IS NOT NULL AND p.upc != ''
+        AND p.id NOT IN (SELECT product_id FROM product_asin_mapping)
+      `);
+      const remaining = Number((totalWithoutAsins as any).rows?.[0]?.count || 0);
+
+      console.log(`[ASIN Discovery] Discovered ${discovered} ASINs, ${errors} errors, ${remaining} remaining`);
+      res.json({ success: true, discovered, errors, processed: rows.length, remaining, hasMore: remaining > 0 });
+    } catch (error) {
+      console.error('[ASIN Discovery] Error:', error);
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/catalog/auto-categorize", async (req, res) => {
+    try {
+      const { batchSize = 200, offset = 0 } = req.body || {};
+      const { batchCategorizeProducts } = await import('./utils/ai-category-mapper');
+
+      const uncategorized = await db.select({
+        id: products.id,
+        name: products.name,
+        manufacturerName: products.manufacturerName,
+      }).from(products)
+        .where(isNull(products.categoryId))
+        .orderBy(products.id)
+        .offset(offset)
+        .limit(Math.min(batchSize, 500));
+
+      if (uncategorized.length === 0) {
+        return res.json({ success: true, message: 'All products are already categorized', categorized: 0, totalRemaining: 0 });
+      }
+
+      console.log(`[Auto-Categorize] Processing ${uncategorized.length} products (offset ${offset})`);
+      const aiResults = await batchCategorizeProducts(uncategorized, 50);
+
+      let categorized = 0;
+      const categoryMap = new Map<string, number>();
+
+      for (const result of aiResults) {
+        const pathForDb = result.categoryPath.replace(/\s*>\s*/g, ' | ');
+        let categoryId = categoryMap.get(pathForDb);
+        if (!categoryId) {
+          categoryId = await createOrFindCategoryByPath(pathForDb);
+          categoryMap.set(pathForDb, categoryId);
+        }
+
+        if (categoryId && result.productIds.length > 0) {
+          await db.update(products)
+            .set({ categoryId })
+            .where(inArray(products.id, result.productIds));
+          categorized += result.productIds.length;
+        }
+      }
+
+      const remaining = await db.select({ count: sql<number>`count(*)` })
+        .from(products)
+        .where(isNull(products.categoryId));
+      const totalRemaining = Number(remaining[0]?.count || 0);
+
+      console.log(`[Auto-Categorize] Categorized ${categorized} products into ${categoryMap.size} categories, ${totalRemaining} remaining`);
+      res.json({
+        success: true,
+        categorized,
+        categoriesCreated: categoryMap.size,
+        categoriesUsed: Array.from(categoryMap.keys()),
+        totalRemaining,
+        hasMore: totalRemaining > 0,
+      });
+    } catch (error) {
+      console.error('[Auto-Categorize] Error:', error);
+      handleError(res, error);
+    }
+  });
+
   // De-duplication tool - removes duplicate products based on UPC
   // ADMIN ONLY: This endpoint should be protected with authentication in production
   app.post('/api/products/deduplicate', async (req, res) => {
@@ -3381,6 +3512,251 @@ export async function registerRoutes(app: Express): Promise<Server> {
         displayName: humanizeFieldName(fieldName || ''),
       });
     } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/catalog/migrate-walmart-ids", async (req, res) => {
+    try {
+      let totalMigrated = 0;
+      let totalSkipped = 0;
+      let totalAlreadyMapped = 0;
+
+      const attrProducts = await pool.query(
+        `SELECT p.id, p.attributes->>'walmartItemId' as walmart_item_id
+         FROM products p
+         WHERE p.attributes->>'walmartItemId' IS NOT NULL
+           AND p.attributes->>'walmartItemId' != ''`
+      );
+
+      for (const row of attrProducts.rows) {
+        const existsInWp = await pool.query(
+          `SELECT 1 FROM walmart_products WHERE walmart_item_id = $1 LIMIT 1`,
+          [row.walmart_item_id]
+        );
+        if (existsInWp.rows.length === 0) {
+          totalSkipped++;
+          continue;
+        }
+        const alreadyMapped = await pool.query(
+          `SELECT 1 FROM product_walmart_mapping WHERE product_id = $1 AND walmart_item_id = $2 LIMIT 1`,
+          [row.id, row.walmart_item_id]
+        );
+        if (alreadyMapped.rows.length > 0) {
+          totalAlreadyMapped++;
+          continue;
+        }
+        await pool.query(
+          `INSERT INTO product_walmart_mapping (product_id, walmart_item_id, mapping_source, match_confidence, is_active, is_verified)
+           VALUES ($1, $2, 'attribute_migration', 1.0, true, true)
+           ON CONFLICT (product_id, walmart_item_id) DO NOTHING`,
+          [row.id, row.walmart_item_id]
+        );
+        totalMigrated++;
+      }
+
+      const upcMatches = await pool.query(
+        `SELECT p.id as product_id, wp.walmart_item_id
+         FROM products p
+         INNER JOIN walmart_products wp ON p.upc = wp.upc
+         WHERE p.upc IS NOT NULL AND p.upc != ''
+           AND NOT EXISTS (
+             SELECT 1 FROM product_walmart_mapping pwm
+             WHERE pwm.product_id = p.id AND pwm.walmart_item_id = wp.walmart_item_id
+           )`
+      );
+
+      let upcMigrated = 0;
+      for (const row of upcMatches.rows) {
+        await pool.query(
+          `INSERT INTO product_walmart_mapping (product_id, walmart_item_id, mapping_source, match_confidence, is_active, is_verified)
+           VALUES ($1, $2, 'upc_match', 0.95, true, false)
+           ON CONFLICT (product_id, walmart_item_id) DO NOTHING`,
+          [row.product_id, row.walmart_item_id]
+        );
+        upcMigrated++;
+      }
+      totalMigrated += upcMigrated;
+
+      const skuMatches = await pool.query(
+        `SELECT p.id as product_id, wp.walmart_item_id
+         FROM products p
+         INNER JOIN walmart_products wp ON wp.sku = CONCAT('ING-', p.sku)
+         WHERE NOT EXISTS (
+           SELECT 1 FROM product_walmart_mapping pwm
+           WHERE pwm.product_id = p.id AND pwm.walmart_item_id = wp.walmart_item_id
+         )`
+      );
+
+      let skuMigrated = 0;
+      for (const row of skuMatches.rows) {
+        await pool.query(
+          `INSERT INTO product_walmart_mapping (product_id, walmart_item_id, mapping_source, match_confidence, is_active, is_verified)
+           VALUES ($1, $2, 'sku_match', 0.9, true, false)
+           ON CONFLICT (product_id, walmart_item_id) DO NOTHING`,
+          [row.product_id, row.walmart_item_id]
+        );
+        skuMigrated++;
+      }
+      totalMigrated += skuMigrated;
+
+      queryCache.invalidate('products');
+
+      const finalCount = await pool.query(`SELECT COUNT(*) as total FROM product_walmart_mapping`);
+
+      res.json({
+        success: true,
+        message: `Walmart ID migration complete`,
+        migrated: totalMigrated,
+        fromAttributes: attrProducts.rows.length - totalSkipped - totalAlreadyMapped,
+        fromUpcMatch: upcMigrated,
+        fromSkuMatch: skuMigrated,
+        skippedNoWalmartProduct: totalSkipped,
+        alreadyMapped: totalAlreadyMapped,
+        totalMappings: parseInt(finalCount.rows[0].total)
+      });
+    } catch (error) {
+      console.error('Walmart ID migration error:', error);
+      handleError(res, error);
+    }
+  });
+
+  app.post("/api/catalog/enrich-descriptions", async (req, res) => {
+    try {
+      const maxDescLength = parseInt(req.body.maxDescLength as string) || 80;
+      const batchSize = parseInt(req.body.batchSize as string) || 1000;
+
+      const shortDescProducts = await pool.query(
+        `SELECT p.id, p.sku, p.name, p.description, p.upc
+         FROM products p
+         WHERE (p.description IS NULL OR p.description = '' OR LENGTH(p.description) <= $1)
+         LIMIT $2`,
+        [maxDescLength, batchSize]
+      );
+
+      if (shortDescProducts.rows.length === 0) {
+        return res.json({
+          success: true,
+          message: "No products with short/missing descriptions found",
+          enriched: 0,
+          total: 0
+        });
+      }
+
+      let enrichedCount = 0;
+      let upcMatchCount = 0;
+      let skuMatchCount = 0;
+      const errors: string[] = [];
+
+      const productUPCs = shortDescProducts.rows
+        .filter((p: any) => p.upc && p.upc.trim() !== '')
+        .map((p: any) => p.upc.trim());
+
+      const productSKUs = shortDescProducts.rows.map((p: any) => `ING-${p.sku}`);
+
+      let upcListingMap: Map<string, string> = new Map();
+      let skuListingMap: Map<string, string> = new Map();
+
+      if (productUPCs.length > 0) {
+        const upcChunks: string[][] = [];
+        for (let i = 0; i < productUPCs.length; i += 500) {
+          upcChunks.push(productUPCs.slice(i, i + 500));
+        }
+        for (const chunk of upcChunks) {
+          const placeholders = chunk.map((_: string, i: number) => `$${i + 1}`).join(',');
+          const upcListings = await pool.query(
+            `SELECT ml.upc, ml.title
+             FROM marketplace_listings ml
+             WHERE ml.marketplace = 'walmart'
+               AND ml.title IS NOT NULL AND ml.title != ''
+               AND ml.upc IN (${placeholders})`,
+            chunk
+          );
+          for (const row of upcListings.rows) {
+            if (row.upc && row.title) {
+              upcListingMap.set(row.upc.trim(), row.title);
+            }
+          }
+        }
+      }
+
+      if (productSKUs.length > 0) {
+        const skuChunks: string[][] = [];
+        for (let i = 0; i < productSKUs.length; i += 500) {
+          skuChunks.push(productSKUs.slice(i, i + 500));
+        }
+        for (const chunk of skuChunks) {
+          const placeholders = chunk.map((_: string, i: number) => `$${i + 1}`).join(',');
+          const skuListings = await pool.query(
+            `SELECT ml.marketplace_sku, ml.title
+             FROM marketplace_listings ml
+             WHERE ml.marketplace = 'walmart'
+               AND ml.title IS NOT NULL AND ml.title != ''
+               AND ml.marketplace_sku IN (${placeholders})`,
+            chunk
+          );
+          for (const row of skuListings.rows) {
+            if (row.marketplace_sku && row.title) {
+              skuListingMap.set(row.marketplace_sku, row.title);
+            }
+          }
+        }
+      }
+
+      const updates: { id: number; description: string }[] = [];
+      for (const product of shortDescProducts.rows) {
+        let newDescription: string | null = null;
+        let matchMethod = '';
+
+        if (product.upc && upcListingMap.has(product.upc.trim())) {
+          newDescription = upcListingMap.get(product.upc.trim())!;
+          matchMethod = 'upc';
+          upcMatchCount++;
+        }
+
+        if (!newDescription) {
+          const ingSku = `ING-${product.sku}`;
+          if (skuListingMap.has(ingSku)) {
+            newDescription = skuListingMap.get(ingSku)!;
+            matchMethod = 'marketplace_sku';
+            skuMatchCount++;
+          }
+        }
+
+        if (newDescription && newDescription.length > (product.description?.length || 0)) {
+          updates.push({ id: product.id, description: newDescription });
+        }
+      }
+
+      const updateChunkSize = 100;
+      for (let i = 0; i < updates.length; i += updateChunkSize) {
+        const chunk = updates.slice(i, i + updateChunkSize);
+        const cases = chunk.map((u, idx) => `WHEN id = $${idx * 2 + 1} THEN $${idx * 2 + 2}`).join(' ');
+        const ids = chunk.map((u, idx) => `$${idx * 2 + 1}`).join(',');
+        const params: any[] = [];
+        for (const u of chunk) {
+          params.push(u.id, u.description);
+        }
+        await pool.query(
+          `UPDATE products SET description = CASE ${cases} END, updated_at = NOW() WHERE id IN (${ids})`,
+          params
+        );
+        enrichedCount += chunk.length;
+      }
+
+      queryCache.invalidate('products');
+
+      res.json({
+        success: true,
+        message: `Enriched ${enrichedCount} product descriptions from Walmart listing titles`,
+        enriched: enrichedCount,
+        total: shortDescProducts.rows.length,
+        upcMatches: upcMatchCount,
+        skuMatches: skuMatchCount,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error('Description enrichment error:', error);
       handleError(res, error);
     }
   });
