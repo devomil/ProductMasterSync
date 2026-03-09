@@ -109,11 +109,26 @@ async function getAmazonConfig(): Promise<AmazonConfig> {
 async function createSpApiClient(): Promise<CatalogItemsApiClient> {
   const config = await getAmazonConfig();
   
-  const auth = new SellingPartnerApiAuth({
+  const authOptions: any = {
     clientId: config.clientId,
     clientSecret: config.clientSecret,
     refreshToken: config.refreshToken
-  });
+  };
+
+  const awsAccessKey = process.env.AMAZON_SP_API_AWS_ACCESS_KEY;
+  const awsSecretKey = process.env.AMAZON_SP_API_AWS_SECRET_KEY;
+  if (awsAccessKey && awsSecretKey) {
+    authOptions.aws = {
+      accessKeyId: awsAccessKey,
+      secretAccessKey: awsSecretKey
+    };
+    const roleArn = process.env.AMAZON_SP_API_ROLE_ARN;
+    if (roleArn) {
+      authOptions.aws.role = { arn: roleArn };
+    }
+  }
+
+  const auth = new SellingPartnerApiAuth(authOptions);
 
   return new CatalogItemsApiClient({ 
     auth, 
@@ -168,9 +183,12 @@ export async function searchCatalogItemsByUPC(upc: string): Promise<any[]> {
       relationships: item.relationships || []
     }));
     
-  } catch (error) {
-    console.error('Error searching Amazon catalog:', error);
-    if (error.response?.status === 429) {
+  } catch (error: any) {
+    const status = error.response?.status || error.status;
+    const errorType = error.response?.headers?.['x-amzn-errortype'] || '';
+    const errorData = error.response?.data?.errors || error.response?.data || '';
+    console.error(`Error searching Amazon catalog (${status} ${errorType}):`, typeof errorData === 'object' ? JSON.stringify(errorData) : errorData);
+    if (status === 429) {
       console.log('Rate limit exceeded, implementing backoff');
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
@@ -187,16 +205,14 @@ export async function searchCatalogItemsByMPN(mpn: string, brand?: string): Prom
   const config = await getAmazonConfig();
   
   try {
-    // Build search keywords: combine MPN with brand for better accuracy
-    const keywords = brand ? `${brand} ${mpn}` : mpn;
-    console.log(`Searching Amazon catalog by MPN: ${mpn} (keywords: ${keywords})`);
+    const keywordsList = brand ? [brand, mpn] : [mpn];
+    console.log(`Searching Amazon catalog by MPN: ${mpn} (keywords: ${keywordsList.join(' ')})`);
     
-    // Apply rate limiting before making request
     await rateLimiter.waitForRateLimit('searchCatalogItems');
     
     const response = await client.searchCatalogItems({
       marketplaceIds: [config.marketplaceId],
-      keywords: keywords,
+      keywords: keywordsList,
       includedData: ['summaries', 'identifiers', 'images', 'classifications', 'salesRanks']
     });
 

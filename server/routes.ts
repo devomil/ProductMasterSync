@@ -817,7 +817,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM products p
         WHERE (p.upc IS NOT NULL AND p.upc != '' OR p.manufacturer_part_number IS NOT NULL AND p.manufacturer_part_number != '')
         AND p.id NOT IN (SELECT product_id FROM product_asin_mapping)
-        ORDER BY p.id
+        ORDER BY
+          CASE WHEN p.upc IS NOT NULL AND p.upc != '' THEN 0 ELSE 1 END,
+          p.id
         LIMIT ${Math.min(batchSize, 50)}
       `);
 
