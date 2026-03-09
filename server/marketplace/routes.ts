@@ -475,15 +475,17 @@ router.post('/amazon/batch-sync', async (req, res) => {
       });
     }
 
-    // Run batch sync (with optional supplier filter)
     const { limit, force, supplierId } = validationResult.data;
     const supplierLog = supplierId ? ` (Supplier ID: ${supplierId})` : '';
     console.log(`🚀 Starting Amazon batch sync with limit: ${limit}${limit > 10000 ? ' (FULL CATALOG SYNC)' : ''}${force ? ' (FORCE)' : ''}${supplierLog}`);
-    const result = await batchSyncAmazonData(limit, force, supplierId);
+    
+    batchSyncAmazonData(limit, force, supplierId).catch(error => {
+      console.error('Background Amazon batch sync error:', error);
+    });
     
     return res.json({
       success: true,
-      ...result
+      message: `Amazon sync started for ${limit} products. Track progress via sync status.`
     });
   } catch (error) {
     console.error('Error in POST /marketplace/amazon/batch-sync:', error);
@@ -652,21 +654,14 @@ router.post('/amazon/scheduler/trigger', async (req, res) => {
       });
     }
     
-    try {
-      const result = await scheduler.triggerJob('amazon-sync');
-      return res.json({
-        success: true,
-        message: 'Amazon sync job triggered successfully',
-        result
-      });
-    } catch (error) {
-      if ((error as Error).message.includes('not found')) {
-        return res.status(404).json({ 
-          error: 'Amazon sync job is not currently scheduled. Please enable the scheduler first.' 
-        });
-      }
-      throw error;
-    }
+    scheduler.triggerJob('amazon-sync').catch(error => {
+      console.error('Background scheduler trigger error:', error);
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Amazon sync job triggered. Track progress via sync status.'
+    });
   } catch (error) {
     console.error('Error in POST /marketplace/amazon/scheduler/trigger:', error);
     return res.status(500).json({ error: (error as Error).message });

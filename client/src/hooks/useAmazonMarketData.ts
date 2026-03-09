@@ -137,15 +137,13 @@ export function useBatchSyncAmazonData() {
       if (!response.ok) throw new Error('Batch sync failed');
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
-        title: 'Amazon batch sync completed',
-        description: `Processed ${data.processed} products. ${data.successful} successful, ${data.failed} failed.`,
+        title: 'Amazon Sync Started',
+        description: 'Sync is running in the background. You\'ll receive notifications as it progresses.',
       });
       
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon/sync-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon/sync-jobs/current'] });
     },
     onError: (error: any) => {
       toast({
@@ -221,14 +219,14 @@ export function useTriggerAmazonSyncJob() {
       if (!response.ok) throw new Error('Trigger sync job failed');
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
-        title: 'Amazon sync job triggered',
-        description: `Job has been manually triggered and is now running.`,
+        title: 'Amazon Sync Started',
+        description: 'Sync is running in the background. You\'ll receive notifications as it progresses.',
       });
       
-      // Invalidate scheduler status
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon/scheduler/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/marketplace/amazon/sync-jobs/current'] });
     },
     onError: (error: any) => {
       toast({

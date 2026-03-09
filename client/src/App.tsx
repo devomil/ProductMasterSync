@@ -57,6 +57,7 @@ import BrandPartnerDetails from "@/pages/BrandPartnerDetails";
 
 import NotFound from "@/pages/not-found";
 import AppSidebar from "@/components/AppSidebar";
+import { GlobalSyncMonitor } from "@/components/marketplace/GlobalSyncMonitor";
 
 function Router() {
   return (
@@ -263,6 +264,7 @@ function App() {
       <TooltipProvider>
         <OnboardingManager>
           <Toaster />
+          <GlobalSyncMonitor />
           <div className="min-h-screen bg-slate-50 flex">
             <AppSidebar />
             <main className="flex-1 overflow-auto">
