@@ -3228,11 +3228,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (isIngram && colCount >= 20) {
               columnNames = [
                 'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
-                'Description Line 1', 'Description Line 2', 'Customer Price',
-                'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
-                'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
-                'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
-                'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+                'Description Line 1', 'Description Line 2', 'Retail Price',
+                'Vendor Part Number', 'Weight', 'UPC Code', 'Box Length',
+                'Box Width', 'Box Height', 'Price Change Flag', 'Customer Price',
+                'Status Code', 'Availability Flag', 'Class Code', 'Category',
+                'Sub Category', 'Alliance Flag', 'Media Type', 'CPU Type',
                 'New Item Flag', 'Special Price'
               ];
               while (columnNames.length < colCount) {
@@ -4404,11 +4404,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               const columnNames = [
                 'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
-                'Description Line 1', 'Description Line 2', 'Customer Price',
-                'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
-                'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
-                'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
-                'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+                'Description Line 1', 'Description Line 2', 'Retail Price',
+                'Vendor Part Number', 'Weight', 'UPC Code', 'Box Length',
+                'Box Width', 'Box Height', 'Price Change Flag', 'Customer Price',
+                'Status Code', 'Availability Flag', 'Class Code', 'Category',
+                'Sub Category', 'Alliance Flag', 'Media Type', 'CPU Type',
                 'New Item Flag', 'Special Price'
               ];
               
@@ -4520,6 +4520,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (actualTargetField === 'yourCost' || actualTargetField === 'listPrice' || actualTargetField === 'mapPrice' || actualTargetField === 'mrpPrice') {
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
+            } else if (actualTargetField === 'boxLength' || actualTargetField === 'boxWidth' || actualTargetField === 'boxHeight') {
+              const numValue = parseFloat(value);
+              value = isNaN(numValue) || value === '' || value === null ? null : numValue;
             } else if (actualTargetField === 'shippingWeight' || actualTargetField === 'caseQuantity') {
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
@@ -4538,6 +4541,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         if (Object.keys(customFieldsData).length > 0) {
+          for (const [key, val] of Object.entries(customFieldsData)) {
+            if (typeof val === 'string' && /^0{2,}\d*\.?\d+$/.test(val)) {
+              const parsed = parseFloat(val);
+              customFieldsData[key] = isNaN(parsed) ? val : String(parsed);
+            }
+          }
           const existingAttrs = (transformedRecord.attributes as any) || {};
           transformedRecord.attributes = {
             ...existingAttrs,
@@ -4806,15 +4815,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (product.listPrice != null) existingAttrs.listPrice = product.listPrice;
             if (product.mapPrice != null) existingAttrs.mapPrice = product.mapPrice;
             if (product.mrpPrice != null) existingAttrs.mrpPrice = product.mrpPrice;
+            if (product.boxLength != null) existingAttrs.boxLength = product.boxLength;
+            if (product.boxWidth != null) existingAttrs.boxWidth = product.boxWidth;
+            if (product.boxHeight != null) existingAttrs.boxHeight = product.boxHeight;
             const attrs = JSON.stringify(existingAttrs);
             
-            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}, $${paramIdx+9}::jsonb, $${paramIdx+10}, $${paramIdx+11}, NOW(), NOW())`);
-            params.push(name, sku, upc, description, manufacturerPartNumber, usin, cost, price, categoryId, attrs, status, manufacturerName);
-            paramIdx += 12;
+            const boxLength = product.boxLength != null ? String(product.boxLength) : null;
+            const boxWidth = product.boxWidth != null ? String(product.boxWidth) : null;
+            const boxHeight = product.boxHeight != null ? String(product.boxHeight) : null;
+            
+            values.push(`($${paramIdx}, $${paramIdx+1}, $${paramIdx+2}, $${paramIdx+3}, $${paramIdx+4}, $${paramIdx+5}, $${paramIdx+6}, $${paramIdx+7}, $${paramIdx+8}, $${paramIdx+9}::jsonb, $${paramIdx+10}, $${paramIdx+11}, $${paramIdx+12}, $${paramIdx+13}, $${paramIdx+14}, NOW(), NOW())`);
+            params.push(name, sku, upc, description, manufacturerPartNumber, usin, cost, price, categoryId, attrs, status, manufacturerName, boxLength, boxWidth, boxHeight);
+            paramIdx += 15;
           }
           
           const sql = `
-            INSERT INTO products (name, sku, upc, description, manufacturer_part_number, usin, cost, price, category_id, attributes, status, manufacturer_name, created_at, updated_at)
+            INSERT INTO products (name, sku, upc, description, manufacturer_part_number, usin, cost, price, category_id, attributes, status, manufacturer_name, box_length, box_width, box_height, created_at, updated_at)
             VALUES ${values.join(', ')}
             ON CONFLICT (sku) DO UPDATE SET
               name = EXCLUDED.name,
@@ -4827,6 +4843,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               category_id = COALESCE(EXCLUDED.category_id, products.category_id),
               attributes = COALESCE(EXCLUDED.attributes, products.attributes),
               manufacturer_name = COALESCE(EXCLUDED.manufacturer_name, products.manufacturer_name),
+              box_length = COALESCE(EXCLUDED.box_length, products.box_length),
+              box_width = COALESCE(EXCLUDED.box_width, products.box_width),
+              box_height = COALESCE(EXCLUDED.box_height, products.box_height),
               updated_at = NOW()
             RETURNING id, sku, usin
           `;
@@ -5049,11 +5068,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (isIngram && colCount >= 20) {
                 columnNames = [
                   'Status', 'Ingram Part Number', 'Vendor Number', 'Vendor Name',
-                  'Description Line 1', 'Description Line 2', 'Customer Price',
-                  'Vendor Part Number', 'Weight', 'UPC Code', 'Retail Price',
-                  'MAP Price', 'Freight Cost', 'Availability Flag', 'MSRP',
-                  'Reserved_15', 'Direct Ship Flag', 'Reserved_17', 'Category',
-                  'Sub Category', 'Class Code', 'Media Type', 'CPU Type',
+                  'Description Line 1', 'Description Line 2', 'Retail Price',
+                  'Vendor Part Number', 'Weight', 'UPC Code', 'Box Length',
+                  'Box Width', 'Box Height', 'Price Change Flag', 'Customer Price',
+                  'Status Code', 'Availability Flag', 'Class Code', 'Category',
+                  'Sub Category', 'Alliance Flag', 'Media Type', 'CPU Type',
                   'New Item Flag', 'Special Price'
                 ];
                 while (columnNames.length < colCount) columnNames.push(`Column_${columnNames.length + 1}`);
@@ -6947,20 +6966,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               upc: 'UPC Code',
               usin: 'Ingram Part Number',
               description: 'Description Line 1',
-              mapPrice: 'MAP Price',
-              mrpPrice: 'MSRP',
               yourCost: 'Customer Price',
               listPrice: 'Retail Price',
+              boxLength: 'Box Length',
+              boxWidth: 'Box Width',
+              boxHeight: 'Box Height',
               manufacturerPartNumber: 'Vendor Part Number',
               'customFields.Status': 'Status',
               'customFields.Weight': 'Weight',
               'customFields.Vendor Name': 'Vendor Name',
-              'customFields.Freight Cost': 'Freight Cost',
               'customFields.Special Price': 'Special Price',
-              'customFields.Direct Ship Flag': 'Direct Ship Flag',
               'customFields.Availability Flag': 'Availability Flag',
-              'customFields.Reserved_15': 'Reserved_15',
-              'customFields.Reserved_17': 'Reserved_17',
               'customFields.Category': 'Category',
               'customFields.Sub Category': 'Sub Category',
             },

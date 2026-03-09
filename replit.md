@@ -100,3 +100,8 @@ Preferred communication style: Simple, everyday language.
 - **Data source purpose**: Uses `text("purpose")` (not enum) with app-level validation via `dataSourcePurposeValues` constant.
 - **Tables in production but not schema**: ~27 legacy tables exist in production that aren't defined in `shared/schema.ts`. Drizzle ignores these during migrations.
 - **Tables in schema but not production**: ~21 tables will be created as new tables during deployment (safe additive operation).
+- **Ingram Micro SFTP PRICE.ZIP column layout** (US, headerless CSV, 25 columns):
+  `Status, Ingram Part Number, Vendor Number, Vendor Name, Description Line 1, Description Line 2, Retail Price, Vendor Part Number, Weight, UPC Code, Box Length, Box Width, Box Height, Price Change Flag, Customer Price, Status Code, Availability Flag, Class Code, Category, Sub Category, Alliance Flag, Media Type, CPU Type, New Item Flag, Special Price`
+  - Column 6 = Retail Price (MSRP), Column 14 = Customer Price (our cost). Columns 10-12 are box dimensions (Length/Width/Height), NOT prices.
+  - Zero-padded numeric values (e.g., "000000.15", "0001.00") are cleaned via `parseFloat` during import.
+  - Manufacturer names contain division suffixes ("BELKIN - CABLES") — normalized by splitting on ` - ` during import.
