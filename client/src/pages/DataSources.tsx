@@ -1407,14 +1407,22 @@ export default function DataSources() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-gray-50 rounded border">
                     <div className="text-xs font-medium text-gray-500 mb-2">Fields Found</div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-5 gap-2 text-center">
                       <div>
                         <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.upc || 0}</div>
                         <div className="text-xs text-gray-500">UPCs</div>
                       </div>
                       <div>
+                        <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.ean || 0}</div>
+                        <div className="text-xs text-gray-500">EANs</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.gtin || 0}</div>
+                        <div className="text-xs text-gray-500">GTINs</div>
+                      </div>
+                      <div>
                         <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.dimensions || 0}</div>
-                        <div className="text-xs text-gray-500">Dimensions</div>
+                        <div className="text-xs text-gray-500">Dims</div>
                       </div>
                       <div>
                         <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.weight || 0}</div>

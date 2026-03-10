@@ -34,6 +34,8 @@ export interface EnrichmentJobStatus {
   };
   fieldCounts: {
     upc: number;
+    gtin: number;
+    ean: number;
     dimensions: number;
     weight: number;
   };
@@ -59,7 +61,7 @@ export let enrichmentJob: EnrichmentJobStatus = {
   errors: 0,
   skipped: 0,
   sourceCounts: { amazon: 0, walmart: 0, upcitemdb: 0, ai: 0 },
-  fieldCounts: { upc: 0, dimensions: 0, weight: 0 },
+  fieldCounts: { upc: 0, gtin: 0, ean: 0, dimensions: 0, weight: 0 },
   recentResults: [],
   startedAt: null,
   completedAt: null,
@@ -118,6 +120,53 @@ interface LookupResult {
   source: string;
 }
 
+interface MergedResult {
+  upc?: string;
+  gtin?: string;
+  ean?: string;
+  asin?: string;
+  weight?: string;
+  dimensions?: { length?: string; width?: string; height?: string };
+  sources: string[];
+}
+
+function mergeResult(merged: MergedResult, result: LookupResult): boolean {
+  let added = false;
+
+  if (result.upc && !merged.upc) {
+    const v = validateGTIN(result.upc);
+    if (v.valid) { merged.upc = v.normalized; added = true; }
+  }
+  if (result.gtin && !merged.gtin) {
+    const v = validateGTIN(result.gtin);
+    if (v.valid) { merged.gtin = v.normalized; added = true; }
+  }
+  if (result.ean && !merged.ean) {
+    const v = validateGTIN(result.ean);
+    if (v.valid) { merged.ean = v.normalized; added = true; }
+  }
+  if (result.asin && !merged.asin) { merged.asin = result.asin; added = true; }
+  if (result.weight && !merged.weight) { merged.weight = result.weight; added = true; }
+  if (result.dimensions) {
+    if (!merged.dimensions) merged.dimensions = {};
+    if (result.dimensions.length && !merged.dimensions.length) { merged.dimensions.length = result.dimensions.length; added = true; }
+    if (result.dimensions.width && !merged.dimensions.width) { merged.dimensions.width = result.dimensions.width; added = true; }
+    if (result.dimensions.height && !merged.dimensions.height) { merged.dimensions.height = result.dimensions.height; added = true; }
+  }
+
+  if (added && !merged.sources.includes(result.source)) {
+    merged.sources.push(result.source);
+  }
+  return added;
+}
+
+function isMergedComplete(merged: MergedResult, needsUPC: boolean, needsWeight: boolean, needsDims: boolean): boolean {
+  if (needsUPC && !merged.upc) return false;
+  if (needsWeight && !merged.weight) return false;
+  if (needsDims && (!merged.dimensions?.length || !merged.dimensions?.width || !merged.dimensions?.height)) return false;
+  return true;
+}
+
 async function lookupFromAmazon(mpn: string, brand: string): Promise<LookupResult | null> {
   try {
     const { searchCatalogItemsByMPN } = await import('../marketplace/amazon-spapi-service');
@@ -128,15 +177,15 @@ async function lookupFromAmazon(mpn: string, brand: string): Promise<LookupResul
     const item = results[0];
     let upc: string | undefined;
     let ean: string | undefined;
+    let gtin: string | undefined;
 
     if (item.identifiers) {
       for (const marketplaceIds of item.identifiers) {
         for (const id of marketplaceIds.identifiers || []) {
-          if (id.identifierType === 'UPC' || id.identifierType === 'EAN') {
-            const code = id.identifier;
-            if (id.identifierType === 'UPC') upc = code;
-            if (id.identifierType === 'EAN') ean = code;
-          }
+          const code = id.identifier;
+          if (id.identifierType === 'UPC') upc = code;
+          if (id.identifierType === 'EAN') ean = code;
+          if (id.identifierType === 'GTIN') gtin = code;
         }
       }
     }
@@ -156,9 +205,9 @@ async function lookupFromAmazon(mpn: string, brand: string): Promise<LookupResul
       }
     }
 
-    if (!upc && !ean && !weight && !dimensions) return null;
+    if (!upc && !ean && !gtin && !weight && !dimensions) return null;
 
-    return { upc, ean, asin: item.asin, weight, dimensions, source: 'amazon' };
+    return { upc, ean, gtin, asin: item.asin, weight, dimensions, source: 'amazon' };
   } catch (error: any) {
     if (error.response?.status === 429) throw error;
     console.error(`[Enrichment] Amazon lookup error for ${mpn}:`, error.message);
@@ -174,7 +223,9 @@ async function lookupFromWalmart(mpn: string, brand: string): Promise<LookupResu
     if (results.length === 0) return null;
 
     const item = results[0] as any;
-    const upc = item.upc || item.gtin || undefined;
+    const upc = item.upc || undefined;
+    const gtin = item.gtin || undefined;
+    const ean = item.ean || undefined;
     const weight = item.shippingWeight ? String(item.shippingWeight) : undefined;
     let dimensions: { length?: string; width?: string; height?: string } | undefined;
     if (item.shippingLength || item.shippingWidth || item.shippingHeight) {
@@ -185,9 +236,9 @@ async function lookupFromWalmart(mpn: string, brand: string): Promise<LookupResu
       };
     }
 
-    if (!upc && !weight && !dimensions) return null;
+    if (!upc && !gtin && !ean && !weight && !dimensions) return null;
 
-    return { upc, gtin: item.gtin, weight, dimensions, source: 'walmart' };
+    return { upc, gtin, ean, weight, dimensions, source: 'walmart' };
   } catch (error: any) {
     if (error.response?.status === 429) throw error;
     console.error(`[Enrichment] Walmart lookup error for ${mpn}:`, error.message);
@@ -206,15 +257,12 @@ async function lookupFromUPCitemdb(mpn: string, brand: string): Promise<LookupRe
 
     if (response.data?.items?.length > 0) {
       const item = response.data.items[0];
-      const upc = item.upc || item.ean || undefined;
-      if (!upc) return null;
+      const upc = item.upc || undefined;
+      const ean = item.ean || undefined;
+      const gtin = item.gtin || undefined;
+      if (!upc && !ean && !gtin) return null;
 
-      return {
-        upc,
-        ean: item.ean || undefined,
-        gtin: item.gtin || undefined,
-        source: 'upcitemdb',
-      };
+      return { upc, ean, gtin, source: 'upcitemdb' };
     }
     return null;
   } catch (error: any) {
@@ -246,8 +294,8 @@ MPN: ${mpn}
 Description: ${description.substring(0, 500)}
 
 Return ONLY a JSON object (no markdown):
-{"upc":"","weight_lbs":"","length_in":"","width_in":"","height_in":""}
-Leave empty string for unknown values. UPC must be a valid 12-digit UPC-A code.`
+{"upc":"","ean":"","gtin":"","weight_lbs":"","length_in":"","width_in":"","height_in":""}
+Leave empty string for unknown values. UPC must be a valid 12-digit UPC-A code. EAN must be 13 digits. GTIN must be 14 digits.`
         }]
       }]
     });
@@ -259,9 +307,20 @@ Leave empty string for unknown values. UPC must be a valid 12-digit UPC-A code.`
     const parsed = JSON.parse(cleaned);
 
     let upc: string | undefined;
+    let ean: string | undefined;
+    let gtin: string | undefined;
+
     if (parsed.upc && parsed.upc.length >= 8) {
       const validation = validateGTIN(parsed.upc);
       if (validation.valid) upc = validation.normalized;
+    }
+    if (parsed.ean && parsed.ean.length >= 8) {
+      const validation = validateGTIN(parsed.ean);
+      if (validation.valid) ean = validation.normalized;
+    }
+    if (parsed.gtin && parsed.gtin.length >= 8) {
+      const validation = validateGTIN(parsed.gtin);
+      if (validation.valid) gtin = validation.normalized;
     }
 
     const weight = parsed.weight_lbs && parsed.weight_lbs !== '' ? parsed.weight_lbs : undefined;
@@ -274,9 +333,9 @@ Leave empty string for unknown values. UPC must be a valid 12-digit UPC-A code.`
       };
     }
 
-    if (!upc && !weight && !dimensions) return null;
+    if (!upc && !ean && !gtin && !weight && !dimensions) return null;
 
-    return { upc, weight, dimensions, source: 'ai' };
+    return { upc, ean, gtin, weight, dimensions, source: 'ai' };
   } catch (error: any) {
     console.error(`[Enrichment] AI extraction error:`, error.message);
     return null;
@@ -309,7 +368,7 @@ export async function runProductEnrichment(
     errors: 0,
     skipped: 0,
     sourceCounts: { amazon: 0, walmart: 0, upcitemdb: 0, ai: 0 },
-    fieldCounts: { upc: 0, dimensions: 0, weight: 0 },
+    fieldCounts: { upc: 0, gtin: 0, ean: 0, dimensions: 0, weight: 0 },
     recentResults: [],
     startedAt: new Date(),
     completedAt: null,
@@ -330,7 +389,8 @@ export async function runProductEnrichment(
     const whereClause = conditions.join(' OR ');
 
     const productsResult = await pool.query(`
-      SELECT p.id, p.name, p.sku, p.upc, p.manufacturer_part_number as mpn, 
+      SELECT p.id, p.name, p.sku, p.upc, p.ean, p.gtin,
+             p.manufacturer_part_number as mpn, 
              p.manufacturer_name as brand, p.description, p.weight,
              p.box_length, p.box_width, p.box_height
       FROM products p
@@ -356,65 +416,123 @@ export async function runProductEnrichment(
       const brand = product.brand || '';
       const needsUPC = fields.upc && (!product.upc || product.upc === '');
       const needsWeight = fields.weight && (!product.weight || product.weight === '' || product.weight === '0');
+      const needsDims = fields.dimensions && (!product.box_length || !product.box_width || !product.box_height);
 
-      let foundResult: LookupResult | null = null;
+      const merged: MergedResult = { sources: [] };
 
       try {
-        if (sources.amazon && !foundResult) {
-          foundResult = await lookupFromAmazon(mpn, brand);
-          if (foundResult) enrichmentJob.sourceCounts.amazon++;
+        if (sources.amazon) {
+          const result = await lookupFromAmazon(mpn, brand);
+          if (result) {
+            mergeResult(merged, result);
+            enrichmentJob.sourceCounts.amazon++;
+          }
+          if (isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
+            /* all fields found, skip remaining sources */
+          } else {
+            if (sources.walmart) {
+              const wResult = await lookupFromWalmart(mpn, brand);
+              if (wResult) {
+                mergeResult(merged, wResult);
+                enrichmentJob.sourceCounts.walmart++;
+              }
+            }
+
+            if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
+              if (sources.upcitemdb && needsUPC && !merged.upc && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
+                const uResult = await lookupFromUPCitemdb(mpn, brand);
+                upcitemdbCount++;
+                if (uResult) {
+                  mergeResult(merged, uResult);
+                  enrichmentJob.sourceCounts.upcitemdb++;
+                }
+              }
+            }
+
+            if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
+              if (sources.aiExtraction && product.description) {
+                const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
+                if (aiResult) {
+                  mergeResult(merged, aiResult);
+                  enrichmentJob.sourceCounts.ai++;
+                }
+              }
+            }
+          }
+        } else {
+          if (sources.walmart) {
+            const wResult = await lookupFromWalmart(mpn, brand);
+            if (wResult) {
+              mergeResult(merged, wResult);
+              enrichmentJob.sourceCounts.walmart++;
+            }
+          }
+
+          if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
+            if (sources.upcitemdb && needsUPC && !merged.upc && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
+              const uResult = await lookupFromUPCitemdb(mpn, brand);
+              upcitemdbCount++;
+              if (uResult) {
+                mergeResult(merged, uResult);
+                enrichmentJob.sourceCounts.upcitemdb++;
+              }
+            }
+          }
+
+          if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
+            if (sources.aiExtraction && product.description) {
+              const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
+              if (aiResult) {
+                mergeResult(merged, aiResult);
+                enrichmentJob.sourceCounts.ai++;
+              }
+            }
+          }
         }
 
-        if (!foundResult && sources.walmart) {
-          foundResult = await lookupFromWalmart(mpn, brand);
-          if (foundResult) enrichmentJob.sourceCounts.walmart++;
-        }
-
-        if (!foundResult && sources.upcitemdb && needsUPC && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
-          foundResult = await lookupFromUPCitemdb(mpn, brand);
-          upcitemdbCount++;
-          if (foundResult) enrichmentJob.sourceCounts.upcitemdb++;
-        }
-
-        if (!foundResult && sources.aiExtraction && product.description) {
-          foundResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
-          if (foundResult) enrichmentJob.sourceCounts.ai++;
-        }
-
-        if (foundResult) {
+        if (merged.sources.length > 0) {
           const updates: string[] = [];
           const values: any[] = [];
           let paramIdx = 1;
 
-          if (foundResult.upc && needsUPC) {
-            const validation = validateGTIN(foundResult.upc);
-            if (validation.valid) {
-              updates.push(`upc = $${paramIdx++}`);
-              values.push(validation.normalized);
-              enrichmentJob.fieldCounts.upc++;
-            }
+          if (merged.upc && needsUPC) {
+            updates.push(`upc = $${paramIdx++}`);
+            values.push(merged.upc);
+            enrichmentJob.fieldCounts.upc++;
           }
 
-          if (foundResult.weight && needsWeight) {
+          if (merged.ean && (!product.ean || product.ean === '')) {
+            updates.push(`ean = $${paramIdx++}`);
+            values.push(merged.ean);
+            enrichmentJob.fieldCounts.ean++;
+          }
+
+          if (merged.gtin && (!product.gtin || product.gtin === '')) {
+            updates.push(`gtin = $${paramIdx++}`);
+            values.push(merged.gtin);
+            enrichmentJob.fieldCounts.gtin++;
+          }
+
+          if (merged.weight && needsWeight) {
             updates.push(`weight = $${paramIdx++}`);
-            values.push(foundResult.weight);
+            values.push(merged.weight);
             enrichmentJob.fieldCounts.weight++;
           }
 
-          if (foundResult.dimensions && fields.dimensions) {
-            if (foundResult.dimensions.length && (!product.box_length)) {
+          if (merged.dimensions && fields.dimensions) {
+            if (merged.dimensions.length && !product.box_length) {
               updates.push(`box_length = $${paramIdx++}`);
-              values.push(foundResult.dimensions.length);
+              values.push(merged.dimensions.length);
             }
-            if (foundResult.dimensions.width && (!product.box_width)) {
+            if (merged.dimensions.width && !product.box_width) {
               updates.push(`box_width = $${paramIdx++}`);
-              values.push(foundResult.dimensions.width);
+              values.push(merged.dimensions.width);
             }
-            if (foundResult.dimensions.height && (!product.box_height)) {
+            if (merged.dimensions.height && !product.box_height) {
               updates.push(`box_height = $${paramIdx++}`);
-              values.push(foundResult.dimensions.height);
+              values.push(merged.dimensions.height);
             }
-            if (foundResult.dimensions.length || foundResult.dimensions.width || foundResult.dimensions.height) {
+            if (merged.dimensions.length || merged.dimensions.width || merged.dimensions.height) {
               enrichmentJob.fieldCounts.dimensions++;
             }
           }
@@ -423,9 +541,9 @@ export async function runProductEnrichment(
           updates.push(attrUpdate);
           values.push(JSON.stringify({
             enrichment: {
-              source: foundResult.source,
+              sources: merged.sources,
               enrichedAt: new Date().toISOString(),
-              asin: foundResult.asin || undefined,
+              asin: merged.asin || undefined,
             }
           }));
 
@@ -442,8 +560,8 @@ export async function runProductEnrichment(
             productName: (product.name || '').substring(0, 50),
             mpn,
             status: 'found',
-            source: foundResult.source,
-            upc: foundResult.upc,
+            source: merged.sources.join('+'),
+            upc: merged.upc,
           });
         } else {
           enrichmentJob.skipped++;

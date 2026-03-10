@@ -140,6 +140,8 @@ export const products = pgTable("products", {
   usin: text("usin"),                               // Universal Supplier Item Number (USIN)
   manufacturerPartNumber: text("manufacturer_part_number"),  // Manufacturer's Part Number
   upc: text("upc"),                                 // UPC Code
+  ean: text("ean"),                                 // EAN / GTIN-13
+  gtin: text("gtin"),                               // GTIN-14
   name: text("name").notNull(),                     // Product Title
   description: text("description"),                 // Product Description
   categoryId: integer("category_id").references(() => categories.id),
@@ -199,6 +201,8 @@ export const products = pgTable("products", {
     analysisStaleIdx: index("products_analysis_stale_idx").on(table.analysisStaleAt),
     manufacturerNameIdx: index("products_manufacturer_name_idx").on(table.manufacturerName),
     upcIdx: index("products_upc_idx").on(table.upc),
+    eanIdx: index("products_ean_idx").on(table.ean),
+    gtinIdx: index("products_gtin_idx").on(table.gtin),
   };
 });
 

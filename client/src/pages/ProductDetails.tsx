@@ -231,6 +231,8 @@ export default function ProductDetails() {
       product_name: product.name,
       description: product.description,
       upc: product.upc,
+      ean: product.ean,
+      gtin: product.gtin,
       mpn: product.manufacturerPartNumber,
       brand: product.manufacturerName,
       category: product.categoryName,
@@ -591,7 +593,19 @@ export default function ProductDetails() {
                         {product.upc && (
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600">UPC:</span>
-                            <span className="font-medium">{product.upc}</span>
+                            <span className="font-medium font-mono text-sm">{product.upc}</span>
+                          </div>
+                        )}
+                        {product.ean && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">EAN:</span>
+                            <span className="font-medium font-mono text-sm">{product.ean}</span>
+                          </div>
+                        )}
+                        {product.gtin && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600">GTIN:</span>
+                            <span className="font-medium font-mono text-sm">{product.gtin}</span>
                           </div>
                         )}
                         {product.manufacturerName && (
@@ -787,6 +801,18 @@ export default function ProductDetails() {
                           <div className="flex justify-between py-1">
                             <span className="text-gray-600 text-sm font-medium">UPC:</span>
                             <span className="text-gray-900 font-mono text-sm">{product.upc}</span>
+                          </div>
+                        )}
+                        {product.ean && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">EAN:</span>
+                            <span className="text-gray-900 font-mono text-sm">{product.ean}</span>
+                          </div>
+                        )}
+                        {product.gtin && (
+                          <div className="flex justify-between py-1">
+                            <span className="text-gray-600 text-sm font-medium">GTIN:</span>
+                            <span className="text-gray-900 font-mono text-sm">{product.gtin}</span>
                           </div>
                         )}
                         {product.price && (
