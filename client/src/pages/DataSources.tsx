@@ -850,19 +850,23 @@ export default function DataSources() {
 
   const handleMappingComplete = async (mappings: any[]) => {
     try {
-      // Process mappings and include EDC SKU auto-generation logic
-      const processedMappings = mappings.reduce((acc, mapping) => {
+      const processedMappings = mappings.reduce((acc: Record<string, any>, mapping: any) => {
         if (mapping.sourceField) {
-          // Handle part number to EDC SKU conversion
           if (mapping.targetField === 'partNumber') {
-            acc['sku'] = `EDC${mapping.sourceField}`; // Auto-generate EDC SKU
-            acc['supplierPartNumber'] = mapping.sourceField; // Keep original part number
+            acc['sku'] = `EDC${mapping.sourceField}`;
+            acc['supplierPartNumber'] = mapping.sourceField;
+          } else if (mapping.sourceField === '__COMPUTED__' && mapping.computed) {
+            acc[mapping.targetField] = {
+              computed: true,
+              operation: mapping.computed.operation,
+              sourceFields: mapping.computed.sourceFields
+            };
           } else {
             acc[mapping.targetField] = mapping.sourceField;
           }
         }
         return acc;
-      }, {} as Record<string, string>);
+      }, {} as Record<string, any>);
 
       // Save the mapping template with EDC SKU generation
       const response = await fetch('/api/mapping-templates', {

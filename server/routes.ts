@@ -4022,6 +4022,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  function applyComputedField(sourceRecord: Record<string, any>, config: { computed: boolean; operation: string; sourceFields: string[] }): any {
+    const { operation, sourceFields: fields } = config;
+    if (!fields || fields.length === 0) return null;
+
+    if (operation === 'SUM') {
+      let sum = 0;
+      let hasValue = false;
+      for (const f of fields) {
+        const val = parseFloat(sourceRecord[f]);
+        if (!isNaN(val)) {
+          sum += val;
+          hasValue = true;
+        }
+      }
+      return hasValue ? sum : null;
+    } else if (operation === 'CONCAT') {
+      const parts = fields.map(f => sourceRecord[f]).filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+      return parts.length > 0 ? parts.join(' ') : null;
+    } else if (operation === 'FIRST_NON_EMPTY') {
+      for (const f of fields) {
+        const val = sourceRecord[f];
+        if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+      }
+      return null;
+    }
+    return null;
+  }
+
   // Sample pull with mapping endpoint
   app.post('/api/datasources/:id/sample-pull-with-mapping', async (req, res) => {
     try {
@@ -4585,12 +4613,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Apply field mappings
         const customFieldsData: Record<string, any> = {};
         
-        Object.entries(fieldMappings as Record<string, string>).forEach(([targetField, sourceField]) => {
+        Object.entries(fieldMappings as Record<string, any>).forEach(([targetField, sourceFieldOrComputed]) => {
+          const isComputed = typeof sourceFieldOrComputed === 'object' && sourceFieldOrComputed?.computed;
+          const sourceField = isComputed ? null : sourceFieldOrComputed as string;
+
           if (targetField.startsWith('customFields.')) {
             const customFieldName = targetField.replace('customFields.', '');
-            const value = sourceRecord[sourceField];
-            if (value !== undefined && value !== null && String(value).trim() !== '') {
-              customFieldsData[customFieldName] = value;
+            if (isComputed) {
+              const computedVal = applyComputedField(sourceRecord, sourceFieldOrComputed);
+              if (computedVal !== null) customFieldsData[customFieldName] = computedVal;
+            } else {
+              const value = sourceRecord[sourceField!];
+              if (value !== undefined && value !== null && String(value).trim() !== '') {
+                customFieldsData[customFieldName] = value;
+              }
             }
             return;
           }
@@ -4603,10 +4639,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           
           const actualTargetField = fieldNameMap[targetField] || targetField;
+
+          let value: any = null;
+          if (isComputed) {
+            value = applyComputedField(sourceRecord, sourceFieldOrComputed);
+          } else if (sourceRecord[sourceField!] !== undefined && sourceRecord[sourceField!] !== null) {
+            value = sourceRecord[sourceField!];
+          }
           
-          if (sourceRecord[sourceField] !== undefined && sourceRecord[sourceField] !== null) {
-            let value = sourceRecord[sourceField];
-            
+          if (value !== null && value !== undefined) {
             if (actualTargetField === 'yourCost' || actualTargetField === 'listPrice' || actualTargetField === 'mapPrice' || actualTargetField === 'mrpPrice') {
               const numValue = parseFloat(value);
               value = isNaN(numValue) || value === '' || value === null ? null : numValue;
@@ -4626,7 +4667,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            transformedRecord[actualTargetField] = value;
+            if (value !== null) {
+              transformedRecord[actualTargetField] = value;
+            }
           }
         });
         

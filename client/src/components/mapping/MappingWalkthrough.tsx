@@ -25,7 +25,9 @@ import {
   Brain,
   Zap,
   Download,
-  Puzzle
+  Puzzle,
+  Calculator,
+  X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,7 +40,13 @@ interface MappingField {
   category: 'master_catalog' | 'inventory' | 'pricing' | 'shipping' | 'compliance' | 'promotions' | 'documentation' | 'catalog_extensions' | 'product_identifier' | 'availability_cost' | 'return_info';
   description: string;
   example?: string;
+  computed?: {
+    operation: 'SUM' | 'CONCAT' | 'FIRST_NON_EMPTY';
+    sourceFields: string[];
+  };
 }
+
+type ComputedOperation = 'SUM' | 'CONCAT' | 'FIRST_NON_EMPTY';
 
 type DataSourcePurpose = 'catalog' | 'inventory_pricing' | 'order_fulfillment' | 'catalog_search' | 'returns' | 'general';
 
@@ -797,6 +805,8 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
   const [matchResult, setMatchResult] = useState<any>(null);
   const [showAllSourceFields, setShowAllSourceFields] = useState(false);
   const [customFieldSelections, setCustomFieldSelections] = useState<Record<string, CustomFieldSelection>>({});
+  const [computedFields, setComputedFields] = useState<Record<string, { operation: ComputedOperation; sourceFields: string[] }>>({});
+  const [computedFieldToggles, setComputedFieldToggles] = useState<Record<string, boolean>>({});
 
   const activePurpose = purpose || 'general';
   const purposeConfig = PURPOSE_FIELD_CONFIGS[activePurpose] || REQUIRED_MAPPINGS;
@@ -824,6 +834,98 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
     const totalFields = Object.values(REQUIRED_MAPPINGS).reduce((acc, fields) => acc + fields.length, 0);
     console.log('Total target fields across all categories:', totalFields);
   }, [sampleData]);
+
+  const getSamplePreview = (fieldName: string): string => {
+    if (!sampleData || sampleData.length === 0) return '';
+    for (const row of sampleData.slice(0, 5)) {
+      const val = row[fieldName];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        const str = String(val);
+        return str.length > 40 ? str.substring(0, 37) + '...' : str;
+      }
+    }
+    return '(empty)';
+  };
+
+  const computePreview = (operation: ComputedOperation, fields: string[]): string => {
+    if (!sampleData || sampleData.length === 0 || fields.length === 0) return '';
+    const results = sampleData.slice(0, 3).map(row => {
+      if (operation === 'SUM') {
+        const sum = fields.reduce((acc, f) => acc + (parseFloat(row[f]) || 0), 0);
+        return String(sum);
+      } else if (operation === 'CONCAT') {
+        return fields.map(f => row[f] || '').filter(Boolean).join(' ');
+      } else {
+        for (const f of fields) {
+          if (row[f] !== undefined && row[f] !== null && String(row[f]).trim() !== '') return String(row[f]);
+        }
+        return '';
+      }
+    });
+    return results.filter(Boolean).join(' • ');
+  };
+
+  const toggleComputedField = (fieldId: string) => {
+    setComputedFieldToggles(prev => {
+      const next = { ...prev, [fieldId]: !prev[fieldId] };
+      if (!next[fieldId]) {
+        setComputedFields(prev2 => {
+          const { [fieldId]: _, ...rest } = prev2;
+          return rest;
+        });
+        setMappings(prev2 => {
+          const { [fieldId]: _, ...rest } = prev2;
+          return rest;
+        });
+      } else {
+        setComputedFields(prev2 => ({
+          ...prev2,
+          [fieldId]: { operation: 'SUM' as ComputedOperation, sourceFields: [] }
+        }));
+      }
+      return next;
+    });
+  };
+
+  const updateComputedField = (fieldId: string, updates: Partial<{ operation: ComputedOperation; sourceFields: string[] }>) => {
+    setComputedFields(prev => {
+      const current = prev[fieldId] || { operation: 'SUM' as ComputedOperation, sourceFields: [] };
+      const updated = { ...current, ...updates };
+      return { ...prev, [fieldId]: updated };
+    });
+    const targetField = currentFields.find(f => f.id === fieldId);
+    if (targetField) {
+      const current = computedFields[fieldId] || { operation: 'SUM' as ComputedOperation, sourceFields: [] };
+      const merged = { ...current, ...updates };
+      if (merged.sourceFields.length > 0) {
+        setMappings(prev => ({
+          ...prev,
+          [fieldId]: {
+            id: fieldId,
+            sourceField: '__COMPUTED__',
+            targetField: targetField.targetField,
+            required: targetField.required,
+            category: currentCategory as MappingField['category'],
+            description: targetField.description,
+            example: targetField.example,
+            computed: {
+              operation: merged.operation,
+              sourceFields: merged.sourceFields
+            }
+          }
+        }));
+      }
+    }
+  };
+
+  const toggleComputedSourceField = (fieldId: string, sourceField: string) => {
+    const current = computedFields[fieldId] || { operation: 'SUM' as ComputedOperation, sourceFields: [] };
+    const exists = current.sourceFields.includes(sourceField);
+    const newFields = exists
+      ? current.sourceFields.filter(f => f !== sourceField)
+      : [...current.sourceFields, sourceField];
+    updateComputedField(fieldId, { sourceFields: newFields });
+  };
 
   const updateMapping = (fieldId: string, sourceField: string) => {
     const targetField = currentFields.find(f => f.id === fieldId);
@@ -1704,37 +1806,136 @@ export function MappingWalkthrough({ dataSourceId, dataSourceName, sampleData, p
                 )}
                 
                 <div>
-                  <Label className="text-sm font-medium">Map to source field:</Label>
-                  <Select
-                    value={currentMapping?.sourceField || ""}
-                    onValueChange={(value) => updateMapping(field.id, value)}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder={`Select a field from ${dataSourceName || 'your supplier'} data...`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__SKIP__">-- Skip this field --</SelectItem>
-                      {sourceFields.map((sourceField) => (
-                        <SelectItem key={sourceField} value={sourceField}>
-                          {sourceField}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {currentMapping?.sourceField && sampleData.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 p-3 rounded text-sm">
-                    <div className="font-medium text-blue-800 mb-1">Sample values from your data:</div>
-                    <div className="text-blue-700 font-mono text-xs">
-                      {sampleData.slice(0, 4)
-                        .map(row => row[currentMapping.sourceField])
-                        .filter(val => val !== undefined && val !== null && val !== '')
-                        .map(val => String(val).substring(0, 50) + (String(val).length > 50 ? '...' : ''))
-                        .join(' • ') || 'No sample data available'}
-                    </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-sm font-medium">Map to source field:</Label>
+                    <button
+                      type="button"
+                      onClick={() => toggleComputedField(field.id)}
+                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
+                        computedFieldToggles[field.id]
+                          ? 'bg-purple-100 border-purple-300 text-purple-700'
+                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Calculator className="h-3 w-3" />
+                      Computed
+                    </button>
                   </div>
-                )}
+
+                  {!computedFieldToggles[field.id] ? (
+                    <>
+                      <Select
+                        value={currentMapping?.sourceField || ""}
+                        onValueChange={(value) => updateMapping(field.id, value)}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder={`Select a field from ${dataSourceName || 'your supplier'} data...`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__SKIP__">-- Skip this field --</SelectItem>
+                          {sourceFields.map((sf) => {
+                            const preview = getSamplePreview(sf);
+                            return (
+                              <SelectItem key={sf} value={sf}>
+                                <div className="flex items-center gap-2 w-full">
+                                  <span className="font-medium">{sf}</span>
+                                  {preview && preview !== '(empty)' && (
+                                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                      → {preview}
+                                    </span>
+                                  )}
+                                  {preview === '(empty)' && (
+                                    <span className="text-xs text-gray-400 italic">empty</span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+
+                      {currentMapping?.sourceField && currentMapping.sourceField !== '__COMPUTED__' && sampleData.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded text-sm mt-2">
+                          <div className="font-medium text-blue-800 mb-1">Sample values from your data:</div>
+                          <div className="text-blue-700 font-mono text-xs">
+                            {sampleData.slice(0, 4)
+                              .map(row => row[currentMapping.sourceField])
+                              .filter(val => val !== undefined && val !== null && val !== '')
+                              .map(val => String(val).substring(0, 50) + (String(val).length > 50 ? '...' : ''))
+                              .join(' • ') || 'No sample data available'}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="mt-2 border border-purple-200 rounded-lg p-3 bg-purple-50/50 space-y-3">
+                      <div>
+                        <Label className="text-xs font-medium text-purple-700">Operation</Label>
+                        <Select
+                          value={computedFields[field.id]?.operation || 'SUM'}
+                          onValueChange={(value) => updateComputedField(field.id, { operation: value as ComputedOperation })}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="SUM">SUM — Add numeric values together</SelectItem>
+                            <SelectItem value="CONCAT">CONCAT — Join text values</SelectItem>
+                            <SelectItem value="FIRST_NON_EMPTY">FIRST NON-EMPTY — Use first available value</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-medium text-purple-700">Select source fields to combine:</Label>
+                        <div className="mt-1 max-h-40 overflow-y-auto space-y-1 border rounded bg-white p-2">
+                          {sourceFields.map((sf) => {
+                            const isSelected = computedFields[field.id]?.sourceFields?.includes(sf) || false;
+                            const preview = getSamplePreview(sf);
+                            return (
+                              <label
+                                key={sf}
+                                className={`flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer hover:bg-gray-50 ${
+                                  isSelected ? 'bg-purple-50' : ''
+                                }`}
+                              >
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleComputedSourceField(field.id, sf)}
+                                />
+                                <span className="font-medium text-xs">{sf}</span>
+                                {preview && preview !== '(empty)' && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">→ {preview}</span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {(computedFields[field.id]?.sourceFields?.length || 0) > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1">
+                            {computedFields[field.id].sourceFields.map((sf, i) => (
+                              <Badge key={sf} variant="secondary" className="text-xs flex items-center gap-1">
+                                {sf}
+                                <button type="button" onClick={() => toggleComputedSourceField(field.id, sf)}>
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="bg-green-50 border border-green-200 p-2 rounded text-xs">
+                            <span className="font-medium text-green-800">Preview ({computedFields[field.id].operation}): </span>
+                            <span className="text-green-700 font-mono">
+                              {computePreview(computedFields[field.id].operation, computedFields[field.id].sourceFields)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
