@@ -1466,7 +1466,7 @@ export default function DataSources() {
                           ) : (
                             <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           )}
-                          <span className="truncate flex-1 text-gray-700">{r.mpn}</span>
+                          <span className="truncate flex-1 text-gray-700">{r.productName || r.mpn}</span>
                           {r.source && <Badge variant="outline" className="text-xs py-0">{r.source}</Badge>}
                           {r.upc && <span className="text-emerald-600 font-mono text-xs">{r.upc}</span>}
                         </div>

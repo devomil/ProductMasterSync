@@ -172,45 +172,62 @@ function isMergedComplete(merged: MergedResult, needsUPC: boolean, needsWeight: 
 
 async function lookupFromAmazon(mpn: string, brand: string): Promise<LookupResult | null> {
   try {
-    const { searchCatalogItemsByMPN } = await import('../marketplace/amazon-spapi-service');
-    const results = await searchCatalogItemsByMPN(mpn, brand);
+    const { createSpApiClient, getAmazonConfig, rateLimiter } = await import('../marketplace/amazon-spapi-service');
+    const client = await createSpApiClient();
+    const config = await getAmazonConfig();
 
-    if (results.length === 0) return null;
+    const keywordsList = brand ? [brand, mpn] : [mpn];
+    await rateLimiter.waitForRateLimit('searchCatalogItems');
 
-    const item = results[0];
-    let upc: string | undefined;
-    let ean: string | undefined;
-    let gtin: string | undefined;
+    const response = await client.searchCatalogItems({
+      marketplaceIds: [config.marketplaceId],
+      keywords: keywordsList,
+      includedData: ['summaries', 'identifiers', 'dimensions']
+    });
 
-    if (item.identifiers) {
-      for (const marketplaceIds of item.identifiers) {
-        for (const id of marketplaceIds.identifiers || []) {
-          const code = id.identifier;
-          if (id.identifierType === 'UPC') upc = code;
-          if (id.identifierType === 'EAN') ean = code;
-          if (id.identifierType === 'GTIN') gtin = code;
+    const items = response?.data?.items || response?.items || [];
+    if (items.length === 0) return null;
+
+    for (const item of items) {
+      let upc: string | undefined;
+      let ean: string | undefined;
+      let gtin: string | undefined;
+
+      if (item.identifiers) {
+        for (const marketplaceIds of item.identifiers) {
+          for (const id of (marketplaceIds.identifiers || [])) {
+            const code = id.identifier;
+            const type = id.identifierType;
+            if (type === 'UPC' && !upc) upc = code;
+            else if (type === 'EAN' && !ean) ean = code;
+            else if (type === 'GTIN' && !gtin) gtin = code;
+          }
         }
       }
-    }
 
-    let weight: string | undefined;
-    let dimensions: { length?: string; width?: string; height?: string } | undefined;
-    if (item.dimensions) {
-      const dim = item.dimensions;
-      if (dim.package || dim.item) {
-        const d = dim.package || dim.item;
-        if (d.length?.value) dimensions = {
-          length: String(d.length.value),
-          width: d.width?.value ? String(d.width.value) : undefined,
-          height: d.height?.value ? String(d.height.value) : undefined,
-        };
-        if (d.weight?.value) weight = String(d.weight.value);
+      if (!upc && !ean && !gtin) continue;
+
+      let weight: string | undefined;
+      let dimensions: { length?: string; width?: string; height?: string } | undefined;
+      if (item.dimensions) {
+        const dim = item.dimensions;
+        for (const key of ['package', 'item']) {
+          const d = (dim as any)[key];
+          if (d) {
+            if (d.length?.value && !dimensions) dimensions = {
+              length: String(d.length.value),
+              width: d.width?.value ? String(d.width.value) : undefined,
+              height: d.height?.value ? String(d.height.value) : undefined,
+            };
+            if (d.weight?.value && !weight) weight = String(d.weight.value);
+          }
+        }
       }
+
+      return { upc, ean, gtin, asin: item.asin, weight, dimensions, source: 'amazon' };
     }
 
-    if (!upc && !ean && !gtin && !weight && !dimensions) return null;
-
-    return { upc, ean, gtin, asin: item.asin, weight, dimensions, source: 'amazon' };
+    return null;
   } catch (error: any) {
     if (error.response?.status === 429) throw error;
     console.error(`[Enrichment] Amazon lookup error for ${mpn}:`, error.message);
@@ -219,38 +236,17 @@ async function lookupFromAmazon(mpn: string, brand: string): Promise<LookupResul
 }
 
 async function lookupFromWalmart(mpn: string, brand: string): Promise<LookupResult | null> {
-  try {
-    const { searchWalmartCatalogByMPN } = await import('../utils/walmart-api');
-    const results = await searchWalmartCatalogByMPN(mpn, brand);
-
-    if (results.length === 0) return null;
-
-    const item = results[0] as any;
-    const upc = item.upc || undefined;
-    const gtin = item.gtin || undefined;
-    const ean = item.ean || undefined;
-    const weight = item.shippingWeight ? String(item.shippingWeight) : undefined;
-    let dimensions: { length?: string; width?: string; height?: string } | undefined;
-    if (item.shippingLength || item.shippingWidth || item.shippingHeight) {
-      dimensions = {
-        length: item.shippingLength ? String(item.shippingLength) : undefined,
-        width: item.shippingWidth ? String(item.shippingWidth) : undefined,
-        height: item.shippingHeight ? String(item.shippingHeight) : undefined,
-      };
-    }
-
-    if (!upc && !gtin && !ean && !weight && !dimensions) return null;
-
-    return { upc, gtin, ean, weight, dimensions, source: 'walmart' };
-  } catch (error: any) {
-    if (error.response?.status === 429) throw error;
-    console.error(`[Enrichment] Walmart lookup error for ${mpn}:`, error.message);
-    return null;
-  }
+  return null;
 }
 
+let upcitemdbRateLimited = false;
+
 async function lookupFromUPCitemdb(mpn: string, brand: string): Promise<LookupResult | null> {
+  if (upcitemdbRateLimited) return null;
+
   try {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     const query = encodeURIComponent(`${brand} ${mpn}`.trim());
     const { default: axios } = await import('axios');
     const response = await axios.get(`https://api.upcitemdb.com/prod/trial/search?s=${query}&type=keyword`, {
@@ -270,7 +266,10 @@ async function lookupFromUPCitemdb(mpn: string, brand: string): Promise<LookupRe
     return null;
   } catch (error: any) {
     if (error.response?.status === 429) {
-      console.log('[Enrichment] UPCitemdb daily limit reached');
+      console.log('[Enrichment] UPCitemdb rate limited, pausing UPCitemdb for this run');
+      upcitemdbRateLimited = true;
+    } else if (error.response?.status === 404) {
+      return null;
     } else {
       console.error(`[Enrichment] UPCitemdb lookup error for ${mpn}:`, error.message);
     }
@@ -360,6 +359,7 @@ export async function runProductEnrichment(
   delayMs: number = 600
 ) {
   const { pool } = await import('../db');
+  upcitemdbRateLimited = false;
 
   enrichmentJob = {
     status: 'running',
@@ -392,7 +392,7 @@ export async function runProductEnrichment(
     const whereClause = conditions.join(' OR ');
 
     const productsResult = await pool.query(`
-      SELECT p.id, p.name, p.sku, p.upc, p.ean, p.gtin,
+      SELECT DISTINCT p.id, p.name, p.sku, p.upc, p.ean, p.gtin,
              p.manufacturer_part_number as mpn, 
              p.manufacturer_name as brand, p.description, p.weight,
              p.box_length, p.box_width, p.box_height
@@ -407,6 +407,9 @@ export async function runProductEnrichment(
     const products = productsResult.rows;
     enrichmentJob.totalProducts = products.length;
     console.log(`[Enrichment] Starting enrichment for ${products.length} products from ${supplierName}`);
+    if (sources.walmart) {
+      console.log(`[Enrichment] Note: Walmart Marketplace search API does not return UPC/GTIN data — Walmart source will be skipped`);
+    }
 
     let upcitemdbCount = 0;
     const UPCITEMDB_DAILY_LIMIT = 95;
@@ -424,11 +427,21 @@ export async function runProductEnrichment(
       const merged: MergedResult = { sources: [] };
 
       try {
+        const logPrefix = `[Enrichment #${i+1}/${products.length}] ${brand} ${mpn}`;
+
         if (sources.amazon && !isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
-          const result = await lookupFromAmazon(mpn, brand);
-          if (result) {
-            mergeResult(merged, result);
-            enrichmentJob.sourceCounts.amazon++;
+          try {
+            const result = await lookupFromAmazon(mpn, brand);
+            if (result) {
+              const mergeOk = mergeResult(merged, result);
+              enrichmentJob.sourceCounts.amazon++;
+              console.log(`${logPrefix} — Amazon: UPC=${result.upc || 'none'}, weight=${result.weight || 'none'}, merged=${mergeOk}`);
+            } else {
+              console.log(`${logPrefix} — Amazon: no results`);
+            }
+          } catch (err: any) {
+            console.error(`${logPrefix} — Amazon ERROR: ${err.message}`);
+            if (err.response?.status === 429) throw err;
           }
         }
 
@@ -441,19 +454,33 @@ export async function runProductEnrichment(
         }
 
         if (sources.upcitemdb && !isMergedComplete(merged, needsUPC, needsWeight, needsDims) && needsUPC && !merged.upc && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
-          const uResult = await lookupFromUPCitemdb(mpn, brand);
-          upcitemdbCount++;
-          if (uResult) {
-            mergeResult(merged, uResult);
-            enrichmentJob.sourceCounts.upcitemdb++;
+          try {
+            const uResult = await lookupFromUPCitemdb(mpn, brand);
+            upcitemdbCount++;
+            if (uResult) {
+              const mergeOk = mergeResult(merged, uResult);
+              enrichmentJob.sourceCounts.upcitemdb++;
+              console.log(`${logPrefix} — UPCitemdb: UPC=${uResult.upc || 'none'}, merged=${mergeOk}`);
+            } else {
+              console.log(`${logPrefix} — UPCitemdb: no results`);
+            }
+          } catch (err: any) {
+            console.error(`${logPrefix} — UPCitemdb ERROR: ${err.message}`);
           }
         }
 
         if (sources.aiExtraction && !isMergedComplete(merged, needsUPC, needsWeight, needsDims) && product.description) {
-          const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
-          if (aiResult) {
-            mergeResult(merged, aiResult);
-            enrichmentJob.sourceCounts.ai++;
+          try {
+            const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
+            if (aiResult) {
+              const mergeOk = mergeResult(merged, aiResult);
+              enrichmentJob.sourceCounts.ai++;
+              console.log(`${logPrefix} — AI: UPC=${aiResult.upc || 'none'}, merged=${mergeOk}`);
+            } else {
+              console.log(`${logPrefix} — AI: no results`);
+            }
+          } catch (err: any) {
+            console.error(`${logPrefix} — AI ERROR: ${err.message}`);
           }
         }
 
@@ -540,6 +567,7 @@ export async function runProductEnrichment(
         }
       } catch (error: any) {
         enrichmentJob.errors++;
+        console.error(`[Enrichment] Product #${i+1} ${mpn} outer error: ${error.message}`);
         addRecentResult({
           productName: (product.name || '').substring(0, 50),
           mpn,

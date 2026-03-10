@@ -76,7 +76,7 @@ class AmazonRateLimiter {
   }
 }
 
-const rateLimiter = AmazonRateLimiter.getInstance();
+export const rateLimiter = AmazonRateLimiter.getInstance();
 
 /**
  * Amazon SP-API Configuration
@@ -92,7 +92,7 @@ interface AmazonConfig {
 /**
  * Get Amazon SP-API configuration from database first, then environment fallback
  */
-async function getAmazonConfig(): Promise<AmazonConfig> {
+export async function getAmazonConfig(): Promise<AmazonConfig> {
   const dbConfig = await getAmazonConfigFromDb();
   return {
     clientId: dbConfig.clientId,
@@ -106,7 +106,7 @@ async function getAmazonConfig(): Promise<AmazonConfig> {
 /**
  * Create authenticated SP-API client
  */
-async function createSpApiClient(): Promise<CatalogItemsApiClient> {
+export async function createSpApiClient(): Promise<CatalogItemsApiClient> {
   const config = await getAmazonConfig();
   
   const authOptions: any = {
