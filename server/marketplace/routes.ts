@@ -6437,4 +6437,95 @@ router.post('/ingram-micro/bulk-enrich/stop', async (req, res) => {
   return res.json({ success: false, message: 'No running job to stop' });
 });
 
+import { enrichmentJob as productDataEnrichmentJob, runProductEnrichment } from '../utils/product-enrichment';
+
+router.get('/product-data-enrichment/preview/:supplierId', async (req, res) => {
+  try {
+    const supplierId = parseInt(req.params.supplierId);
+    const { pool } = await import('../db');
+
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN p.upc IS NULL OR p.upc = '' THEN 1 END) as missing_upc,
+        COUNT(CASE WHEN p.weight IS NULL OR p.weight = '' OR p.weight = '0' THEN 1 END) as missing_weight,
+        COUNT(CASE WHEN p.manufacturer_part_number IS NOT NULL AND p.manufacturer_part_number != '' THEN 1 END) as has_mpn
+      FROM products p
+      JOIN product_suppliers ps ON ps.product_id = p.id
+      WHERE ps.supplier_id = $1
+    `, [supplierId]);
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('[Product Data Enrichment] Preview error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/product-data-enrichment/preview-all', async (req, res) => {
+  try {
+    const { pool } = await import('../db');
+
+    const result = await pool.query(`
+      SELECT 
+        s.id as supplier_id,
+        s.name as supplier_name,
+        COUNT(*) as total,
+        COUNT(CASE WHEN p.upc IS NULL OR p.upc = '' THEN 1 END) as missing_upc,
+        COUNT(CASE WHEN p.weight IS NULL OR p.weight = '' OR p.weight = '0' THEN 1 END) as missing_weight,
+        COUNT(CASE WHEN p.manufacturer_part_number IS NOT NULL AND p.manufacturer_part_number != '' THEN 1 END) as has_mpn
+      FROM products p
+      JOIN product_suppliers ps ON ps.product_id = p.id
+      JOIN suppliers s ON s.id = ps.supplier_id
+      GROUP BY s.id, s.name
+      ORDER BY COUNT(*) DESC
+    `);
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('[Product Data Enrichment] Preview-all error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.post('/product-data-enrichment/start', async (req, res) => {
+  try {
+    if (productDataEnrichmentJob.status === 'running') {
+      return res.status(400).json({ error: 'An enrichment job is already running' });
+    }
+
+    const { supplierId, supplierName, sources, fields, delayMs } = req.body;
+
+    if (!supplierId) {
+      return res.status(400).json({ error: 'supplierId is required' });
+    }
+
+    runProductEnrichment(
+      supplierId,
+      supplierName || 'Unknown',
+      sources || { amazon: true, walmart: true, upcitemdb: true, aiExtraction: false },
+      fields || { upc: true, dimensions: true, weight: true },
+      delayMs || 600
+    ).catch(err => console.error('[Product Data Enrichment] Background error:', err));
+
+    return res.json({ success: true, message: 'Product data enrichment started' });
+  } catch (error) {
+    console.error('[Product Data Enrichment] Start error:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/product-data-enrichment/status', async (req, res) => {
+  return res.json(productDataEnrichmentJob);
+});
+
+router.post('/product-data-enrichment/stop', async (req, res) => {
+  if (productDataEnrichmentJob.status === 'running') {
+    productDataEnrichmentJob.status = 'stopped';
+    productDataEnrichmentJob.completedAt = new Date();
+    return res.json({ success: true, message: 'Product data enrichment stopped' });
+  }
+  return res.json({ success: false, message: 'No running job to stop' });
+});
+
 export default router;

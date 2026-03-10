@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2, RefreshCw, Search, RotateCcw, ImageIcon } from "lucide-react";
+import { Plus, Database, Globe, FileText, Settings, Trash2, CheckCircle, Clock, AlertCircle, MapPin, MoreVertical, Edit, Power, PowerOff, Download, BookOpen, Package, Play, Loader2, RefreshCw, Search, RotateCcw, ImageIcon, ScanBarcode, Boxes, Weight } from "lucide-react";
 import type { DataSource } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -449,6 +449,10 @@ export default function DataSources() {
   const [showEnrichmentPanel, setShowEnrichmentPanel] = useState(false);
   const [showImageEnrichmentPanel, setShowImageEnrichmentPanel] = useState(false);
   const [imageSource, setImageSource] = useState<'amazon' | 'walmart'>('amazon');
+  const [showProductDataEnrichmentPanel, setShowProductDataEnrichmentPanel] = useState(false);
+  const [pdeSupplierId, setPdeSupplierId] = useState<number | null>(null);
+  const [pdeSources, setPdeSources] = useState({ amazon: true, walmart: true, upcitemdb: true, aiExtraction: false });
+  const [pdeFields, setPdeFields] = useState({ upc: true, dimensions: true, weight: true });
 
   const { data: dataSources = [], isLoading: isLoadingDataSources } = useQuery({
     queryKey: ['/api/datasources'], 
@@ -727,6 +731,49 @@ export default function DataSources() {
     onSuccess: () => {
       refetchImageEnrichment();
       toast({ title: "Image Enrichment Stopped", description: "The image lookup process has been stopped." });
+    }
+  });
+
+  const { data: pdePreviewData } = useQuery({
+    queryKey: ['/api/marketplace/product-data-enrichment/preview-all'],
+  });
+
+  const { data: pdeStatus, refetch: refetchPdeStatus } = useQuery({
+    queryKey: ['/api/marketplace/product-data-enrichment/status'],
+    refetchInterval: showProductDataEnrichmentPanel ? 2000 : false,
+  });
+
+  const startPdeMutation = useMutation({
+    mutationFn: async () => {
+      const suppliersList = pdePreviewData as any[];
+      const supplier = suppliersList?.find((s: any) => s.supplier_id === pdeSupplierId);
+      const response = await apiRequest("POST", "/api/marketplace/product-data-enrichment/start", {
+        supplierId: pdeSupplierId,
+        supplierName: supplier?.supplier_name || 'Unknown',
+        sources: pdeSources,
+        fields: pdeFields,
+        delayMs: 600,
+      });
+      return response as any;
+    },
+    onSuccess: () => {
+      setShowProductDataEnrichmentPanel(true);
+      refetchPdeStatus();
+      toast({ title: "Product Data Enrichment Started", description: "Looking up UPCs, dimensions, and weight from multiple sources." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to start enrichment", variant: "destructive" });
+    }
+  });
+
+  const stopPdeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/marketplace/product-data-enrichment/stop");
+      return response as any;
+    },
+    onSuccess: () => {
+      refetchPdeStatus();
+      toast({ title: "Enrichment Stopped", description: "Product data enrichment has been stopped." });
     }
   });
 
@@ -1179,6 +1226,261 @@ export default function DataSources() {
             </div>
           </CardContent>
         )}
+      </Card>
+
+      {/* Product Data Enrichment Panel */}
+      <Card className="mb-6 border-emerald-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ScanBarcode className="w-5 h-5 text-emerald-600" />
+                Product Data Enrichment
+              </CardTitle>
+              <CardDescription>
+                Fill in missing UPCs, GTINs, and shipping dimensions using Amazon, Walmart, UPCitemdb, and AI
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {(pdeStatus as any)?.status === 'running' ? (
+                <Button size="sm" variant="destructive" onClick={() => stopPdeMutation.mutate()} disabled={stopPdeMutation.isPending}>
+                  <Power className="w-4 h-4 mr-1" /> Stop
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => { setShowProductDataEnrichmentPanel(true); startPdeMutation.mutate(); }}
+                  disabled={startPdeMutation.isPending || !pdeSupplierId}
+                >
+                  <ScanBarcode className={`w-4 h-4 mr-1 ${startPdeMutation.isPending ? 'animate-pulse' : ''}`} />
+                  {startPdeMutation.isPending ? 'Starting...' : 'Start Enrichment'}
+                </Button>
+              )}
+              {(pdeStatus as any)?.status !== 'idle' && (
+                <Button size="sm" variant="outline" onClick={() => { setShowProductDataEnrichmentPanel(!showProductDataEnrichmentPanel); refetchPdeStatus(); }}>
+                  {showProductDataEnrichmentPanel ? 'Hide Details' : 'Show Details'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-4">
+            {(pdeStatus as any)?.status !== 'running' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Supplier</Label>
+                  <select
+                    value={pdeSupplierId || ''}
+                    onChange={(e) => setPdeSupplierId(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select supplier...</option>
+                    {(pdePreviewData as any[])?.map((s: any) => (
+                      <option key={s.supplier_id} value={s.supplier_id}>
+                        {s.supplier_name} ({parseInt(s.missing_upc).toLocaleString()} missing UPC)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Lookup Sources</Label>
+                  <div className="space-y-1">
+                    {[
+                      { key: 'amazon' as const, label: 'Amazon SP-API', color: 'text-orange-600' },
+                      { key: 'walmart' as const, label: 'Walmart API', color: 'text-blue-600' },
+                      { key: 'upcitemdb' as const, label: 'UPCitemdb (100/day)', color: 'text-purple-600' },
+                      { key: 'aiExtraction' as const, label: 'AI Description Extract', color: 'text-emerald-600' },
+                    ].map(({ key, label, color }) => (
+                      <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pdeSources[key]}
+                          onChange={(e) => setPdeSources(prev => ({ ...prev, [key]: e.target.checked }))}
+                          className="rounded border-gray-300"
+                        />
+                        <span className={color}>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Fields to Enrich</Label>
+                  <div className="space-y-1">
+                    {[
+                      { key: 'upc' as const, label: 'UPC / GTIN / EAN', icon: ScanBarcode },
+                      { key: 'dimensions' as const, label: 'Dimensions (L×W×H)', icon: Boxes },
+                      { key: 'weight' as const, label: 'Weight', icon: Weight },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pdeFields[key]}
+                          onChange={(e) => setPdeFields(prev => ({ ...prev, [key]: e.target.checked }))}
+                          className="rounded border-gray-300"
+                        />
+                        <Icon className="w-3.5 h-3.5 text-gray-500" />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {pdeSupplierId && (pdeStatus as any)?.status !== 'running' && (() => {
+              const preview = (pdePreviewData as any[])?.find((s: any) => s.supplier_id === pdeSupplierId);
+              if (!preview) return null;
+              return (
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-2 bg-amber-50 rounded border border-amber-100">
+                    <div className="text-lg font-bold text-amber-700">{parseInt(preview.missing_upc).toLocaleString()}</div>
+                    <div className="text-xs text-amber-600">Missing UPC</div>
+                  </div>
+                  <div className="p-2 bg-purple-50 rounded border border-purple-100">
+                    <div className="text-lg font-bold text-purple-700">{parseInt(preview.missing_weight).toLocaleString()}</div>
+                    <div className="text-xs text-purple-600">Missing Weight</div>
+                  </div>
+                  <div className="p-2 bg-emerald-50 rounded border border-emerald-100">
+                    <div className="text-lg font-bold text-emerald-700">{parseInt(preview.has_mpn).toLocaleString()}</div>
+                    <div className="text-xs text-emerald-600">Have MPN (lookupable)</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {showProductDataEnrichmentPanel && (pdeStatus as any)?.status !== 'idle' && (
+              <div className="space-y-3 border-t pt-3">
+                <div className="flex items-center gap-3">
+                  <Badge variant={
+                    (pdeStatus as any)?.status === 'running' ? 'default' :
+                    (pdeStatus as any)?.status === 'completed' ? 'secondary' :
+                    (pdeStatus as any)?.status === 'stopped' ? 'outline' :
+                    (pdeStatus as any)?.status === 'error' ? 'destructive' : 'outline'
+                  }>
+                    {(pdeStatus as any)?.status === 'running' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                    {(pdeStatus as any)?.status?.toUpperCase()}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">{(pdeStatus as any)?.supplierName}</span>
+                  {(pdeStatus as any)?.status === 'running' && (pdeStatus as any)?.processed > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      ~{Math.round(((pdeStatus as any).totalProducts - (pdeStatus as any).processed) * 0.6 / 60)} min remaining
+                    </span>
+                  )}
+                </div>
+
+                {(pdeStatus as any)?.totalProducts > 0 && (
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Progress: {(pdeStatus as any)?.processed?.toLocaleString()} / {(pdeStatus as any)?.totalProducts?.toLocaleString()}</span>
+                      <span>{Math.round(((pdeStatus as any)?.processed / (pdeStatus as any)?.totalProducts) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full transition-all duration-500 bg-emerald-500"
+                        style={{ width: `${Math.min(100, ((pdeStatus as any)?.processed / (pdeStatus as any)?.totalProducts) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-4 gap-3 text-center">
+                  <div className="p-2 bg-green-50 rounded">
+                    <div className="text-lg font-bold text-green-700">{(pdeStatus as any)?.enriched?.toLocaleString() || 0}</div>
+                    <div className="text-xs text-green-600">Enriched</div>
+                  </div>
+                  <div className="p-2 bg-yellow-50 rounded">
+                    <div className="text-lg font-bold text-yellow-700">{(pdeStatus as any)?.skipped?.toLocaleString() || 0}</div>
+                    <div className="text-xs text-yellow-600">No Match</div>
+                  </div>
+                  <div className="p-2 bg-red-50 rounded">
+                    <div className="text-lg font-bold text-red-700">{(pdeStatus as any)?.errors?.toLocaleString() || 0}</div>
+                    <div className="text-xs text-red-600">Errors</div>
+                  </div>
+                  <div className="p-2 bg-blue-50 rounded">
+                    <div className="text-lg font-bold text-blue-700">{(pdeStatus as any)?.totalProducts?.toLocaleString() || 0}</div>
+                    <div className="text-xs text-blue-600">Total</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <div className="text-xs font-medium text-gray-500 mb-2">Fields Found</div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.upc || 0}</div>
+                        <div className="text-xs text-gray-500">UPCs</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.dimensions || 0}</div>
+                        <div className="text-xs text-gray-500">Dimensions</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-emerald-700">{(pdeStatus as any)?.fieldCounts?.weight || 0}</div>
+                        <div className="text-xs text-gray-500">Weight</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <div className="text-xs font-medium text-gray-500 mb-2">Source Breakdown</div>
+                    <div className="grid grid-cols-4 gap-1 text-center">
+                      <div>
+                        <div className="text-sm font-bold text-orange-600">{(pdeStatus as any)?.sourceCounts?.amazon || 0}</div>
+                        <div className="text-xs text-gray-500">Amazon</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-blue-600">{(pdeStatus as any)?.sourceCounts?.walmart || 0}</div>
+                        <div className="text-xs text-gray-500">Walmart</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-purple-600">{(pdeStatus as any)?.sourceCounts?.upcitemdb || 0}</div>
+                        <div className="text-xs text-gray-500">UPCdb</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-emerald-600">{(pdeStatus as any)?.sourceCounts?.ai || 0}</div>
+                        <div className="text-xs text-gray-500">AI</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {(pdeStatus as any)?.recentResults?.length > 0 && (
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <div className="text-xs font-medium text-gray-500 mb-2">Recent Lookups</div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {(pdeStatus as any).recentResults.slice(0, 5).map((r: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          {r.status === 'found' ? (
+                            <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+                          ) : r.status === 'error' ? (
+                            <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                          ) : (
+                            <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                          )}
+                          <span className="truncate flex-1 text-gray-700">{r.mpn}</span>
+                          {r.source && <Badge variant="outline" className="text-xs py-0">{r.source}</Badge>}
+                          {r.upc && <span className="text-emerald-600 font-mono text-xs">{r.upc}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(pdeStatus as any)?.startedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Started: {new Date((pdeStatus as any).startedAt).toLocaleString()}
+                    {(pdeStatus as any)?.completedAt && ` · Completed: ${new Date((pdeStatus as any).completedAt).toLocaleString()}`}
+                  </p>
+                )}
+
+                {(pdeStatus as any)?.errorMessage && (
+                  <p className="text-sm text-red-600">Error: {(pdeStatus as any).errorMessage}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Image Enrichment Panel */}
