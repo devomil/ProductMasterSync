@@ -134,16 +134,19 @@ function mergeResult(merged: MergedResult, result: LookupResult): boolean {
   let added = false;
 
   if (result.upc && !merged.upc) {
-    const v = validateGTIN(result.upc);
-    if (v.valid) { merged.upc = v.normalized; added = true; }
+    const cleaned = result.upc.replace(/[^0-9]/g, '');
+    if (cleaned.length >= 8 && cleaned.length <= 14) {
+      merged.upc = cleaned.length <= 12 ? cleaned.padStart(12, '0') : cleaned;
+      added = true;
+    }
   }
   if (result.gtin && !merged.gtin) {
-    const v = validateGTIN(result.gtin);
-    if (v.valid) { merged.gtin = v.normalized; added = true; }
+    const cleaned = result.gtin.replace(/[^0-9]/g, '');
+    if (cleaned.length >= 8) { merged.gtin = cleaned; added = true; }
   }
   if (result.ean && !merged.ean) {
-    const v = validateGTIN(result.ean);
-    if (v.valid) { merged.ean = v.normalized; added = true; }
+    const cleaned = result.ean.replace(/[^0-9]/g, '');
+    if (cleaned.length >= 8) { merged.ean = cleaned; added = true; }
   }
   if (result.asin && !merged.asin) { merged.asin = result.asin; added = true; }
   if (result.weight && !merged.weight) { merged.weight = result.weight; added = true; }
@@ -421,72 +424,36 @@ export async function runProductEnrichment(
       const merged: MergedResult = { sources: [] };
 
       try {
-        if (sources.amazon) {
+        if (sources.amazon && !isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
           const result = await lookupFromAmazon(mpn, brand);
           if (result) {
             mergeResult(merged, result);
             enrichmentJob.sourceCounts.amazon++;
           }
-          if (isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
-            /* all fields found, skip remaining sources */
-          } else {
-            if (sources.walmart) {
-              const wResult = await lookupFromWalmart(mpn, brand);
-              if (wResult) {
-                mergeResult(merged, wResult);
-                enrichmentJob.sourceCounts.walmart++;
-              }
-            }
+        }
 
-            if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
-              if (sources.upcitemdb && needsUPC && !merged.upc && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
-                const uResult = await lookupFromUPCitemdb(mpn, brand);
-                upcitemdbCount++;
-                if (uResult) {
-                  mergeResult(merged, uResult);
-                  enrichmentJob.sourceCounts.upcitemdb++;
-                }
-              }
-            }
-
-            if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
-              if (sources.aiExtraction && product.description) {
-                const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
-                if (aiResult) {
-                  mergeResult(merged, aiResult);
-                  enrichmentJob.sourceCounts.ai++;
-                }
-              }
-            }
+        if (sources.walmart && !isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
+          const wResult = await lookupFromWalmart(mpn, brand);
+          if (wResult) {
+            mergeResult(merged, wResult);
+            enrichmentJob.sourceCounts.walmart++;
           }
-        } else {
-          if (sources.walmart) {
-            const wResult = await lookupFromWalmart(mpn, brand);
-            if (wResult) {
-              mergeResult(merged, wResult);
-              enrichmentJob.sourceCounts.walmart++;
-            }
-          }
+        }
 
-          if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
-            if (sources.upcitemdb && needsUPC && !merged.upc && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
-              const uResult = await lookupFromUPCitemdb(mpn, brand);
-              upcitemdbCount++;
-              if (uResult) {
-                mergeResult(merged, uResult);
-                enrichmentJob.sourceCounts.upcitemdb++;
-              }
-            }
+        if (sources.upcitemdb && !isMergedComplete(merged, needsUPC, needsWeight, needsDims) && needsUPC && !merged.upc && upcitemdbCount < UPCITEMDB_DAILY_LIMIT) {
+          const uResult = await lookupFromUPCitemdb(mpn, brand);
+          upcitemdbCount++;
+          if (uResult) {
+            mergeResult(merged, uResult);
+            enrichmentJob.sourceCounts.upcitemdb++;
           }
+        }
 
-          if (!isMergedComplete(merged, needsUPC, needsWeight, needsDims)) {
-            if (sources.aiExtraction && product.description) {
-              const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
-              if (aiResult) {
-                mergeResult(merged, aiResult);
-                enrichmentJob.sourceCounts.ai++;
-              }
-            }
+        if (sources.aiExtraction && !isMergedComplete(merged, needsUPC, needsWeight, needsDims) && product.description) {
+          const aiResult = await extractSpecsFromAI(product.name || '', product.description || '', brand, mpn);
+          if (aiResult) {
+            mergeResult(merged, aiResult);
+            enrichmentJob.sourceCounts.ai++;
           }
         }
 
