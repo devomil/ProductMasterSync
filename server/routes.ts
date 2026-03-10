@@ -3283,9 +3283,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const trimmed = col.trim().replace(/^["']|["']$/g, '');
             if (!trimmed) return false;
             if (/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
-            if (/^[A-Z\s]{20,}$/.test(trimmed)) return false;
             if (/^[A-Z]$/.test(trimmed)) return false;
             if (/^0{3,}/.test(trimmed)) return false;
+            if (/^[A-Z][A-Z_]+$/.test(trimmed) && trimmed.includes('_')) return true;
             return /^[a-zA-Z_]/.test(trimmed) && /[a-z]/.test(trimmed);
           });
           
@@ -5136,9 +5136,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const trimmed = col.trim().replace(/^["']|["']$/g, '');
               if (!trimmed) return false;
               if (/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
-              if (/^[A-Z\s]{20,}$/.test(trimmed)) return false;
               if (/^[A-Z]$/.test(trimmed)) return false;
               if (/^0{3,}/.test(trimmed)) return false;
+              if (/^[A-Z][A-Z_]+$/.test(trimmed) && trimmed.includes('_')) return true;
               return /^[a-zA-Z_]/.test(trimmed) && /[a-z]/.test(trimmed);
             });
             
