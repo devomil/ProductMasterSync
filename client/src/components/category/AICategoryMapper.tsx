@@ -7,7 +7,8 @@ import {
   AlertCircle,
   Loader2,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,69 +40,61 @@ interface MappingResult {
   productCount: number;
 }
 
+interface SupplierCategoryCode {
+  code: string;
+  count: number;
+  sampleProducts: string[];
+}
+
 const AICategoryMapper = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [suggestions, setSuggestions] = useState<MappingResult[]>([]);
+  const [progress, setProgress] = useState<{ current: number; total: number; phase: string } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch suppliers
   const { data: suppliers = [] } = useQuery({
     queryKey: ['/api/suppliers'],
   });
 
-  // Fetch products for analysis
-  const { data: products = [] } = useQuery({
-    queryKey: ['/api/products'],
-    enabled: false, // Only fetch when needed
-  });
-
-  // Get AI suggestions mutation
   const getSuggestionsMutation = useMutation({
     mutationFn: async (supplierId: number) => {
-      // Fetch products for this supplier
-      const productsResponse = await fetch(`/api/products?supplierId=${supplierId}&limit=100`);
-      const productsData = await productsResponse.json();
-      const supplierProducts = Array.isArray(productsData) ? productsData : (productsData.products || []);
+      setProgress({ current: 0, total: 1, phase: "Fetching category codes..." });
 
-      if (!supplierProducts || supplierProducts.length === 0) {
-        throw new Error('No products found for this supplier. Please pull sample data first.');
+      const codesResponse = await fetch(`/api/categories/supplier-codes/${supplierId}`);
+      if (!codesResponse.ok) throw new Error('Failed to fetch category codes');
+      const codesData = await codesResponse.json();
+      const categoryCodes: SupplierCategoryCode[] = codesData.categories || [];
+
+      if (categoryCodes.length === 0) {
+        throw new Error('No category codes found for this supplier. Run an SFTP import first to populate category data.');
       }
 
-      // Get supplier info
       const supplier = suppliers.find((s: any) => s.id === supplierId);
-      
-      // Prepare product samples for AI analysis
-      const productSamples = supplierProducts.slice(0, 20).map((p: any) => ({
-        name: p.name,
-        description: p.description,
-        category: p.attributes?.supplier_category || 
-                  p.attributes?.category ||
-                  p.attributes?.customFields?.Category ||
-                  (p.attributes?.customFields?.['Sub Category'] 
-                    ? `${p.attributes?.customFields?.Category || ''} | ${p.attributes?.customFields?.['Sub Category']}`
-                    : null),
-        manufacturerName: p.manufacturerName,
-        attributes: p.attributes
-      }));
+      const totalBatches = Math.ceil(categoryCodes.length / 30);
+      setProgress({ current: 0, total: totalBatches, phase: `Mapping ${categoryCodes.length} categories...` });
 
-      // Call AI suggestion API
-      const aiResponse = await apiRequest('POST', '/api/categories/ai-suggest', {
+      const aiResponse = await apiRequest('POST', '/api/categories/ai-suggest-batch', {
         supplierName: supplier?.name || 'Unknown Supplier',
         supplierId: supplierId,
-        productSamples
+        categoryCodes
       });
+
+      setProgress(null);
       return aiResponse.json();
     },
     onSuccess: (data) => {
-      setSuggestions(data.suggestions || []);
+      const mappings = data.suggestions || [];
+      setSuggestions(mappings);
+      const totalProducts = mappings.reduce((sum: number, m: MappingResult) => sum + m.productCount, 0);
       toast({
         title: "AI Analysis Complete",
-        description: `Found ${data.suggestions?.length || 0} category mappings to review`,
+        description: `Mapped ${mappings.length} categories covering ${totalProducts.toLocaleString()} products`,
       });
     },
     onError: (error: any) => {
+      setProgress(null);
       toast({
         variant: "destructive",
         title: "Analysis Failed",
@@ -110,7 +103,6 @@ const AICategoryMapper = () => {
     }
   });
 
-  // Apply suggestions mutation
   const applySuggestionsMutation = useMutation({
     mutationFn: async ({ autoApprove }: { autoApprove: boolean }) => {
       const response = await apiRequest('POST', '/api/categories/apply-suggestions', {
@@ -156,8 +148,6 @@ const AICategoryMapper = () => {
 
   const ConfidenceBar = ({ confidence }: { confidence: number }) => {
     const percentage = Math.round(confidence);
-    const color = confidence >= 80 ? 'bg-green-500' : confidence >= 60 ? 'bg-yellow-500' : 'bg-red-500';
-    
     return (
       <div className="space-y-1">
         <div className="flex justify-between text-xs">
@@ -169,6 +159,14 @@ const AICategoryMapper = () => {
     );
   };
 
+  const totalProducts = suggestions.reduce((sum, m) => sum + m.productCount, 0);
+  const highConfidence = suggestions.filter(s => (s.suggestions[0]?.confidence || 0) >= 80).length;
+  const medConfidence = suggestions.filter(s => {
+    const c = s.suggestions[0]?.confidence || 0;
+    return c >= 50 && c < 80;
+  }).length;
+  const lowConfidence = suggestions.filter(s => (s.suggestions[0]?.confidence || 0) < 50).length;
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -177,25 +175,24 @@ const AICategoryMapper = () => {
           AI Category Mapper
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Sparkles className="h-5 w-5 text-purple-600" />
             <span>AI-Powered Category Mapping</span>
           </DialogTitle>
           <DialogDescription>
-            Automatically analyze products and suggest category mappings using AI
+            Analyze all supplier category codes and map them to a clean category hierarchy using AI
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Supplier Selection */}
-          {suggestions.length === 0 && (
+          {suggestions.length === 0 && !progress && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Supplier</label>
                 <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-                  <SelectTrigger data-testid="select-supplier">
+                  <SelectTrigger>
                     <SelectValue placeholder="Choose a supplier to analyze" />
                   </SelectTrigger>
                   <SelectContent>
@@ -215,36 +212,52 @@ const AICategoryMapper = () => {
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-blue-900">How it works</p>
                       <p className="text-sm text-blue-700">
-                        AI will analyze your product data to detect categories, handle naming variances,
-                        and suggest Google Merchant categories. Make sure you've pulled sample data first.
+                        AI will analyze all distinct supplier category codes from the product catalog,
+                        map them to a human-readable hierarchy (e.g., "ETHERN | CABL" becomes "Networking &gt; Ethernet Cables"),
+                        and suggest Google Merchant categories. This processes all categories in batches.
                       </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Button 
+              <Button
                 onClick={handleAnalyze}
                 disabled={!selectedSupplier || getSuggestionsMutation.isPending}
                 className="w-full"
-                data-testid="button-analyze"
               >
                 {getSuggestionsMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing Products...
+                    Analyzing...
                   </>
                 ) : (
                   <>
                     <Brain className="mr-2 h-4 w-4" />
-                    Analyze Categories
+                    Analyze All Categories
                   </>
                 )}
               </Button>
             </div>
           )}
 
-          {/* Suggestions Display */}
+          {progress && (
+            <div className="space-y-4">
+              <div className="text-center space-y-2">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                <p className="text-sm font-medium">{progress.phase}</p>
+                {progress.total > 1 && (
+                  <div className="space-y-1">
+                    <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      Processing with AI... This may take a minute for large catalogs.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {suggestions.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -252,47 +265,72 @@ const AICategoryMapper = () => {
                   AI Suggestions ({suggestions.length} categories)
                 </h3>
                 <Badge variant="outline" className="text-sm">
-                  Industry: {suggestions[0]?.detectedIndustry || 'N/A'}
+                  {totalProducts.toLocaleString()} products covered
                 </Badge>
               </div>
 
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="bg-green-50 border-green-200">
+                  <CardContent className="pt-4 pb-3 text-center">
+                    <div className="text-2xl font-bold text-green-700">{highConfidence}</div>
+                    <div className="text-xs text-green-600">High Confidence (80%+)</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-yellow-50 border-yellow-200">
+                  <CardContent className="pt-4 pb-3 text-center">
+                    <div className="text-2xl font-bold text-yellow-700">{medConfidence}</div>
+                    <div className="text-xs text-yellow-600">Medium (50-79%)</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-red-50 border-red-200">
+                  <CardContent className="pt-4 pb-3 text-center">
+                    <div className="text-2xl font-bold text-red-700">{lowConfidence}</div>
+                    <div className="text-xs text-red-600">Low (&lt;50%)</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                 {suggestions.map((result, index) => (
-                  <Card key={index}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-sm font-medium">
-                            {result.supplierCategoryName}
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            {result.productCount} products
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {result.suggestions.slice(0, 1).map((suggestion, sIndex) => (
-                        <div key={sIndex} className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                              <p className="font-medium text-sm">{suggestion.categoryName}</p>
-                              {suggestion.googleCategory && (
-                                <p className="text-xs text-muted-foreground">
-                                  Google: {suggestion.googleCategory}
+                  <Card key={index} className="hover:bg-gray-50 transition-colors">
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="text-xs font-mono shrink-0">
+                              {result.supplierCategoryName}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {result.productCount.toLocaleString()} products
+                            </span>
+                          </div>
+                          {result.suggestions[0] && (
+                            <div>
+                              <p className="text-sm font-medium truncate">
+                                {result.suggestions[0].categoryName}
+                              </p>
+                              {result.suggestions[0].googleCategory && (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  Google: {result.suggestions[0].googleCategory}
                                 </p>
                               )}
                             </div>
-                            <CheckCircle className="h-5 w-5 text-green-600" />
-                          </div>
-                          
-                          <ConfidenceBar confidence={suggestion.confidence} />
-                          
-                          <p className="text-xs text-muted-foreground italic">
-                            {suggestion.reasoning}
-                          </p>
+                          )}
                         </div>
-                      ))}
+                        <div className="w-32 shrink-0">
+                          {result.suggestions[0] && (
+                            <ConfidenceBar confidence={result.suggestions[0].confidence} />
+                          )}
+                        </div>
+                        {result.suggestions[0]?.confidence >= 80 && (
+                          <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                        )}
+                      </div>
+                      {result.suggestions[0]?.reasoning && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">
+                          {result.suggestions[0].reasoning}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -301,9 +339,8 @@ const AICategoryMapper = () => {
               <div className="flex space-x-3 pt-4 border-t">
                 <Button
                   variant="outline"
-                  onClick={() => setSuggestions([])}
+                  onClick={() => { setSuggestions([]); setProgress(null); }}
                   className="flex-1"
-                  data-testid="button-cancel"
                 >
                   Cancel
                 </Button>
@@ -312,7 +349,6 @@ const AICategoryMapper = () => {
                   onClick={() => handleApply(false)}
                   disabled={applySuggestionsMutation.isPending}
                   className="flex-1"
-                  data-testid="button-apply-review"
                 >
                   <ThumbsDown className="mr-2 h-4 w-4" />
                   Apply for Review
@@ -321,7 +357,6 @@ const AICategoryMapper = () => {
                   onClick={() => handleApply(true)}
                   disabled={applySuggestionsMutation.isPending}
                   className="flex-1"
-                  data-testid="button-apply-auto"
                 >
                   {applySuggestionsMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

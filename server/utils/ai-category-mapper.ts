@@ -156,6 +156,149 @@ Provide 1-3 suggestions, ordered by confidence (highest first).`;
   }
 }
 
+export interface SupplierCategoryCode {
+  code: string;
+  count: number;
+  sampleProducts: string[];
+}
+
+export async function batchMapSupplierCategories(
+  supplierName: string,
+  categoryCodes: SupplierCategoryCode[],
+  existingCategories: Array<{ id: number; name: string; code: string; path: string | null }>
+): Promise<CategoryMappingResult[]> {
+  const results: CategoryMappingResult[] = [];
+  const BATCH_SIZE = 30;
+  const batches: SupplierCategoryCode[][] = [];
+
+  for (let i = 0; i < categoryCodes.length; i += BATCH_SIZE) {
+    batches.push(categoryCodes.slice(i, i + BATCH_SIZE));
+  }
+
+  console.log(`[AI Category] Processing ${categoryCodes.length} category codes in ${batches.length} batches`);
+
+  for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+    const batch = batches[batchIdx];
+    console.log(`[AI Category] Batch ${batchIdx + 1}/${batches.length} (${batch.length} codes)`);
+
+    try {
+      const categoryList = batch.map((cat, i) =>
+        `${i + 1}. Code: "${cat.code}" (${cat.count.toLocaleString()} products)\n   Samples: ${cat.sampleProducts.slice(0, 3).join('; ') || 'N/A'}`
+      ).join('\n');
+
+      const existingCatList = existingCategories.length > 0
+        ? existingCategories.slice(0, 50).map(c => `- ${c.name}`).join('\n')
+        : '(none yet)';
+
+      const prompt = `You are an IT/electronics product categorization expert. Map these supplier category codes from "${supplierName}" to a clean, human-readable category hierarchy.
+
+**Supplier Category Codes to Map:**
+${categoryList}
+
+**Existing Master Categories (reuse these when appropriate):**
+${existingCatList}
+
+**Instructions:**
+- Map each supplier code to a clear category path using " > " separators (e.g., "Networking > Ethernet Cables", "Software > Security > Licenses")
+- Codes like "ETHERN | CABL" mean Category "ETHERN" (Ethernet) and Sub Category "CABL" (Cables)
+- Codes like "VA-SW | MLIC" mean Category "VA-SW" (Value-Added Software) and Sub Category "MLIC" (Multi-License)
+- DEPLOY | SVCS = Deployment Services, EXWARR | SVCS = Extended Warranty Services
+- Reuse existing master categories when they fit
+- Suggest a Google Merchant category path for each
+- Provide confidence (0-100) based on how clear the mapping is
+- Keep category names professional and concise
+
+Respond with ONLY a JSON array:
+[
+  {
+    "supplierCode": "ETHERN | CABL",
+    "categoryName": "Networking > Ethernet Cables",
+    "googleCategory": "Electronics > Networking > Ethernet Cables",
+    "confidence": 95,
+    "reasoning": "ETHERN = Ethernet networking, CABL = Cables"
+  }
+]
+
+Map ALL ${batch.length} codes. Do not skip any.`;
+
+      const response = await anthropic.messages.create({
+        model: DEFAULT_MODEL_STR,
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }]
+      });
+
+      const textContent = response.content[0];
+      if (textContent.type !== 'text') continue;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(stripCodeFences(textContent.text));
+      } catch {
+        console.error(`[AI Category] Failed to parse batch ${batchIdx + 1} response`);
+        continue;
+      }
+
+      if (Array.isArray(parsed)) {
+        for (const mapping of parsed) {
+          const matchingCode = batch.find(c => c.code === mapping.supplierCode);
+          results.push({
+            supplierCategoryName: mapping.supplierCode || '',
+            suggestions: [{
+              categoryName: mapping.categoryName || mapping.supplierCode,
+              confidence: mapping.confidence || 70,
+              reasoning: mapping.reasoning || '',
+              googleCategory: mapping.googleCategory || ''
+            }],
+            detectedIndustry: 'electronics',
+            productCount: matchingCode?.count || 0
+          });
+        }
+      }
+
+      for (const cat of batch) {
+        if (!results.find(r => r.supplierCategoryName === cat.code)) {
+          results.push({
+            supplierCategoryName: cat.code,
+            suggestions: [{
+              categoryName: cat.code,
+              confidence: 30,
+              reasoning: 'AI did not return a mapping for this code',
+              googleCategory: ''
+            }],
+            detectedIndustry: 'electronics',
+            productCount: cat.count
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`[AI Category] Batch ${batchIdx + 1} error:`, (error as Error).message);
+      for (const cat of batch) {
+        if (!results.find(r => r.supplierCategoryName === cat.code)) {
+          results.push({
+            supplierCategoryName: cat.code,
+            suggestions: [{
+              categoryName: cat.code,
+              confidence: 0,
+              reasoning: `Error: ${(error as Error).message}`,
+              googleCategory: ''
+            }],
+            detectedIndustry: 'electronics',
+            productCount: cat.count
+          });
+        }
+      }
+    }
+
+    if (batchIdx < batches.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  results.sort((a, b) => b.productCount - a.productCount);
+  console.log(`[AI Category] Completed: ${results.length} categories mapped`);
+  return results;
+}
+
 /**
  * Suggest Google category for a single product
  */

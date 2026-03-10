@@ -593,6 +593,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get distinct supplier category codes with counts and sample products
+  app.get("/api/categories/supplier-codes/:supplierId", async (req, res) => {
+    try {
+      const supplierId = parseInt(req.params.supplierId);
+      if (isNaN(supplierId)) {
+        return res.status(400).json({ message: "Invalid supplier ID" });
+      }
+
+      const result = await pool.query(`
+        SELECT 
+          attributes::text::jsonb->>'supplier_category' as code,
+          COUNT(*) as count
+        FROM products 
+        WHERE id IN (SELECT product_id FROM product_suppliers WHERE supplier_id = $1)
+        AND attributes IS NOT NULL 
+        AND attributes::text::jsonb->>'supplier_category' IS NOT NULL
+        GROUP BY code
+        ORDER BY count DESC
+      `, [supplierId]);
+
+      const categories = result.rows.map(r => ({
+        code: r.code,
+        count: parseInt(r.count),
+        sampleProducts: [] as string[]
+      }));
+
+      if (categories.length > 0) {
+        const SAMPLE_BATCH = 10;
+        const catsToSample = categories.slice(0, 200);
+        for (let i = 0; i < catsToSample.length; i += SAMPLE_BATCH) {
+          const batch = catsToSample.slice(i, i + SAMPLE_BATCH);
+          await Promise.all(batch.map(async (cat) => {
+            try {
+              const sampleResult = await pool.query(`
+                SELECT name FROM products 
+                WHERE id IN (SELECT product_id FROM product_suppliers WHERE supplier_id = $1)
+                AND attributes IS NOT NULL
+                AND attributes::text::jsonb->>'supplier_category' = $2
+                AND name IS NOT NULL AND name != ''
+                LIMIT 3
+              `, [supplierId, cat.code]);
+              cat.sampleProducts = sampleResult.rows.map(r => r.name);
+            } catch {
+            }
+          }));
+        }
+      }
+
+      res.json({ 
+        categories,
+        totalCategories: categories.length,
+        totalProducts: categories.reduce((sum: number, c: any) => sum + c.count, 0)
+      });
+    } catch (error) {
+      console.error('Error fetching supplier category codes:', error);
+      handleError(res, error);
+    }
+  });
+
+  // Batch AI category mapping - processes all supplier category codes
+  app.post("/api/categories/ai-suggest-batch", async (req, res) => {
+    try {
+      const { supplierName, supplierId, categoryCodes } = req.body;
+
+      if (!supplierName || !categoryCodes || !Array.isArray(categoryCodes)) {
+        return res.status(400).json({ message: "supplierName and categoryCodes are required" });
+      }
+
+      const { batchMapSupplierCategories } = await import('./utils/ai-category-mapper');
+
+      const existingCategories = await db.select({
+        id: categories.id,
+        name: categories.name,
+        code: categories.code,
+        path: categories.path
+      }).from(categories);
+
+      const suggestions = await batchMapSupplierCategories(
+        supplierName,
+        categoryCodes,
+        existingCategories
+      );
+
+      res.json({ success: true, suggestions });
+    } catch (error) {
+      console.error('AI batch category mapping error:', error);
+      handleError(res, error);
+    }
+  });
+
   // AI-Powered Category Mapping Routes
   app.post("/api/categories/ai-suggest", async (req, res) => {
     try {
